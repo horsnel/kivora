@@ -1,0 +1,41 @@
+{{ define "main" }}
+<article class="post-page">
+  <div class="content-grid">
+    <div class="main-column">
+      {{ partial "breadcrumbs.html" . }}
+      <article>
+        <div class="post-header">
+          {{ with .Params.category }}<span class="post-category">{{ . }}</span>{{ end }}
+          <h1>{{ .Title }}</h1>
+          <div class="post-meta">
+            <span>{{ .Date.Format "January 2, 2006" }}</span>
+            {{ with .Params.author }}<span>By {{ . }}</span>{{ end }}
+            {{ $wordCount := .WordCount }}
+            {{ $readingTime := math.Round (div (float $wordCount) 200.0) }}
+            <span>{{ $readingTime }} min read</span>
+          </div>
+        </div>
+        {{ with .Params.image }}
+        <div class="post-featured-image">
+          <img src="{{ . }}" alt="{{ $.Title }}" loading="lazy">
+        </div>
+        {{ end }}
+        <div class="post-content">
+          {{ .Content }}
+        </div>
+        {{ partial "social-share.html" . }}
+        {{ with .Params.tags }}
+        <div class="post-tags">
+          {{ range . }}<a href="/tags/{{ . | urlize }}" class="tag-pill">{{ . }}</a>{{ end }}
+        </div>
+        {{ end }}
+        {{ partial "series-nav.html" . }}
+      </article>
+    </div>
+    <aside class="sidebar">
+      {{ partial "most-read-widget.html" . }}
+      {{ partial "trending-now-widget.html" . }}
+    </aside>
+  </div>
+</article>
+{{ end }}

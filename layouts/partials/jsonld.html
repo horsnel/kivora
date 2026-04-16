@@ -1,0 +1,11 @@
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@type":"WebSite",
+  "name":"{{ .Site.Title }}",
+  "url":"{{ .Site.BaseURL }}",
+  "description":"{{ .Site.Params.description }}",
+  "publisher":{"@type":"Organization","name":"MenshlyGlobal","logo":{"@type":"ImageObject","url":"{{ .Site.BaseURL }}favicon.ico"}},
+  "potentialAction":{"@type":"SearchAction","target":"{{ .Site.BaseURL }}search/?q={search_term_string}","query-input":"required name=search_term_string"}
+}
+</script>

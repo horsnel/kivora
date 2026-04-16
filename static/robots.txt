@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://menshly-global.pages.dev/sitemap.xml

@@ -1,0 +1,12 @@
+{{ with .PrevInSection }}
+<a class="series-nav series-prev" href="{{ .Permalink }}">
+  <span class="series-label">&larr; Previous Article</span>
+  <span class="series-title">{{ .Title }}</span>
+</a>
+{{ end }}
+{{ with .NextInSection }}
+<a class="series-nav series-next" href="{{ .Permalink }}">
+  <span class="series-label">Next Article &rarr;</span>
+  <span class="series-title">{{ .Title }}</span>
+</a>
+{{ end }}

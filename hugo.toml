@@ -2,6 +2,8 @@ baseURL = "https://menshly-global.pages.dev/"
 languageCode = "en-us"
 title = "MenshlyGlobal | The 2026 Frontier"
 theme = "paper"
+[pagination]
+  pagerSize = 9
 
 [params]
   description = "Elite investigative journalism and 2026 global forecasts."
@@ -9,7 +11,25 @@ theme = "paper"
   twitter = "Olhmescraxes1"
   fullWidth = true
   centerHeader = true
-  footer = "© 2026 MenshlyGlobal Intelligence"
+  footer = "© 2026 MenshlyGlobal Intelligence. All rights reserved."
+  breakingHeadline = "Nigeria's public debt hits record high at 159.28 trillion naira, raising fresh concerns about fiscal sustainability."
+  breakingLink = "/posts/nigerias-public-debt-hits-15928trn-in-december--dm/"
+
+[taxonomies]
+  tag = "tags"
+  category = "categories"
+  author = "authors"
+
+[outputs]
+  home = ["HTML", "RSS", "JSON"]
+  section = ["HTML", "RSS"]
+  taxonomy = ["HTML", "RSS"]
+  term = ["HTML", "RSS"]
+
+[outputFormats.JSON]
+  mediaType = "application/json"
+  baseName = "index"
+  isPlainText = true
 
 [markup]
   [markup.goldmark]
@@ -40,6 +60,14 @@ theme = "paper"
   url = "/categories/world"
   weight = 3
 [[menu.main]]
+  name = "Health"
+  url = "/categories/health"
+  weight = 4
+[[menu.main]]
+  name = "Science"
+  url = "/categories/science"
+  weight = 5
+[[menu.main]]
   name = "X (Twitter)"
   url = "https://x.com/Olhmescraxes1"
-  weight = 4
+  weight = 6

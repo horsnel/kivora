@@ -1,0 +1,12 @@
+{{ with .Site.Params.breakingHeadline }}
+<div class="breaking-alert" id="breaking-alert">
+  <div class="breaking-alert-inner">
+    <span class="breaking-alert-badge">BREAKING</span>
+    <span class="breaking-alert-text">{{ . }}</span>
+    <button class="breaking-alert-close" id="breaking-alert-close" aria-label="Dismiss">&times;</button>
+  </div>
+</div>
+<script>
+(function(){var e=document.getElementById("breaking-alert-close"),a=document.getElementById("breaking-alert");if(e&&a){if(localStorage.getItem("breaking_dismissed"))a.style.display="none";e.addEventListener("click",function(){a.style.display="none";localStorage.setItem("breaking_dismissed","1")})}})();
+</script>
+{{ end }}

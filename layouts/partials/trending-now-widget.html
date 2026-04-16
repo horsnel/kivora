@@ -1,0 +1,10 @@
+<div class="sidebar-widget trending-now">
+  <h3>Trending Now</h3>
+  {{ $posts := where .Site.RegularPages "Section" "posts" }}
+  {{ range first 5 $posts }}
+  <a class="sidebar-article" href="{{ .Permalink }}">
+    <h4>{{ .Title }}</h4>
+    <span class="card-meta">{{ .Date.Format "Jan 2, 2006" }}</span>
+  </a>
+  {{ end }}
+</div>

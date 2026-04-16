@@ -1,0 +1,11 @@
+{{ define "main" }}
+<div class="search-page">
+  <h1>Search Articles</h1>
+  <div class="search-page-box">
+    <svg class="search-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" id="search-input-page" placeholder="Search articles, topics, authors..." autocomplete="off">
+  </div>
+  <div class="search-results" id="search-results-page"></div>
+</div>
+<script src="/assets/js/search-page.js" defer></script>
+{{ end }}

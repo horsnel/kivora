@@ -1,0 +1,9 @@
+<div class="breaking-bar">
+  <span class="ticker-label">&#9888; BREAKING</span>
+  <span class="ticker-scroll">
+    {{ $posts := where .Site.RegularPages "Section" "posts" }}
+    {{ range first 10 $posts }}
+    <a href="{{ .Permalink }}">{{ .Title }}</a>&nbsp;&bull;&nbsp;
+    {{ end }}
+  </span>
+</div>
