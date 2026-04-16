@@ -11,9 +11,9 @@ theme = "paper"
   twitter = "Olhmescraxes1"
   fullWidth = true
   centerHeader = true
-  footer = "© 2026 MenshlyGlobal Intelligence. All rights reserved."
+  footer = "\u00a9 2026 MenshlyGlobal Intelligence. All rights reserved."
   breakingHeadline = "Nigeria's public debt hits record high at 159.28 trillion naira, raising fresh concerns about fiscal sustainability."
-  breakingLink = "/posts/nigerias-public-debt-hits-15928trn-in-december--dm/"
+  breakingLink = "/posts/investors-are-expecting-donald-trump-to-back-down-/"
 
 [taxonomies]
   tag = "tags"

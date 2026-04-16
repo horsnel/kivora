@@ -2,10 +2,12 @@
 title: "AI writes entire microbial genome"
 date: "2026-03-06T23:58:36.736Z"
 image: "https://images.pexels.com/photos/8532828/pexels-photo-8532828.jpeg?auto=compress&cs=tinysrgb&h=650&w=940"
-category: "science"
-tags: ["2026", "MenshlyGlobal", "science"]
+categories: ["science"]
+tags: ['2026', 'MenshlyGlobal', 'science']
+author: "Dr. Elena Vasquez"
 description: "Expert 2026 analysis on AI writes entire microbial genome."
 ---
+
 
 
 <h1>A New Era of Life: AI Successfully Writes Entire Microbial Genome, Revolutionizing Biotechnology and Raising Concerns</h1>

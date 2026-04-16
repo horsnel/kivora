@@ -1,0 +1,18 @@
+{{ define "main" }}
+<div class="main-content">
+  <div class="section-header">
+    <h2>Browse by Category</h2>
+  </div>
+  <div class="posts" style="margin-bottom:30px;">
+    {{ range $name, $taxonomy := .Site.Taxonomies.categories }}
+    <a class="post-card" href="/categories/{{ $name | urlize }}" style="padding:20px;text-decoration:none;">
+      <h2 style="padding:0;font-size:1.1rem;margin-bottom:8px;">{{ title $name }}</h2>
+      <span class="meta" style="display:block;margin-bottom:8px;">{{ len $taxonomy }} article{{ if gt (len $taxonomy) 1 }}s{{ end }}</span>
+      {{ with (index (sort $taxonomy ".Date" "desc") 0) }}
+      <p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.4;">{{ .Summary }}</p>
+      {{ end }}
+    </a>
+    {{ end }}
+  </div>
+</div>
+{{ end }}

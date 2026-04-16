@@ -2,10 +2,12 @@
 title: "Indonesia to ban social media access for under-16s, says communications minister amid a ?digital emergency?"
 date: "2026-03-06T23:57:59.725Z"
 image: "https://images.pexels.com/photos/8424930/pexels-photo-8424930.jpeg?auto=compress&cs=tinysrgb&h=650&w=940"
-category: "world"
-tags: ["2026", "MenshlyGlobal", "world"]
+categories: ["world"]
+tags: ['2026', 'MenshlyGlobal', 'world']
+author: "Amara Okonkwo"
 description: "Expert 2026 analysis on Indonesia to ban social media access for under-16s, says communications minister amid a ?digital emergency?."
 ---
+
 
 
 <h1>Indonesia's Digital Clampdown: The $150 Billion Social Media Ban That's Sending Shockwaves Around the World</h1>

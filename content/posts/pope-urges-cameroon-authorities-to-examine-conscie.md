@@ -2,8 +2,11 @@
 title: "Pope urges Cameroon authorities to examine 'conscience'"
 date: 2026-04-16T06:18:31.111Z
 image: "https://images.pexels.com/photos/19813735/pexels-photo-19813735.jpeg?auto=compress&cs=tinysrgb&h=650&w=940"
-category: "undefined"
+categories: ["world"]
+author: "David Kiprop"
+description: "The Pope's public plea to Cameroon authorities to examine their conscience amid rising tensions and humanitarian crisis."
 ---
+
 
 <p><h2>Pope Urges Cameroon Authorities to Examine 'Conscience' Amidst Rising Tensions</h2>
 <p>The Pope has recently made a public plea to the authorities in Cameroon, urging them to examine their conscience in light of the ongoing turmoil and violence that has been plaguing the country. This statement comes at a time when the world is watching the unfolding crisis in Cameroon with great concern, and </p>

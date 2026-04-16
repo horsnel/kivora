@@ -2,9 +2,12 @@
 title: "[Press release] Scripps Research Institute: Nanoparticle vaccine approach takes on a new target: Hepatitis C virus"
 date: "2026-03-07T11:05:44.857Z"
 image: "https://images.pexels.com/photos/32417524/pexels-photo-32417524.jpeg?auto=compress&cs=tinysrgb&h=650&w=940"
-category: "health"
-tags: ["2026", "MenshlyGlobal", "health"]
+categories: ["health"]
+tags: ['2026', 'MenshlyGlobal', 'health']
+author: "Dr. Fatima Al Hassan"
+description: "Scripps Research Institute's innovative nanoparticle vaccine approach targets Hepatitis C virus with promising early trial results."
 ---
+
 
 
 <p><h2>Strategic Implications</h2>

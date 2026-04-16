@@ -2,9 +2,12 @@
 title: "Scientists Discover 23 Million-Year-Old Arctic Rhino, Unveiling a Lost Era of Prehistoric Life"
 date: "2026-03-07T11:04:38.697Z"
 image: "https://images.pexels.com/photos/32417524/pexels-photo-32417524.jpeg?auto=compress&cs=tinysrgb&h=650&w=940"
-category: "science"
-tags: ["2026", "MenshlyGlobal", "science"]
+categories: ["science"]
+tags: ['2026', 'MenshlyGlobal', 'science']
+author: "Dr. Elena Vasquez"
+description: "A 23 million-year-old Arctic rhino discovery unveils crucial insights into Earth's climate history and species evolution."
 ---
+
 
 
 <p><h2>Introduction to the Discovery</h2>

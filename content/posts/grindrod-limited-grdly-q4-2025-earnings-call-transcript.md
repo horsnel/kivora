@@ -2,10 +2,12 @@
 title: "Grindrod Limited (GRDLY) Q4 2025 Earnings Call Transcript"
 date: "2026-03-06T23:57:20.014Z"
 image: "https://images.pexels.com/photos/33871730/pexels-photo-33871730.jpeg?auto=compress&cs=tinysrgb&h=650&w=940"
-category: "business"
-tags: ["2026", "MenshlyGlobal", "business"]
+categories: ["business"]
+tags: ['2026', 'MenshlyGlobal', 'business']
+author: "Marcus Webb"
 description: "Expert 2026 analysis on Grindrod Limited (GRDLY) Q4 2025 Earnings Call Transcript."
 ---
+
 
 
 <h1>GRDLY Stock Soars: Unpacking the Explosive Q4 2025 Earnings Call Transcript of Grindrod Limited</h1>

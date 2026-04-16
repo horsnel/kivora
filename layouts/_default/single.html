@@ -5,11 +5,11 @@
       {{ partial "breadcrumbs.html" . }}
       <article>
         <div class="post-header">
-          {{ with .Params.category }}<span class="post-category">{{ . }}</span>{{ end }}
+          {{ with .Params.categories }}{{ $cat := index . 0 }}<span class="post-category"><a href="/categories/{{ $cat | urlize }}" style="color:#fff;">{{ $cat }}</a></span>{{ end }}
           <h1>{{ .Title }}</h1>
           <div class="post-meta">
             <span>{{ .Date.Format "January 2, 2006" }}</span>
-            {{ with .Params.author }}<span>By {{ . }}</span>{{ end }}
+            {{ with .Params.author }}<span>By <a href="/authors/{{ . | urlize }}" style="color:var(--accent);">{{ . }}</a></span>{{ end }}
             {{ $wordCount := .WordCount }}
             {{ $readingTime := math.Round (div (float $wordCount) 200.0) }}
             <span>{{ $readingTime }} min read</span>

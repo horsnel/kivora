@@ -1,5 +1,5 @@
 <nav class="breadcrumbs">
   <a href="{{ .Site.BaseURL }}">Home</a>
-  {{ if .Params.category }}<span>/</span><a href="/categories/{{ .Params.category | urlize }}">{{ .Params.category }}</a>{{ end }}
+  {{ with .Params.categories }}{{ $cat := index . 0 }}<span>/</span><a href="/categories/{{ $cat | urlize }}">{{ $cat }}</a>{{ end }}
   <span>/</span><span class="current">{{ .Title }}</span>
 </nav>

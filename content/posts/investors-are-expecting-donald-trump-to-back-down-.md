@@ -2,9 +2,12 @@
 title: "Investors are expecting Donald Trump to back down in the war with Iran - but what if he doesn’t?"
 date: "2026-03-07T11:02:52.435Z"
 image: "https://images.pexels.com/photos/36244576/pexels-photo-36244576.jpeg?auto=compress&cs=tinysrgb&h=650&w=940"
-category: "business"
-tags: ["2026", "MenshlyGlobal", "business"]
+categories: ["business"]
+tags: ['2026', 'MenshlyGlobal', 'business']
+author: "James Chen"
+description: "Investors brace for potential escalation as expectations grow that Trump may not back down in US-Iran tensions."
 ---
+
 
 
 <p><h2>Introduction to the Looming Crisis</h2>

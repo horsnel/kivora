@@ -12,9 +12,9 @@
       {{ if not .IsHome }}{{ $posts = $posts.ByDate.Reverse }}{{ end }}
       {{ if gt (len $posts) 0 }}
       <a class="hero-article" href="{{ (index $posts 0).Permalink }}">
-        <img class="hero-image" src="{{ (index $posts 0).Params.image }}" alt="{{ (index $posts 0).Title }}" loading="eager">
+        {{ with (index $posts 0).Params.image }}<img class="hero-image" src="{{ . }}" alt="{{ (index $posts 0).Title }}" loading="eager">{{ end }}
         <div class="hero-body">
-          <span class="hero-category">{{ with (index $posts 0).Params.category }}{{ . }}{{ end }}</span>
+          {{ with (index $posts 0).Params.categories }}{{ $cat := index . 0 }}<span class="hero-category">{{ $cat }}</span>{{ end }}
           <h2>{{ (index $posts 0).Title }}</h2>
           <p>{{ (index $posts 0).Summary }}</p>
           <span class="hero-meta">{{ (index $posts 0).Date.Format "Jan 2, 2006" }}</span>
@@ -24,8 +24,8 @@
       <div class="posts">
         {{ range after 1 $posts }}
         <a class="post-card" href="{{ .Permalink }}">
-          <img src="{{ .Params.image }}" alt="{{ .Title }}" loading="lazy">
-          <span class="meta">{{ with .Params.category }}{{ . }}{{ end }}&middot; {{ .Date.Format "Jan 2, 2006" }}</span>
+          {{ with .Params.image }}<img src="{{ . }}" alt="{{ .Title }}" loading="lazy">{{ end }}
+          <span class="meta">{{ with .Params.categories }}{{ index . 0 }} &middot; {{ end }}{{ .Date.Format "Jan 2, 2006" }}</span>
           <h2>{{ .Title }}</h2>
         </a>
         {{ end }}

@@ -1,7 +1,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
 <title>{{ .Title }} | {{ .Site.Title }}</title>
-<meta name="theme-color" content="#f5f1eb">
+<meta name="theme-color" content="#f5f2ed" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)">
 <meta name="description" content="{{ with .Description }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}">
 <meta name="author" content="{{ .Site.Params.author }}">
 {{ partial "analytics.html" . }}
@@ -20,3 +21,6 @@
 {{ with .Params.image }}<meta name="twitter:image" content="{{ . }}">{{ end }}
 <link rel="alternate" type="application/rss+xml" href="{{ "index.xml" | absURL }}" title="{{ .Site.Title }}">
 <link rel="stylesheet" href="/assets/css/custom.css">
+<script>
+(function(){var t=localStorage.getItem("theme");if(t==="dark"||(!t&&window.matchMedia&&window.matchMedia("(prefers-color-scheme:dark)").matches)){document.documentElement.setAttribute("data-theme","dark")}})();
+</script>
