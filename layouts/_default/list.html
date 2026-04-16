@@ -11,22 +11,29 @@
       {{ $posts = where $posts "Section" "posts" }}
       {{ if not .IsHome }}{{ $posts = $posts.ByDate.Reverse }}{{ end }}
       {{ if gt (len $posts) 0 }}
-      <a class="hero-article" href="{{ (index $posts 0).Permalink }}">
-        {{ with (index $posts 0).Params.image }}<img class="hero-image" src="{{ . }}" alt="{{ (index $posts 0).Title }}" loading="eager">{{ end }}
+      {{ $hero := index $posts 0 }}
+      <a class="hero-article" href="{{ $hero.Permalink }}">
+        {{ with $hero.Params.image }}<img class="hero-image" src="{{ . }}" alt="{{ $hero.Title }}" loading="eager">{{ end }}
         <div class="hero-body">
-          {{ with (index $posts 0).Params.categories }}{{ $cat := index . 0 }}<span class="hero-category">{{ $cat }}</span>{{ end }}
-          <h2>{{ (index $posts 0).Title }}</h2>
-          <p>{{ (index $posts 0).Summary }}</p>
-          <span class="hero-meta">{{ (index $posts 0).Date.Format "Jan 2, 2006" }}</span>
+          {{ with $hero.Params.categories }}{{ $cat := index . 0 }}<span class="hero-category"><a href="/categories/{{ $cat | urlize }}" style="color:#fff;">{{ $cat }}</a></span>{{ end }}
+          <h2>{{ $hero.Title }}</h2>
+          <p>{{ $hero.Summary }}</p>
+          <span class="hero-meta">{{ $hero.Date.Format "Jan 2, 2006" }}</span>
         </div>
       </a>
       {{ end }}
       <div class="posts">
         {{ range after 1 $posts }}
-        <a class="post-card" href="{{ .Permalink }}">
-          {{ with .Params.image }}<img src="{{ . }}" alt="{{ .Title }}" loading="lazy">{{ end }}
-          <span class="meta">{{ with .Params.categories }}{{ index . 0 }} &middot; {{ end }}{{ .Date.Format "Jan 2, 2006" }}</span>
-          <h2>{{ .Title }}</h2>
+        {{ $postTitle := .Title }}
+        {{ $postPermalink := .Permalink }}
+        {{ $postDate := .Date }}
+        {{ $postImage := .Params.image }}
+        {{ $postCat := "" }}
+        {{ with .Params.categories }}{{ $postCat = index . 0 }}{{ end }}
+        <a class="post-card" href="{{ $postPermalink }}">
+          {{ with $postImage }}<img src="{{ . }}" alt="{{ $postTitle }}" loading="lazy">{{ end }}
+          <span class="meta">{{ with $postCat }}{{ . }} &middot; {{ end }}{{ $postDate.Format "Jan 2, 2006" }}</span>
+          <h2>{{ $postTitle }}</h2>
         </a>
         {{ end }}
       </div>
