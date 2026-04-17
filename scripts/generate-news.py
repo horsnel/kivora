@@ -385,30 +385,23 @@ def generate_news_article(headline, category_key, category_label):
     angles = NEWS_CATEGORIES[category_key]["angles"]
     angle = random.choice(angles)
 
-    system_prompt = f"""You are a senior news correspondent for MenshlyGlobal, a premium international news outlet. You write engaging, well-sourced news dispatches.
+    system_prompt = f"""You are a senior news correspondent for MenshlyGlobal. Write a news analysis about the provided headline.
 
-RULES:
-- Write a news analysis/dispatch about the provided headline
-- Angle: {angle}
+Rules:
 - Category: {category_label}
-- Target length: 400-600 words
-- Use a compelling headline (max 12 words)
-- Include a 1-2 sentence news summary/standfirst
-- Structure with markdown ## subheadings
-- Include specific details, data points, and expert perspectives
+- Length: 400-600 words
+- Use markdown ## subheadings for structure
 - Write in journalistic third-person style
-- Reference the original news source context
-- Include context, background, and forward-looking analysis
-- Return ONLY valid JSON with these exact keys:
-  "title": string (headline),
-  "summary": string (1-2 sentence news summary),
-  "content": string (full dispatch body in markdown)"""
+- Include expert perspectives and forward-looking analysis
+- Start your response with a 1-2 sentence summary, then continue with the full article using ## headings
+- Do NOT wrap your response in JSON or code blocks
+- Just write the article directly in markdown"""
 
-    user_prompt = f"""Write a news dispatch based on this headline: "{headline['title']}"
+    user_prompt = f"""Headline: {headline['title']}
 Source: {headline['source']}
 Context: {headline.get('description', 'No additional context available')}
 
-Write a comprehensive news analysis that provides context, expert perspectives, and forward-looking implications for readers."""
+Write a comprehensive news analysis with context, expert perspectives, and implications."""
 
     body = json.dumps({
         "model": ACTIVE_MODEL,
@@ -446,26 +439,75 @@ Write a comprehensive news analysis that provides context, expert perspectives, 
         print("  AI returned empty response")
         return None
 
-    # Parse JSON response
+    # Parse response — handle multiple model output formats
     article = None
+
+    # Format 1: Clean JSON {"title": ..., "summary": ..., "content": ...}
     try:
-        article = json.loads(raw)
-        if not article.get("content") or len(article["content"].strip()) < 150:
-            print(f"  WARNING: Content too short ({len(article.get('content', ''))} chars)")
-            article = None
-    except json.JSONDecodeError:
+        parsed = json.loads(raw)
+        if parsed.get("title") and parsed.get("content") and len(parsed["content"].strip()) >= 150:
+            article = parsed
+    except (json.JSONDecodeError, TypeError):
         pass
 
-    # Try extracting from markdown code block
+    # Format 2: JSON in markdown code block
     if not article:
-        json_match = re.search(r'```(?:json)?\s*({.*?})\s*```', raw, re.DOTALL)
+        json_match = re.search(r'```(?:json)?\s*({.+?})\s*```', raw, re.DOTALL)
         if json_match:
             try:
-                article = json.loads(json_match.group(1))
-            except json.JSONDecodeError:
+                parsed = json.loads(json_match.group(1))
+                if parsed.get("title") and parsed.get("content") and len(parsed["content"].strip()) >= 150:
+                    article = parsed
+            except (json.JSONDecodeError, TypeError):
                 pass
 
-    # Last resort: treat raw text as content
+    # Format 3: Nested JSON — content field has escaped markdown inside
+    if not article:
+        try:
+            parsed = json.loads(raw)
+            nested = parsed.get("content", "")
+            if nested:
+                nested = nested.strip().strip('"').strip("'")
+                if '## ' in nested and len(nested) >= 500:
+                    article = {
+                        "title": parsed.get("title", headline["title"]),
+                        "summary": parsed.get("summary", headline.get("description", "")),
+                        "content": nested.strip()
+                    }
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # Format 4: Plain markdown response (preferred — new prompt format)
+    if not article:
+        cleaned = raw.strip()
+        # Remove any ```json or ``` wrapping
+        cleaned = re.sub(r'^```\w*\s*', '', cleaned)
+        cleaned = re.sub(r'\s*```$', '', cleaned)
+        if len(cleaned) >= 300:
+            lines = cleaned.split('\n')
+            # First non-empty line(s) are the summary, rest is content
+            summary_lines = []
+            body_start = 0
+            for i, line in enumerate(lines):
+                if line.startswith('## '):
+                    body_start = i
+                    break
+                if line.strip():
+                    summary_lines.append(line)
+                elif summary_lines and not line.strip():
+                    # Empty line after summary — content starts soon
+                    pass
+            
+            summary = ' '.join(summary_lines) if summary_lines else headline.get("description", "")
+            body = '\n'.join(lines[body_start:]) if body_start > 0 else cleaned
+            
+            article = {
+                "title": headline["title"],
+                "summary": summary.strip(),
+                "content": body.strip()
+            }
+
+    # Format 5: Last resort
     if not article:
         article = {
             "title": headline["title"],
