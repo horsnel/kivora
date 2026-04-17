@@ -59,15 +59,17 @@ print(f"DEBUG — FREPIK: {'set' if FREPIK_KEY else 'not set'}")
 print(f"DEBUG — NEWSAPI: {'set' if NEWS_API_KEY else 'not set'}")
 
 # ── Auto-detect best available model ────────────────────────
-# Only list models that actually work when called (some are listed but not accessible)
+# Always auto-detect — validate AI_MODEL if set
 MODEL_PREFERENCES = [
-    "qwen-3-235b-a22b-instruct-2507",
+    "llama-3.3-70b",
     "llama3.1-8b",
-    "zai-glm-4.7"
+    "deepseek-r1-distill-llama-70b",
+    "qwen-3-235b-a22b-instruct-2507"
 ]
 
 def auto_detect_model():
-    """Query the API for available models and pick the best one."""
+    """Query the API for available models and pick the best one.
+    Validates AI_MODEL — if it doesn't exist, auto-detects instead."""
     try:
         req = urllib.request.Request(
             API_BASE + "/models",
@@ -79,21 +81,28 @@ def auto_detect_model():
         with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode())
         available = [m["id"] for m in data.get("data", [])]
-        print(f"DEBUG — Available models: {', '.join(available)}")
+        print(f"DEBUG — Available models: {', '.join(sorted(available))}")
 
-        # Pick from our verified preference list
+        # If AI_MODEL is set, check if it actually exists
+        if MODEL and MODEL in available:
+            print(f"DEBUG — Using configured model: {MODEL}")
+            return MODEL
+        elif MODEL:
+            print(f"DEBUG — Configured model '{MODEL}' not found, auto-detecting...")
+
+        # Pick from preference list
         for pref in MODEL_PREFERENCES:
             if pref in available:
                 print(f"DEBUG — Auto-selected: {pref}")
                 return pref
 
         # Last resort: use first available
-        fallback = available[0] if available else MODEL
+        fallback = available[0] if available else "llama-3.3-70b"
         print(f"DEBUG — Using fallback model: {fallback}")
         return fallback
     except Exception as e:
-        print(f"DEBUG — Could not list models ({e}). Using: {MODEL}")
-        return MODEL
+        print(f"DEBUG — Could not list models ({e}). Trying: {MODEL}")
+        return MODEL if MODEL else "llama-3.3-70b"
 
 ACTIVE_MODEL = auto_detect_model()
 
