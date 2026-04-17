@@ -59,10 +59,10 @@ print(f"DEBUG — FREPIK: {'set' if FREPIK_KEY else 'not set'}")
 print(f"DEBUG — NEWSAPI: {'set' if NEWS_API_KEY else 'not set'}")
 
 # ── Auto-detect best available model ────────────────────────
-# Priority order: prefer larger models for quality
+# Priority order: prefer larger models for quality output
 MODEL_PREFERENCES = [
-    "llama3.1-70b", "llama-3.3-70b", "llama3.1-8b",
     "gpt-oss-120b", "qwen-3-235b-a22b-instruct-2507",
+    "llama3.1-70b", "llama-3.3-70b", "llama3.1-8b",
     "zai-glm-4.7"
 ]
 
@@ -654,8 +654,7 @@ CRITICAL RULES:
             {"role": "user", "content": user_prompt}
         ],
         "max_tokens": 3000,
-        "temperature": 0.8,
-        "response_format": {"type": "json_object"}
+        "temperature": 0.8
     }).encode()
 
     req = urllib.request.Request(
@@ -681,15 +680,42 @@ CRITICAL RULES:
     if not raw:
         _err("AI returned empty response")
 
+    # Try parsing as JSON first
+    article = None
     try:
         article = json.loads(raw)
+        # Validate it has actual content
+        if not article.get("content") or len(article["content"].strip()) < 100:
+            print(f"WARNING: AI returned content too short ({len(article.get('content', ''))} chars). Retrying...")
+            article = None
     except json.JSONDecodeError:
+        print("WARNING: AI did not return valid JSON. Attempting to extract...")
+
+    # If JSON parse failed, try to extract JSON from markdown code blocks
+    if not article:
+        json_match = re.search(r'```(?:json)?\s*({.*?})\s*```', raw, re.DOTALL)
+        if json_match:
+            try:
+                article = json.loads(json_match.group(1))
+            except json.JSONDecodeError:
+                pass
+
+    # If still nothing, try raw extraction
+    if not article:
+        # Maybe the raw text IS the article content
         article = {
             "title": topic,
-            "summary": raw[:200],
-            "content": raw
+            "summary": raw[:200].strip(),
+            "content": raw.strip()
         }
 
+    # Final validation — if content is still too short, error out
+    content_text = article.get("content", "")
+    if len(content_text.strip()) < 100:
+        _err(f"AI generated article too short ({len(content_text)} chars). The model may not support JSON output. Try a different model.")
+
+    print(f"Title: {article.get('title', 'No title')}")
+    print(f"Content length: {len(content_text)} chars")
     return article
 
 
