@@ -1,0 +1,103 @@
+# ============================================================
+# MenshlyGlobal — News Dispatch Generator
+# Runs frequently to generate CNN-style news dispatches for homepage
+# Fetches trending headlines from NewsAPI, generates AI dispatches,
+# and commits to content/posts/ which triggers Hugo rebuild.
+#
+# SETUP: Add these secrets in GitHub → Settings → Secrets and variables → Actions
+#   AI_API_KEY      — AI API key (Cerebras or compatible)
+#   PEXELS_API_KEY  — Pexels API key (optional, for images)
+#   PIXABAY_API_KEY — Pixabay API key (optional, for images)
+#   FREPIK_API_KEY  — Freepik API key (optional, for images)
+#   NEWS_API_KEY    — NewsAPI.org key (for trending headlines)
+#   AI_API_BASE     — API base URL (default: https://api.cerebras.ai/v1)
+#   AI_MODEL        — Model name (optional, auto-detects)
+# ============================================================
+
+name: Generate News Dispatches
+
+on:
+  schedule:
+    # Every 4 hours: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC
+    - cron: '0 0,4,8,12,16,20 * * *'
+  workflow_dispatch:
+    inputs:
+      count:
+        description: 'Number of articles to generate (1-5)'
+        required: false
+        default: '3'
+      category:
+        description: 'Force category (leave empty for random)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  generate-news:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Generate news articles
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          FREPIK_API_KEY: ${{ secrets.FREPIK_API_KEY }}
+          NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
+          AI_API_BASE: ${{ secrets.AI_API_BASE }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
+          NEWS_COUNT: ${{ github.event.inputs.count || '3' }}
+        run: python scripts/generate-news.py
+
+      - name: Commit and push articles
+        run: |
+          if [ -f output/manifest.json ] && [ -s output/manifest.json ]; then
+            ARTICLES=$(python3 -c "import json; data=json.load(open('output/manifest.json')); print(len(data))")
+            if [ "$ARTICLES" -gt 0 ]; then
+              git config user.name "MenshlyGlobal News Bot"
+              git config user.email "newsbot@menshly-global.pages.dev"
+              
+              git add content/posts/*.md 2>/dev/null || true
+              
+              # Check if there are changes to commit
+              CHANGED=$(git diff --cached --name-only | wc -l)
+              if [ "$CHANGED" -gt 0 ]; then
+                git commit -m "News: publish ${ARTICLES} dispatch(es) [auto]"
+                git push
+                echo "Committed and pushed ${ARTICLES} articles"
+              else
+                echo "No new articles to commit (duplicates or errors)"
+              fi
+            else
+              echo "No articles generated in manifest"
+            fi
+          else
+            echo "No manifest file or articles generated"
+          fi
+
+      - name: Log result
+        if: always()
+        run: |
+          echo "========== NEWS GENERATION LOG =========="
+          if [ -f output/manifest.json ]; then
+            echo "--- Generated Articles ---"
+            cat output/manifest.json
+          fi
+          if [ -f output/error.log ]; then
+            echo "--- Error Log ---"
+            cat output/error.log
+          fi
+          echo "========================================="
