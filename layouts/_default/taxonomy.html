@@ -1,5 +1,5 @@
 {{ define "main" }}
-{{/* === TAXONOMY LISTING: /categories/ — grid of category cards === */}}
+{{/* === TAXONOMY LISTING: /categories/ — CNN homepage layout with all posts === */}}
 {{ if .Data.Terms }}
 <div class="main-content">
   <div class="content-grid">
@@ -7,17 +7,43 @@
       <div class="section-header">
         <h2>{{ title .Data.Plural }}</h2>
       </div>
-      <div class="taxonomy-grid">
-        {{ range $key, $taxonomy := .Data.Terms }}
-        {{ $count := len $taxonomy }}
-        {{ if gt $count 0 }}
-        <a class="taxonomy-card" href="/{{ $.Data.Plural }}/{{ $key | urlize }}/">
-          <span class="taxonomy-name">{{ title $key }}</span>
-          <span class="taxonomy-count">{{ $count }} {{ if eq $count 1 }}article{{ else }}articles{{ end }}</span>
+      {{ $posts := .Site.RegularPages }}
+      {{ $posts = where $posts "Section" "posts" }}
+      {{ $posts = $posts.ByDate.Reverse }}
+      {{ if gt (len $posts) 0 }}
+      {{ $hero := index $posts 0 }}
+      <a class="hero-article" href="{{ $hero.Permalink }}">
+        {{ with $hero.Params.image }}<img class="hero-image" src="{{ . }}" alt="{{ $hero.Title }}" loading="eager">{{ end }}
+        <div class="hero-body">
+          {{ with $hero.Params.categories }}{{ $cat := index . 0 }}<span class="hero-category"><a href="/categories/{{ $cat | urlize }}" style="color:#fff;">{{ $cat }}</a></span>{{ end }}
+          <h2>{{ $hero.Title }}</h2>
+          <p>{{ $hero.Summary }}</p>
+          <span class="hero-meta">{{ $hero.Date.Format "Jan 2, 2006" }}</span>
+        </div>
+      </a>
+      {{ end }}
+      <div class="posts">
+        {{ range after 1 $posts }}
+        {{ $postTitle := .Title }}
+        {{ $postPermalink := .Permalink }}
+        {{ $postDate := .Date }}
+        {{ $postImage := .Params.image }}
+        {{ $postCat := "" }}
+        {{ with .Params.categories }}{{ $postCat = index . 0 }}{{ end }}
+        <a class="post-card" href="{{ $postPermalink }}">
+          {{ with $postImage }}<img src="{{ . }}" alt="{{ $postTitle }}" loading="lazy">{{ end }}
+          <span class="meta">{{ with $postCat }}{{ . }} &middot; {{ end }}{{ $postDate.Format "Jan 2, 2006" }}</span>
+          <h2>{{ $postTitle }}</h2>
         </a>
         {{ end }}
-        {{ end }}
       </div>
+      {{ if .Paginator }}
+      <div class="pagination">
+        {{ if .Paginator.HasPrev }}<a href="{{ .Paginator.Prev.URL }}">&larr; Prev</a>{{ end }}
+        <span class="current">{{ .Paginator.PageNumber }}/{{ .Paginator.TotalPages }}</span>
+        {{ if .Paginator.HasNext }}<a href="{{ .Paginator.Next.URL }}">Next &rarr;</a>{{ end }}
+      </div>
+      {{ end }}
     </div>
     <aside class="sidebar">
       {{ partial "most-read-widget.html" . }}
@@ -28,7 +54,7 @@
   </div>
 </div>
 
-{{/* === TAXONOMY TERM: /categories/science/ — posts in that category === */}}
+{{/* === TAXONOMY TERM: /categories/science/ — filtered to that category === */}}
 {{ else if .Data.Term }}
 <div class="main-content">
   <div class="content-grid">
