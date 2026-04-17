@@ -1,21 +1,50 @@
 {{ define "main" }}
+{{/* === TAXONOMY LISTING: /categories/ — grid of category cards === */}}
+{{ if .Data.Terms }}
 <div class="main-content">
   <div class="content-grid">
     <div class="main-column">
       <div class="section-header">
-        <h2>{{ if .IsHome }}Latest Stories{{ else }}{{ .Title }}{{ end }}</h2>
-        {{ if .IsHome }}<a class="see-all" href="/posts/">See All &rarr;</a>{{ end }}
+        <h2>{{ title .Data.Plural }}</h2>
+      </div>
+      <div class="taxonomy-grid">
+        {{ range $key, $taxonomy := .Data.Terms }}
+        {{ $count := len $taxonomy }}
+        {{ if gt $count 0 }}
+        <a class="taxonomy-card" href="/{{ $.Data.Plural }}/{{ $key | urlize }}/">
+          <span class="taxonomy-name">{{ title $key }}</span>
+          <span class="taxonomy-count">{{ $count }} {{ if eq $count 1 }}article{{ else }}articles{{ end }}</span>
+        </a>
+        {{ end }}
+        {{ end }}
+      </div>
+    </div>
+    <aside class="sidebar">
+      {{ partial "most-read-widget.html" . }}
+      {{ partial "tradingview-widget.html" . }}
+      {{ partial "trending-now-widget.html" . }}
+      {{ partial "categories-widget.html" . }}
+    </aside>
+  </div>
+</div>
+
+{{/* === TAXONOMY TERM: /categories/science/ — posts in that category === */}}
+{{ else if .Data.Term }}
+<div class="main-content">
+  <div class="content-grid">
+    <div class="main-column">
+      <div class="section-header">
+        <h2>{{ title .Data.Term }}</h2>
       </div>
       {{ $posts := .Pages }}
-      {{ if .IsHome }}{{ $posts = .Site.RegularPages }}{{ end }}
       {{ $posts = where $posts "Section" "posts" }}
-      {{ if not .IsHome }}{{ $posts = $posts.ByDate.Reverse }}{{ end }}
+      {{ $posts = $posts.ByDate.Reverse }}
       {{ if gt (len $posts) 0 }}
       {{ $hero := index $posts 0 }}
       <a class="hero-article" href="{{ $hero.Permalink }}">
         {{ with $hero.Params.image }}<img class="hero-image" src="{{ . }}" alt="{{ $hero.Title }}" loading="eager">{{ end }}
         <div class="hero-body">
-          {{ with $hero.Params.categories }}{{ $cat := index . 0 }}<span class="hero-category"><a href="/categories/{{ $cat | urlize }}" style="color:#fff;">{{ $cat }}</a></span>{{ end }}
+          <span class="hero-category">{{ title $.Data.Term }}</span>
           <h2>{{ $hero.Title }}</h2>
           <p>{{ $hero.Summary }}</p>
           <span class="hero-meta">{{ $hero.Date.Format "Jan 2, 2006" }}</span>
@@ -28,11 +57,9 @@
         {{ $postPermalink := .Permalink }}
         {{ $postDate := .Date }}
         {{ $postImage := .Params.image }}
-        {{ $postCat := "" }}
-        {{ with .Params.categories }}{{ $postCat = index . 0 }}{{ end }}
         <a class="post-card" href="{{ $postPermalink }}">
           {{ with $postImage }}<img src="{{ . }}" alt="{{ $postTitle }}" loading="lazy">{{ end }}
-          <span class="meta">{{ with $postCat }}{{ . }} &middot; {{ end }}{{ $postDate.Format "Jan 2, 2006" }}</span>
+          <span class="meta">{{ title $.Data.Term }} &middot; {{ $postDate.Format "Jan 2, 2006" }}</span>
           <h2>{{ $postTitle }}</h2>
         </a>
         {{ end }}
@@ -53,4 +80,5 @@
     </aside>
   </div>
 </div>
+{{ end }}
 {{ end }}
