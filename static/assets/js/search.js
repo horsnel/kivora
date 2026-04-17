@@ -1,11 +1,77 @@
-(function(){
-  var r=document.getElementById("search-toggle"),t=document.getElementById("search-overlay"),s=document.getElementById("search-input"),c=document.getElementById("search-close"),n=document.getElementById("search-results");
-  function h(){t&&(t.classList.add("active"),document.body.style.overflow="hidden",s&&s.focus())}
-  function d(){t&&(t.classList.remove("active"),document.body.style.overflow="",s&&(s.value=""),n&&(n.innerHTML=""))}
-  r&&r.addEventListener("click",h);
-  c&&c.addEventListener("click",d);
-  t&&t.addEventListener("click",function(e){e.target===t&&d()});
-  document.addEventListener("keydown",function(e){e.key==="Escape"&&d(),(e.ctrlKey||e.metaKey)&&e.key==="k"&&(e.preventDefault(),h())});
-  s&&n&&(var sm=null,sa=null,su=null;
-  fetch("/index.json").then(function(e){return e.json()}).then(function(e){sm=e,sa=new Fuse(e,{keys:["title","summary","categories","tags"],threshold:.35,ignoreLocation:true,includeScore:true})}).catch(function(){});
-  s.addEventListener("input",function(){clearTimeout(su);var e=s.value.trim();if(!e){n.innerHTML="";return}su=setTimeout(function(){if(!sa){n.innerHTML="<p style='color:#888;padding:20px;'>Loading...</p>";return}var t,s,o,r,c,l,i=sa.search(e);if(!i.length){n.innerHTML="<p style='color:#888;padding:20px;'>No results found.</p>";return}for(s="",l=Math.min(i.length,10),o=0;o<l;o++)t=i[o].item,r=t.categories&&t.categories.length?t.categories[0]:"",c=t.date?new Date(t.date).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"",s+='<a class="search-result-item" href="'+t.permalink+'">',t.image&&(s+='<img src="'+t.image+'" alt="" />'),s+='<div class="search-result-body">',r&&(s+='<span class="search-result-cat">'+r+"</span>"),s+="<h3>"+t.title+"</h3>",t.summary&&(s+="<p>"+t.summary.substring(0,140)+"...</p>"),c&&(s+='<span class="search-result-date">'+c+"</span>"),s+="</div></a>";n.innerHTML=s},250)})})})();
+(function() {
+  var r = document.getElementById("search-toggle");
+  var t = document.getElementById("search-overlay");
+  var s = document.getElementById("search-input");
+  var c = document.getElementById("search-close");
+  var n = document.getElementById("search-results");
+  var sm = null, sa = null, su = null;
+
+  function openSearch() {
+    if (t) {
+      t.classList.add("active");
+      document.body.style.overflow = "hidden";
+      if (s) s.focus();
+    }
+  }
+  function closeSearch() {
+    if (t) {
+      t.classList.remove("active");
+      document.body.style.overflow = "";
+      if (s) s.value = "";
+      if (n) n.innerHTML = "";
+    }
+  }
+
+  if (r) r.addEventListener("click", openSearch);
+  if (c) c.addEventListener("click", closeSearch);
+  if (t) t.addEventListener("click", function(e) { if (e.target === t) closeSearch(); });
+  document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape") closeSearch();
+    if ((e.ctrlKey || e.metaKey) && e.key === "k") { e.preventDefault(); openSearch(); }
+  });
+
+  if (s && n) {
+    fetch("/index.json").then(function(e) { return e.json(); }).then(function(data) {
+      sm = data;
+      sa = new Fuse(data, {
+        keys: ["title", "summary", "categories", "tags"],
+        threshold: 0.35,
+        ignoreLocation: true,
+        includeScore: true
+      });
+    }).catch(function() {});
+
+    s.addEventListener("input", function() {
+      clearTimeout(su);
+      var q = s.value.trim();
+      if (!q) { n.innerHTML = ""; return; }
+      su = setTimeout(function() {
+        if (!sa) {
+          n.innerHTML = '<p style="color:#888;padding:20px;">Loading search index...</p>';
+          return;
+        }
+        var results = sa.search(q);
+        if (!results.length) {
+          n.innerHTML = '<p style="color:#888;padding:20px;">No results found for "' + q + '".</p>';
+          return;
+        }
+        var html = '';
+        var max = Math.min(results.length, 10);
+        for (var i = 0; i < max; i++) {
+          var item = results[i].item;
+          var cat = (item.categories && item.categories.length) ? item.categories[0] : "";
+          var dateStr = item.date ? new Date(item.date).toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"}) : "";
+          html += '<a class="search-result-item" href="' + item.permalink + '">';
+          if (item.image) html += '<img src="' + item.image + '" alt="" />';
+          html += '<div class="search-result-body">';
+          if (cat) html += '<span class="search-result-cat">' + cat + '</span>';
+          html += '<h3>' + item.title + '</h3>';
+          if (item.summary) html += '<p>' + item.summary.substring(0, 140) + '...</p>';
+          if (dateStr) html += '<span class="search-result-date">' + dateStr + '</span>';
+          html += '</div></a>';
+        }
+        n.innerHTML = html;
+      }, 250);
+    });
+  }
+})();
