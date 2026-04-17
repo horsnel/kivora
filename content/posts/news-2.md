@@ -12,9 +12,9 @@ The court said 25-year-old Ramsey Khalid Ismael, known online as Johnny Somali, 
 
 ```json
 {
-  "title": "American YouTuber's Dance of Disrespect: Cultural Implications and Social Media Fallout",
-  "summary": "A 25-year-old American YouTuber has been sentenced to six months in a Korean prison for dancing on wartime graves, sparking debate on cultural insensitivity and online accountability.",
-  "content": """
+"title": "American YouTuber's Dance of Disrespect: Cultural Implications and Social Media Fallout",
+"summary": "A 25-year-old American YouTuber has been sentenced to six months in a Korean prison for dancing on wartime graves, sparking debate on cultural insensitivity and online accountability.",
+"content": """
 ## Dancing on Sacred Ground: A Case of Cultural Insensitivity
 
 In a high-profile case that has garnered significant attention online, 25-year-old American YouTuber Ramsey Khalid Ismael, known by his online alias Johnny Somali, has been sentenced to six months in a Korean prison for his reckless and provocative behavior. According to the court, Ismael displayed "severe" disrespect for South Korean law by dancing on wartime graves, an act that has been widely condemned as culturally insensitive and disrespectful.

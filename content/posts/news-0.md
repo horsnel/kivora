@@ -12,9 +12,9 @@ LIV Golf CEO Scott O’Neil sought to quell speculation about the league’s fin
 
 ```json
 {
-  "title": "LIV Golf leader says the show will go on amid reports of Saudi funding uncertainty",
-  "summary": "LIV Golf CEO Scott O'Neil has assured staff that the 2026 season will proceed without interruption, despite ongoing speculation about the league's financial backing.",
-  "content": """
+"title": "LIV Golf leader says the show will go on amid reports of Saudi funding uncertainty",
+"summary": "LIV Golf CEO Scott O'Neil has assured staff that the 2026 season will proceed without interruption, despite ongoing speculation about the league's financial backing.",
+"content": """
 ## Background on LIV Golf's Funding Uncertainty
 
 LIV Golf, the Saudi-backed golf league, has been at the center of controversy surrounding its financial backing from the Saudi Public Investment Fund (PIF). While the league has secured several high-profile partnerships and attracted top golf talent, concerns about the long-term sustainability of its funding have persisted.
