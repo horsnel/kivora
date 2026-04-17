@@ -1,12 +1,39 @@
+{{ $hasPrev := false }}
+{{ $hasNext := false }}
 {{ with .PrevInSection }}
-<a class="series-nav series-prev" href="{{ .Permalink }}">
-  <span class="series-label">&larr; Previous Article</span>
-  <span class="series-title">{{ .Title }}</span>
-</a>
+  {{ $hasPrev = true }}
 {{ end }}
 {{ with .NextInSection }}
-<a class="series-nav series-next" href="{{ .Permalink }}">
-  <span class="series-label">Next Article &rarr;</span>
-  <span class="series-title">{{ .Title }}</span>
-</a>
+  {{ $hasNext = true }}
+{{ end }}
+{{ if or $hasPrev $hasNext }}
+<div class="series-nav-premium">
+  <div class="series-nav-label">Continue Reading</div>
+  <div class="series-nav-grid">
+    {{ with .PrevInSection }}
+    <a class="series-nav-card series-prev-card" href="{{ .Permalink }}">
+      <div class="series-nav-arrow-prev">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </div>
+      <div class="series-nav-info">
+        <span class="series-nav-tag">Previous</span>
+        <span class="series-nav-title">{{ .Title }}</span>
+        <span class="series-nav-date">{{ .Date.Format "Jan 2, 2006" }}</span>
+      </div>
+    </a>
+    {{ end }}
+    {{ with .NextInSection }}
+    <a class="series-nav-card series-next-card" href="{{ .Permalink }}">
+      <div class="series-nav-info">
+        <span class="series-nav-tag">Up Next</span>
+        <span class="series-nav-title">{{ .Title }}</span>
+        <span class="series-nav-date">{{ .Date.Format "Jan 2, 2006" }}</span>
+      </div>
+      <div class="series-nav-arrow-next">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </a>
+    {{ end }}
+  </div>
+</div>
 {{ end }}

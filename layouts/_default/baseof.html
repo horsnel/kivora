@@ -20,5 +20,26 @@
   <script src="/assets/js/weather.js" defer></script>
   <script src="/assets/js/premium-news.js" defer></script>
   <script src="/assets/js/ai-analysis.js" defer></script>
+  <script>
+    /* Premium newsletter form handler */
+    document.addEventListener('DOMContentLoaded', function() {
+      var form = document.getElementById('newsletterForm');
+      if (form) {
+        form.addEventListener('submit', function(e) {
+          e.preventDefault();
+          var btn = document.getElementById('newsletterBtn');
+          var input = form.querySelector('input');
+          if (btn && input) {
+            btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
+            btn.disabled = true;
+            btn.style.background = '#27ae60';
+            input.disabled = true;
+            input.value = 'You\'re subscribed!';
+            input.style.color = '#27ae60';
+          }
+        });
+      }
+    });
+  </script>
 </body>
 </html>

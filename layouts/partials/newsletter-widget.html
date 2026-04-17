@@ -1,9 +1,23 @@
-<div class="sidebar-widget newsletter-widget">
-  <h3>&#9993; Newsletter</h3>
-  <p class="newsletter-text">Get breaking news and exclusive analysis delivered to your inbox every morning.</p>
-  <form class="newsletter-form" onsubmit="event.preventDefault(); this.querySelector('button').textContent='Subscribed!'; this.querySelector('button').disabled=true; this.querySelector('input').disabled=true;">
-    <input type="email" placeholder="Your email address" required aria-label="Email address">
-    <button type="submit">Subscribe</button>
-  </form>
-  <p class="newsletter-disclaimer">No spam. Unsubscribe anytime.</p>
+<div class="sidebar-widget newsletter-widget-premium">
+  <div class="newsletter-premium-inner">
+    <div class="newsletter-premium-icon">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+    </div>
+    <h3 class="newsletter-premium-title">Morning Intelligence Brief</h3>
+    <p class="newsletter-premium-text">Get curated analysis and breaking stories delivered to your inbox before the markets open.</p>
+    <div class="newsletter-premium-features">
+      <span class="nl-feature"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Daily Briefing</span>
+      <span class="nl-feature"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Market Analysis</span>
+      <span class="nl-feature"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Zero Spam</span>
+    </div>
+    <form class="newsletter-premium-form" id="newsletterForm">
+      <div class="newsletter-input-wrap">
+        <input type="email" placeholder="Enter your email" required aria-label="Email address">
+        <button type="submit" id="newsletterBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </form>
+    <p class="newsletter-premium-disclaimer">Join 12,000+ professionals. Unsubscribe anytime.</p>
+  </div>
 </div>
