@@ -9,10 +9,12 @@
   /* ---- Configuration ---- */
   var RSS2JSON = 'https://api.rss2json.com/v1/api.json?rss_url=';
   var FEEDS = [
-    'https://feeds.reuters.com/reuters/businessNews',
-    'https://feeds.reuters.com/reuters/topNews',
+    'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml',
     'http://feeds.bbci.co.uk/news/business/rss.xml',
-    'https://www.aljazeera.com/xml/rss/all.xml'
+    'https://www.cnbc.com/id/100003114/device/rss/rss.html',
+    'https://www.aljazeera.com/xml/rss/all.xml',
+    'https://rss.nytimes.com/services/xml/rss/nyt/World.xml',
+    'http://feeds.bbci.co.uk/news/world/rss.xml'
   ];
 
   /* ---- Keyword dictionaries ---- */
@@ -67,10 +69,13 @@
   /* ---- RSS fetching ---- */
   function fetchFeed(url) {
     return fetch(RSS2JSON + encodeURIComponent(url))
-      .then(function(r) { return r.json(); })
+      .then(function(r) {
+        if (!r.ok) return null;
+        return r.json();
+      })
       .then(function(data) {
-        if (data.status === 'ok' && data.items) return data.items.map(function(i) { return i.title; });
-        return [];
+        if (!data || data.status !== 'ok' || !data.items) return [];
+        return data.items.map(function(i) { return i.title; });
       })
       .catch(function() { return []; });
   }
@@ -239,6 +244,10 @@
     if (results) results.style.display = 'none';
 
     fetchAllHeadlines().then(function() {
+      if (headlines.length === 0) {
+        if (loading) loading.textContent = 'No headlines available';
+        return;
+      }
       analyzeHeadlines();
       renderFree();
     }).catch(function() {
@@ -246,14 +255,17 @@
     });
   }
 
-  /* ---- Premium tier: WebLLM ---- */
+  /* ---- Premium tier: WebLLM (optional, browser-local AI) ---- */
+  var webllmScriptLoaded = false;
   function loadWebLLM() {
-    if (webllmLoaded) return Promise.resolve();
+    if (webllmScriptLoaded) return Promise.resolve();
     return new Promise(function(resolve, reject) {
       var s = document.createElement('script');
       s.src = 'https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.78/lib/index.min.js';
-      s.onload = function() { webllmLoaded = true; resolve(); };
-      s.onerror = function() { reject(new Error('Failed to load WebLLM')); };
+      s.onload = function() { webllmScriptLoaded = true; resolve(); };
+      s.onerror = function() {
+        reject(new Error('Failed to load AI engine library'));
+      };
       document.head.appendChild(s);
     });
   }
@@ -269,11 +281,25 @@
 
     if (!progressDiv) return;
 
-    /* Check WebGPU */
+    /* Check WebGPU availability */
     if (!navigator.gpu) {
       if (fallbackEl) fallbackEl.style.display = 'block';
       if (introEl) introEl.style.display = 'none';
       return;
+    }
+
+    /* Ensure we have headlines first */
+    if (headlines.length === 0) {
+      statusEl.textContent = 'Loading headlines first...';
+      try {
+        await fetchAllHeadlines();
+      } catch(e) { /* ignore */ }
+      if (headlines.length === 0) {
+        statusEl.textContent = 'No headlines available for analysis';
+        progressDiv.style.display = 'none';
+        if (introEl) introEl.style.display = 'block';
+        return;
+      }
     }
 
     /* Load WebLLM library */
@@ -328,8 +354,10 @@
           '</div>';
       }
     } catch(err) {
-      statusEl.textContent = 'Error: ' + err.message;
+      statusEl.textContent = 'Error: ' + (err.message || 'Unknown error');
       fillEl.style.width = '0%';
+      progressDiv.style.display = 'none';
+      if (introEl) introEl.style.display = 'block';
     }
   }
 

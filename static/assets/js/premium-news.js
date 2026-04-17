@@ -1,10 +1,12 @@
 /* === Premium News Widget — RSS2JSON proxy (bypasses IP bans) === */
 (function() {
   var feeds = [
-    { name: 'Reuters', url: 'https://feeds.reuters.com/reuters/topNews' },
+    { name: 'NYT Business', url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml' },
     { name: 'BBC World', url: 'http://feeds.bbci.co.uk/news/world/rss.xml' },
+    { name: 'CNBC', url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html' },
     { name: 'Al Jazeera', url: 'https://www.aljazeera.com/xml/rss/all.xml' },
-    { name: 'AP News', url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml' }
+    { name: 'NYT World', url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml' },
+    { name: 'BBC Business', url: 'http://feeds.bbci.co.uk/news/business/rss.xml' }
   ];
 
   var proxyUrl = 'https://api.rss2json.com/v1/api.json?rss_url=';
