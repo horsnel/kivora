@@ -10,25 +10,25 @@
 
   var TRENDING_TOPICS = [
     'Dune: Part Two — A visual masterpiece or style over substance?',
-    'Top 10 side hustles that can replace your 9-to-5 in 2026',
-    'Why African fintech startups attracted $2 billion in Q1 2026',
+    'Top 10 passive income streams that can replace your salary',
+    'Why African fintech attracted $2 billion in Q1 2026',
     'Inside Out 2 review: Pixar delivers another emotional gut-punch',
-    'How to start a profitable e-commerce business with $500',
-    'The global electric vehicle market — statistics, trends, and forecasts',
+    'How to start investing in stocks with under $500',
+    'The global electric vehicle market — trends, data, and forecasts',
     'The Bear Season 4: Has the magic faded or gotten better?',
-    'Passive income ideas that actually work in 2026 — no scams',
-    'Remote work statistics 2026: How many people work from home?',
-    'Deadpool & Wolverine review: MCU fan service at its finest',
-    'Small business success rates by industry — what the data says',
-    'AI tools that can save entrepreneurs 20+ hours per week',
+    'Personal finance habits of self-made millionaires',
+    'Remote work statistics 2026: How many people actually work from home?',
+    'Deadpool & Wolverine review: Fan service at its finest',
+    'Small business failure rates by industry — what the data says',
+    'Productivity tools that save entrepreneurs 20+ hours per week',
     'Gladiator II review: Can Ridley Scott recapture the magic?',
-    'Dropshipping in 2026: Is it still profitable or too saturated?',
-    'The creator economy statistics — how much do creators actually earn?',
-    'Best AI-powered business ideas for beginners with no coding skills',
-    'Social media marketing ROI statistics for small businesses 2026',
-    'How to flip items on eBay, Facebook Marketplace, and Poshmark',
+    'E-commerce in 2026: Is it still profitable for new sellers?',
+    'The creator economy — how much do creators actually earn?',
+    'Best business ideas for beginners with no coding experience',
+    'Social media marketing ROI for small businesses in 2026',
+    'How to flip items on eBay and Facebook Marketplace for profit',
     'Global startup funding trends — where the money is flowing',
-    'Shogun Season 2 preview: What to expect from the epic finale'
+    'Shogun Season 2: What to expect from the epic finale'
   ];
 
   /* ---- State ---- */
@@ -112,7 +112,7 @@
     generateBtn.disabled = true;
     generateBtn.classList.add('ai-nr-generating');
     generateBtn.querySelector('span').textContent = 'Generating...';
-    showStatus('loading', 'AI is crafting your content. This may take 10-30 seconds...');
+    showStatus('loading', 'Generating your content. This may take 10-30 seconds...');
     hideArticle();
 
     try {

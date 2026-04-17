@@ -40,13 +40,13 @@ export async function onRequestPost(context) {
 
     /* === Category Map === */
     const categoryMap = {
-      'movie-review': 'Movie & TV Review',
-      'entertainment': 'Entertainment & Culture',
-      'money-ideas': 'Money-Making Ideas & Business Opportunities',
-      'business-stats': 'Business & Market Statistics',
-      'business-analysis': 'Business & Market Analysis',
-      'technology': 'Technology & Innovation',
-      'opinion': 'Expert Opinion & Commentary'
+      'film-review': 'Film & TV Review',
+      'entertainment': 'Arts & Culture',
+      'personal-finance': 'Personal Finance',
+      'market-analysis': 'Market Analysis',
+      'business-strategy': 'Business Strategy',
+      'technology': 'Tech & Innovation',
+      'commentary': 'Expert Commentary'
     };
 
     /* === Tone/Style Map === */
@@ -194,13 +194,13 @@ CRITICAL RULES:
 /* Build a search query for Pexels based on topic + category */
 function buildImageQuery(topic, category) {
   const categoryKeywords = {
-    'movie-review': 'cinema movie film',
+    'film-review': 'cinema movie film',
     'entertainment': 'entertainment culture music',
-    'money-ideas': 'business startup entrepreneur money',
-    'business-stats': 'business charts data analytics',
-    'business-analysis': 'business office corporate',
+    'personal-finance': 'finance money business',
+    'market-analysis': 'business charts data analytics',
+    'business-strategy': 'business office corporate',
     'technology': 'technology digital innovation',
-    'opinion': 'analysis thought leadership'
+    'commentary': 'analysis thought leadership'
   };
 
   const prefix = categoryKeywords[category] || 'media';

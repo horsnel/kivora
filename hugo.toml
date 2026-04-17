@@ -73,6 +73,6 @@ theme = "paper"
   url = "/categories/entertainment"
   weight = 6
 [[enu.main]]
-  name = "Money & Business"
-  url = "/categories/money-business"
+  name = "Finance"
+  url = "/categories/finance"
   weight = 7

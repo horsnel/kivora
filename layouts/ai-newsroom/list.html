@@ -3,9 +3,9 @@
   <!-- Hero Header -->
   <div class="ai-newsroom-hero">
     <div class="ai-newsroom-hero-inner">
-      <div class="ai-newsroom-badge">Powered by AI</div>
-      <h1>AI Content Studio</h1>
-      <p class="ai-newsroom-hero-desc">Generate movie reviews, business analysis, money-making guides, and more. All AI-generated content is clearly labeled as opinion, analysis, or review — never breaking news.</p>
+      <div class="ai-newsroom-badge">MenshlyGlobal Editorial</div>
+      <h1>The Briefing Room</h1>
+      <p class="ai-newsroom-hero-desc">Generate professional reviews, market analysis, personal finance guides, and editorial commentary. All generated content is clearly labeled as opinion or analysis — never presented as breaking news.</p>
     </div>
   </div>
 
@@ -19,8 +19,8 @@
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
           </div>
           <div>
-            <h2>Content Generator</h2>
-            <p>Choose your type, topic, and style</p>
+            <h2>Content Studio</h2>
+            <p>Choose your section, topic, and format</p>
           </div>
         </div>
 
@@ -28,7 +28,7 @@
         <div class="ai-newsroom-field">
           <label for="aiTopicInput">Topic / Subject</label>
           <div class="ai-newsroom-input-wrap">
-            <input type="text" id="aiTopicInput" placeholder="e.g. Dune: Part Two, How to start dropshipping in 2026" autocomplete="off">
+            <input type="text" id="aiTopicInput" placeholder="e.g. Dune: Part Two, How to start investing in 2026" autocomplete="off">
             <button class="ai-newsroom-quick-btn" id="aiQuickTopic" title="Get a topic suggestion">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             </button>
@@ -38,25 +38,25 @@
         <!-- Category, Tone & Length -->
         <div class="ai-newsroom-row">
           <div class="ai-newsroom-field">
-            <label for="aiCategorySelect">Category</label>
+            <label for="aiCategorySelect">Section</label>
             <select id="aiCategorySelect">
-              <option value="movie-review">Movie Review</option>
-              <option value="entertainment">Entertainment & Culture</option>
-              <option value="money-ideas">Money-Making Ideas</option>
-              <option value="business-stats">Business & Market Stats</option>
-              <option value="business-analysis">Business Analysis</option>
-              <option value="technology">Technology & AI</option>
-              <option value="opinion">Expert Opinion</option>
+              <option value="film-review">Film &amp; TV Review</option>
+              <option value="entertainment">Arts &amp; Culture</option>
+              <option value="personal-finance">Personal Finance</option>
+              <option value="market-analysis">Market Analysis</option>
+              <option value="business-strategy">Business Strategy</option>
+              <option value="technology">Tech &amp; Innovation</option>
+              <option value="commentary">Expert Commentary</option>
             </select>
           </div>
           <div class="ai-newsroom-field">
-            <label for="aiToneSelect">Style</label>
+            <label for="aiToneSelect">Format</label>
             <select id="aiToneSelect">
               <option value="review" selected>In-Depth Review</option>
               <option value="analysis">Analytical Breakdown</option>
-              <option value="guide">How-To Guide</option>
+              <option value="guide">Explainer / How-To</option>
               <option value="opinion">Opinion / Commentary</option>
-              <option value="listicle">Listicle / Ranking</option>
+              <option value="listicle">Spotlight / Ranking</option>
               <option value="feature">Long-Form Feature</option>
             </select>
           </div>
@@ -93,15 +93,15 @@
         <div class="ai-newsroom-placeholder-features">
           <div class="ai-nr-feat">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <span>Movie Reviews</span>
+            <span>Film & TV Reviews</span>
           </div>
           <div class="ai-nr-feat">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-            <span>Money Ideas</span>
+            <span>Personal Finance</span>
           </div>
           <div class="ai-nr-feat">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
-            <span>Business Stats</span>
+            <span>Market Analysis</span>
           </div>
           <div class="ai-nr-feat">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
@@ -114,7 +114,7 @@
       <div class="ai-newsroom-article" id="aiNewsroomArticle" style="display:none;">
         <div class="ai-nr-article-header">
           <span class="ai-nr-article-cat" id="aiNrArticleCat"></span>
-          <span class="ai-nr-article-badge">AI Generated</span>
+          <span class="ai-nr-article-badge">Editorial</span>
           <span class="ai-nr-article-time" id="aiNrArticleTime"></span>
         </div>
         <div class="ai-nr-article-image" id="aiNrArticleImage" style="display:none;">
@@ -124,8 +124,8 @@
         <h2 class="ai-nr-article-title" id="aiNrArticleTitle"></h2>
         <p class="ai-nr-article-summary" id="aiNrArticleSummary"></p>
         <div class="ai-nr-article-meta">
-          <span>By MenshlyGlobal AI</span>
-          <span class="ai-nr-disclaimer">Opinion / Analysis — Not News</span>
+          <span>MenshlyGlobal Editorial Board</span>
+          <span class="ai-nr-disclaimer">Opinion / Analysis</span>
           <span id="aiNrArticleReadTime"></span>
         </div>
         <div class="ai-nr-article-body" id="aiNrArticleBody"></div>
