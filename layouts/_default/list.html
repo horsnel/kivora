@@ -2,38 +2,106 @@
 <div class="main-content">
   <div class="content-grid">
     <div class="main-column">
-      <div class="section-header">
-        <h2>{{ if .IsHome }}Latest Stories{{ else }}{{ .Title }}{{ end }}</h2>
-        {{ if .IsHome }}<a class="see-all" href="/posts/">See All &rarr;</a>{{ end }}
-      </div>
-      {{ $posts := .Pages }}
-      {{ if .IsHome }}{{ $posts = .Site.RegularPages }}{{ end }}
-      {{ $posts = where $posts "Section" "posts" }}
-      {{ if not .IsHome }}{{ $posts = $posts.ByDate.Reverse }}{{ end }}
+      {{ if .IsHome }}
+      {{ $posts := where .Site.RegularPages "Section" "posts" }}
       {{ if gt (len $posts) 0 }}
+
       {{ $hero := index $posts 0 }}
-      <a class="hero-article" href="{{ $hero.Permalink }}">
-        {{ with $hero.Params.image }}<img class="hero-image" src="{{ . }}" alt="{{ $hero.Title }}" loading="eager">{{ end }}
-        <div class="hero-body">
-          {{ with $hero.Params.categories }}{{ $cat := index . 0 }}<span class="hero-category"><a href="/categories/{{ $cat | urlize }}" style="color:#fff;">{{ $cat }}</a></span>{{ end }}
-          <h2>{{ $hero.Title }}</h2>
-          <p>{{ $hero.Summary }}</p>
-          <span class="hero-meta">{{ $hero.Date.Format "Jan 2, 2006" }}</span>
+      {{ $rest := after 1 $posts }}
+
+      {{/* CNN-Style Hero Row */}}
+      <div class="cnn-hero-row">
+        <a class="cnn-hero-main" href="{{ $hero.Permalink }}">
+          {{ with $hero.Params.image }}<img src="{{ . }}" alt="{{ $hero.Title }}" loading="eager">{{ end }}
+          <div class="cnn-hero-main-body">
+            {{ with $hero.Params.categories }}<span class="hero-category">{{ index . 0 }}</span>{{ end }}
+            <h2>{{ $hero.Title }}</h2>
+            <p>{{ with $hero.Params.description }}{{ . }}{{ else }}{{ $hero.Summary | plainify | truncate 160 }}{{ end }}</p>
+            <span class="hero-meta">{{ $hero.Date.Format "Jan 2, 2006" }}</span>
+          </div>
+        </a>
+        <div class="cnn-hero-stack">
+          {{ range $i, $p := $rest }}
+            {{ if lt $i 3 }}
+            {{ $img := $p.Params.image }}
+            {{ $cats := $p.Params.categories }}
+            {{ $cat := "" }}{{ with $cats }}{{ $cat = index . 0 }}{{ end }}
+            <a class="cnn-hero-stack-item" href="{{ $p.Permalink }}">
+              {{ with $img }}<img src="{{ . }}" alt="{{ $p.Title }}" loading="lazy">{{ end }}
+              <div class="cnn-stack-body">
+                {{ with $cat }}<span class="cnn-stack-cat">{{ . }}</span>{{ end }}
+                <h3>{{ $p.Title }}</h3>
+                <span>{{ $p.Date.Format "Jan 2" }}</span>
+              </div>
+            </a>
+            {{ end }}
+          {{ end }}
         </div>
-      </a>
-      {{ end }}
+      </div>
+
+      {{/* Mid-section: 2x2 feature cards */}}
+      <div class="cnn-mid-row">
+        {{ range $i, $p := $rest }}
+          {{ if and (ge $i 3) (lt $i 7) }}
+          {{ $img := $p.Params.image }}
+          {{ $cats := $p.Params.categories }}
+          {{ $cat := "" }}{{ with $cats }}{{ $cat = index . 0 }}{{ end }}
+          <a class="cnn-mid-card" href="{{ $p.Permalink }}">
+            {{ with $img }}<img src="{{ . }}" alt="{{ $p.Title }}" loading="lazy">{{ end }}
+            <div class="cnn-mid-body">
+              {{ with $cat }}<span class="cnn-mid-cat">{{ . }}</span>{{ end }}
+              <h3>{{ $p.Title }}</h3>
+            </div>
+          </a>
+          {{ end }}
+        {{ end }}
+      </div>
+
+      {{/* Standard post grid for remaining */}}
+      <div class="section-header">
+        <h2>More Stories</h2>
+      </div>
       <div class="posts">
-        {{ range after 1 $posts }}
-        {{ $postTitle := .Title }}
-        {{ $postPermalink := .Permalink }}
-        {{ $postDate := .Date }}
-        {{ $postImage := .Params.image }}
-        {{ $postCat := "" }}
-        {{ with .Params.categories }}{{ $postCat = index . 0 }}{{ end }}
-        <a class="post-card" href="{{ $postPermalink }}">
-          {{ with $postImage }}<img src="{{ . }}" alt="{{ $postTitle }}" loading="lazy">{{ end }}
-          <span class="meta">{{ with $postCat }}{{ . }} &middot; {{ end }}{{ $postDate.Format "Jan 2, 2006" }}</span>
-          <h2>{{ $postTitle }}</h2>
+        {{ range $i, $p := $rest }}
+          {{ if ge $i 7 }}
+          {{ $img := $p.Params.image }}
+          {{ $cats := $p.Params.categories }}
+          {{ $cat := "" }}{{ with $cats }}{{ $cat = index . 0 }}{{ end }}
+          <a class="post-card" href="{{ $p.Permalink }}">
+            {{ with $img }}<img src="{{ . }}" alt="{{ $p.Title }}" loading="lazy">{{ end }}
+            <div class="post-card-body">
+              <span class="meta">{{ with $cat }}{{ . }} &middot; {{ end }}{{ $p.Date.Format "Jan 2, 2006" }}</span>
+              <h2>{{ $p.Title }}</h2>
+            </div>
+          </a>
+          {{ end }}
+        {{ end }}
+      </div>
+
+      {{ if .Paginator }}
+      <div class="pagination">
+        {{ if .Paginator.HasPrev }}<a href="{{ .Paginator.Prev.URL }}">&larr; Prev</a>{{ end }}
+        <span class="current">{{ .Paginator.PageNumber }}/{{ .Paginator.TotalPages }}</span>
+        {{ if .Paginator.HasNext }}<a href="{{ .Paginator.Next.URL }}">Next &rarr;</a>{{ end }}
+      </div>
+      {{ end }}
+
+      {{ end }}
+      {{ else }}
+      <div class="section-header">
+        <h2>{{ .Title }}</h2>
+      </div>
+      <div class="posts">
+        {{ range $i, $p := .Pages }}
+        {{ $img := $p.Params.image }}
+        {{ $cats := $p.Params.categories }}
+        {{ $cat := "" }}{{ with $cats }}{{ $cat = index . 0 }}{{ end }}
+        <a class="post-card" href="{{ $p.Permalink }}">
+          {{ with $img }}<img src="{{ . }}" alt="{{ $p.Title }}" loading="lazy">{{ end }}
+          <div class="post-card-body">
+            <span class="meta">{{ with $cat }}{{ . }} &middot; {{ end }}{{ $p.Date.Format "Jan 2, 2006" }}</span>
+            <h2>{{ $p.Title }}</h2>
+          </div>
         </a>
         {{ end }}
       </div>
@@ -43,6 +111,7 @@
         <span class="current">{{ .Paginator.PageNumber }}/{{ .Paginator.TotalPages }}</span>
         {{ if .Paginator.HasNext }}<a href="{{ .Paginator.Next.URL }}">Next &rarr;</a>{{ end }}
       </div>
+      {{ end }}
       {{ end }}
     </div>
     <aside class="sidebar">
