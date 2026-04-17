@@ -1,13 +1,8 @@
 <div class="sidebar-widget ai-analysis-widget" id="aiAnalysisWidget">
   <div class="ai-header">
     <h3>&#129302; AI Market Intelligence</h3>
-    <div class="ai-tier-toggle">
-      <button class="ai-tier-btn active" data-tier="free">Free</button>
-      <button class="ai-tier-btn" data-tier="premium">Premium</button>
-    </div>
   </div>
 
-  <!-- FREE TIER: Rule-based engine -->
   <div class="ai-tier-content" id="aiFreeContent">
     <div class="ai-loading">Scanning headlines...</div>
     <div class="ai-free-results" id="aiFreeResults" style="display:none;">
@@ -26,24 +21,6 @@
         <span class="ai-section-title">&#128197; Events Watch</span>
         <ul id="aiWatchlist"></ul>
       </div>
-    </div>
-  </div>
-
-  <!-- PREMIUM TIER: WebLLM AI -->
-  <div class="ai-tier-content" id="aiPremiumContent" style="display:none;">
-    <div class="ai-premium-intro">
-      <p>Deep AI analysis powered by <strong>WebLLM</strong>. The model runs entirely in your browser &#8212; no data leaves your device.</p>
-      <button class="ai-deep-btn" id="aiDeepBtn">Start Deep Analysis</button>
-    </div>
-    <div class="ai-model-progress" id="aiModelProgress" style="display:none;">
-      <div class="ai-model-status" id="aiModelStatus">Initializing WebGPU...</div>
-      <div class="ai-progress-bar"><div class="ai-progress-fill" id="aiProgressFill" style="width:0%"></div></div>
-      <div class="ai-model-info" id="aiModelInfo"></div>
-    </div>
-    <div class="ai-premium-results" id="aiPremiumResults" style="display:none;"></div>
-    <div class="ai-webgpu-fallback" id="aiWebgpuFallback" style="display:none;">
-      <p>WebGPU not supported in this browser.</p>
-      <p class="ai-fallback-note">The free rule-based analysis is still active above.</p>
     </div>
   </div>
 

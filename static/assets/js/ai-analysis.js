@@ -1,7 +1,6 @@
 /* ================================================================
-   AI Market Intelligence Widget
-   Free Tier:  Rule-based keyword analysis engine
-   Premium:    WebLLM browser-local AI (lazy-loaded)
+   AI Market Intelligence Widget - Free Tier Only
+   Rule-based keyword analysis engine on RSS headlines
    ================================================================ */
 (function() {
   'use strict';
@@ -63,8 +62,6 @@
   var riskScore = 50;
   var drivers = [];
   var watchEvents = [];
-  var webllmLoaded = false;
-  var webllmEngine = null;
 
   /* ---- RSS fetching ---- */
   function fetchFeed(url) {
@@ -99,11 +96,9 @@
     headlines.forEach(function(headline) {
       var h = headline.toLowerCase();
 
-      /* Risk pulse */
       RISK_UP.forEach(function(kw) { if (h.indexOf(kw) !== -1) riskScore = Math.min(100, riskScore + 8); });
       RISK_DOWN.forEach(function(kw) { if (h.indexOf(kw) !== -1) riskScore = Math.max(0, riskScore - 5); });
 
-      /* Forex pairs */
       Object.keys(PAIRS).forEach(function(key) {
         var pair = PAIRS[key];
         BEARISH[pair.base].forEach(function(kw) {
@@ -136,7 +131,6 @@
         });
       });
 
-      /* Events watchlist */
       EVENT_KEYWORDS.forEach(function(evt) {
         evt.kw.forEach(function(kw) {
           if (h.indexOf(kw) !== -1 && watchEvents.indexOf(evt.label) === -1) {
@@ -146,7 +140,6 @@
       });
     });
 
-    /* Extract top drivers */
     var allReasons = [];
     Object.keys(pairSignals).forEach(function(key) {
       pairSignals[key].reasons.forEach(function(r) { allReasons.push(r.text); });
@@ -187,7 +180,6 @@
     if (loading) loading.style.display = 'none';
     el.style.display = 'block';
 
-    /* Risk pulse */
     document.getElementById('aiRiskScore').textContent = riskScore + '/100';
     document.getElementById('aiRiskFill').style.width = riskScore + '%';
     var fill = document.getElementById('aiRiskFill');
@@ -197,7 +189,6 @@
     else fill.classList.add('ai-risk-low');
     document.getElementById('aiRiskText').textContent = getRiskLabel(riskScore);
 
-    /* Forex pairs */
     var pairsHtml = '';
     Object.keys(PAIRS).forEach(function(key) {
       var pair = PAIRS[key];
@@ -213,28 +204,21 @@
     });
     document.getElementById('aiForexPairs').innerHTML = pairsHtml;
 
-    /* Drivers */
     var drvHtml = '';
-    drivers.forEach(function(d) {
-      drvHtml += '<li>' + d + '</li>';
-    });
+    drivers.forEach(function(d) { drvHtml += '<li>' + d + '</li>'; });
     if (drivers.length === 0) drvHtml = '<li>Scanning for drivers...</li>';
     document.getElementById('aiDrivers').innerHTML = drvHtml;
 
-    /* Watchlist */
     var evtHtml = '';
-    watchEvents.forEach(function(e) {
-      evtHtml += '<li>&#8226; ' + e + '</li>';
-    });
+    watchEvents.forEach(function(e) { evtHtml += '<li>&#8226; ' + e + '</li>'; });
     if (watchEvents.length === 0) evtHtml = '<li>No upcoming events detected</li>';
     document.getElementById('aiWatchlist').innerHTML = evtHtml;
 
-    /* Timestamp */
     var now = new Date();
     document.getElementById('aiTimestamp').textContent = 'Analyzed ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
-  /* ---- Free tier runner ---- */
+  /* ---- Runner ---- */
   function runFree() {
     var widget = document.getElementById('aiAnalysisWidget');
     if (!widget) return;
@@ -255,152 +239,10 @@
     });
   }
 
-  /* ---- Premium tier: WebLLM (optional, browser-local AI) ---- */
-  var webllmScriptLoaded = false;
-  function loadWebLLM() {
-    if (webllmScriptLoaded) return Promise.resolve();
-    return new Promise(function(resolve, reject) {
-      var s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.78/lib/index.min.js';
-      s.onload = function() { webllmScriptLoaded = true; resolve(); };
-      s.onerror = function() {
-        reject(new Error('Failed to load AI engine library'));
-      };
-      document.head.appendChild(s);
-    });
-  }
-
-  async function runPremium() {
-    var progressDiv = document.getElementById('aiModelProgress');
-    var statusEl = document.getElementById('aiModelStatus');
-    var fillEl = document.getElementById('aiProgressFill');
-    var infoEl = document.getElementById('aiModelInfo');
-    var resultsEl = document.getElementById('aiPremiumResults');
-    var fallbackEl = document.getElementById('aiWebgpuFallback');
-    var introEl = document.querySelector('.ai-premium-intro');
-
-    if (!progressDiv) return;
-
-    /* Check WebGPU availability */
-    if (!navigator.gpu) {
-      if (fallbackEl) fallbackEl.style.display = 'block';
-      if (introEl) introEl.style.display = 'none';
-      return;
-    }
-
-    /* Ensure we have headlines first */
-    if (headlines.length === 0) {
-      statusEl.textContent = 'Loading headlines first...';
-      try {
-        await fetchAllHeadlines();
-      } catch(e) { /* ignore */ }
-      if (headlines.length === 0) {
-        statusEl.textContent = 'No headlines available for analysis';
-        progressDiv.style.display = 'none';
-        if (introEl) introEl.style.display = 'block';
-        return;
-      }
-    }
-
-    /* Load WebLLM library */
-    if (introEl) introEl.style.display = 'none';
-    progressDiv.style.display = 'block';
-    if (resultsEl) resultsEl.style.display = 'none';
-
-    try {
-      await loadWebLLM();
-
-      /* Check if webllm global loaded correctly */
-      if (typeof webllm === 'undefined') {
-        throw new Error('AI engine library failed to load. This browser may not support WebLLM.');
-      }
-
-      statusEl.textContent = 'Loading AI model (first time may take 1-2 min)...';
-
-      var initProgressCallback = function(report) {
-        var pct = 0;
-        if (report.progress) pct = Math.round(report.progress * 100);
-        if (report.text) statusEl.textContent = report.text;
-        fillEl.style.width = pct + '%';
-        infoEl.textContent = pct + '% loaded';
-      };
-
-      /* Use small model for speed */
-      var selectedModel = 'Phi-3.5-mini-instruct-q4f16_1-MLC';
-      var engine = await webllm.CreateMLCEngine(selectedModel, {
-        initProgressCallback: initProgressCallback
-      });
-      webllmEngine = engine;
-
-      statusEl.textContent = 'Analyzing headlines with AI...';
-      fillEl.style.width = '95%';
-      infoEl.textContent = 'Processing...';
-
-      var prompt = 'You are a forex market analyst. Based on these recent news headlines, provide:\n\n' +
-        '1. A risk sentiment score (0-100, where 0=Risk-Off, 100=Risk-On)\n\n' +
-        '2. For each pair (USD/NGN, EUR/USD, GBP/USD, XAU/USD), rate as Bullish/Bearish/Neutral with ONE sentence reasoning.\n\n' +
-        '3. List 3-5 key market drivers from the headlines.\n\n' +
-        '4. List 2-3 upcoming events to watch.\n\n' +
-        'Format your response clearly with headers. Be concise.\n\n' +
-        'Headlines:\n' + headlines.slice(0, 30).join('\n');
-
-      var response = await engine.chat.completions.create({
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 600,
-        temperature: 0.3
-      });
-
-      fillEl.style.width = '100%';
-      infoEl.textContent = 'Done';
-      progressDiv.style.display = 'none';
-      if (resultsEl) {
-        resultsEl.style.display = 'block';
-        resultsEl.innerHTML = '<div class="ai-ai-response">' +
-          response.choices[0].message.content.replace(/\n/g, '<br>') +
-          '</div>';
-      }
-    } catch(err) {
-      var errMsg = err.message || 'Unknown error';
-      /* Hide progress, show user-friendly error */
-      progressDiv.style.display = 'none';
-      if (resultsEl) {
-        resultsEl.style.display = 'block';
-        resultsEl.innerHTML = '<div style="padding:12px 0;text-align:center;">' +
-          '<div style="font-size:1.5rem;margin-bottom:8px;">&#9888;&#65039;</div>' +
-          '<div style="font-size:0.8rem;font-weight:700;color:var(--text-primary);margin-bottom:4px;">AI Engine Unavailable</div>' +
-          '<div style="font-size:0.72rem;color:var(--text-muted);line-height:1.4;">' +
-          'The browser-local AI requires WebGPU support and may not work in all browsers. ' +
-          'The free rule-based analysis above is always available.</div>' +
-          '<button onclick="document.getElementById(\'aiPremiumResults\').style.display=\'none\';document.querySelector(\'.ai-premium-intro\').style.display=\'block\';" ' +
-          'style="margin-top:10px;padding:6px 16px;background:var(--bg);border:1px solid var(--border);border-radius:4px;font-size:0.75rem;cursor:pointer;font-family:var(--font-sans);color:var(--text-secondary);">Try Again</button>' +
-          '</div>';
-      }
-    }
-  }
-
   /* ---- UI event handlers ---- */
   function setupUI() {
-    /* Tier toggle */
-    var btns = document.querySelectorAll('.ai-tier-btn');
-    btns.forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        btns.forEach(function(b) { b.classList.remove('active'); });
-        btn.classList.add('active');
-        var tier = btn.getAttribute('data-tier');
-        document.getElementById('aiFreeContent').style.display = tier === 'free' ? 'block' : 'none';
-        document.getElementById('aiPremiumContent').style.display = tier === 'premium' ? 'block' : 'none';
-      });
-    });
-
-    /* Deep analysis button */
-    var deepBtn = document.getElementById('aiDeepBtn');
-    if (deepBtn) deepBtn.addEventListener('click', runPremium);
-
-    /* Refresh button */
     var refreshBtn = document.getElementById('aiRefreshBtn');
-    if (refreshBtn) refreshBtn.addEventListener('click', function() {
-      runFree();
-    });
+    if (refreshBtn) refreshBtn.addEventListener('click', function() { runFree(); });
   }
 
   /* ---- Init ---- */

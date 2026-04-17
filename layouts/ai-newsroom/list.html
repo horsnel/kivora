@@ -1,0 +1,162 @@
+{{ define "main" }}
+<div class="ai-newsroom-page">
+  <!-- Hero Header -->
+  <div class="ai-newsroom-hero">
+    <div class="ai-newsroom-hero-inner">
+      <div class="ai-newsroom-badge">Powered by AI</div>
+      <h1>AI Newsroom</h1>
+      <p class="ai-newsroom-hero-desc">Generate professional news articles in seconds. Choose your topic, tone, and category, then let our AI create publication-ready content for MenshlyGlobal.</p>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="ai-newsroom-content">
+    <!-- Generator Panel -->
+    <div class="ai-newsroom-generator">
+      <div class="ai-newsroom-panel">
+        <div class="ai-newsroom-panel-header">
+          <div class="ai-newsroom-panel-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </div>
+          <div>
+            <h2>Article Generator</h2>
+            <p>Configure and generate your article</p>
+          </div>
+        </div>
+
+        <!-- Topic Input -->
+        <div class="ai-newsroom-field">
+          <label for="aiTopicInput">Topic / Headline Idea</label>
+          <div class="ai-newsroom-input-wrap">
+            <input type="text" id="aiTopicInput" placeholder="e.g. Nigeria's fintech revolution in 2026" autocomplete="off">
+            <button class="ai-newsroom-quick-btn" id="aiQuickTopic" title="Get a trending topic suggestion">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Category & Tone -->
+        <div class="ai-newsroom-row">
+          <div class="ai-newsroom-field">
+            <label for="aiCategorySelect">Category</label>
+            <select id="aiCategorySelect">
+              <option value="business">Business &amp; Finance</option>
+              <option value="technology">Technology</option>
+              <option value="world">World News</option>
+              <option value="health">Health</option>
+              <option value="science">Science</option>
+              <option value="opinion">Opinion</option>
+            </select>
+          </div>
+          <div class="ai-newsroom-field">
+            <label for="aiToneSelect">Tone</label>
+            <select id="aiToneSelect">
+              <option value="breaking">Breaking News</option>
+              <option value="analysis" selected>Analysis</option>
+              <option value="feature">Feature Story</option>
+              <option value="opinion">Opinion</option>
+            </select>
+          </div>
+          <div class="ai-newsroom-field">
+            <label for="aiLengthSelect">Length</label>
+            <select id="aiLengthSelect">
+              <option value="short">Short (~400w)</option>
+              <option value="medium" selected>Medium (~700w)</option>
+              <option value="long">Long (~1400w)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Generate Button -->
+        <button class="ai-newsroom-generate-btn" id="aiGenerateBtn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <span>Generate Article</span>
+        </button>
+
+        <!-- Status Messages -->
+        <div class="ai-newsroom-status" id="aiNewsroomStatus" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- Output Panel -->
+    <div class="ai-newsroom-output" id="aiNewsroomOutput">
+      <!-- Placeholder -->
+      <div class="ai-newsroom-placeholder" id="aiNewsroomPlaceholder">
+        <div class="ai-newsroom-placeholder-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </div>
+        <h3>Your article will appear here</h3>
+        <p>Enter a topic above and click Generate to create a professional news article.</p>
+        <div class="ai-newsroom-placeholder-features">
+          <div class="ai-nr-feat">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <span>Publication-Ready</span>
+          </div>
+          <div class="ai-nr-feat">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Fast Generation</span>
+          </div>
+          <div class="ai-nr-feat">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>Fact-Grounded</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Article Display (hidden until generated) -->
+      <div class="ai-newsroom-article" id="aiNewsroomArticle" style="display:none;">
+        <div class="ai-nr-article-header">
+          <span class="ai-nr-article-cat" id="aiNrArticleCat"></span>
+          <span class="ai-nr-article-badge">AI Generated</span>
+          <span class="ai-nr-article-time" id="aiNrArticleTime"></span>
+        </div>
+        <h2 class="ai-nr-article-title" id="aiNrArticleTitle"></h2>
+        <p class="ai-nr-article-summary" id="aiNrArticleSummary"></p>
+        <div class="ai-nr-article-meta">
+          <span>By MenshlyGlobal AI</span>
+          <span id="aiNrArticleReadTime"></span>
+        </div>
+        <div class="ai-nr-article-body" id="aiNrArticleBody"></div>
+        <div class="ai-nr-article-actions">
+          <button class="ai-nr-action-btn" id="aiNrCopyBtn" title="Copy article">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <span>Copy</span>
+          </button>
+          <button class="ai-nr-action-btn" id="aiNrSaveBtn" title="Save to library">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            <span>Save</span>
+          </button>
+          <button class="ai-nr-action-btn" id="aiNrShareBtn" title="Share">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            <span>Share</span>
+          </button>
+          <button class="ai-nr-action-btn ai-nr-action-delete" id="aiNrDiscardBtn" title="Discard">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <span>Discard</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Saved Articles Library -->
+    <div class="ai-newsroom-library" id="aiNewsroomLibrary">
+      <div class="ai-newsroom-library-header">
+        <h3>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          Article Library
+        </h3>
+        <div class="ai-newsroom-library-count" id="aiLibraryCount">0 articles</div>
+      </div>
+      <div class="ai-newsroom-library-grid" id="aiLibraryGrid">
+        <div class="ai-newsroom-library-empty" id="aiLibraryEmpty">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          <p>No saved articles yet</p>
+          <span>Generated articles you save will appear here</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/assets/js/ai-newsroom.js" defer></script>
+{{ end }}
