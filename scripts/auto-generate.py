@@ -31,15 +31,20 @@ import ssl
 from datetime import datetime, timezone
 
 # ── Configuration ──────────────────────────────────────────
-API_KEY = os.environ.get("AI_API_KEY", "")
-API_BASE = (os.environ.get("AI_API_BASE") or "https://api.cerebras.ai/v1").rstrip("/")
-MODEL = os.environ.get("AI_MODEL") or "llama-3.3-70b"
-PEXELS_KEY = os.environ.get("PEXELS_API_KEY", "")
-PIXABAY_KEY = os.environ.get("PIXABAY_API_KEY", "")
-FREPIK_KEY = os.environ.get("FREPIK_API_KEY", "")
-NEWS_API_KEY = os.environ.get("NEWS_API_KEY", "")
-MANUAL_CATEGORY = os.environ.get("MANUAL_CATEGORY", "")
-MANUAL_TOPIC = os.environ.get("MANUAL_TOPIC", "")
+def _clean(val):
+    """Strip invisible Unicode chars that break HTTP headers (e.g. copy-paste LRM/RLO)."""
+    # Remove invisible control chars: LRM (U+200E), RLM (U+200F), BOM (U+FEFF), zero-width chars, etc.
+    return re.sub(r'[\u200b-\u200f\u2028-\u202e\ufeff\u00ad]', '', val).strip()
+
+API_KEY = _clean(os.environ.get("AI_API_KEY", ""))
+API_BASE = _clean((os.environ.get("AI_API_BASE") or "https://api.cerebras.ai/v1")).rstrip("/")
+MODEL = _clean(os.environ.get("AI_MODEL") or "llama-3.3-70b")
+PEXELS_KEY = _clean(os.environ.get("PEXELS_API_KEY", ""))
+PIXABAY_KEY = _clean(os.environ.get("PIXABAY_API_KEY", ""))
+FREPIK_KEY = _clean(os.environ.get("FREPIK_API_KEY", ""))
+NEWS_API_KEY = _clean(os.environ.get("NEWS_API_KEY", ""))
+MANUAL_CATEGORY = _clean(os.environ.get("MANUAL_CATEGORY", ""))
+MANUAL_TOPIC = _clean(os.environ.get("MANUAL_TOPIC", ""))
 
 if not API_KEY:
     _err("AI_API_KEY not set. Add it in GitHub Secrets.")
