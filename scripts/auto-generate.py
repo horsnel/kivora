@@ -58,9 +58,16 @@ print(f"DEBUG — PIXABAY: {'set' if PIXABAY_KEY else 'not set'}")
 print(f"DEBUG — FREPIK: {'set' if FREPIK_KEY else 'not set'}")
 print(f"DEBUG — NEWSAPI: {'set' if NEWS_API_KEY else 'not set'}")
 
-# ── Validate model exists ───────────────────────────────────
-def validate_model():
-    """Check if the model exists by listing available models."""
+# ── Auto-detect best available model ────────────────────────
+# Priority order: prefer larger models for quality
+MODEL_PREFERENCES = [
+    "llama3.1-70b", "llama-3.3-70b", "llama3.1-8b",
+    "gpt-oss-120b", "qwen-3-235b-a22b-instruct-2507",
+    "zai-glm-4.7"
+]
+
+def auto_detect_model():
+    """Query the API for available models and pick the best one."""
     try:
         req = urllib.request.Request(
             API_BASE + "/models",
@@ -71,22 +78,29 @@ def validate_model():
         )
         with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode())
-        models = [m["id"] for m in data.get("data", [])]
-        print(f"DEBUG — Available models ({len(models)}): {', '.join(models[:20])}")
-        if MODEL not in models:
-            # Try to find closest match
-            matches = [m for m in models if "llama" in m.lower() and "70" in m]
-            if matches:
-                print(f"DEBUG — '{MODEL}' not found. Did you mean: {matches[0]}?")
-            else:
-                print(f"DEBUG — '{MODEL}' not found in available models.")
-            return False
-        return True
-    except Exception as e:
-        print(f"DEBUG — Could not list models: {e}")
-        return True  # Don't block if endpoint doesn't exist
+        available = [m["id"] for m in data.get("data", [])]
+        print(f"DEBUG — Available models: {', '.join(available)}")
 
-validate_model()
+        # If user-specified model exists, use it
+        if MODEL in available:
+            print(f"DEBUG — Using configured model: {MODEL}")
+            return MODEL
+
+        # Otherwise pick the best from our preference list
+        for pref in MODEL_PREFERENCES:
+            if pref in available:
+                print(f"DEBUG — '{MODEL}' not found. Auto-selected: {pref}")
+                return pref
+
+        # Last resort: use first available
+        fallback = available[0] if available else MODEL
+        print(f"DEBUG — Using fallback model: {fallback}")
+        return fallback
+    except Exception as e:
+        print(f"DEBUG — Could not list models ({e}). Using: {MODEL}")
+        return MODEL
+
+ACTIVE_MODEL = auto_detect_model()
 
 # ── Authors pool ───────────────────────────────────────────
 AUTHORS = [
@@ -634,7 +648,7 @@ CRITICAL RULES:
     user_prompt = f"Write a {category_label} piece about: \"{topic}\""
 
     body = json.dumps({
-        "model": MODEL,
+        "model": ACTIVE_MODEL,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
