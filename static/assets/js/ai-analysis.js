@@ -309,6 +309,12 @@
 
     try {
       await loadWebLLM();
+
+      /* Check if webllm global loaded correctly */
+      if (typeof webllm === 'undefined') {
+        throw new Error('AI engine library failed to load. This browser may not support WebLLM.');
+      }
+
       statusEl.textContent = 'Loading AI model (first time may take 1-2 min)...';
 
       var initProgressCallback = function(report) {
@@ -354,10 +360,21 @@
           '</div>';
       }
     } catch(err) {
-      statusEl.textContent = 'Error: ' + (err.message || 'Unknown error');
-      fillEl.style.width = '0%';
+      var errMsg = err.message || 'Unknown error';
+      /* Hide progress, show user-friendly error */
       progressDiv.style.display = 'none';
-      if (introEl) introEl.style.display = 'block';
+      if (resultsEl) {
+        resultsEl.style.display = 'block';
+        resultsEl.innerHTML = '<div style="padding:12px 0;text-align:center;">' +
+          '<div style="font-size:1.5rem;margin-bottom:8px;">&#9888;&#65039;</div>' +
+          '<div style="font-size:0.8rem;font-weight:700;color:var(--text-primary);margin-bottom:4px;">AI Engine Unavailable</div>' +
+          '<div style="font-size:0.72rem;color:var(--text-muted);line-height:1.4;">' +
+          'The browser-local AI requires WebGPU support and may not work in all browsers. ' +
+          'The free rule-based analysis above is always available.</div>' +
+          '<button onclick="document.getElementById(\'aiPremiumResults\').style.display=\'none\';document.querySelector(\'.ai-premium-intro\').style.display=\'block\';" ' +
+          'style="margin-top:10px;padding:6px 16px;background:var(--bg);border:1px solid var(--border);border-radius:4px;font-size:0.75rem;cursor:pointer;font-family:var(--font-sans);color:var(--text-secondary);">Try Again</button>' +
+          '</div>';
+      }
     }
   }
 
