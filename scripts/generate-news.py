@@ -562,7 +562,7 @@ def is_similar_to_existing(title, existing_titles):
         overlap = new_words & ex_words
         # If 60%+ of the new title's key words match, consider it a duplicate
         if len(overlap) / max(len(new_words), 1) >= 0.6:
-            print(f"  [Dedup] Too similar to existing: "{existing[:60]}..." (overlap: {overlap})")
+            print(f"  [Dedup] Too similar to existing: \"{existing[:60]}...\" (overlap: {overlap})")
             return True
     return False
 
