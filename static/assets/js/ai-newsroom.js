@@ -639,18 +639,27 @@
       if (resultEl) {
         resultEl.style.display = 'block';
         resultEl.className = 'ai-nr-publish-result ai-nr-publish-success';
+        var shareUrl = data.url || '';
+        var shareTitle = title.replace(/'/g, "\'");
         resultEl.innerHTML =
           '<div class="ai-nr-pub-success-main">' +
           '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
           '<span>Published successfully! Commit <strong>' + (data.commitSha || '') + '</strong>. ' +
-          '<a href="' + (data.url || '#') + '" target="_blank" rel="noopener">View article</a></span></div>' +
+          '<a href="' + shareUrl + '" target="_blank" rel="noopener">View article</a></span></div>' +
           '<div class="ai-nr-pub-share-actions">' +
-          '<button class="ai-nr-share-x-btn" onclick="window._nr_shareToX('' + (data.url || '') + '','' + title.replace(/'/g, "\'") + '')" type="button">' +
+          '<button class="ai-nr-share-x-btn" data-share-url="' + shareUrl + '" data-share-title="' + shareTitle + '" type="button">' +
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>' +
           ' Share to X</button>' +
-          '<button class="ai-nr-copy-link-btn" onclick="window._nr_copyShareLink('' + (data.url || '') + '')" type="button">' +
+          '<button class="ai-nr-copy-link-btn" data-share-url="' + shareUrl + '" type="button">' +
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>' +
           ' Copy Link</button></div>';
+        // Attach share button listeners
+        resultEl.querySelector('.ai-nr-share-x-btn').addEventListener('click', function() {
+          window._nr_shareToX(this.getAttribute('data-share-url'), this.getAttribute('data-share-title'));
+        });
+        resultEl.querySelector('.ai-nr-copy-link-btn').addEventListener('click', function() {
+          window._nr_copyShareLink(this.getAttribute('data-share-url'));
+        });
       }
 
       showStatus('success', 'Article published! It will appear on the site within 1-2 minutes.', 'manualPostStatus');
@@ -972,18 +981,27 @@
       if (resultEl) {
         resultEl.style.display = 'block';
         resultEl.className = 'ai-nr-publish-result ai-nr-publish-success';
+        var shareUrl = data.url || '';
+        var shareTitle = (currentArticle.title || '').replace(/'/g, "\\'");
         resultEl.innerHTML =
           '<div class="ai-nr-pub-success-main">' +
           '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
           '<span>Published successfully! Commit <strong>' + (data.commitSha || '') + '</strong>. ' +
-          '<a href="' + (data.url || '#') + '" target="_blank" rel="noopener">View article</a></span></div>' +
+          '<a href="' + shareUrl + '" target="_blank" rel="noopener">View article</a></span></div>' +
           '<div class="ai-nr-pub-share-actions">' +
-          '<button class="ai-nr-share-x-btn" onclick="window._nr_shareToX('' + (data.url || '') + '','' + (currentArticle.title || '').replace(/'/g, "\'") + '')" type="button">' +
+          '<button class="ai-nr-share-x-btn" data-share-url="' + shareUrl + '" data-share-title="' + shareTitle + '" type="button">' +
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>' +
           ' Share to X</button>' +
-          '<button class="ai-nr-copy-link-btn" onclick="window._nr_copyShareLink('' + (data.url || '') + '')" type="button">' +
+          '<button class="ai-nr-copy-link-btn" data-share-url="' + shareUrl + '" type="button">' +
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>' +
           ' Copy Link</button></div>';
+        // Attach share button listeners
+        resultEl.querySelector('.ai-nr-share-x-btn').addEventListener('click', function() {
+          window._nr_shareToX(this.getAttribute('data-share-url'), this.getAttribute('data-share-title'));
+        });
+        resultEl.querySelector('.ai-nr-copy-link-btn').addEventListener('click', function() {
+          window._nr_copyShareLink(this.getAttribute('data-share-url'));
+        });
       }
 
       var exists = savedArticles.some(function(a) { return a.id === currentArticle.id; });
@@ -1423,57 +1441,53 @@
         });
       });
     }
-  }
 
-    // Edit Post tab
-    var editSelect = getEl("editArticleSelect");
-    if (editSelect) editSelect.addEventListener("change", loadArticleForEditing);
-
-    var editPreviewBtn = getEl("editPreviewBtn");
-    if (editPreviewBtn) editPreviewBtn.addEventListener("click", previewEditChanges);
-
-    var editClosePreviewBtn = getEl("editClosePreview");
-    if (editClosePreviewBtn) editClosePreviewBtn.addEventListener("click", closeEditPreview);
-
-    var editSaveBtn = getEl("editSaveBtn");
-    if (editSaveBtn) editSaveBtn.addEventListener("click", saveEditedArticle);
-
-    var editCancelBtn = getEl("editCancelBtn");
-    if (editCancelBtn) editCancelBtn.addEventListener("click", cancelEdit);
-
-    // Headline rewriter
-    var rewriteTitleBtn = getEl("rewriteTitleBtn");
-    if (rewriteTitleBtn) rewriteTitleBtn.addEventListener("click", rewriteHeadline);
-
-    // Trending topics
-    var trendingRefreshBtn = getEl("aiTrendingRefresh");
-    if (trendingRefreshBtn) trendingRefreshBtn.addEventListener("click", fetchTrendingTopics);
-
-    // Breaking news admin
-    var breakingActivateBtn = getEl("breakingActivateBtn");
-    if (breakingActivateBtn) breakingActivateBtn.addEventListener("click", activateBreakingNews);
-    var breakingClearBtn = getEl("breakingClearBtn");
-    if (breakingClearBtn) breakingClearBtn.addEventListener("click", clearBreakingNews);
-    // Load current breaking news state
-    loadBreakingNews();
-
-    var editBodyEl = getEl("editBody");
-    if (editBodyEl) editBodyEl.addEventListener("input", updateEditWordCount);
-
-    // Published articles - edit buttons
-    var publishedGrid = getEl("aiNewsroomPublishedGrid");
+    // Published articles — edit buttons
     if (publishedGrid) {
-      publishedGrid.querySelectorAll(".ai-nr-pub-edit-btn").forEach(function(btn) {
-        btn.addEventListener("click", function(e) {
+      publishedGrid.querySelectorAll('.ai-nr-pub-edit-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
           e.preventDefault();
           e.stopPropagation();
-          var slug = this.getAttribute("data-slug");
-          var title = this.getAttribute("data-title");
+          var slug = this.getAttribute('data-slug');
+          var title = this.getAttribute('data-title');
           openEditForSlug(slug, title);
         });
       });
     }
 
+    // Edit Post tab
+    var editSelect = getEl('editArticleSelect');
+    if (editSelect) editSelect.addEventListener('change', loadArticleForEditing);
+
+    var editPreviewBtn = getEl('editPreviewBtn');
+    if (editPreviewBtn) editPreviewBtn.addEventListener('click', previewEditChanges);
+
+    var editClosePreviewBtn = getEl('editClosePreview');
+    if (editClosePreviewBtn) editClosePreviewBtn.addEventListener('click', closeEditPreview);
+
+    var editSaveBtn = getEl('editSaveBtn');
+    if (editSaveBtn) editSaveBtn.addEventListener('click', saveEditedArticle);
+
+    var editCancelBtn = getEl('editCancelBtn');
+    if (editCancelBtn) editCancelBtn.addEventListener('click', cancelEdit);
+
+    // Headline rewriter
+    var rewriteTitleBtn = getEl('rewriteTitleBtn');
+    if (rewriteTitleBtn) rewriteTitleBtn.addEventListener('click', rewriteHeadline);
+
+    // Trending topics
+    var trendingRefreshBtn = getEl('aiTrendingRefresh');
+    if (trendingRefreshBtn) trendingRefreshBtn.addEventListener('click', fetchTrendingTopics);
+
+    // Breaking news admin
+    var breakingActivateBtn = getEl('breakingActivateBtn');
+    if (breakingActivateBtn) breakingActivateBtn.addEventListener('click', activateBreakingNews);
+    var breakingClearBtn = getEl('breakingClearBtn');
+    if (breakingClearBtn) breakingClearBtn.addEventListener('click', clearBreakingNews);
+
+    var editBodyEl = getEl('editBody');
+    if (editBodyEl) editBodyEl.addEventListener('input', updateEditWordCount);
+  }
 
   /* ================================================================
      CONTENT CALENDAR
@@ -1506,7 +1520,7 @@
     var labelEl = getEl('aiNrCalMonthLabel');
     if (labelEl) {
       var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-      labelEl.textContent = monthNames[month]] + ' ' + year;
+      labelEl.textContent = monthNames[month] + ' ' + year;
     }
 
     var bodyEl = getEl('aiNrCalBody');
@@ -1647,6 +1661,7 @@
     updateWordCount();
     populateEditSelect();
     setupCalendar();
+    loadBreakingNews();
   }
 
   if (document.readyState === 'loading') {

@@ -1,4 +1,4 @@
 <div class="video-embed" data-id="{{ index .Params 0 }}">
-  <div class="video-placeholder"><img src="https://img.youtube.com/vi/{{ index .Params 0 }}/hqdefault.jpg" alt="YouTube video" loading="lazy"><button class="play-btn">&#9654;</button></div>
+  <div class="video-placeholder"><img src="https://img.youtube.com/vi/{{ index .Params 0 }}/hqdefault.jpg" alt="YouTube video" loading="lazy"><button class="play-btn"><svg width="48" height="48" viewBox="0 0 24 24" fill="rgba(255,255,255,0.95)" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg></button></div>
 </div>
 <script>document.querySelectorAll(".video-embed").forEach(function(el){el.querySelector(".play-btn").addEventListener("click",function(){var id=el.dataset.id;el.innerHTML='<iframe src="https://www.youtube.com/embed/'+id+'?autoplay=1" frameborder="0" allowfullscreen loading="lazy" style="width:100%;aspect-ratio:16/9;border:none;"></iframe>';});});</script>
