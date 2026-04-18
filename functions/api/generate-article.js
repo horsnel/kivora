@@ -93,34 +93,28 @@ export async function onRequestPost(context) {
     const toneLabel = toneMap[tone] || 'informative analysis style';
     const lengthLabel = lengthMap[length] || '600-800 words';
 
-    /* === System Prompt === */
-    const systemPrompt = `You are a content creator for MenshlyGlobal, a premium international media platform. You write ONLY the following types of content: reviews, analysis, opinions, guides, and commentary. You NEVER write breaking news, factual news reporting, or time-sensitive news articles.
+    /* === System Prompt — plain markdown output (like the Python script) === */
+    const systemPrompt = `You are a senior content creator for MenshlyGlobal, a premium international media platform. You write reviews, analysis, opinions, guides, and commentary — never breaking news.
 
-CRITICAL RULES:
-- Write in ${toneLabel} style
+Rules:
+- Style: ${toneLabel}
 - Target length: ${lengthLabel}
 - Category: ${catLabel}
-- This is an OPINION/REVIEW piece, not a news article
-- Include a compelling, SEO-friendly headline (max 15 words)
-- Include a 1-2 sentence summary/standfirst
-- Use subheadings for structure
-- For movie reviews: include a rating out of 10, pros/cons, and final verdict
-- For money ideas: include estimated startup costs, difficulty level, and income potential
-- For business stats: include relevant data points, percentages, and trends
-- For guides: include numbered steps, tips, and common mistakes to avoid
-- Be specific — use concrete examples, numbers, and real-world references
-- Never claim to report facts that need verification — this is analysis/opinion only
+- Include a compelling headline (max 15 words)
+- Include a 1-2 sentence summary, then use ## subheadings for the body
+- Write in HTML using <h2>, <p>, <blockquote>, <ul>, <li> tags for the body
+- Be specific with concrete examples, numbers, and real-world references
 - End with a clear conclusion or actionable takeaway
 
-FORMAT: Return a JSON object with these keys:
-  "title" (string) — the headline
-  "summary" (string) — 1-2 sentence standfirst
-  "category" (string) — the category label
-  "content" (string) — the article body in HTML using <h2>, <p>, <blockquote>, <ul>, <li> tags`;
+OUTPUT FORMAT — you MUST follow this exactly:
+Line 1: The article title (no # prefix)
+Line 2: empty
+Line 3-4: The summary (1-2 sentences)
+Then: the article body using <h2>, <p>, <ul>, <li>, <blockquote> HTML tags`;
 
     const userPrompt = `Write a ${catLabel} piece about: "${topic}"`;
 
-    /* === Call AI API — try models until one works === */
+    /* === Call AI API — plain text mode only (more reliable across models) === */
     let rawContent = null;
 
     // Build list of models to try: chosen model first, then all available
@@ -132,7 +126,6 @@ FORMAT: Return a JSON object with these keys:
     }
 
     for (const tryModel of modelsToTry) {
-      // Try with JSON mode
       try {
         const aiResponse = await fetch(apiBase + '/chat/completions', {
           method: 'POST',
@@ -146,66 +139,38 @@ FORMAT: Return a JSON object with these keys:
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt }
             ],
-            max_tokens: 3000,
-            temperature: 0.75,
-            response_format: { type: 'json_object' }
-          })
-        });
-
-        if (aiResponse.ok) {
-          const aiData = await aiResponse.json();
-          rawContent = aiData.choices?.[0]?.message?.content;
-          if (rawContent) {
-            model = tryModel; // remember which model worked
-            break;
-          }
-        }
-        // If 404 model not found, skip to next model
-        if (aiResponse.status === 404) continue;
-        // If 400 bad request (e.g. json_object not supported), try without json mode below
-      } catch (e) { continue; }
-
-      // Try without JSON mode
-      try {
-        const aiResponse = await fetch(apiBase + '/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + apiKey
-          },
-          body: JSON.stringify({
-            model: tryModel,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt }
-            ],
-            max_tokens: 3000,
+            max_tokens: 4000,
             temperature: 0.75
           })
         });
 
         if (aiResponse.ok) {
           const aiData = await aiResponse.json();
-          rawContent = aiData.choices?.[0]?.message?.content;
-          if (rawContent) {
+          const content = aiData.choices?.[0]?.message?.content;
+          if (content && content.length > 100) {
+            rawContent = content;
             model = tryModel;
             break;
           }
         }
-        // 404 = model not found, try next
-        // 401 = auth error, stop trying
+        // 404 = model not found, skip to next
+        if (aiResponse.status === 404) continue;
+        // 401 = auth error, stop
         if (aiResponse.status === 401) {
           return jsonResponse({
-            error: 'Authentication failed (401). Check that AI_API_KEY is correct in Cloudflare env vars.'
+            error: 'Authentication failed (401). Check AI_API_KEY in Cloudflare env vars.'
           }, 500);
         }
+        // 422/400 = bad request, try next model
+        continue;
       } catch (e) { continue; }
     }
 
     if (!rawContent) {
       return jsonResponse({
-        error: 'Could not generate content. No compatible AI model found. Tried: ' + modelsToTry.slice(0, 3).join(', ') + (modelsToTry.length > 3 ? '...' : ''),
-        hint: 'Check AI_API_KEY and AI_API_BASE in Cloudflare env vars. Make sure your key has access to at least one model.'
+        error: 'Could not generate content with any available model.',
+        hint: 'Models tried: ' + modelsToTry.slice(0, 5).join(', '),
+        tried: modelsToTry
       }, 500);
     }
 
@@ -248,75 +213,80 @@ FORMAT: Return a JSON object with these keys:
   }
 }
 
-/* === Response Parser — handles JSON, code blocks, and plain markdown === */
+/* === Response Parser — handles title/summary/body plain text + JSON === */
 function parseAiResponse(raw, topic, catLabel) {
-  // Format 1: Clean JSON
+  // Format 1: Clean JSON (some models still return JSON)
   try {
     const parsed = JSON.parse(raw);
     if (parsed.title && parsed.content && parsed.content.length >= 100) {
-      return parsed;
+      if (/<h[1-6]|<p|<div/i.test(parsed.content)) {
+        return parsed;
+      }
+      return {
+        title: parsed.title,
+        summary: parsed.summary || '',
+        category: parsed.category || catLabel,
+        content: ensureHtml(parsed.content)
+      };
     }
   } catch (e) {}
 
-  // Format 2: JSON wrapped in markdown code block
+  // Format 2: JSON in code block
   const codeBlockMatch = raw.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
   if (codeBlockMatch) {
     try {
       const parsed = JSON.parse(codeBlockMatch[1]);
       if (parsed.title && parsed.content && parsed.content.length >= 100) {
-        return parsed;
+        return {
+          title: parsed.title,
+          summary: parsed.summary || '',
+          category: parsed.category || catLabel,
+          content: ensureHtml(parsed.content)
+        };
       }
     } catch (e) {}
   }
 
-  // Format 3: JSON with escaped content field (nested markdown)
-  try {
-    const parsed = JSON.parse(raw);
-    const nested = parsed.content;
-    if (nested) {
-      const cleaned = nested.trim().replace(/^["']|["']$/g, '');
-      if (cleaned.length >= 200) {
-        return {
-          title: parsed.title || topic,
-          summary: parsed.summary || cleaned.substring(0, 200),
-          category: parsed.category || catLabel,
-          content: ensureHtml(cleaned)
-        };
-      }
-    }
-  } catch (e) {}
-
-  // Format 4: Plain markdown response
+  // Format 3: Plain text — first line = title, next lines = summary, rest = body
   const cleaned = raw.trim().replace(/^```\w*\s*/, '').replace(/\s*```$/, '');
   if (cleaned.length >= 200) {
     const lines = cleaned.split('\n');
+    let title = lines[0].trim().replace(/^#{1,6}\s+/, '');
+
+    let summary = '';
+    let bodyStartLine = 1;
     const summaryLines = [];
-    let bodyStart = 0;
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (line.startsWith('## ') || line.startsWith('# ')) {
-        bodyStart = i;
+    for (let i = 1; i < Math.min(lines.length, 8); i++) {
+      const line = lines[i].trim();
+      if (line.startsWith('<h') || line.startsWith('<p') || line.startsWith('<div')) {
+        bodyStartLine = i;
         break;
       }
-      if (line.trim()) summaryLines.push(line);
+      if (line === '') {
+        if (summaryLines.length > 0) { bodyStartLine = i + 1; break; }
+        continue;
+      }
+      summaryLines.push(line);
     }
-    const summary = summaryLines.join(' ').substring(0, 300);
-    const body = bodyStart > 0 ? lines.slice(bodyStart).join('\n') : cleaned;
+    summary = summaryLines.join(' ').substring(0, 300);
+    const body = lines.slice(bodyStartLine).join('\n').trim();
 
-    return {
-      title: extractTitle(lines, topic),
-      summary: summary || topic,
-      category: catLabel,
-      content: ensureHtml(body)
-    };
+    if (body.length >= 150) {
+      return {
+        title: title || topic,
+        summary: summary || topic,
+        category: catLabel,
+        content: ensureHtml(body)
+      };
+    }
   }
 
-  // Format 5: Last resort — just wrap it
+  // Format 4: Last resort
   return {
     title: topic,
-    summary: raw.substring(0, 200),
+    summary: cleaned.substring(0, 200),
     category: catLabel,
-    content: '<p>' + raw.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>') + '</p>'
+    content: '<p>' + cleaned.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>') + '</p>'
   };
 }
 
