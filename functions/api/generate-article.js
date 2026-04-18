@@ -181,25 +181,27 @@ Do NOT output JSON. Do NOT output any code blocks or schema descriptions. Output
     /* === Fetch Image - try Pexels first, then fallback === */
     article.imageStatus = "none";
     var imageFetched = false;
+    var imgRand = Math.floor(Math.random() * 10000);
 
     if (pexelsKey) {
       try {
-        /* Try category-specific search first */
+        /* Try category-specific search first with random pagination */
         var searchQueries = buildImageQueries(topic, category);
         for (var qi = 0; qi < searchQueries.length && !imageFetched; qi++) {
           var sq = searchQueries[qi];
+          var randomPage = Math.floor(Math.random() * 5) + 1;
           var imgResp = await fetch(
-            "https://api.pexels.com/v1/search?query=" + encodeURIComponent(sq) + "&per_page=3&orientation=landscape",
+            "https://api.pexels.com/v1/search?query=" + encodeURIComponent(sq) + "&per_page=3&page=" + randomPage + "&orientation=landscape",
             { headers: { "Authorization": pexelsKey } }
           );
           if (imgResp.ok) {
             var imgData = await imgResp.json();
             if (imgData.photos && imgData.photos.length > 0) {
-              var photo = imgData.photos[0];
-              article.image = photo.src.large;
-              article.imageThumb = photo.src.medium;
-              article.imageCredit = photo.photographer;
-              article.imageLink = photo.photographer_url;
+              var pick = imgData.photos[Math.floor(Math.random() * imgData.photos.length)];
+              article.image = pick.src.large;
+              article.imageThumb = pick.src.medium;
+              article.imageCredit = pick.photographer;
+              article.imageLink = pick.photographer_url;
               article.imageStatus = "pexels";
               imageFetched = true;
             }
@@ -215,7 +217,7 @@ Do NOT output JSON. Do NOT output any code blocks or schema descriptions. Output
 
     /* Fallback: use Lorem Picsum for a consistent photo */
     if (!imageFetched) {
-      var imgSeed = imgSlugify(topic);
+      var imgSeed = imgSlugify(topic) + "-" + imgRand;
       article.image = "https://picsum.photos/seed/" + imgSeed + "/1200/630";
       article.imageThumb = "https://picsum.photos/seed/" + imgSeed + "/600/400";
       article.imageCredit = "Picsum";
