@@ -5392,3 +5392,135 @@ img { max-width: 100%; height: auto; }
 [data-theme="dark"] .ai-nr-trending-chip:hover {
   background: rgba(192,57,43,0.15);
 }
+
+/* === Audio Player === */
+#audio-player-wrap {
+  margin: 20px 0;
+}
+.audio-player-bar {
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--shadow);
+}
+.audio-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+.audio-btn:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.audio-btn svg { flex-shrink: 0; }
+.audio-listen-btn {
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.audio-listen-btn:hover {
+  background: var(--accent-dark);
+}
+.audio-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.audio-speed-btn {
+  min-width: 40px;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+.audio-status {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+[data-theme="dark"] .audio-player-bar {
+  background: #1a1a1a;
+  border-color: #333;
+}
+[data-theme="dark"] .audio-btn {
+  color: #ddd;
+  border-color: #444;
+}
+[data-theme="dark"] .audio-btn:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+[data-theme="dark"] .audio-status {
+  color: #888;
+}
+
+/* === Author Full Bio === */
+.author-full-bio {
+  margin: 16px 0 32px;
+  padding: 20px;
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  box-shadow: var(--shadow);
+}
+.author-full-bio p {
+  margin-bottom: 12px;
+}
+.author-full-bio p:last-child {
+  margin-bottom: 0;
+}
+[data-theme="dark"] .author-full-bio {
+  background: #1a1a1a;
+  border-color: #333;
+  color: #bbb;
+}
+
+/* === Static Page Content === */
+.static-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+.static-page h1 {
+  font-size: 32px;
+  margin-bottom: 24px;
+  color: var(--text-primary);
+}
+.static-content h2 {
+  font-size: 22px;
+  margin: 28px 0 12px;
+  color: var(--text-primary);
+}
+.static-content p {
+  margin-bottom: 16px;
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--text-secondary);
+}
+.static-content strong {
+  color: var(--text-primary);
+}
+[data-theme="dark"] .static-page h1,
+[data-theme="dark"] .static-content h2 {
+  color: #eee;
+}
+[data-theme="dark"] .static-content p {
+  color: #bbb;
+}

@@ -12,15 +12,29 @@
 
       {{/* ===== AUTHOR PAGE ===== */}}
       {{ if eq $singular "author" }}
+      {{/* Look up author bio from content/authors/<name>/_index.md */}}
+      {{ $authorPage := site.GetPage (printf "/authors/%s/_index" ($term | urlize)) }}
+      {{ $authorRole := "" }}
+      {{ $authorBio := "" }}
+      {{ with $authorPage }}
+        {{ $authorRole = .Params.role }}
+        {{ $authorBio = .Content }}
+      {{ end }}
+
+      {{/* Also search by author param (not just taxonomy) */}}
+      {{ $allPosts := where .Site.RegularPages "Params.author" $term }}
+      {{ $totalCount := len $allPosts }}
+
       <div class="author-header">
         {{ $initial := substr $term 0 1 }}
         <div class="author-avatar">{{ $initial }}</div>
         <div class="author-info">
           <h1>{{ $term }}</h1>
-          <span class="author-role">Contributing Writer</span>
+          {{ with $authorRole }}<span class="author-role">{{ . }}</span>{{ else }}<span class="author-role">Contributing Writer</span>{{ end }}
           <span class="author-bio">{{ $totalCount }} article{{ if gt $totalCount 1 }}s{{ end }} published</span>
         </div>
       </div>
+      {{ with $authorBio }}<div class="author-full-bio">{{ . }}</div>{{ end }}
 
       {{ if gt $totalCount 0 }}
       <div class="section-header">
@@ -28,7 +42,7 @@
         <span class="see-all">{{ $totalCount }} articles</span>
       </div>
       <div class="posts">
-        {{ range $posts }}
+        {{ range $allPosts.ByDate.Reverse }}
         {{ $img := .Params.image }}
         {{ $cats := .Params.categories }}
         {{ $cat := "" }}{{ with $cats }}{{ $cat = index . 0 }}{{ end }}

@@ -1,4 +1,5 @@
 {{ define "main" }}
+<div class="reading-progress-bar" id="reading-progress-bar"></div>
 <article class="post-page">
   <div class="content-grid">
     <div class="main-column">
@@ -34,6 +35,7 @@
         </div>
         {{ end }}
         {{ partial "series-nav.html" . }}
+        {{ partial "related-articles.html" . }}
       </article>
     </div>
     <aside class="sidebar">
