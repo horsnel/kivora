@@ -130,6 +130,10 @@
         </div>
         <div class="ai-nr-article-body" id="aiNrArticleBody"></div>
         <div class="ai-nr-article-actions">
+          <button class="ai-nr-action-btn ai-nr-publish-btn" id="aiNrPublishBtn" title="Publish to site">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><polyline points="12 12 17 17"/><polyline points="12 17 17 12"/></svg>
+            <span>Publish</span>
+          </button>
           <button class="ai-nr-action-btn" id="aiNrCopyBtn" title="Copy article">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             <span>Copy</span>
@@ -147,6 +151,8 @@
             <span>Discard</span>
           </button>
         </div>
+        <!-- Publish Result Toast -->
+        <div class="ai-nr-publish-result" id="aiNrPublishResult" style="display:none;"></div>
       </div>
     </div>
 

@@ -7,6 +7,7 @@
 
   var STORAGE_KEY = 'menshly_ai_articles';
   var API_ENDPOINT = '/api/generate-article';
+  var PUBLISH_ENDPOINT = '/api/publish-article';
 
   var TRENDING_TOPICS = [
     'Dune: Part Two — A visual masterpiece or style over substance?',
@@ -348,6 +349,92 @@
     }
   }
 
+  /* ---- Publish Article to Site ---- */
+  async function publishArticle() {
+    if (!currentArticle) {
+      showStatus('error', 'No article to publish. Generate one first.');
+      return;
+    }
+
+    var publishBtn = getEl('aiNrPublishBtn');
+    if (!publishBtn) return;
+
+    /* Confirm before publishing */
+    var confirmed = confirm('Publish this article to MenshlyGlobal?\n\nTitle: ' + (currentArticle.title || '') + '\n\nThe article will be live on the site within 1-2 minutes.');
+    if (!confirmed) return;
+
+    publishBtn.disabled = true;
+    publishBtn.classList.add('ai-nr-publishing');
+    publishBtn.querySelector('span').textContent = 'Publishing...';
+    showStatus('loading', 'Publishing article to site...');
+
+    try {
+      var response = await fetch(PUBLISH_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: currentArticle.title,
+          summary: currentArticle.summary,
+          content: currentArticle.content,
+          category: currentArticle.category,
+          image: currentArticle.image,
+          imageCredit: currentArticle.imageCredit,
+          imageLink: currentArticle.imageLink,
+          topic: currentArticle.topic,
+          tone: currentArticle.tone
+        })
+      });
+
+      var data = await response.json();
+
+      if (!response.ok || data.error) {
+        var errMsg = data.error || 'Unknown error occurred';
+        if (response.status === 503) {
+          errMsg += ' Set GITHUB_TOKEN and GITHUB_REPO in Cloudflare env vars.';
+        }
+        throw new Error(errMsg);
+      }
+
+      /* Show success result */
+      var resultEl = getEl('aiNrPublishResult');
+      if (resultEl) {
+        resultEl.style.display = 'block';
+        resultEl.className = 'ai-nr-publish-result ai-nr-publish-success';
+        resultEl.innerHTML =
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
+          '<span>Published successfully! Commit <strong>' + (data.commitSha || '') + '</strong>. ' +
+          '<a href="' + (data.url || '#') + '" target="_blank" rel="noopener">View article</a> (live in 1-2 min)</span>';
+      }
+
+      /* Also save to library */
+      var exists = savedArticles.some(function(a) { return a.id === currentArticle.id; });
+      if (!exists) {
+        currentArticle.published = true;
+        currentArticle.publishUrl = data.url;
+        savedArticles.unshift(currentArticle);
+        saveArticles();
+      }
+
+      showStatus('success', 'Article published! It will appear on the site within 1-2 minutes.');
+
+      /* Disable publish button after success */
+      publishBtn.querySelector('span').textContent = 'Published';
+      publishBtn.classList.add('ai-nr-published');
+
+    } catch (err) {
+      showStatus('error', 'Publish failed: ' + (err.message || 'Unknown error'));
+      var resultEl = getEl('aiNrPublishResult');
+      if (resultEl) {
+        resultEl.style.display = 'block';
+        resultEl.className = 'ai-nr-publish-result ai-nr-publish-error';
+        resultEl.innerHTML = '<span>' + (err.message || 'Publish failed') + '</span>';
+      }
+    } finally {
+      publishBtn.disabled = false;
+      publishBtn.classList.remove('ai-nr-publishing');
+    }
+  }
+
   /* ---- Event Listeners ---- */
   function setupEventListeners() {
     var generateBtn = getEl('aiGenerateBtn');
@@ -356,12 +443,26 @@
     var saveBtn = getEl('aiNrSaveBtn');
     var shareBtn = getEl('aiNrShareBtn');
     var discardBtn = getEl('aiNrDiscardBtn');
+    var publishBtn = getEl('aiNrPublishBtn');
 
     if (generateBtn) generateBtn.addEventListener('click', generateArticle);
     if (quickBtn) quickBtn.addEventListener('click', suggestTopic);
     if (copyBtn) copyBtn.addEventListener('click', copyArticle);
     if (saveBtn) saveBtn.addEventListener('click', saveArticle);
     if (shareBtn) shareBtn.addEventListener('click', shareArticle);
+    if (publishBtn) publishBtn.addEventListener('click', publishArticle);
+    /* Reset publish button when a new article is generated */
+    if (generateBtn) generateBtn.addEventListener('click', function() {
+      var publishBtn2 = getEl('aiNrPublishBtn');
+      if (publishBtn2) {
+        publishBtn2.disabled = false;
+        publishBtn2.querySelector('span').textContent = 'Publish';
+        publishBtn2.classList.remove('ai-nr-published');
+      }
+      var resultEl = getEl('aiNrPublishResult');
+      if (resultEl) resultEl.style.display = 'none';
+    });
+
     if (discardBtn) discardBtn.addEventListener('click', function() {
       currentArticle = null;
       hideArticle();
@@ -371,6 +472,16 @@
         saveBtn2.disabled = false;
         saveBtn2.querySelector('span').textContent = 'Save';
       }
+      /* Reset publish button */
+      var publishBtn2 = getEl('aiNrPublishBtn');
+      if (publishBtn2) {
+        publishBtn2.disabled = false;
+        publishBtn2.querySelector('span').textContent = 'Publish';
+        publishBtn2.classList.remove('ai-nr-published');
+      }
+      /* Hide publish result */
+      var resultEl = getEl('aiNrPublishResult');
+      if (resultEl) resultEl.style.display = 'none';
     });
 
     var topicInput = getEl('aiTopicInput');
