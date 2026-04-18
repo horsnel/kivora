@@ -1,6 +1,6 @@
 {{ define "main" }}
-<div class="reading-progress-bar" id="reading-progress-bar"></div>
 <article class="post-page">
+<div class="reading-progress-bar" id="reading-progress-bar"></div>
   <div class="content-grid">
     <div class="main-column">
       {{ partial "breadcrumbs.html" . }}
@@ -16,7 +16,7 @@
             <span>{{ $readingTime }} min read</span>
             <span class="article-view-count" id="articleViewCount" style="display:none;">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              <span id="articleViewsNum">0</span> views
+              <span id="articleViewsNum">0</span> <span id="articleViewsLabel">views</span>
             </span>
           </div>
         </div>
@@ -29,6 +29,7 @@
           {{ .Content }}
         </div>
         {{ partial "social-share.html" . }}
+        {{ partial "author-bio.html" . }}
         {{ with .Params.tags }}
         <div class="post-tags">
           {{ range . }}<a href="/tags/{{ . | urlize }}" class="tag-pill">{{ . }}</a>{{ end }}
@@ -74,8 +75,10 @@
       if (d.success && d.views > 0) {
         var el = document.getElementById('articleViewCount');
         var num = document.getElementById('articleViewsNum');
+        var lbl = document.getElementById('articleViewsLabel');
         if (el) el.style.display = 'inline-flex';
         if (num) num.textContent = d.views;
+        if (lbl) lbl.textContent = d.views === 1 ? 'view' : 'views';
       }
     }).catch(function(){});
   }

@@ -153,3 +153,50 @@ Stage Summary:
 - Nav menu: Entertainment and Finance items restored
 - Article routing: auto-generated articles stay in ai-newsroom section only
 - All changes pushed to GitHub, Cloudflare Pages deployed successfully
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix all audit issues identified on MenshlyGlobal live site
+
+Work Log:
+- Reviewed all 8 partially-built and 3 not-built features from audit
+- Confirmed 4 features already fixed: reading progress bar, related articles, audio player CSS, tags cloud
+- Fixed author taxonomy: Updated 47 content files to use slug-based authors taxonomy (james-chen, sarah-mitchell, etc.)
+- Added menshly-intelligence-board entry to data/authors.yaml with AI-powered news desk bio
+- Rewrote taxonomy.html template to properly look up author names and bios from data/authors.yaml
+- Rewrote term.html template to use .Pages for Hugo taxonomy pages and look up author display names
+- Fixed template rendering errors: .Title called on string type inside {{ with $img }} blocks
+- Created rich About page template with hero section, values grid, coverage areas, and team section
+- Added comprehensive About page CSS (200+ lines) with dark mode support
+- Built auto-share API function (functions/api/auto-share.js) supporting Discord, Slack, Telegram, Twitter, custom webhooks
+- Built Hugo site successfully (204 pages)
+- Pushed commit to GitHub (ced86f7), triggering Cloudflare Pages deployment
+
+Stage Summary:
+- All audit fixes deployed
+- Author pages now show correct articles with bios and roles
+- About page has professional layout with team grid
+- Auto-share API available at /api/auto-share for webhook integrations
+- GA4 ID still needs user's real measurement ID to replace placeholder
+---
+Task ID: 1
+Agent: Main Agent
+Task: Full site audit and critical bug fixes
+
+Work Log:
+- Deployed 3 browser test agents to check homepage, article pages, and AI Newsroom
+- Discovered ROOT CAUSE: newsletter popup overlay (z-index:10000, display:flex, visibility:hidden) was blocking ALL pointer events site-wide
+- Fixed newsletter overlay CSS: added pointer-events:none to hidden state, pointer-events:auto to visible state
+- Removed duplicate search handler from nav.js (search.js already handles it)
+- Fixed related articles alt text: changed $.Title to .Title for correct per-article alt text
+- Fixed view count grammar: "1 views" now shows "1 view" with singular/plural handling
+- Created author-bio.html partial that looks up authors from data/authors.yaml by slug
+- Added author bio card CSS with avatar, name, role badge, and bio text
+- Pushed commit 5707cd4 to GitHub, triggering Cloudflare Pages rebuild
+
+Stage Summary:
+- Critical fix: newsletter popup no longer blocks all clicks site-wide
+- Search modal, tab switching, and all buttons now work properly
+- Author bios now appear on article pages
+- View count shows correct grammar
+- Related articles have correct alt text
