@@ -5,6 +5,8 @@ image: "https://images.pexels.com/photos/32417524/pexels-photo-32417524.jpeg?aut
 categories: ["health"]
 tags: ['2026', 'MenshlyGlobal', 'health']
 author: "Dr. Fatima Al Hassan"
+authors:
+- "dr-fatima-al-hassan"
 description: "Scripps Research Institute's innovative nanoparticle vaccine approach targets Hepatitis C virus with promising early trial results."
 ---
 

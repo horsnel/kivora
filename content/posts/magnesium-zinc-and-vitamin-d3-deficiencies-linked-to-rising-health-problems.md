@@ -5,6 +5,8 @@ image: "https://images.pexels.com/photos/5593720/pexels-photo-5593720.jpeg?auto=
 categories: ["health"]
 tags: ['2026', 'MenshlyGlobal', 'health']
 author: "Dr. Fatima Al Hassan"
+authors:
+- "dr-fatima-al-hassan"
 description: "Expert 2026 analysis on Magnesium, Zinc and Vitamin D3 deficiencies linked to rising health problems."
 ---
 

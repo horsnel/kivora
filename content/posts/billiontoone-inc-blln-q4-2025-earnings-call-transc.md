@@ -5,6 +5,8 @@ image: "https://images.pexels.com/photos/36244576/pexels-photo-36244576.jpeg?aut
 categories: ["business"]
 tags: ['2026', 'MenshlyGlobal', 'business']
 author: "Marcus Webb"
+authors:
+- "marcus-webb"
 description: "Key takeaways from BillionToOne Inc. Q4 2025 earnings call, including strategic insights and 2026 biotechnology forecasts."
 ---
 

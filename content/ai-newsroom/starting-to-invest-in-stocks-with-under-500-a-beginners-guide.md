@@ -6,6 +6,8 @@ image: "https://images.pexels.com/photos/7876656/pexels-photo-7876656.jpeg?auto=
 categories: ["finance"]
 tags: ["start","investing","stocks","with","2026","MenshlyGlobal"]
 author: "Dr. Elena Vasquez"
+authors:
+- "Dr. Elena Vasquez"
 description: "Summary: With the rise of mobile trading apps and online brokerages, investing in stocks has become more accessible than ever. This article provides a step-by-s"
 ---
 

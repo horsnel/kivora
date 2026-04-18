@@ -1,80 +1,97 @@
 {{ define "main" }}
-{{/* === TAXONOMY LISTING PAGE === */}}
-{{/* Renders /authors/, /categories/, /tags/ — grid of term cards */}}
+{{/* === TAXONOMY: handles BOTH listing (/authors/) and individual terms (/authors/james-chen/) === */}}
 {{ $singular := .Data.Singular }}
+{{ $term := .Data.Term }}
 {{ $terms := .Data.Terms }}
-{{ $hasTerms := false }}
-{{ if $terms }}
-  {{ $hasTerms = gt (len $terms) 0 }}
-{{ end }}
+{{ $isTerm := false }}{{ if $term }}{{ $isTerm = true }}{{ end }}
+{{ $hasTerms := false }}{{ if $terms }}{{ $hasTerms = gt (len $terms) 0 }}{{ end }}
 <div class="main-content">
   <div class="content-grid">
     <div class="main-column">
 
-      {{/* ===== AUTHORS LISTING ===== */}}
+      {{/* ===== INDIVIDUAL TERM: /authors/james-chen/, /categories/technology/, /tags/ai/ ===== */}}
+      {{ if $isTerm }}
       {{ if eq $singular "author" }}
-      {{/* Build author list from Params.author field across all pages */}}
-      {{ $authorMap := dict }}
-      {{ range .Site.RegularPages }}
-        {{ with .Params.author }}
-          {{ $count := 0 }}
-          {{ with index $authorMap . }}{{ $count = . }}{{ end }}
-          {{ $authorMap = dict . (add $count 1) | merge $authorMap }}
-        {{ end }}
-      {{ end }}
-      {{ $authorCount := len $authorMap }}
-      <div class="section-header">
-        <h2>Our Authors</h2>
-        <span class="see-all">{{ $authorCount }} writers</span>
+      {{ $authorName := "" }}{{ $authorRole := "" }}{{ $authorBio := "" }}
+      {{ $slug := $term | urlize }}{{ $slugClean := replace $slug "." "-" }}
+      {{ with index site.Data.authors $slug }}{{ $authorName = .name }}{{ $authorRole = .role }}{{ $authorBio = .bio }}{{ end }}
+      {{ with index site.Data.authors $slugClean }}{{ $authorName = .name }}{{ $authorRole = .role }}{{ $authorBio = .bio }}{{ end }}
+      {{ if not $authorName }}{{ $authorName = $term }}{{ end }}
+      {{ $posts := .Pages.ByDate.Reverse }}{{ $tc := len $posts }}
+      <div class="author-header">
+        <div class="author-avatar">{{ substr $authorName 0 1 }}</div>
+        <div class="author-info">
+          <h1>{{ $authorName }}</h1>
+          {{ with $authorRole }}<span class="author-role">{{ . }}</span>{{ else }}<span class="author-role">Contributing Writer</span>{{ end }}
+          <span class="author-bio">{{ $tc }} article{{ if gt $tc 1 }}s{{ end }} published</span>
+        </div>
       </div>
-      <div class="taxonomy-grid author-grid">
-        {{ range $name, $count := $authorMap }}
-        {{ $initial := substr $name 0 1 }}
-        <a class="taxonomy-card author-card" href="{{ "/authors/" | relLangURL }}{{ $name | urlize }}">
-          <div class="author-card-avatar">{{ $initial }}</div>
-          <div class="author-card-info">
-            <h3>{{ $name }}</h3>
-            <span class="author-card-count">{{ $count }} article{{ if gt $count 1 }}s{{ end }}</span>
-          </div>
-        </a>
-        {{ end }}
-      </div>
+      {{ with $authorBio }}<div class="author-full-bio">{{ . | markdownify }}</div>{{ end }}
+      {{ if gt $tc 0 }}
+      <div class="section-header"><h2>Articles by {{ $authorName }}</h2><span class="see-all">{{ $tc }} articles</span></div>
+      <div class="posts">{{ range $posts }}
+        {{ $img := .Params.image }}{{ $cat := "" }}{{ with (index .Params.categories 0) }}{{ $cat = . }}{{ end }}
+        <a class="post-card" href="{{ .Permalink }}">{{ with $img }}<img src="{{ . }}" alt="" loading="lazy">{{ end }}<div class="post-card-body"><span class="meta">{{ with $cat }}{{ . }} &middot; {{ end }}{{ .Date.Format "Jan 2, 2006" }}</span><h2>{{ .Title }}</h2></div></a>
+      {{ end }}</div>
+      {{ else }}<div class="static-page" style="text-align:center;padding:60px 20px;"><p style="color:var(--text-muted);">No articles yet by this author.</p></div>{{ end }}
 
-      {{/* ===== CATEGORIES LISTING ===== */}}
       {{ else if eq $singular "category" }}
-      <div class="section-header">
-        <h2>Categories</h2>
-        {{ if $hasTerms }}<span class="see-all">{{ len $terms }} sections</span>{{ end }}
-      </div>
-      {{ if $hasTerms }}
-      <div class="taxonomy-grid category-grid">
-        {{ range $term, $pages := $terms }}
-        {{ $count := len $pages }}
-        <a class="taxonomy-card category-card" href="{{ "/categories/" | relLangURL }}{{ $term | urlize }}">
-          <div class="category-card-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-          </div>
-          <div class="category-card-info">
-            <h3>{{ title $term }}</h3>
-            <span class="category-card-count">{{ $count }} article{{ if gt $count 1 }}s{{ end }}</span>
-          </div>
-        </a>
-        {{ end }}
-      </div>
+      {{ $posts := .Pages.ByDate.Reverse }}{{ $tc := len $posts }}
+      <div class="section-header"><h2>{{ title $term }}</h2><span class="see-all">{{ $tc }} articles</span></div>
+      {{ if gt $tc 0 }}
+      {{ $hero := index $posts 0 }}
+      <a class="hero-article" href="{{ $hero.Permalink }}">{{ with $hero.Params.image }}<img class="hero-image" src="{{ . }}" alt="" loading="eager">{{ end }}<div class="hero-body"><span class="hero-category">{{ title $term }}</span><h2>{{ $hero.Title }}</h2><p>{{ with $hero.Params.description }}{{ . }}{{ else }}{{ $hero.Summary | plainify | truncate 160 }}{{ end }}</p><span class="hero-meta">{{ $hero.Date.Format "Jan 2, 2006" }}</span></div></a>
+      <div class="posts">{{ range after 1 $posts }}
+        {{ $img := .Params.image }}{{ $cat := "" }}{{ with (index .Params.categories 0) }}{{ $cat = . }}{{ end }}
+        <a class="post-card" href="{{ .Permalink }}">{{ with $img }}<img src="{{ . }}" alt="" loading="lazy">{{ end }}<div class="post-card-body"><span class="meta">{{ with $cat }}{{ . }} &middot; {{ end }}{{ .Date.Format "Jan 2, 2006" }}</span><h2>{{ .Title }}</h2></div></a>
+      {{ end }}</div>
+      {{ else }}<div class="static-page" style="text-align:center;padding:60px 20px;"><p style="color:var(--text-muted);">No articles in this category yet.</p></div>{{ end }}
+
+      {{ else }}
+      {{ $posts := .Pages.ByDate.Reverse }}{{ $tc := len $posts }}
+      <div class="section-header"><h2>Tagged: {{ $term }}</h2><span class="see-all">{{ $tc }} articles</span></div>
+      {{ if gt $tc 0 }}
+      <div class="posts">{{ range $posts }}
+        {{ $img := .Params.image }}{{ $cat := "" }}{{ with (index .Params.categories 0) }}{{ $cat = . }}{{ end }}
+        <a class="post-card" href="{{ .Permalink }}">{{ with $img }}<img src="{{ . }}" alt="" loading="lazy">{{ end }}<div class="post-card-body"><span class="meta">{{ with $cat }}{{ . }} &middot; {{ end }}{{ .Date.Format "Jan 2, 2006" }}</span><h2>{{ .Title }}</h2></div></a>
+      {{ end }}</div>
+      {{ else }}<div class="static-page" style="text-align:center;padding:60px 20px;"><p style="color:var(--text-muted);">No articles with this tag.</p></div>{{ end }}
       {{ end }}
 
-      {{/* ===== TAGS LISTING ===== */}}
-      {{ else if eq $singular "tag" }}
-      <div class="section-header">
-        <h2>Tags</h2>
-        {{ if $hasTerms }}<span class="see-all">{{ len $terms }} tags</span>{{ end }}
-      </div>
+      {{/* ===== TAXONOMY LISTING: /authors/, /categories/, /tags/ ===== */}}
+      {{ else }}
+      {{ if eq $singular "author" }}
+      {{/* Build author listing from taxonomy terms, enriched with data/authors.yaml */}}
+      <div class="section-header"><h2>Our Authors</h2>{{ if $hasTerms }}<span class="see-all">{{ len $terms }} writers</span>{{ end }}</div>
       {{ if $hasTerms }}
-      <div class="tags-cloud">
-        {{ range $term, $pages := $terms }}
-        <a class="tag-pill" href="{{ "/tags/" | relLangURL }}{{ $term | urlize }}">{{ $term }} <small>({{ len $pages }})</small></a>
-        {{ end }}
-      </div>
+      <div class="taxonomy-grid author-grid">{{ range $term, $pages := $terms }}
+        {{ $authorName := "" }}{{ $authorRole := "" }}
+        {{ $slug := $term | urlize }}{{ $slugClean := replace $slug "." "-" }}
+        {{ with index site.Data.authors $slug }}{{ $authorName = .name }}{{ $authorRole = .role }}{{ end }}
+        {{ with index site.Data.authors $slugClean }}{{ $authorName = .name }}{{ $authorRole = .role }}{{ end }}
+        {{ if not $authorName }}{{ $authorName = $term }}{{ end }}
+        <a class="taxonomy-card author-card" href="{{ "/authors/" | relLangURL }}{{ $term | urlize }}">
+          <div class="author-card-avatar">{{ substr $authorName 0 1 }}</div>
+          <div class="author-card-info">
+            <h3>{{ $authorName }}</h3>
+            {{ with $authorRole }}<span class="author-card-role" style="font-size:0.8rem;color:var(--accent);display:block;margin-top:2px;">{{ . }}</span>{{ end }}
+            <span class="author-card-count">{{ len $pages }} article{{ if gt (len $pages) 1 }}s{{ end }}</span>
+          </div>
+        </a>
+      {{ end }}</div>
+      {{ end }}
+
+      {{ else if eq $singular "tag" }}
+      <div class="section-header"><h2>Tags</h2>{{ if $hasTerms }}<span class="see-all">{{ len $terms }} tags</span>{{ end }}</div>
+      {{ if $hasTerms }}
+      <div class="tags-cloud">{{ range $term, $pages := $terms }}<a class="tag-pill" href="{{ "/tags/" | relLangURL }}{{ $term | urlize }}">{{ $term }} <small>({{ len $pages }})</small></a>{{ end }}</div>
+      {{ end }}
+
+      {{ else if $hasTerms }}
+      <div class="section-header"><h2>Categories</h2><span class="see-all">{{ len $terms }} sections</span></div>
+      <div class="taxonomy-grid category-grid">{{ range $term, $pages := $terms }}
+        <a class="taxonomy-card category-card" href="{{ "/" | relLangURL }}{{ $singular }}/{{ $term | urlize }}"><div class="category-card-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div><div class="category-card-info"><h3>{{ title $term }}</h3><span class="category-card-count">{{ len $pages }} article{{ if gt (len $pages) 1 }}s{{ end }}</span></div></a>
+      {{ end }}</div>
       {{ end }}
       {{ end }}
 

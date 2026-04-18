@@ -5,6 +5,8 @@ image: "https://images.pexels.com/photos/32417524/pexels-photo-32417524.jpeg?aut
 categories: ["world"]
 tags: ['2026', 'MenshlyGlobal', 'world']
 author: "David Kiprop"
+authors:
+- "david-kiprop"
 description: "Jesse Jackson memorial service attended by Clintons, Obama, and Biden celebrates the legacy of a civil rights icon."
 ---
 

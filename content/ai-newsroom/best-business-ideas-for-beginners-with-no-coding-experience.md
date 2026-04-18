@@ -6,6 +6,8 @@ image: "https://images.pexels.com/photos/4968651/pexels-photo-4968651.jpeg?auto=
 categories: ["finance"]
 tags: ["best","business","ideas","beginners","2026","MenshlyGlobal"]
 author: "David Kiprop"
+authors:
+- "David Kiprop"
 description: "You don’t need to know how to code to launch a profitable business in today’s digital economy. This guide explores 7 beginner-friendly, low-barrier business ide"
 ---
 

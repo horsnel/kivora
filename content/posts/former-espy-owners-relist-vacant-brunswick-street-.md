@@ -5,6 +5,8 @@ image: "https://images.pexels.com/photos/935979/pexels-photo-935979.jpeg?auto=co
 categories: ["business"]
 tags: ["2026", "MenshlyGlobal", "business"]
 author: "Sarah Mitchell"
+authors:
+- "sarah-mitchell"
 description: ""
 
 ---

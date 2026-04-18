@@ -1,0 +1,39 @@
+james-chen:
+  name: "James Chen"
+  role: "Senior Geopolitical Analyst"
+  bio: "James Chen serves as MenshlyGlobal's Senior Geopolitical Analyst, covering US foreign policy, trade sanctions, and global energy markets. With over a decade of experience in international relations and financial markets, James provides readers with deep strategic analysis of geopolitical risk and its impact on global markets.\n\nHis expertise spans Middle East diplomacy, US-China trade dynamics, and emerging market sovereign risk. Prior to joining MenshlyGlobal, James worked as a risk consultant for multinational corporations operating in high-stakes regulatory environments."
+
+amara-okonkwo:
+  name: "Amara Okonkwo"
+  role: "West Africa Correspondent"
+  bio: "Amara Okonkwo covers West Africa's rapidly evolving economic landscape, with deep expertise in fintech, digital infrastructure, and regional trade agreements like AfCFTA. Based in Lagos, she brings on-the-ground reporting and analysis of the innovations driving Africa's next chapter of growth.\n\nHer reporting combines data-driven market analysis with compelling human stories, making complex economic trends accessible to global audiences."
+
+david-kiprop:
+  name: "David Kiprop"
+  role: "World Affairs & Diplomacy Reporter"
+  bio: "David Kiprop reports on global diplomacy, peace and conflict, and international development across Africa and the Middle East. His coverage includes UN proceedings, African Union summits, and grassroots peacebuilding initiatives.\n\nWith a background in conflict resolution and political science, David provides nuanced reporting that goes beyond headlines to explore the human impact of geopolitical events."
+
+dr-elena-vasquez:
+  name: "Dr. Elena Vasquez"
+  role: "Science & Space Correspondent"
+  bio: "Dr. Elena Vasquez covers the cutting edge of science, space exploration, and emerging technologies. With a PhD in Astrophysics, she translates complex scientific discoveries into engaging, accessible journalism.\n\nHer beat spans NASA missions, space industry developments, breakthrough research, and the intersection of science and policy."
+
+dr-fatima-al-hassan:
+  name: "Dr. Fatima Al-Hassan"
+  role: "Health & Pharma Intelligence Analyst"
+  bio: "Dr. Fatima Al-Hassan provides expert analysis on global health trends, pharmaceutical developments, and healthcare policy. Her background in epidemiology and public health gives her a unique lens on everything from drug approvals and clinical trials to pandemic preparedness.\n\nShe covers the intersection of health, economics, and policy, with particular focus on healthcare access in developing nations."
+
+marcus-webb:
+  name: "Marcus Webb"
+  role: "Financial Markets & Earnings Analyst"
+  bio: "Marcus Webb decodes financial markets for MenshlyGlobal readers, covering earnings reports, IPOs, and macroeconomic trends. His analysis helps investors navigate market volatility and identify emerging opportunities across global equity and bond markets.\n\nWith experience in equity research and portfolio strategy, Marcus brings Wall Street-level insight to everyday readers."
+
+sarah-mitchell:
+  name: "Sarah Mitchell"
+  role: "Technology & Innovation Editor"
+  bio: "Sarah Mitchell leads MenshlyGlobal's technology coverage, tracking the biggest stories in AI, cybersecurity, consumer tech, and Silicon Valley. Her reporting combines technical accuracy with narrative storytelling.\n\nFrom major product launches to antitrust investigations and AI ethics debates, Sarah provides comprehensive coverage of the forces shaping the technology industry."
+
+menshly-intelligence-board:
+  name: "Menshly Intelligence Board"
+  role: "AI-Powered News Desk"
+  bio: "The Menshly Intelligence Board is our AI-assisted editorial team that aggregates, curates, and synthesizes breaking news and analysis from hundreds of global sources in real time. Powered by advanced language models and machine learning, the Intelligence Board delivers comprehensive coverage across geopolitics, finance, technology, science, and health.\n\nEvery article produced by the Intelligence Board undergoes automated fact-checking and source verification, ensuring the highest standards of accuracy and reliability for our readers."

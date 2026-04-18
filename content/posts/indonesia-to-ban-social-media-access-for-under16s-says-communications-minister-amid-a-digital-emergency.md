@@ -5,6 +5,8 @@ image: "https://images.pexels.com/photos/8424930/pexels-photo-8424930.jpeg?auto=
 categories: ["world"]
 tags: ['2026', 'MenshlyGlobal', 'world']
 author: "Amara Okonkwo"
+authors:
+- "amara-okonkwo"
 description: "Expert 2026 analysis on Indonesia to ban social media access for under-16s, says communications minister amid a ?digital emergency?."
 ---
 

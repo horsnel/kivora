@@ -1,8 +1,114 @@
 {{ define "main" }}
-<div class="static-page">
-  <h1>About MenshlyGlobal</h1>
-  <div class="static-content">
-    {{ .Content }}
+{{ $authors := site.Data.authors }}
+<div class="about-page">
+  <div class="about-hero">
+    <div class="about-hero-inner">
+      <h1>About MenshlyGlobal</h1>
+      <p class="about-tagline">The 2026 Frontier of Intelligence-Driven Journalism</p>
+    </div>
   </div>
+
+  <div class="about-grid">
+    <div class="about-main">
+      <div class="about-section">
+        <h2>Who We Are</h2>
+        <p>MenshlyGlobal is a premier intelligence and news platform dedicated to delivering elite investigative journalism, data-driven analysis, and forward-looking forecasts for 2026 and beyond. Our team of experienced journalists, analysts, and AI specialists covers the most critical developments across Business, Technology, World Affairs, Health, Science, and Finance, providing readers with the deep context they need to navigate an increasingly complex world.</p>
+        <p>Founded on the belief that quality journalism is the bedrock of an informed society, MenshlyGlobal combines traditional investigative rigor with cutting-edge AI-powered tools to deliver comprehensive, real-time coverage that cuts through the noise of the modern information landscape. Our approach ensures that every story we publish is not only timely but also deeply researched and contextually rich.</p>
+      </div>
+
+      <div class="about-section">
+        <h2>Our Mission</h2>
+        <p>To empower decision-makers with accurate, timely, and deeply researched intelligence that cuts through the noise and delivers actionable insights. We believe that in an era of information overload, the ability to provide clear, verified, and meaningful analysis is more valuable than ever. Our mission drives every editorial decision we make, from the topics we choose to cover to the depth of investigation we apply to each story.</p>
+      </div>
+
+      <div class="about-values-grid">
+        <div class="about-value-card">
+          <div class="about-value-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <h3>Accuracy</h3>
+          <p>Every story is thoroughly fact-checked and verified against multiple sources before publication.</p>
+        </div>
+        <div class="about-value-card">
+          <div class="about-value-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3>Independence</h3>
+          <p>We maintain editorial independence and are not influenced by political or corporate interests.</p>
+        </div>
+        <div class="about-value-card">
+          <div class="about-value-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
+          <h3>Depth</h3>
+          <p>We go beyond headlines to provide the context and analysis that truly matters to our readers.</p>
+        </div>
+        <div class="about-value-card">
+          <div class="about-value-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </div>
+          <h3>Global Perspective</h3>
+          <p>With correspondents across multiple continents, we bring a truly global lens to every story.</p>
+        </div>
+      </div>
+
+      <div class="about-section">
+        <h2>Our Technology</h2>
+        <p>MenshlyGlobal leverages advanced artificial intelligence to augment our editorial capabilities. Our AI-powered Intelligence Board monitors hundreds of global news sources in real time, identifying breaking stories and emerging trends before they hit the mainstream. This technology enables our human editors to focus on what they do best: deep analysis, investigative reporting, and compelling storytelling that helps our readers make sense of a rapidly changing world.</p>
+        <p>Our platform features AI-assisted content generation, automated breaking news alerts, intelligent content recommendations, and natural language processing tools that help us deliver the right story to the right reader at the right time. All AI-generated content undergoes thorough human editorial review before publication.</p>
+      </div>
+
+      <div class="about-section">
+        <h2>Our Coverage Areas</h2>
+        <div class="about-coverage-list">
+          <div class="about-coverage-item">
+            <strong>Business & Finance</strong>
+            <span>Earnings, IPOs, macroeconomic trends, market analysis</span>
+          </div>
+          <div class="about-coverage-item">
+            <strong>Technology</strong>
+            <span>AI, cybersecurity, consumer tech, Silicon Valley</span>
+          </div>
+          <div class="about-coverage-item">
+            <strong>World Affairs</strong>
+            <span>Diplomacy, geopolitics, conflict, international development</span>
+          </div>
+          <div class="about-coverage-item">
+            <strong>Health & Pharma</strong>
+            <span>Global health trends, drug developments, healthcare policy</span>
+          </div>
+          <div class="about-coverage-item">
+            <strong>Science & Space</strong>
+            <span>NASA missions, breakthrough research, space industry</span>
+          </div>
+          <div class="about-coverage-item">
+            <strong>Entertainment</strong>
+            <span>Arts, culture, sports, lifestyle</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {{ if $authors }}
+  <div class="about-team-section">
+    <div class="section-header" style="justify-content:center;text-align:center;">
+      <h2>Meet Our Team</h2>
+    </div>
+    <div class="about-team-grid">
+      {{ range $slug, $author := $authors }}
+      {{ if ne $slug "menshly-intelligence-board" }}
+      <div class="about-team-card">
+        <div class="about-team-avatar">{{ substr $author.name 0 1 }}</div>
+        <h3>{{ $author.name }}</h3>
+        <span class="about-team-role">{{ $author.role }}</span>
+        <p>{{ $author.bio }}</p>
+        <a class="about-team-link" href="/authors/{{ $slug }}">View Articles &rarr;</a>
+      </div>
+      {{ end }}
+      {{ end }}
+    </div>
+  </div>
+  {{ end }}
 </div>
 {{ end }}

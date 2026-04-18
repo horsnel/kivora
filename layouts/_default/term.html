@@ -1,5 +1,5 @@
 {{ define "main" }}
-{{/* === INDIVIDUAL TERM PAGE: /authors/david-kirop/, /categories/technology/, /tags/ai/ === */}}
+{{/* === INDIVIDUAL TERM PAGE === */}}
 {{ $singular := .Data.Singular }}
 {{ $term := .Data.Term }}
 {{ $posts := .Pages }}
@@ -12,42 +12,48 @@
 
       {{/* ===== AUTHOR PAGE ===== */}}
       {{ if eq $singular "author" }}
-      {{/* Look up author bio from content/authors/<name>/_index.md */}}
+      {{/* $term is now a slug like "james-chen" — look up display name + bio from data/authors.yaml */}}
+      {{ $authorName := "" }}
       {{ $authorRole := "" }}
       {{ $authorBio := "" }}
-      {{ $authorSlug := $term | urlize }}
-      {{ with .Site.GetPage (printf "/authors/%s" $authorSlug) }}
-        {{ $authorRole = .Params.role }}
-        {{ $authorBio = .Content }}
+      {{ $slug := $term | urlize }}
+      {{ $slugClean := replace $slug "." "-" }}
+      {{ with index site.Data.authors $slug }}
+        {{ $authorName = .name }}
+        {{ $authorRole = .role }}
+        {{ $authorBio = .bio }}
       {{ end }}
-
-      {{/* Also search by author param (not just taxonomy) */}}
-      {{ $allPosts := where .Site.RegularPages "Params.author" $term }}
-      {{ $totalCount := len $allPosts }}
+      {{ with index site.Data.authors $slugClean }}
+        {{ $authorName = .name }}
+        {{ $authorRole = .role }}
+        {{ $authorBio = .bio }}
+      {{ end }}
+      {{/* Fallback: use the term itself as display name if no data found */}}
+      {{ if not $authorName }}{{ $authorName = $term }}{{ end }}
 
       <div class="author-header">
-        {{ $initial := substr $term 0 1 }}
+        {{ $initial := substr $authorName 0 1 }}
         <div class="author-avatar">{{ $initial }}</div>
         <div class="author-info">
-          <h1>{{ $term }}</h1>
+          <h1>{{ $authorName }}</h1>
           {{ with $authorRole }}<span class="author-role">{{ . }}</span>{{ else }}<span class="author-role">Contributing Writer</span>{{ end }}
           <span class="author-bio">{{ $totalCount }} article{{ if gt $totalCount 1 }}s{{ end }} published</span>
         </div>
       </div>
-      {{ with $authorBio }}<div class="author-full-bio">{{ . }}</div>{{ end }}
+      {{ with $authorBio }}<div class="author-full-bio">{{ . | markdownify }}</div>{{ end }}
 
       {{ if gt $totalCount 0 }}
       <div class="section-header">
-        <h2>Articles by {{ $term }}</h2>
+        <h2>Articles by {{ $authorName }}</h2>
         <span class="see-all">{{ $totalCount }} articles</span>
       </div>
       <div class="posts">
-        {{ range $allPosts.ByDate.Reverse }}
+        {{ range $posts }}
         {{ $img := .Params.image }}
         {{ $cats := .Params.categories }}
         {{ $cat := "" }}{{ with $cats }}{{ $cat = index . 0 }}{{ end }}
         <a class="post-card" href="{{ .Permalink }}">
-          {{ with $img }}<img src="{{ . }}" alt="{{ .Title }}" loading="lazy">{{ end }}
+          {{ with $img }}<img src="{{ . }}" alt="" loading="lazy">{{ end }}
           <div class="post-card-body">
             <span class="meta">{{ with $cat }}{{ . }} &middot; {{ end }}{{ .Date.Format "Jan 2, 2006" }}</span>
             <h2>{{ .Title }}</h2>
@@ -71,7 +77,7 @@
       {{ if gt $totalCount 0 }}
       {{ $hero := index $posts 0 }}
       <a class="hero-article" href="{{ $hero.Permalink }}">
-        {{ with $hero.Params.image }}<img class="hero-image" src="{{ . }}" alt="{{ $hero.Title }}" loading="eager">{{ end }}
+        {{ with $hero.Params.image }}<img class="hero-image" src="{{ . }}" alt="" loading="eager">{{ end }}
         <div class="hero-body">
           <span class="hero-category">{{ title $term }}</span>
           <h2>{{ $hero.Title }}</h2>
@@ -86,7 +92,7 @@
         {{ $cats := .Params.categories }}
         {{ $cat := "" }}{{ with $cats }}{{ $cat = index . 0 }}{{ end }}
         <a class="post-card" href="{{ .Permalink }}">
-          {{ with $img }}<img src="{{ . }}" alt="{{ .Title }}" loading="lazy">{{ end }}
+          {{ with $img }}<img src="{{ . }}" alt="" loading="lazy">{{ end }}
           <div class="post-card-body">
             <span class="meta">{{ with $cat }}{{ . }} &middot; {{ end }}{{ .Date.Format "Jan 2, 2006" }}</span>
             <h2>{{ .Title }}</h2>
@@ -114,7 +120,7 @@
         {{ $cats := .Params.categories }}
         {{ $cat := "" }}{{ with $cats }}{{ $cat = index . 0 }}{{ end }}
         <a class="post-card" href="{{ .Permalink }}">
-          {{ with $img }}<img src="{{ . }}" alt="{{ .Title }}" loading="lazy">{{ end }}
+          {{ with $img }}<img src="{{ . }}" alt="" loading="lazy">{{ end }}
           <div class="post-card-body">
             <span class="meta">{{ with $cat }}{{ . }} &middot; {{ end }}{{ .Date.Format "Jan 2, 2006" }}</span>
             <h2>{{ .Title }}</h2>

@@ -6,6 +6,8 @@ image: "https://pixabay.com/get/g52fe629ff02be1214b8a9c211f0bdec8b74a5d944f92cea
 categories: ["finance"]
 tags: ["military", "2026", "campaign", "us-israeli", "against", "Finance"]
 author: "Sarah Mitchell"
+authors:
+- "sarah-mitchell"
 description: "**US-Israeli Military Campaign Against Iran Intensifies, Raising Regime Instability Risks** A recent surge in US-Israeli military operations against Iran has sp"
 ---
 **US-Israeli Military Campaign Against Iran Intensifies, Raising Regime Instability Risks** A recent surge in US-Israeli military operations against Iran has sparked concerns about the potential consequences on diplomatic relations and economic markets. The escalation in strikes against Iranian leadership has heightened regime instability risks, prompting questions about the future of the Iranian government and its implications on the region.

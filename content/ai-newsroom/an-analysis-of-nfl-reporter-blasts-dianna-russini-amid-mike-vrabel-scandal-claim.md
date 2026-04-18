@@ -6,6 +6,8 @@ image: "https://pixabay.com/get/g9faa0025f9b6523eee05299b98fd7d15dc48e0186678976
 categories: ["world"]
 tags: ["of:", "amid", "russini", "analysis", "2026", "MenshlyGlobal"]
 author: "Dr. Fatima Al-Hassan"
+authors:
+- "Dr. Fatima Al-Hassan"
 description: "**The Blurred Lines of Sports Journalism: An Examination of Dianna Russini's Scandal**
 
 **Standfirst:** A recent controversy surrounding NFL reporter Dianna R"

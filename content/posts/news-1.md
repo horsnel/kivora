@@ -6,6 +6,8 @@ image: "https://pixabay.com/get/gc459371c6039ab73d99e752c62c502424f1c74f01e7f4b8
 categories: ["technology"]
 tags: ["2026", "0.15.0rc11", "Technology", "Breaking", "regard-cli"]
 author: "Marcus Webb"
+authors:
+- "marcus-webb"
 description: "AI trading partner for the unified speculator — Hyperliquid + Polymarket"
 ---
 AI trading partner for the unified speculator — Hyperliquid + Polymarket

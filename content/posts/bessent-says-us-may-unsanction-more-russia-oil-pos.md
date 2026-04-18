@@ -5,6 +5,8 @@ image: "https://images.pexels.com/photos/32417524/pexels-photo-32417524.jpeg?aut
 categories: ["world"]
 tags: ['2026', 'MenshlyGlobal', 'world']
 author: "James Chen"
+authors:
+- "james-chen"
 description: "Analysis of the strategic implications as the US considers unsanctioning more Russian oil following India's increased imports."
 ---
 

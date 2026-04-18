@@ -5,6 +5,8 @@ image: "https://images.pexels.com/photos/29556472/pexels-photo-29556472.jpeg?aut
 categories: ["world"]
 tags: ["2026", "MenshlyGlobal", "world"]
 author: "Sarah Mitchell"
+authors:
+- "sarah-mitchell"
 description: ""
 
 ---

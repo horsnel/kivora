@@ -5,6 +5,8 @@ image: "https://images.pexels.com/photos/32417524/pexels-photo-32417524.jpeg?aut
 categories: ["science"]
 tags: ['2026', 'MenshlyGlobal', 'science']
 author: "Dr. Elena Vasquez"
+authors:
+- "dr-elena-vasquez"
 description: "The historic achievement of filming a black hole in action marks a new era for astrophysics and space exploration."
 ---
 

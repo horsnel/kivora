@@ -5,6 +5,8 @@ image: "https://images.pexels.com/photos/36244576/pexels-photo-36244576.jpeg?aut
 categories: ["business"]
 tags: ['2026', 'MenshlyGlobal', 'business']
 author: "James Chen"
+authors:
+- "james-chen"
 description: "Investors brace for potential escalation as expectations grow that Trump may not back down in US-Iran tensions."
 ---
 

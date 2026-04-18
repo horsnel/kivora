@@ -1,8 +1,104 @@
 {{ define "main" }}
+{{/* Detect page type */}}
+{{ $pageKind := .Kind }}
+{{ $isTaxonomy := false }}{{ with .Data.Terms }}{{ $isTaxonomy = true }}{{ end }}
+{{ $isTerm := false }}{{ with .Data.Term }}{{ $isTerm = true }}{{ end }}
+
+{{ if and (eq $pageKind "taxonomyTerm") (not $isTaxonomy) }}
+{{/* ===== INDIVIDUAL TAXONOMY TERM ===== */}}
+{{ $singular := .Data.Singular }}
+{{ $term := .Data.Term }}
 <div class="main-content">
   <div class="content-grid">
     <div class="main-column">
-      {{ if .IsHome }}
+      {{ if eq $singular "author" }}
+      {{ $authorRole := "" }}{{ $authorBio := "" }}{{ $authorSlug := $term | urlize }}
+      {{ $authorSlugClean := replace $authorSlug "." "-" }}
+      {{ with index site.Data.authors $authorSlug }}{{ $authorRole = .role }}{{ $authorBio = .bio }}{{ end }}
+      {{ with index site.Data.authors $authorSlugClean }}{{ $authorRole = .role }}{{ $authorBio = .bio }}{{ end }}
+      {{ $allPosts := where .Site.RegularPages "Params.author" $term }}
+      {{ $tc := len $allPosts }}
+      <div class="author-header">
+        <div class="author-avatar">{{ substr $term 0 1 }}</div>
+        <div class="author-info">
+          <h1>{{ $term }}</h1>
+          {{ with $authorRole }}<span class="author-role">{{ . }}</span>{{ else }}<span class="author-role">Contributing Writer</span>{{ end }}
+          <span class="author-bio">{{ $tc }} article{{ if gt $tc 1 }}s{{ end }} published</span>
+        </div>
+      </div>
+      {{ with $authorBio }}<div class="author-full-bio">{{ . | markdownify }}</div>{{ end }}
+      {{ if gt $tc 0 }}
+      <div class="section-header"><h2>Articles by {{ $term }}</h2><span class="see-all">{{ $tc }} articles</span></div>
+      <div class="posts">{{ range $allPosts.ByDate.Reverse }}
+        {{ $img := .Params.image }}{{ $cat := "" }}{{ with (index .Params.categories 0) }}{{ $cat = . }}{{ end }}
+        <a class="post-card" href="{{ .Permalink }}">{{ with $img }}<img src="{{ . }}" alt="{{ .Title }}" loading="lazy">{{ end }}<div class="post-card-body"><span class="meta">{{ with $cat }}{{ . }} &middot; {{ end }}{{ .Date.Format "Jan 2, 2006" }}</span><h2>{{ .Title }}</h2></div></a>
+      {{ end }}</div>
+      {{ else }}<div class="static-page" style="text-align:center;padding:60px 20px;"><p style="color:var(--text-muted);">No articles yet by this author.</p></div>{{ end }}
+
+      {{ else if eq $singular "category" }}
+      {{ $posts := .Pages.ByDate.Reverse }}{{ $tc := len $posts }}
+      <div class="section-header"><h2>{{ title $term }}</h2><span class="see-all">{{ $tc }} articles</span></div>
+      {{ if gt $tc 0 }}
+      {{ $hero := index $posts 0 }}
+      <a class="hero-article" href="{{ $hero.Permalink }}">{{ with $hero.Params.image }}<img class="hero-image" src="{{ . }}" alt="{{ $hero.Title }}" loading="eager">{{ end }}<div class="hero-body"><span class="hero-category">{{ title $term }}</span><h2>{{ $hero.Title }}</h2><p>{{ with $hero.Params.description }}{{ . }}{{ else }}{{ $hero.Summary | plainify | truncate 160 }}{{ end }}</p><span class="hero-meta">{{ $hero.Date.Format "Jan 2, 2006" }}</span></div></a>
+      <div class="posts">{{ range after 1 $posts }}
+        {{ $img := .Params.image }}{{ $cat := "" }}{{ with (index .Params.categories 0) }}{{ $cat = . }}{{ end }}
+        <a class="post-card" href="{{ .Permalink }}">{{ with $img }}<img src="{{ . }}" alt="{{ .Title }}" loading="lazy">{{ end }}<div class="post-card-body"><span class="meta">{{ with $cat }}{{ . }} &middot; {{ end }}{{ .Date.Format "Jan 2, 2006" }}</span><h2>{{ .Title }}</h2></div></a>
+      {{ end }}</div>
+      {{ else }}<div class="static-page" style="text-align:center;padding:60px 20px;"><p style="color:var(--text-muted);">No articles in this category yet.</p></div>{{ end }}
+
+      {{ else }}
+      {{ $posts := .Pages.ByDate.Reverse }}{{ $tc := len $posts }}
+      <div class="section-header"><h2>Tagged: {{ $term }}</h2><span class="see-all">{{ $tc }} articles</span></div>
+      {{ if gt $tc 0 }}
+      <div class="posts">{{ range $posts }}
+        {{ $img := .Params.image }}{{ $cat := "" }}{{ with (index .Params.categories 0) }}{{ $cat = . }}{{ end }}
+        <a class="post-card" href="{{ .Permalink }}">{{ with $img }}<img src="{{ . }}" alt="{{ .Title }}" loading="lazy">{{ end }}<div class="post-card-body"><span class="meta">{{ with $cat }}{{ . }} &middot; {{ end }}{{ .Date.Format "Jan 2, 2006" }}</span><h2>{{ .Title }}</h2></div></a>
+      {{ end }}</div>
+      {{ else }}<div class="static-page" style="text-align:center;padding:60px 20px;"><p style="color:var(--text-muted);">No articles with this tag.</p></div>{{ end }}
+      {{ end }}
+    </div>
+    <aside class="sidebar">
+      {{ partial "most-read-widget.html" . }}
+      {{ partial "tradingview-widget.html" . }}
+      {{ partial "trending-now-widget.html" . }}
+      {{ partial "categories-widget.html" . }}
+      {{ partial "weather-widget.html" . }}
+      {{ partial "premium-news-widget.html" . }}
+      {{ partial "ai-analysis-widget.html" . }}
+      {{ partial "pro-analysis-widget.html" . }}
+      {{ partial "writing-assistant-widget.html" . }}
+    </aside>
+  </div>
+</div>
+
+{{ else if and $isTaxonomy (ne $pageKind "taxonomyTerm") }}
+{{/* ===== TAXONOMY LISTING (e.g. /authors/, /tags/) ===== */}}
+{{ $singular := .Data.Singular }}
+<div class="main-content">
+  <div class="content-grid">
+    <div class="main-column">
+      {{ if eq $singular "author" }}
+      {{ $authorMap := dict }}{{ range .Site.RegularPages }}{{ with .Params.author }}{{ $c := 0 }}{{ with (index $authorMap .) }}{{ $c = . }}{{ end }}{{ $authorMap = merge $authorMap (dict . (add $c 1)) }}{{ end }}{{ end }}
+      <div class="section-header"><h2>Our Authors</h2><span class="see-all">{{ len $authorMap }} writers</span></div>
+      <div class="taxonomy-grid author-grid">{{ range $name, $count := $authorMap }}
+        <a class="taxonomy-card author-card" href="{{ "/authors/" | relLangURL }}{{ $name | urlize }}"><div class="author-card-avatar">{{ substr $name 0 1 }}</div><div class="author-card-info"><h3>{{ $name }}</h3><span class="author-card-count">{{ $count }} article{{ if gt $count 1 }}s{{ end }}</span></div></a>
+      {{ end }}</div>
+      {{ else if eq $singular "tag" }}
+      <div class="section-header"><h2>Tags</h2><span class="see-all">{{ len .Data.Terms }} tags</span></div>
+      <div class="tags-cloud">{{ range $term, $pages := .Data.Terms }}<a class="tag-pill" href="{{ "/tags/" | relLangURL }}{{ $term | urlize }}">{{ $term }} <small>({{ len $pages }})</small></a>{{ end }}</div>
+      {{ else }}
+      <div class="section-header"><h2>{{ .Title }}</h2></div>
+      <div class="taxonomy-grid category-grid">{{ range $term, $pages := .Data.Terms }}
+        <a class="taxonomy-card category-card" href="{{ "/" | relLangURL }}{{ $singular }}/{{ $term | urlize }}"><div class="category-card-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div><div class="category-card-info"><h3>{{ title $term }}</h3><span class="category-card-count">{{ len $pages }} article{{ if gt (len $pages) 1 }}s{{ end }}</span></div></a>
+      {{ end }}</div>
+      {{ end }}
+    </div>
+    <aside class="sidebar">{{ partial "most-read-widget.html" . }}{{ partial "categories-widget.html" . }}{{ partial "trending-now-widget.html" . }}</aside>
+  </div>
+</div>
+
+{{ else if .IsHome }}
       {{ $posts := where .Site.RegularPages "Section" "posts" }}
       {{ if gt (len $posts) 0 }}
 

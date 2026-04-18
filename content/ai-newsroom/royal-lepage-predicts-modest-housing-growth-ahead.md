@@ -6,6 +6,8 @@ image: "https://pixabay.com/get/gd0e9835bbd68aca5f2992297225a8308d646280e1fbb64d
 categories: ["business"]
 tags: ["MenshlyGlobal", "year,", "the", "future", "2026", "market:"]
 author: "Marcus Webb"
+authors:
+- "Marcus Webb"
 description: "Despite a sluggish spring market, Royal LePage forecasts modest real estate growth for 2024, signaling resilience and a shift toward stability in Canada’s housi"
 ---
 Despite a sluggish spring market, Royal LePage forecasts modest real estate growth for 2024, signaling resilience and a shift toward stability in Canada’s housing sector.

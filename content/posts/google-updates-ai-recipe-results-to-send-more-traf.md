@@ -5,6 +5,8 @@ image: "https://images.pexels.com/photos/32417524/pexels-photo-32417524.jpeg?aut
 categories: ["technology"]
 tags: ['2026', 'MenshlyGlobal', 'technology']
 author: "Sarah Mitchell"
+authors:
+- "sarah-mitchell"
 description: "Google's latest AI recipe update reshapes traffic distribution for food and recipe websites with advanced NLP algorithms."
 ---
 

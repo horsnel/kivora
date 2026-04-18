@@ -5,6 +5,8 @@ image: "https://images.pexels.com/photos/11366392/pexels-photo-11366392.jpeg?aut
 categories: ["technology"]
 tags: ["2026", "MenshlyGlobal", "technology"]
 author: "Sarah Mitchell"
+authors:
+- "sarah-mitchell"
 description: ""
 
 ---
