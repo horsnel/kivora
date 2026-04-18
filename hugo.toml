@@ -32,8 +32,8 @@ title = "MenshlyGlobal | The 2026 Frontier"
   isPlainText = true
 
 [markup]
-  [m[markup.goldmark]
-    [m[m[markup.goldmark.renderer]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
       unsafe = true
 
 [related]

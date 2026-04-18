@@ -2,24 +2,38 @@
 {{/* === TAXONOMY LISTING PAGE === */}}
 {{/* Renders /authors/, /categories/, /tags/ — grid of term cards */}}
 {{ $singular := .Data.Singular }}
+{{ $terms := .Data.Terms }}
+{{ $hasTerms := false }}
+{{ if $terms }}
+  {{ $hasTerms = gt (len $terms) 0 }}
+{{ end }}
 <div class="main-content">
   <div class="content-grid">
     <div class="main-column">
 
       {{/* ===== AUTHORS LISTING ===== */}}
       {{ if eq $singular "author" }}
+      {{/* Build author list from Params.author field across all pages */}}
+      {{ $authorMap := dict }}
+      {{ range .Site.RegularPages }}
+        {{ with .Params.author }}
+          {{ $count := 0 }}
+          {{ with index $authorMap . }}{{ $count = . }}{{ end }}
+          {{ $authorMap = dict . (add $count 1) | merge $authorMap }}
+        {{ end }}
+      {{ end }}
+      {{ $authorCount := len $authorMap }}
       <div class="section-header">
         <h2>Our Authors</h2>
-        <span class="see-all">{{ len .Data.Terms }} writers</span>
+        <span class="see-all">{{ $authorCount }} writers</span>
       </div>
       <div class="taxonomy-grid author-grid">
-        {{ range $term, $pages := .Data.Terms }}
-        {{ $count := len $pages }}
-        {{ $initial := substr $term 0 1 }}
-        <a class="taxonomy-card author-card" href="{{ "/authors/" | relLangURL }}{{ $term | urlize }}">
+        {{ range $name, $count := $authorMap }}
+        {{ $initial := substr $name 0 1 }}
+        <a class="taxonomy-card author-card" href="{{ "/authors/" | relLangURL }}{{ $name | urlize }}">
           <div class="author-card-avatar">{{ $initial }}</div>
           <div class="author-card-info">
-            <h3>{{ $term }}</h3>
+            <h3>{{ $name }}</h3>
             <span class="author-card-count">{{ $count }} article{{ if gt $count 1 }}s{{ end }}</span>
           </div>
         </a>
@@ -30,10 +44,11 @@
       {{ else if eq $singular "category" }}
       <div class="section-header">
         <h2>Categories</h2>
-        <span class="see-all">{{ len .Data.Terms }} sections</span>
+        {{ if $hasTerms }}<span class="see-all">{{ len $terms }} sections</span>{{ end }}
       </div>
+      {{ if $hasTerms }}
       <div class="taxonomy-grid category-grid">
-        {{ range $term, $pages := .Data.Terms }}
+        {{ range $term, $pages := $terms }}
         {{ $count := len $pages }}
         <a class="taxonomy-card category-card" href="{{ "/categories/" | relLangURL }}{{ $term | urlize }}">
           <div class="category-card-icon">
@@ -46,18 +61,21 @@
         </a>
         {{ end }}
       </div>
+      {{ end }}
 
       {{/* ===== TAGS LISTING ===== */}}
       {{ else if eq $singular "tag" }}
       <div class="section-header">
         <h2>Tags</h2>
-        <span class="see-all">{{ len .Data.Terms }} tags</span>
+        {{ if $hasTerms }}<span class="see-all">{{ len $terms }} tags</span>{{ end }}
       </div>
+      {{ if $hasTerms }}
       <div class="tags-cloud">
-        {{ range $term, $pages := .Data.Terms }}
+        {{ range $term, $pages := $terms }}
         <a class="tag-pill" href="{{ "/tags/" | relLangURL }}{{ $term | urlize }}">{{ $term }} <small>({{ len $pages }})</small></a>
         {{ end }}
       </div>
+      {{ end }}
       {{ end }}
 
     </div>

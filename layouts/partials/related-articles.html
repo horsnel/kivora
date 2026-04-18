@@ -10,7 +10,7 @@
     {{ $cats := .Params.categories }}
     {{ $cat := "" }}{{ with $cats }}{{ $cat = index . 0 }}{{ end }}
     <a class="related-card" href="{{ .Permalink }}">
-      {{ with $img }}<img src="{{ . }}" alt="{{ .Title }}" loading="lazy">{{ end }}
+      {{ with $img }}<img src="{{ . }}" alt="{{ $.Title }}" loading="lazy">{{ end }}
       <div class="related-card-body">
         {{ with $cat }}<span class="related-card-cat">{{ . }}</span>{{ end }}
         <h3>{{ .Title }}</h3>
