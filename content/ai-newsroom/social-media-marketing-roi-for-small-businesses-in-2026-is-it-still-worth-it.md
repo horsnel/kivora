@@ -2,13 +2,12 @@
 title: "Social Media Marketing ROI for Small Businesses in 2026: Is It Still Worth It?"
 date: "2026-04-18T01:39:40.921Z"
 slug: "social-media-marketing-roi-for-small-businesses-in-2026-is-it-still-worth-it"
-image: "https://images.pexels.com/photos/5361244/pexels-photo-5361244.jpeg?auto=compress&cs=tinysrgb&h=650&w=940"
-categories: ["finance"]
-tags: ["social","media","marketing","small","2026","MenshlyGlobal"]
+image: "https://vendinglab.tech/storage/2025/06/business-ideas-768x432.webp"
 author: "Dr. Fatima Al-Hassan"
 description: "In 2026, social media marketing remains a powerful tool for small businesses, but rising competition, algorithm changes, and ad costs are reshaping ROI. This de"
+categories: ["finance"]
+tags: ["social","media","marketing","small","2026","MenshlyGlobal"]
 ---
-
 In 2026, social media marketing remains a powerful tool for small businesses, but rising competition, algorithm changes, and ad costs are reshaping ROI. This deep dive explores real-world returns, platform performance, and data-backed strategies to maximize profitability.
 
 ## The Shifting Landscape of Social Media Marketing in 2026
