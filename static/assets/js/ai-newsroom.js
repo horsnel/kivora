@@ -1506,7 +1506,7 @@
     var labelEl = getEl('aiNrCalMonthLabel');
     if (labelEl) {
       var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-      labelEl.textContent = monthNames[month] + ' ' + year;
+      labelEl.textContent = monthNames[month]] + ' ' + year;
     }
 
     var bodyEl = getEl('aiNrCalBody');
