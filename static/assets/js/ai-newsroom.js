@@ -1,5 +1,6 @@
 /* ================================================================
    AI Content Studio — Reviews, Analysis, Guides Generator
+   + Manual Post Writer & Publisher
    MenshlyGlobal Client-Side Logic
    ================================================================ */
 (function() {
@@ -56,11 +57,35 @@
   /* ---- UI References ---- */
   function getEl(id) { return document.getElementById(id); }
 
+  /* ---- Tab Switching ---- */
+  function setupTabs() {
+    var tabs = document.querySelectorAll('.ai-nr-tab');
+    tabs.forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        var target = this.getAttribute('data-tab');
+        // Deactivate all tabs
+        tabs.forEach(function(t) { t.classList.remove('ai-nr-tab-active'); });
+        document.querySelectorAll('.ai-nr-tab-content').forEach(function(c) {
+          c.classList.remove('ai-nr-tab-content-active');
+          c.style.display = 'none';
+        });
+        // Activate clicked tab
+        this.classList.add('ai-nr-tab-active');
+        var content = getEl('tab-' + target);
+        if (content) {
+          content.classList.add('ai-nr-tab-content-active');
+          content.style.display = '';
+        }
+      });
+    });
+  }
+
   /* ---- Status Display ---- */
-  function showStatus(type, message) {
-    var el = getEl('aiNewsroomStatus');
+  function showStatus(type, message, containerId) {
+    var elId = containerId || 'aiNewsroomStatus';
+    var el = getEl(elId);
     if (!el) return;
-    el.style.display = 'block';
+    el.style.display = 'flex';
     el.className = 'ai-newsroom-status ai-nr-status-' + type;
     var icon = '';
     if (type === 'loading') {
@@ -74,18 +99,19 @@
     }
     el.innerHTML = icon + '<span>' + message + '</span>';
     if (type === 'loading') {
-      el.style.display = 'block';
+      el.style.display = 'flex';
     } else {
       setTimeout(function() { el.style.display = 'none'; }, type === 'error' ? 8000 : 5000);
     }
   }
 
-  function hideStatus() {
-    var el = getEl('aiNewsroomStatus');
+  function hideStatus(containerId) {
+    var elId = containerId || 'aiNewsroomStatus';
+    var el = getEl(elId);
     if (el) el.style.display = 'none';
   }
 
-  /* ---- Article Generation ---- */
+  /* ---- Article Generation (AI Studio) ---- */
   async function generateArticle() {
     var topicInput = getEl('aiTopicInput');
     var categorySelect = getEl('aiCategorySelect');
@@ -109,7 +135,6 @@
     var tone = toneSelect.value;
     var length = lengthSelect.value;
 
-    /* Disable button, show loading */
     generateBtn.disabled = true;
     generateBtn.classList.add('ai-nr-generating');
     generateBtn.querySelector('span').textContent = 'Generating...';
@@ -173,7 +198,6 @@
       if (readTimeEl) readTimeEl.textContent = (article.readTime || 3) + ' min read';
       if (bodyEl) bodyEl.innerHTML = article.content || '<p>No content generated.</p>';
 
-      /* Display image if available */
       if (article.image && imgEl) {
         imgEl.src = article.image;
         imgEl.alt = article.title || article.topic;
@@ -349,7 +373,283 @@
     }
   }
 
-  /* ---- Publish Article to Site ---- */
+  /* ================================================================
+     MANUAL POST FUNCTIONS
+     ================================================================ */
+
+  function slugify(text) {
+    var s = text.toLowerCase().trim();
+    s = s.replace(/['\u2019\u2018""\u201C\u201D]/g, '');
+    s = s.replace(/[^\w\s-]/g, '');
+    s = s.replace(/[\s_]+/g, '-');
+    s = s.replace(/^-+|-+$/g, '');
+    return s.substring(0, 80) || 'article-' + Date.now();
+  }
+
+  /* Simple Markdown to HTML converter */
+  function markdownToHtml(md) {
+    if (!md) return '';
+    var html = md;
+    // Escape HTML
+    html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // Code blocks (``` ... ```)
+    html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+    // Inline code
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    // Headers
+    html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+    html = html.replace(/^# (.+)$/gm, '<h2>$1</h2>');
+    // Bold
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // Italic
+    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    // Blockquotes
+    html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+    // Unordered lists
+    html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+    // Horizontal rules
+    html = html.replace(/^---$/gm, '<hr>');
+    // Links
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    // Images
+    html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+    // Paragraphs: wrap remaining lines
+    html = html.replace(/^(?!<[a-z])((?!<\/)[^\n]+)$/gm, '<p>$1</p>');
+    // Clean up empty paragraphs
+    html = html.replace(/<p>\s*<\/p>/g, '');
+    // Clean up consecutive blockquotes into one
+    html = html.replace(/<\/blockquote>\s*<blockquote>/g, '<br>');
+    return html;
+  }
+
+  function updateWordCount() {
+    var textarea = getEl('manualContent');
+    var counter = getEl('manualWordCount');
+    if (!textarea || !counter) return;
+    var text = textarea.value.trim();
+    var words = text ? text.split(/\s+/).length : 0;
+    counter.textContent = words + ' word' + (words !== 1 ? 's' : '');
+    if (words < 50) {
+      counter.style.color = 'var(--accent)';
+    } else {
+      counter.style.color = 'var(--text-muted)';
+    }
+  }
+
+  function previewManualPost() {
+    var title = (getEl('manualTitle').value || '').trim();
+    var content = (getEl('manualContent').value || '').trim();
+    var summary = (getEl('manualSummary').value || '').trim();
+    var category = getEl('manualCategory').value;
+    var author = (getEl('manualAuthor').value || '').trim();
+    var image = (getEl('manualImage').value || '').trim();
+
+    if (!title) {
+      showStatus('error', 'Please enter an article title.', 'manualPostStatus');
+      getEl('manualTitle').focus();
+      return;
+    }
+    if (content.length < 20) {
+      showStatus('error', 'Content is too short. Write at least a paragraph.', 'manualPostStatus');
+      getEl('manualContent').focus();
+      return;
+    }
+
+    // Fill preview panel
+    var catEl = getEl('previewCat');
+    var timeEl = getEl('previewTime');
+    var titleEl = getEl('previewTitle');
+    var summaryEl = getEl('previewSummary');
+    var authorEl = getEl('previewAuthor');
+    var readTimeEl = getEl('previewReadTime');
+    var bodyEl = getEl('previewBody');
+    var imageWrap = getEl('previewImageWrap');
+    var imageEl = getEl('previewImage');
+    var panel = getEl('manualPreviewPanel');
+
+    if (catEl) catEl.textContent = category.charAt(0).toUpperCase() + category.slice(1);
+    if (timeEl) timeEl.textContent = 'Just now';
+    if (titleEl) titleEl.textContent = title;
+    if (summaryEl) summaryEl.textContent = summary || '';
+    if (authorEl) authorEl.textContent = author || 'MenshlyGlobal Staff';
+    var wordCount = content.split(/\s+/).length;
+    if (readTimeEl) readTimeEl.textContent = Math.max(1, Math.ceil(wordCount / 200)) + ' min read';
+
+    if (bodyEl) bodyEl.innerHTML = markdownToHtml(content);
+
+    if (image && imageEl) {
+      imageEl.src = image;
+      imageEl.alt = title;
+      if (imageWrap) imageWrap.style.display = 'block';
+    } else if (imageWrap) {
+      imageWrap.style.display = 'none';
+    }
+
+    if (panel) {
+      panel.style.display = 'block';
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  function closeManualPreview() {
+    var panel = getEl('manualPreviewPanel');
+    if (panel) panel.style.display = 'none';
+  }
+
+  function previewImage() {
+    var url = (getEl('manualImage').value || '').trim();
+    var previewWrap = getEl('manualImgPreview');
+    var previewEl = getEl('manualImgPreviewEl');
+    if (!url) {
+      showStatus('error', 'Enter an image URL first.', 'manualPostStatus');
+      return;
+    }
+    if (previewEl) {
+      previewEl.src = url;
+      previewEl.onload = function() {
+        if (previewWrap) previewWrap.style.display = 'block';
+      };
+      previewEl.onerror = function() {
+        showStatus('error', 'Could not load image. Check the URL.', 'manualPostStatus');
+        if (previewWrap) previewWrap.style.display = 'none';
+      };
+    }
+  }
+
+  function removeImagePreview() {
+    var previewWrap = getEl('manualImgPreview');
+    var previewEl = getEl('manualImgPreviewEl');
+    if (previewWrap) previewWrap.style.display = 'none';
+    if (previewEl) previewEl.src = '';
+  }
+
+  async function publishManualPost() {
+    var title = (getEl('manualTitle').value || '').trim();
+    var content = (getEl('manualContent').value || '').trim();
+    var summary = (getEl('manualSummary').value || '').trim();
+    var category = getEl('manualCategory').value;
+    var author = (getEl('manualAuthor').value || '').trim();
+    var image = (getEl('manualImage').value || '').trim();
+    var tags = (getEl('manualTags').value || '').trim();
+
+    // Validation
+    if (!title) {
+      showStatus('error', 'Article title is required.', 'manualPostStatus');
+      getEl('manualTitle').focus();
+      return;
+    }
+    if (content.length < 50) {
+      showStatus('error', 'Article content must be at least 50 characters. Current: ' + content.length + '.', 'manualPostStatus');
+      getEl('manualContent').focus();
+      return;
+    }
+
+    var publishBtn = getEl('manualPublishBtn');
+    if (!publishBtn) return;
+
+    // Confirm
+    var confirmed = confirm('Publish this article to MenshlyGlobal?\n\nTitle: ' + title + '\nCategory: ' + category + '\n\nThe article will be live within 1-2 minutes.');
+    if (!confirmed) return;
+
+    publishBtn.disabled = true;
+    publishBtn.classList.add('ai-nr-generating');
+    publishBtn.querySelector('span').textContent = 'Publishing...';
+    showStatus('loading', 'Publishing article to GitHub...', 'manualPostStatus');
+
+    // Convert markdown content to HTML for the publish endpoint
+    var htmlContent = markdownToHtml(content);
+
+    // Map category label for display
+    var categoryLabels = {
+      'world': 'World News',
+      'technology': 'Technology',
+      'business': 'Business',
+      'finance': 'Finance',
+      'entertainment': 'Entertainment',
+      'sports': 'Sports',
+      'science': 'Science',
+      'health': 'Health',
+      'opinion': 'Opinion'
+    };
+    var catLabel = categoryLabels[category] || 'World News';
+
+    try {
+      var response = await fetch(PUBLISH_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title,
+          summary: summary,
+          content: htmlContent,
+          category: catLabel,
+          image: image || null,
+          topic: title,
+          tone: 'feature'
+        })
+      });
+
+      var data = await response.json();
+
+      if (!response.ok || data.error) {
+        var errMsg = data.error || 'Unknown error occurred';
+        if (response.status === 503) {
+          errMsg += ' Set GITHUB_TOKEN and GITHUB_REPO in Cloudflare env vars.';
+        }
+        throw new Error(errMsg);
+      }
+
+      // Show success
+      var resultEl = getEl('manualPublishResult');
+      if (resultEl) {
+        resultEl.style.display = 'block';
+        resultEl.className = 'ai-nr-publish-result ai-nr-publish-success';
+        resultEl.innerHTML =
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
+          '<span>Published successfully! Commit <strong>' + (data.commitSha || '') + '</strong>. ' +
+          '<a href="' + (data.url || '#') + '" target="_blank" rel="noopener">View article</a> (live in 1-2 min)</span>';
+      }
+
+      showStatus('success', 'Article published! It will appear on the site within 1-2 minutes.', 'manualPostStatus');
+      publishBtn.querySelector('span').textContent = 'Published!';
+      publishBtn.classList.add('ai-nr-published');
+
+    } catch (err) {
+      showStatus('error', 'Publish failed: ' + (err.message || 'Unknown error'), 'manualPostStatus');
+      var resultEl = getEl('manualPublishResult');
+      if (resultEl) {
+        resultEl.style.display = 'block';
+        resultEl.className = 'ai-nr-publish-result ai-nr-publish-error';
+        resultEl.innerHTML = '<span>' + (err.message || 'Publish failed') + '</span>';
+      }
+    } finally {
+      publishBtn.disabled = false;
+      publishBtn.classList.remove('ai-nr-generating');
+    }
+  }
+
+  function clearManualForm() {
+    if (getEl('manualTitle')) getEl('manualTitle').value = '';
+    if (getEl('manualContent')) getEl('manualContent').value = '';
+    if (getEl('manualSummary')) getEl('manualSummary').value = '';
+    if (getEl('manualAuthor')) getEl('manualAuthor').value = '';
+    if (getEl('manualImage')) getEl('manualImage').value = '';
+    if (getEl('manualTags')) getEl('manualTags').value = '';
+    removeImagePreview();
+    closeManualPreview();
+    updateWordCount();
+    // Reset publish button
+    var publishBtn = getEl('manualPublishBtn');
+    if (publishBtn) {
+      publishBtn.querySelector('span').textContent = 'Publish Article';
+      publishBtn.classList.remove('ai-nr-published');
+    }
+    var resultEl = getEl('manualPublishResult');
+    if (resultEl) resultEl.style.display = 'none';
+    hideStatus('manualPostStatus');
+  }
+
+  /* ---- Publish Article to Site (AI Studio) ---- */
   async function publishArticle() {
     if (!currentArticle) {
       showStatus('error', 'No article to publish. Generate one first.');
@@ -359,7 +659,6 @@
     var publishBtn = getEl('aiNrPublishBtn');
     if (!publishBtn) return;
 
-    /* Confirm before publishing */
     var confirmed = confirm('Publish this article to MenshlyGlobal?\n\nTitle: ' + (currentArticle.title || '') + '\n\nThe article will be live on the site within 1-2 minutes.');
     if (!confirmed) return;
 
@@ -395,7 +694,6 @@
         throw new Error(errMsg);
       }
 
-      /* Show success result */
       var resultEl = getEl('aiNrPublishResult');
       if (resultEl) {
         resultEl.style.display = 'block';
@@ -406,7 +704,6 @@
           '<a href="' + (data.url || '#') + '" target="_blank" rel="noopener">View article</a> (live in 1-2 min)</span>';
       }
 
-      /* Also save to library */
       var exists = savedArticles.some(function(a) { return a.id === currentArticle.id; });
       if (!exists) {
         currentArticle.published = true;
@@ -416,8 +713,6 @@
       }
 
       showStatus('success', 'Article published! It will appear on the site within 1-2 minutes.');
-
-      /* Disable publish button after success */
       publishBtn.querySelector('span').textContent = 'Published';
       publishBtn.classList.add('ai-nr-published');
 
@@ -437,6 +732,10 @@
 
   /* ---- Event Listeners ---- */
   function setupEventListeners() {
+    // Tab switching
+    setupTabs();
+
+    // AI Studio
     var generateBtn = getEl('aiGenerateBtn');
     var quickBtn = getEl('aiQuickTopic');
     var copyBtn = getEl('aiNrCopyBtn');
@@ -451,7 +750,6 @@
     if (saveBtn) saveBtn.addEventListener('click', saveArticle);
     if (shareBtn) shareBtn.addEventListener('click', shareArticle);
     if (publishBtn) publishBtn.addEventListener('click', publishArticle);
-    /* Reset publish button when a new article is generated */
     if (generateBtn) generateBtn.addEventListener('click', function() {
       var publishBtn2 = getEl('aiNrPublishBtn');
       if (publishBtn2) {
@@ -472,14 +770,12 @@
         saveBtn2.disabled = false;
         saveBtn2.querySelector('span').textContent = 'Save';
       }
-      /* Reset publish button */
       var publishBtn2 = getEl('aiNrPublishBtn');
       if (publishBtn2) {
         publishBtn2.disabled = false;
         publishBtn2.querySelector('span').textContent = 'Publish';
         publishBtn2.classList.remove('ai-nr-published');
       }
-      /* Hide publish result */
       var resultEl = getEl('aiNrPublishResult');
       if (resultEl) resultEl.style.display = 'none';
     });
@@ -490,6 +786,28 @@
         if (e.key === 'Enter') generateArticle();
       });
     }
+
+    // Manual Post
+    var contentEl = getEl('manualContent');
+    if (contentEl) contentEl.addEventListener('input', updateWordCount);
+
+    var previewBtn = getEl('manualPreviewBtn');
+    if (previewBtn) previewBtn.addEventListener('click', previewManualPost);
+
+    var closePreviewBtn = getEl('manualClosePreview');
+    if (closePreviewBtn) closePreviewBtn.addEventListener('click', closeManualPreview);
+
+    var previewImgBtn = getEl('manualPreviewImg');
+    if (previewImgBtn) previewImgBtn.addEventListener('click', previewImage);
+
+    var removeImgBtn = getEl('manualRemoveImg');
+    if (removeImgBtn) removeImgBtn.addEventListener('click', removeImagePreview);
+
+    var manualPublishBtn = getEl('manualPublishBtn');
+    if (manualPublishBtn) manualPublishBtn.addEventListener('click', publishManualPost);
+
+    var clearBtn = getEl('manualClearBtn');
+    if (clearBtn) clearBtn.addEventListener('click', clearManualForm);
   }
 
   /* ---- Init ---- */
@@ -498,6 +816,7 @@
     loadArticles();
     setupEventListeners();
     renderLibrary();
+    updateWordCount();
   }
 
   if (document.readyState === 'loading') {

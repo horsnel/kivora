@@ -5,154 +5,299 @@
     <div class="ai-newsroom-hero-inner">
       <div class="ai-newsroom-badge">MenshlyGlobal Editorial</div>
       <h1>The Briefing Room</h1>
-      <p class="ai-newsroom-hero-desc">Generate professional reviews, market analysis, personal finance guides, and editorial commentary. All generated content is clearly labeled as opinion or analysis — never presented as breaking news.</p>
+      <p class="ai-newsroom-hero-desc">Generate professional reviews, market analysis, personal finance guides, and editorial commentary. Or write and publish posts manually.</p>
     </div>
   </div>
 
   <!-- Main Content -->
   <div class="ai-newsroom-content">
-    <!-- Generator Panel -->
-    <div class="ai-newsroom-generator">
-      <div class="ai-newsroom-panel">
-        <div class="ai-newsroom-panel-header">
-          <div class="ai-newsroom-panel-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+
+    <!-- Tab Switcher -->
+    <div class="ai-nr-tabs">
+      <button class="ai-nr-tab ai-nr-tab-active" data-tab="generator">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        <span>Content Studio</span>
+      </button>
+      <button class="ai-nr-tab" data-tab="manual">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        <span>Manual Post</span>
+      </button>
+    </div>
+
+    <!-- ========== TAB 1: AI Content Studio ========== -->
+    <div class="ai-nr-tab-content ai-nr-tab-content-active" id="tab-generator">
+      <!-- Generator Panel -->
+      <div class="ai-newsroom-generator">
+        <div class="ai-newsroom-panel">
+          <div class="ai-newsroom-panel-header">
+            <div class="ai-newsroom-panel-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            </div>
+            <div>
+              <h2>Content Studio</h2>
+              <p>Choose your section, topic, and format</p>
+            </div>
           </div>
-          <div>
-            <h2>Content Studio</h2>
-            <p>Choose your section, topic, and format</p>
+
+          <!-- Topic Input -->
+          <div class="ai-newsroom-field">
+            <label for="aiTopicInput">Topic / Subject</label>
+            <div class="ai-newsroom-input-wrap">
+              <input type="text" id="aiTopicInput" placeholder="e.g. Dune: Part Two, How to start investing in 2026" autocomplete="off">
+              <button class="ai-newsroom-quick-btn" id="aiQuickTopic" title="Get a topic suggestion">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Category, Tone & Length -->
+          <div class="ai-newsroom-row">
+            <div class="ai-newsroom-field">
+              <label for="aiCategorySelect">Section</label>
+              <select id="aiCategorySelect">
+                <option value="film-review">Film &amp; TV Review</option>
+                <option value="entertainment">Arts &amp; Culture</option>
+                <option value="personal-finance">Personal Finance</option>
+                <option value="market-analysis">Market Analysis</option>
+                <option value="business-strategy">Business Strategy</option>
+                <option value="technology">Tech &amp; Innovation</option>
+                <option value="commentary">Expert Commentary</option>
+              </select>
+            </div>
+            <div class="ai-newsroom-field">
+              <label for="aiToneSelect">Format</label>
+              <select id="aiToneSelect">
+                <option value="review" selected>In-Depth Review</option>
+                <option value="analysis">Analytical Breakdown</option>
+                <option value="guide">Explainer / How-To</option>
+                <option value="opinion">Opinion / Commentary</option>
+                <option value="listicle">Spotlight / Ranking</option>
+                <option value="feature">Long-Form Feature</option>
+              </select>
+            </div>
+            <div class="ai-newsroom-field">
+              <label for="aiLengthSelect">Length</label>
+              <select id="aiLengthSelect">
+                <option value="short">Short (~400w)</option>
+                <option value="medium" selected>Medium (~700w)</option>
+                <option value="long">Long (~1400w)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Generate Button -->
+          <button class="ai-newsroom-generate-btn" id="aiGenerateBtn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span>Generate Content</span>
+          </button>
+
+          <!-- Status Messages -->
+          <div class="ai-newsroom-status" id="aiNewsroomStatus" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- Output Panel -->
+      <div class="ai-newsroom-output" id="aiNewsroomOutput">
+        <!-- Placeholder -->
+        <div class="ai-newsroom-placeholder" id="aiNewsroomPlaceholder">
+          <div class="ai-newsroom-placeholder-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </div>
+          <h3>Your content will appear here</h3>
+          <p>Enter a topic above and click Generate to create professional reviews, analysis, or guides.</p>
+          <div class="ai-newsroom-placeholder-features">
+            <div class="ai-nr-feat">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <span>Film & TV Reviews</span>
+            </div>
+            <div class="ai-nr-feat">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              <span>Personal Finance</span>
+            </div>
+            <div class="ai-nr-feat">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+              <span>Market Analysis</span>
+            </div>
+            <div class="ai-nr-feat">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+              <span>Auto Images</span>
+            </div>
           </div>
         </div>
 
-        <!-- Topic Input -->
-        <div class="ai-newsroom-field">
-          <label for="aiTopicInput">Topic / Subject</label>
-          <div class="ai-newsroom-input-wrap">
-            <input type="text" id="aiTopicInput" placeholder="e.g. Dune: Part Two, How to start investing in 2026" autocomplete="off">
-            <button class="ai-newsroom-quick-btn" id="aiQuickTopic" title="Get a topic suggestion">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <!-- Article Display (hidden until generated) -->
+        <div class="ai-newsroom-article" id="aiNewsroomArticle" style="display:none;">
+          <div class="ai-nr-article-header">
+            <span class="ai-nr-article-cat" id="aiNrArticleCat"></span>
+            <span class="ai-nr-article-badge">Editorial</span>
+            <span class="ai-nr-article-time" id="aiNrArticleTime"></span>
+          </div>
+          <div class="ai-nr-article-image" id="aiNrArticleImage" style="display:none;">
+            <img id="aiNrArticleImg" src="" alt="">
+            <span class="ai-nr-img-credit" id="aiNrImgCredit"></span>
+          </div>
+          <h2 class="ai-nr-article-title" id="aiNrArticleTitle"></h2>
+          <p class="ai-nr-article-summary" id="aiNrArticleSummary"></p>
+          <div class="ai-nr-article-meta">
+            <span>MenshlyGlobal Editorial Board</span>
+            <span class="ai-nr-disclaimer">Opinion / Analysis</span>
+            <span id="aiNrArticleReadTime"></span>
+          </div>
+          <div class="ai-nr-article-body" id="aiNrArticleBody"></div>
+          <div class="ai-nr-article-actions">
+            <button class="ai-nr-action-btn ai-nr-publish-btn" id="aiNrPublishBtn" title="Publish to site">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><polyline points="12 12 17 17"/><polyline points="12 17 17 12"/></svg>
+              <span>Publish</span>
+            </button>
+            <button class="ai-nr-action-btn" id="aiNrCopyBtn" title="Copy article">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span>Copy</span>
+            </button>
+            <button class="ai-nr-action-btn" id="aiNrSaveBtn" title="Save to library">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+              <span>Save</span>
+            </button>
+            <button class="ai-nr-action-btn" id="aiNrShareBtn" title="Share">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              <span>Share</span>
+            </button>
+            <button class="ai-nr-action-btn ai-nr-action-delete" id="aiNrDiscardBtn" title="Discard">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              <span>Discard</span>
             </button>
           </div>
+          <!-- Publish Result Toast -->
+          <div class="ai-nr-publish-result" id="aiNrPublishResult" style="display:none;"></div>
         </div>
-
-        <!-- Category, Tone & Length -->
-        <div class="ai-newsroom-row">
-          <div class="ai-newsroom-field">
-            <label for="aiCategorySelect">Section</label>
-            <select id="aiCategorySelect">
-              <option value="film-review">Film &amp; TV Review</option>
-              <option value="entertainment">Arts &amp; Culture</option>
-              <option value="personal-finance">Personal Finance</option>
-              <option value="market-analysis">Market Analysis</option>
-              <option value="business-strategy">Business Strategy</option>
-              <option value="technology">Tech &amp; Innovation</option>
-              <option value="commentary">Expert Commentary</option>
-            </select>
-          </div>
-          <div class="ai-newsroom-field">
-            <label for="aiToneSelect">Format</label>
-            <select id="aiToneSelect">
-              <option value="review" selected>In-Depth Review</option>
-              <option value="analysis">Analytical Breakdown</option>
-              <option value="guide">Explainer / How-To</option>
-              <option value="opinion">Opinion / Commentary</option>
-              <option value="listicle">Spotlight / Ranking</option>
-              <option value="feature">Long-Form Feature</option>
-            </select>
-          </div>
-          <div class="ai-newsroom-field">
-            <label for="aiLengthSelect">Length</label>
-            <select id="aiLengthSelect">
-              <option value="short">Short (~400w)</option>
-              <option value="medium" selected>Medium (~700w)</option>
-              <option value="long">Long (~1400w)</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Generate Button -->
-        <button class="ai-newsroom-generate-btn" id="aiGenerateBtn">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          <span>Generate Content</span>
-        </button>
-
-        <!-- Status Messages -->
-        <div class="ai-newsroom-status" id="aiNewsroomStatus" style="display:none;"></div>
       </div>
     </div>
 
-    <!-- Output Panel -->
-    <div class="ai-newsroom-output" id="aiNewsroomOutput">
-      <!-- Placeholder -->
-      <div class="ai-newsroom-placeholder" id="aiNewsroomPlaceholder">
-        <div class="ai-newsroom-placeholder-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-        </div>
-        <h3>Your content will appear here</h3>
-        <p>Enter a topic above and click Generate to create professional reviews, analysis, or guides.</p>
-        <div class="ai-newsroom-placeholder-features">
-          <div class="ai-nr-feat">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <span>Film & TV Reviews</span>
+    <!-- ========== TAB 2: Manual Post ========== -->
+    <div class="ai-nr-tab-content" id="tab-manual" style="display:none;">
+      <div class="ai-newsroom-panel">
+        <div class="ai-newsroom-panel-header">
+          <div class="ai-newsroom-panel-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </div>
-          <div class="ai-nr-feat">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-            <span>Personal Finance</span>
-          </div>
-          <div class="ai-nr-feat">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
-            <span>Market Analysis</span>
-          </div>
-          <div class="ai-nr-feat">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-            <span>Auto Images</span>
+          <div>
+            <h2>Manual Post</h2>
+            <p>Write and publish your own article directly</p>
           </div>
         </div>
+
+        <!-- Manual Post Form -->
+        <form id="manualPostForm" onsubmit="return false;">
+          <div class="ai-newsroom-field">
+            <label for="manualTitle">Article Title *</label>
+            <input type="text" id="manualTitle" class="ai-nr-manual-input" placeholder="Enter a compelling headline..." required>
+          </div>
+
+          <div class="ai-newsroom-row">
+            <div class="ai-newsroom-field">
+              <label for="manualCategory">Category *</label>
+              <select id="manualCategory">
+                <option value="world">World News</option>
+                <option value="technology">Technology</option>
+                <option value="business">Business</option>
+                <option value="finance">Finance</option>
+                <option value="entertainment">Entertainment</option>
+                <option value="sports">Sports</option>
+                <option value="science">Science</option>
+                <option value="health">Health</option>
+                <option value="opinion">Opinion</option>
+              </select>
+            </div>
+            <div class="ai-newsroom-field">
+              <label for="manualAuthor">Author</label>
+              <input type="text" id="manualAuthor" class="ai-nr-manual-input" placeholder="Leave blank for random assignment">
+            </div>
+          </div>
+
+          <div class="ai-newsroom-field">
+            <label for="manualSummary">Summary / Standfirst</label>
+            <input type="text" id="manualSummary" class="ai-nr-manual-input" placeholder="A brief 1-2 sentence summary of the article">
+          </div>
+
+          <div class="ai-newsroom-field">
+            <label for="manualImage">Image URL</label>
+            <div class="ai-newsroom-input-wrap">
+              <input type="url" id="manualImage" class="ai-nr-manual-input" placeholder="https://example.com/image.jpg (optional)">
+              <button type="button" class="ai-newsroom-quick-btn" id="manualPreviewImg" title="Preview image">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <div class="ai-nr-img-preview" id="manualImgPreview" style="display:none;">
+              <img id="manualImgPreviewEl" src="" alt="Preview">
+              <button type="button" id="manualRemoveImg" class="ai-nr-remove-img" title="Remove image">&times;</button>
+            </div>
+          </div>
+
+          <div class="ai-newsroom-field">
+            <label for="manualTags">Tags</label>
+            <input type="text" id="manualTags" class="ai-nr-manual-input" placeholder="Comma-separated: technology, AI, 2026">
+          </div>
+
+          <div class="ai-newsroom-field">
+            <label for="manualContent">Article Content * <span class="ai-nr-hint">(Markdown supported)</span></label>
+            <textarea id="manualContent" class="ai-nr-manual-textarea" placeholder="Write your article here...
+
+You can use Markdown formatting:
+## Subheadings
+**Bold text** and *italic text*
+- Bullet points
+> Blockquotes" rows="14" required></textarea>
+          </div>
+
+          <!-- Word count bar -->
+          <div class="ai-nr-word-count">
+            <span id="manualWordCount">0 words</span>
+            <span class="ai-nr-hint">Minimum 50 words recommended</span>
+          </div>
+
+          <!-- Form actions -->
+          <div class="ai-nr-manual-actions">
+            <button type="button" class="ai-nr-manual-preview-btn" id="manualPreviewBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <span>Preview</span>
+            </button>
+            <button type="button" class="ai-newsroom-generate-btn ai-nr-manual-publish-btn" id="manualPublishBtn" style="max-width:300px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><polyline points="12 12 17 17"/><polyline points="12 17 17 12"/></svg>
+              <span>Publish Article</span>
+            </button>
+            <button type="button" class="ai-nr-action-btn ai-nr-action-delete" id="manualClearBtn" style="height:48px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              <span>Clear</span>
+            </button>
+          </div>
+
+          <!-- Status -->
+          <div class="ai-newsroom-status" id="manualPostStatus" style="display:none;"></div>
+        </form>
+
+        <!-- Publish Result -->
+        <div class="ai-nr-publish-result" id="manualPublishResult" style="display:none;"></div>
       </div>
 
-      <!-- Article Display (hidden until generated) -->
-      <div class="ai-newsroom-article" id="aiNewsroomArticle" style="display:none;">
+      <!-- Manual Post Preview Panel -->
+      <div class="ai-nr-manual-preview-panel" id="manualPreviewPanel" style="display:none;">
+        <div class="ai-nr-manual-preview-header">
+          <h3>Article Preview</h3>
+          <button type="button" id="manualClosePreview" class="ai-nr-close-preview">&times;</button>
+        </div>
         <div class="ai-nr-article-header">
-          <span class="ai-nr-article-cat" id="aiNrArticleCat"></span>
-          <span class="ai-nr-article-badge">Editorial</span>
-          <span class="ai-nr-article-time" id="aiNrArticleTime"></span>
+          <span class="ai-nr-article-cat" id="previewCat"></span>
+          <span class="ai-nr-article-time" id="previewTime"></span>
         </div>
-        <div class="ai-nr-article-image" id="aiNrArticleImage" style="display:none;">
-          <img id="aiNrArticleImg" src="" alt="">
-          <span class="ai-nr-img-credit" id="aiNrImgCredit"></span>
+        <div class="ai-nr-article-image" id="previewImageWrap" style="display:none;">
+          <img id="previewImage" src="" alt="">
         </div>
-        <h2 class="ai-nr-article-title" id="aiNrArticleTitle"></h2>
-        <p class="ai-nr-article-summary" id="aiNrArticleSummary"></p>
+        <h2 class="ai-nr-article-title" id="previewTitle"></h2>
+        <p class="ai-nr-article-summary" id="previewSummary"></p>
         <div class="ai-nr-article-meta">
-          <span>MenshlyGlobal Editorial Board</span>
-          <span class="ai-nr-disclaimer">Opinion / Analysis</span>
-          <span id="aiNrArticleReadTime"></span>
+          <span id="previewAuthor"></span>
+          <span id="previewReadTime"></span>
         </div>
-        <div class="ai-nr-article-body" id="aiNrArticleBody"></div>
-        <div class="ai-nr-article-actions">
-          <button class="ai-nr-action-btn ai-nr-publish-btn" id="aiNrPublishBtn" title="Publish to site">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><polyline points="12 12 17 17"/><polyline points="12 17 17 12"/></svg>
-            <span>Publish</span>
-          </button>
-          <button class="ai-nr-action-btn" id="aiNrCopyBtn" title="Copy article">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            <span>Copy</span>
-          </button>
-          <button class="ai-nr-action-btn" id="aiNrSaveBtn" title="Save to library">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-            <span>Save</span>
-          </button>
-          <button class="ai-nr-action-btn" id="aiNrShareBtn" title="Share">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-            <span>Share</span>
-          </button>
-          <button class="ai-nr-action-btn ai-nr-action-delete" id="aiNrDiscardBtn" title="Discard">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-            <span>Discard</span>
-          </button>
-        </div>
-        <!-- Publish Result Toast -->
-        <div class="ai-nr-publish-result" id="aiNrPublishResult" style="display:none;"></div>
+        <div class="ai-nr-article-body" id="previewBody"></div>
       </div>
     </div>
 
