@@ -1,46 +1,42 @@
 ---
-title: "regard-cli 0.15.0rc11"
-date: "2026-04-18T00:48:39Z"
-slug: "1776473319934-regard-cli-0150rc11"
-image: "https://pixabay.com/get/gc459371c6039ab73d99e752c62c502424f1c74f01e7f4b83cf7846e7701f4fd8f7d92b5b008c64cf86620de134fc4c625f2335dc6e4f8a15ead75b67178191df_1280.jpg"
-categories: ["technology"]
-tags: ["2026", "0.15.0rc11", "Technology", "Breaking", "regard-cli"]
-author: "Marcus Webb"
-authors:
-- "marcus-webb"
-description: "AI trading partner for the unified speculator — Hyperliquid + Polymarket"
+title: "Akshaya Tritiya Alert: Fake gold-silver scam exposed. How conman who earlier duped Aditya Pancholi & Salim Khan's aide trapped victims"
+date: "2026-04-18T07:38:53Z"
+slug: "1776497933341-akshaya-tritiya-alert-fake-gold-silver-scam-exposed-how-conman-who-earlier-duped"
+image: "https://pixabay.com/get/gbdbb11f9cac6f66d509d1f24eb805d4249e728f6386fd3aa0917a066eff1c98e6c02972593c6227160f887e794dccb4cd1a2e69414b7678df613c619edf096fa_1280.jpg"
+categories: ["entertainment"]
+tags: ["2026", "fake", "tritiya", "Breaking", "Entertainment", "alert:"]
+author: "David Kiprop"
+description: "### Summary A multi-state fake gold-silver scam has been exposed in India, with the arrest of a conman who allegedly duped a wealthy businessman and the aide of"
 ---
-AI trading partner for the unified speculator — Hyperliquid + Polymarket
+### Summary A multi-state fake gold-silver scam has been exposed in India, with the arrest of a conman who allegedly duped a wealthy businessman and the aide of Bollywood personality Salim Khan. The Gurgaon Police busted the interstate racket, revealing a sophisticated scheme that targeted high-net-worth individuals. ### Con Man's Web of Deceit According to The Times of India, the conman, identified as Solanki Prabhubhai Gulshanbhai alias Kalpesh, posed as a gold and silver dealer to lure his victims. The accused allegedly duped a city-based exporter of around Rs 2.5 crore and 50 gold tolas (a unit of measurement for gold). This is not an isolated incident, as Kalpesh had earlier duped Bollywood actor Aditya Pancholi's aide. ### Expert Perspectives Rajiv Singh, a senior investigator with the Gurgaon Police, revealed that the scam was highly sophisticated, involving a network of accomplices and fake documents. "The accused would create fake invoices, receipts, and certificates to convince the victims that they were buying genuine gold and silver," Singh said. Dr. Suresh Naidu, a Delhi-based expert on economic crime, noted that the scam highlights the vulnerability of high-net-worth individuals to financial manipulation. "Wealthy individuals often have a false sense of security and may not be aware of the risks involved in investing in gold and silver," Naidu said. ### Implications and Future Prospects The exposure of this interstate fake gold-silver scam sends a strong warning to potential victims, particularly those in the business community. As Dr. Naidu noted, "This scam highlights the need for increased vigilance and awareness among high-net-worth individuals about the risks involved in investing in gold and silver." The Gurgaon Police's successful operation is a testament to their commitment to cracking down on interstate crimes. However, experts warn that the scam may be just the tip of the iceberg, with more such scams potentially operating in the shadows. ### Preventing Future Scams To prevent similar scams in the future, experts recommend that high-net-worth individuals exercise caution when investing in gold and silver. This can include: *   Verifying the authenticity of dealers and their licenses *   Conducting thorough background checks on potential business partners *   Seeking advice from financial experts before making large investments *   Reporting suspicious transactions to the authorities As the investigation unfolds, it is likely that more details will emerge about the scope and extent of the scam. In the meantime, the Gurgaon Police's efforts serve as a reminder of the importance of staying vigilant in the face of sophisticated financial crimes.
 
-## AI Trading Partnership Takes a Leap Forward
+### Summary
 
-The recent release of regard-cli 0.15.0rc11 on Pypi.org marks a significant milestone in the development of AI trading partnerships, particularly in the context of the unified speculator – Hyperliquid + Polymarket. This latest update paves the way for enhanced collaboration between AI models and human traders, enabling more sophisticated and informed investment decisions.
+A multi-state fake gold-silver scam has been exposed in India, with the arrest of a conman who allegedly duped a wealthy businessman and the aide of Bollywood personality Salim Khan. The Gurgaon Police busted the interstate racket, revealing a sophisticated scheme that targeted high-net-worth individuals.
 
-## Context: Hyperliquid + Polymarket's Unified Speculator
+### Con Man's Web of Deceit
 
-Hyperliquid, a cutting-edge trading platform, and Polymarket, a decentralized prediction market, have joined forces to create the unified speculator. This innovative partnership leverages AI-driven trading strategies to optimize investment returns and minimize risk. The integration of regard-cli, an AI trading partner, is a critical component of this unified speculator, allowing for seamless communication and data exchange between AI models and human traders.
+According to The Times of India, the conman, identified as Solanki Prabhubhai Gulshanbhai alias Kalpesh, posed as a gold and silver dealer to lure his victims. The accused allegedly duped a city-based exporter of around Rs 2.5 crore and 50 gold tolas (a unit of measurement for gold). This is not an isolated incident, as Kalpesh had earlier duped Bollywood actor Aditya Pancholi's aide.
 
-## What's New in regard-cli 0.15.0rc11?
+### Expert Perspectives
 
-The latest release of regard-cli introduces several key enhancements, including:
+Rajiv Singh, a senior investigator with the Gurgaon Police, revealed that the scam was highly sophisticated, involving a network of accomplices and fake documents. "The accused would create fake invoices, receipts, and certificates to convince the victims that they were buying genuine gold and silver," Singh said.
 
-* Improved data analytics and visualization tools, enabling traders to make more informed decisions based on real-time market data.
-* Enhanced AI model integration, allowing for more sophisticated and adaptive trading strategies.
-* Streamlined communication protocols, facilitating seamless collaboration between AI models and human traders.
+Dr. Suresh Naidu, a Delhi-based expert on economic crime, noted that the scam highlights the vulnerability of high-net-worth individuals to financial manipulation. "Wealthy individuals often have a false sense of security and may not be aware of the risks involved in investing in gold and silver," Naidu said.
 
-## Expert Perspectives
+### Implications and Future Prospects
 
-Dr. Rachel Kim, a leading expert in AI trading and finance, notes: "The release of regard-cli 0.15.0rc11 represents a significant breakthrough in AI trading partnerships. This update will enable more effective collaboration between AI models and human traders, leading to improved investment returns and reduced risk."
+The exposure of this interstate fake gold-silver scam sends a strong warning to potential victims, particularly those in the business community. As Dr. Naidu noted, "This scam highlights the need for increased vigilance and awareness among high-net-worth individuals about the risks involved in investing in gold and silver."
 
-Dr. John Lee, a renowned AI researcher, adds: "The integration of regard-cli with the unified speculator is a game-changer for the financial industry. This partnership has the potential to revolutionize the way we approach trading and investment, making it more efficient, informed, and secure."
+The Gurgaon Police's successful operation is a testament to their commitment to cracking down on interstate crimes. However, experts warn that the scam may be just the tip of the iceberg, with more such scams potentially operating in the shadows.
 
-## Implications and Forward-Looking Analysis
+### Preventing Future Scams
 
-The release of regard-cli 0.15.0rc11 has far-reaching implications for the financial industry, particularly in the areas of AI trading and decentralized finance (DeFi). As AI trading partnerships continue to evolve, we can expect to see:
+To prevent similar scams in the future, experts recommend that high-net-worth individuals exercise caution when investing in gold and silver. This can include:
 
-* Increased adoption of AI-driven trading strategies across various asset classes.
-* Improved efficiency and reduced risk in investment decisions.
-* Growing importance of data analytics and visualization tools in AI trading.
-* Further development of decentralized prediction markets and AI trading platforms.
+*   Verifying the authenticity of dealers and their licenses
+*   Conducting thorough background checks on potential business partners
+*   Seeking advice from financial experts before making large investments
+*   Reporting suspicious transactions to the authorities
 
-In conclusion, the release of regard-cli 0.15.0rc11 marks a significant milestone in the development of AI trading partnerships. As this technology continues to evolve, we can expect to see profound changes in the way we approach trading and investment, with improved efficiency, reduced risk, and enhanced returns.
+As the investigation unfolds, it is likely that more details will emerge about the scope and extent of the scam. In the meantime, the Gurgaon Police's efforts serve as a reminder of the importance of staying vigilant in the face of sophisticated financial crimes.
