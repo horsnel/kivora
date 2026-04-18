@@ -10,7 +10,7 @@
 
 export async function onRequestPost(context) {
   try {
-    const { title, summary, content, category, image, imageCredit, imageLink, topic, tone } = await context.request.json();
+    const { title, summary, content, category, image, imageCredit, imageLink, topic, tone, author: reqAuthor, tags: reqTags } = await context.request.json();
 
     if (!title || !title.trim()) {
       return jsonResponse({ error: 'Article title is required' }, 400);
@@ -42,23 +42,46 @@ export async function onRequestPost(context) {
     const now = new Date();
     const dateStr = now.toISOString();
     const authors = ['David Kiprop', 'Sarah Mitchell', 'Amara Okonkwo', 'Marcus Webb', 'James Chen', 'Dr. Elena Vasquez', 'Dr. Fatima Al-Hassan'];
-    const author = authors[Math.floor(Math.random() * authors.length)];
+    const author = (reqAuthor && reqAuthor.trim()) ? reqAuthor.trim() : authors[Math.floor(Math.random() * authors.length)];
 
     /* Map category to Hugo section */
     const catMap = {
+      /* AI Studio categories */
       'Film & TV Review': 'entertainment',
       'Arts & Culture': 'entertainment',
       'Personal Finance': 'finance',
       'Market Analysis': 'business',
       'Business Strategy': 'business',
       'Tech & Innovation': 'technology',
-      'Expert Commentary': 'world'
+      'Expert Commentary': 'world',
+      /* Manual Post categories (label form) */
+      'World News': 'world',
+      'Technology': 'technology',
+      'Business': 'business',
+      'Finance': 'finance',
+      'Entertainment': 'entertainment',
+      'Sports': 'sports',
+      'Science': 'science',
+      'Health': 'health',
+      'Opinion': 'opinion'
     };
-    const hugoCategory = catMap[category] || 'world';
+    /* Also accept raw slugs directly */
+    const validSlugs = ['world', 'technology', 'business', 'finance', 'entertainment', 'sports', 'science', 'health', 'opinion'];
+    const hugoCategory = catMap[category] || (validSlugs.includes(category) ? category : 'world');
 
-    /* Build tags from topic words */
-    const tagWords = (topic || title).toLowerCase().split(/\s+/).filter(w => w.length > 3);
-    const tags = [...new Set([...tagWords.slice(0, 4), '2026', 'MenshlyGlobal'])].slice(0, 6);
+    /* Build tags — use provided tags or auto-generate from topic */
+    let tags;
+    if (reqTags && reqTags.trim()) {
+      tags = reqTags.split(',').map(t => t.trim()).filter(t => t.length > 0);
+      if (tags.length < 2) {
+        const fallback = (topic || title).toLowerCase().split(/\s+/).filter(w => w.length > 3).slice(0, 3);
+        tags = [...new Set([...tags, ...fallback])].slice(0, 6);
+      }
+      tags = tags.slice(0, 6);
+    } else {
+      const tagWords = (topic || title).toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      tags = [...new Set([...tagWords.slice(0, 4), '2026', 'MenshlyGlobal'])].slice(0, 6);
+    }
 
     /* Build front matter */
     let frontMatter = '---\n';

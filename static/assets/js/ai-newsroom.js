@@ -575,18 +575,25 @@
     var catLabel = categoryLabels[category] || 'World News';
 
     try {
+      // Build the publish payload
+      var payload = {
+        title: title,
+        summary: summary,
+        content: htmlContent,
+        category: catLabel,
+        image: image || null,
+        topic: title,
+        tone: 'feature'
+      };
+      // Include author if provided
+      if (author) payload.author = author;
+      // Include tags if provided
+      if (tags) payload.tags = tags;
+
       var response = await fetch(PUBLISH_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: title,
-          summary: summary,
-          content: htmlContent,
-          category: catLabel,
-          image: image || null,
-          topic: title,
-          tone: 'feature'
-        })
+        body: JSON.stringify(payload)
       });
 
       var data = await response.json();
