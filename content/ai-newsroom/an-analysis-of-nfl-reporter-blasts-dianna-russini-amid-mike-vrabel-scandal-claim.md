@@ -47,9 +47,9 @@ To avoid similar controversies in the future, reporters should prioritize verifi
 **JSON Response:**
 ```json
 {
-  "title": "The Blurred Lines of Sports Journalism: An Examination of Dianna Russini's Scandal",
-  "summary": "A recent controversy surrounding Dianna Russini has sparked a heated debate about the ethics of sports journalism, highlighting the need for clearer boundaries between reporters and their sources.",
-  "content": "# The Blurred Lines of Sports Journalism: An Examination of Dianna Russini's Scandal\n\nStandfirst: A recent controversy surrounding Dianna Russini has sparked a heated debate about the ethics of sports journalism, highlighting the need for clearer boundaries between reporters and their sources.
+"title": "The Blurred Lines of Sports Journalism: An Examination of Dianna Russini's Scandal",
+"summary": "A recent controversy surrounding Dianna Russini has sparked a heated debate about the ethics of sports journalism, highlighting the need for clearer boundaries between reporters and their sources.",
+"content": "# The Blurred Lines of Sports Journalism: An Examination of Dianna Russini's Scandal\n\nStandfirst: A recent controversy surrounding Dianna Russini has sparked a heated debate about the ethics of sports journalism, highlighting the need for clearer boundaries between reporters and their sources.
 
 As a prominent figure in the world of sports journalism, Dianna Russini's name has been at the center of a sensational scandal involving Tennessee Titans head coach Mike Vrabel. NFL reporter Clay Travis was recently accused of spreading a rumor that Russini had an intimate relationship with Vrabel, which she denies. This incident has raised important questions about the ethics of sports journalism and the blurred lines between reporters and their sources.
 

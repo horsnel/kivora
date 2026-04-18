@@ -1,223 +1,112 @@
 /**
  * Cloudflare Pages Function: Publish Article to Site
- * Takes generated article data and commits it as a Hugo markdown file
- * to the GitHub repo, triggering a Cloudflare Pages rebuild.
+ * Commits article as Hugo markdown to GitHub repo.
  *
  * Required Cloudflare Environment Variables:
- *   GITHUB_TOKEN   — GitHub Personal Access Token with repo write access
- *   GITHUB_REPO    — Repository in format "owner/repo" (e.g., "horsnel/menshly-global-repo")
+ *   GITHUB_TOKEN   - GitHub PAT with repo write access
+ *   GITHUB_REPO    - owner/repo format
  */
 
 export async function onRequestPost(context) {
   try {
     const { title, summary, content, category, image, imageCredit, imageLink, topic, tone, author: reqAuthor, tags: reqTags } = await context.request.json();
 
-    if (!title || !title.trim()) {
-      return jsonResponse({ error: 'Article title is required' }, 400);
-    }
+    if (!title || !title.trim()) return jsonResponse({ error: "Article title is required" }, 400);
+    if (!content || content.trim().length < 50) return jsonResponse({ error: "Article content too short (min 50 chars)" }, 400);
 
-    if (!content || content.trim().length < 50) {
-      return jsonResponse({ error: 'Article content is too short (minimum 50 characters)' }, 400);
-    }
+    const githubToken = context.env.GITHUB_TOKEN || "";
+    const githubRepo = context.env.GITHUB_REPO || "";
 
-    const githubToken = context.env.GITHUB_TOKEN || '';
-    const githubRepo = context.env.GITHUB_REPO || '';
+    if (!githubToken) return jsonResponse({ error: "GITHUB_TOKEN not set in Cloudflare env vars.", hint: "Pages > Settings > Environment variables" }, 503);
+    if (!githubRepo) return jsonResponse({ error: "GITHUB_REPO not set.", hint: "Format: owner/repo" }, 503);
 
-    if (!githubToken) {
-      return jsonResponse({
-        error: 'GitHub token not configured. Set GITHUB_TOKEN in Cloudflare Pages environment variables.',
-        hint: 'Cloudflare Dashboard > Pages > Settings > Environment variables'
-      }, 503);
-    }
-
-    if (!githubRepo) {
-      return jsonResponse({
-        error: 'GitHub repo not configured. Set GITHUB_REPO in Cloudflare Pages environment variables.',
-        hint: 'Format: "owner/repo" (e.g., "horsnel/menshly-global-repo")'
-      }, 503);
-    }
-
-    /* === Build Hugo markdown === */
     const slug = slugify(title);
-    const now = new Date();
-    const dateStr = now.toISOString();
-    const authors = ['David Kiprop', 'Sarah Mitchell', 'Amara Okonkwo', 'Marcus Webb', 'James Chen', 'Dr. Elena Vasquez', 'Dr. Fatima Al-Hassan'];
-    const author = (reqAuthor && reqAuthor.trim()) ? reqAuthor.trim() : authors[Math.floor(Math.random() * authors.length)];
+    const dateStr = new Date().toISOString();
+    const authorPool = ["David Kiprop","Sarah Mitchell","Amara Okonkwo","Marcus Webb","James Chen","Dr. Elena Vasquez","Dr. Fatima Al-Hassan"];
+    const author = (reqAuthor && reqAuthor.trim()) ? reqAuthor.trim() : authorPool[Math.floor(Math.random() * authorPool.length)];
 
-    /* Map category to Hugo section */
-    const catMap = {
-      /* AI Studio categories */
-      'Film & TV Review': 'entertainment',
-      'Arts & Culture': 'entertainment',
-      'Personal Finance': 'finance',
-      'Market Analysis': 'business',
-      'Business Strategy': 'business',
-      'Tech & Innovation': 'technology',
-      'Expert Commentary': 'world',
-      /* Manual Post categories (label form) */
-      'World News': 'world',
-      'Technology': 'technology',
-      'Business': 'business',
-      'Finance': 'finance',
-      'Entertainment': 'entertainment',
-      'Sports': 'sports',
-      'Science': 'science',
-      'Health': 'health',
-      'Opinion': 'opinion'
-    };
-    /* Also accept raw slugs directly */
-    const validSlugs = ['world', 'technology', 'business', 'finance', 'entertainment', 'sports', 'science', 'health', 'opinion'];
-    const hugoCategory = catMap[category] || (validSlugs.includes(category) ? category : 'world');
+    const catMap = {"Film & TV Review":"entertainment","Arts & Culture":"entertainment","Personal Finance":"finance","Market Analysis":"business","Business Strategy":"business","Tech & Innovation":"technology","Expert Commentary":"world","World News":"world","Technology":"technology","Business":"business","Finance":"finance","Entertainment":"entertainment","Sports":"sports","Science":"science","Health":"health","Opinion":"opinion"};
+    const validSlugs = ["world","technology","business","finance","entertainment","sports","science","health","opinion"];
+    const hugoCat = catMap[category] || (validSlugs.includes(category) ? category : "world");
 
-    /* Build tags — use provided tags or auto-generate from topic */
     let tags;
     if (reqTags && reqTags.trim()) {
-      tags = reqTags.split(',').map(t => t.trim()).filter(t => t.length > 0);
-      if (tags.length < 2) {
-        const fallback = (topic || title).toLowerCase().split(/\s+/).filter(w => w.length > 3).slice(0, 3);
-        tags = [...new Set([...tags, ...fallback])].slice(0, 6);
-      }
-      tags = tags.slice(0, 6);
+      tags = reqTags.split(",").map(t => t.trim()).filter(t => t.length > 0);
+      if (tags.length < 2) { tags = tags.concat((topic || title).toLowerCase().split(/\s+/).filter(w => w.length > 3).slice(0, 3)); }
+      var seen = {}; tags = tags.filter(t => seen[t] ? false : (seen[t] = true)); tags = tags.slice(0, 6);
     } else {
-      const tagWords = (topic || title).toLowerCase().split(/\s+/).filter(w => w.length > 3);
-      tags = [...new Set([...tagWords.slice(0, 4), '2026', 'MenshlyGlobal'])].slice(0, 6);
+      var tw = (topic || title).toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      var s2 = {}; var u2 = []; tw.slice(0,4).forEach(t => { if (!s2[t]) { s2[t] = true; u2.push(t); } });
+      u2.push("2026","MenshlyGlobal"); tags = u2.slice(0, 6);
     }
 
-    /* Build front matter */
-    let frontMatter = '---\n';
-    frontMatter += `title: "${title.replace(/"/g, "'")}"\n`;
-    frontMatter += `date: "${dateStr}"\n`;
-    frontMatter += `slug: "${slug}"\n`;
-    if (image) frontMatter += `image: "${image}"\n`;
-    frontMatter += `categories: ["${hugoCategory}"]\n`;
-    frontMatter += `tags: ${JSON.stringify(tags)}\n`;
-    frontMatter += `author: "${author}"\n`;
-    frontMatter += `description: "${(summary || '').replace(/"/g, "'").substring(0, 160)}"\n`;
-    frontMatter += '---\n\n';
+    let fm = "---\n";
+    fm += "title: " + JSON.stringify(title) + "\n";
+    fm += "date: " + JSON.stringify(dateStr) + "\n";
+    fm += "slug: " + JSON.stringify(slug) + "\n";
+    if (image) fm += "image: " + JSON.stringify(image) + "\n";
+    fm += "categories: " + JSON.stringify([hugoCat]) + "\n";
+    fm += "tags: " + JSON.stringify(tags) + "\n";
+    fm += "author: " + JSON.stringify(author) + "\n";
+    fm += "description: " + JSON.stringify((summary || "").substring(0, 160)) + "\n";
+    fm += "---\n\n";
 
-    /* Convert HTML content to markdown-friendly format */
-    let bodyContent = '';
-    if (content) {
-      /* Convert HTML to simpler markdown */
-      bodyContent = content
-        .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '\n## $1\n')
-        .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '\n### $1\n')
-        .replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n\n')
-        .replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**')
-        .replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*')
-        .replace(/<blockquote[^>]*>(.*?)<\/blockquote>/gi, '> $1\n')
-        .replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n')
-        .replace(/<ul[^>]*>|<\/ul>/gi, '\n')
-        .replace(/<ol[^>]*>|<\/ol>/gi, '\n')
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<[^>]+>/g, '')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim();
-    }
+    let bodyMd = content ? htmlToMd(content) : "";
+    let fullMd = fm + (summary ? summary + "\n\n" : "") + bodyMd;
 
-    /* Add summary at top if available */
-    let fullMarkdown = frontMatter;
-    if (summary) {
-      fullMarkdown += summary + '\n\n';
-    }
-    fullMarkdown += bodyContent;
+    var rp = githubRepo.split("/");
+    var fp = "content/ai-newsroom/" + slug + ".md";
+    var ab = "https://api.github.com";
 
-    /* === Commit to GitHub === */
-    const [owner, repo] = githubRepo.split('/');
-    const filePath = `content/ai-newsroom/${slug}.md`;
-    const apiBase = 'https://api.github.com';
-
-    /* Check if file already exists */
-    const checkResponse = await fetch(`${apiBase}/repos/${owner}/${repo}/contents/${filePath}`, {
-      headers: {
-        'Authorization': `Bearer ${githubToken}`,
-        'User-Agent': 'MenshlyGlobal-Bot',
-        'Accept': 'application/vnd.github.v3+json'
-      }
+    var chk = await fetch(ab + "/repos/" + rp[0] + "/" + rp[1] + "/contents/" + fp, {
+      headers: { "Authorization": "Bearer " + githubToken, "User-Agent": "MenshlyGlobal-Bot", "Accept": "application/vnd.github.v3+json" }
     });
 
-    let method = 'PUT';
-    let commitBody = {
-      message: `Newsroom: publish "${title.substring(0, 60)}"`,
-      content: btoa(unescape(encodeURIComponent(fullMarkdown)))
-    };
+    var cb = { message: "Newsroom: publish article", content: btoa(unescape(encodeURIComponent(fullMd))) };
+    if (chk.ok) { var ed = await chk.json(); cb.sha = ed.sha; cb.message = "Newsroom: update article"; }
 
-    if (checkResponse.ok) {
-      const existingData = await checkResponse.json();
-      commitBody.sha = existingData.sha;
-      commitBody.message = `Newsroom: update "${title.substring(0, 60)}"`;
-    }
-
-    const putResponse = await fetch(`${apiBase}/repos/${owner}/${repo}/contents/${filePath}`, {
-      method: method,
-      headers: {
-        'Authorization': `Bearer ${githubToken}`,
-        'User-Agent': 'MenshlyGlobal-Bot',
-        'Accept': 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(commitBody)
+    var pr = await fetch(ab + "/repos/" + rp[0] + "/" + rp[1] + "/contents/" + fp, {
+      method: "PUT",
+      headers: { "Authorization": "Bearer " + githubToken, "User-Agent": "MenshlyGlobal-Bot", "Accept": "application/vnd.github.v3+json", "Content-Type": "application/json" },
+      body: JSON.stringify(cb)
     });
 
-    if (!putResponse.ok) {
-      const errText = await putResponse.text();
-      let errMsg = `GitHub API returned ${putResponse.status}`;
-      try {
-        const errJson = JSON.parse(errText);
-        errMsg = errJson.message || errMsg;
-      } catch (e) {}
-      return jsonResponse({ error: `Failed to publish: ${errMsg}` }, 500);
-    }
+    if (!pr.ok) { var et = await pr.text(); var em = "GitHub API " + pr.status; try { em = JSON.parse(et).message || em; } catch(e){} return jsonResponse({ error: "Publish failed: " + em }, 500); }
 
-    const result = await putResponse.json();
-    const siteUrl = `https://menshly-global.pages.dev/ai-newsroom/${slug}/`;
+    var res = await pr.json();
+    return jsonResponse({ success: true, message: "Published! Live in 1-2 min.", slug: slug, url: "https://menshly-global.pages.dev/ai-newsroom/" + slug + "/", commitSha: (res.commit && res.commit.sha) ? res.commit.sha.substring(0,7) : "?", category: hugoCat, author: author });
 
-    return jsonResponse({
-      success: true,
-      message: 'Article published successfully! It will appear on the site within 1-2 minutes after Cloudflare rebuilds.',
-      slug: slug,
-      url: siteUrl,
-      commitSha: result.commit?.sha?.substring(0, 7) || 'unknown',
-      category: hugoCategory,
-      author: author
-    });
-
-  } catch (err) {
-    return jsonResponse({
-      error: 'Publish failed: ' + (err.message || 'Unknown error')
-    }, 500);
-  }
+  } catch (err) { return jsonResponse({ error: "Publish failed: " + (err.message || "Unknown") }, 500); }
 }
 
-/* CORS preflight */
+function htmlToMd(html) {
+  if (!html) return "";
+  var md = html.replace(/\{"type"\s*:\s*"object"\}/g, "");
+  md = md.replace(/<ul[^>]*>/gi, "\n").replace(/<\/ul>/gi, "\n");
+  md = md.replace(/<ol[^>]*>/gi, "\n").replace(/<\/ol>/gi, "\n");
+  md = md.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, function(m, inner) {
+    var t = inner.trim().replace(/<\/?p[^>]*>/gi, "").replace(/<\/?strong[^>]*>/gi, "**").replace(/<\/?b[^>]*>/gi, "**").replace(/<\/?em[^>]*>/gi, "*").replace(/<\/?i[^>]*>/gi, "*");
+    return "- " + t + "\n";
+  });
+  md = md.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, "\n# $1\n\n");
+  md = md.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, "\n## $1\n\n");
+  md = md.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, "\n### $1\n\n");
+  md = md.replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, function(m, inner) { return "\n> " + inner.trim().replace(/<\/?p[^>]*>/gi, "") + "\n\n"; });
+  md = md.replace(/<(strong|b)[^>]*>([\s\S]*?)<\/(strong|b)>/gi, "**$2**");
+  md = md.replace(/<(em|i)[^>]*>([\s\S]*?)<\/(em|i)>/gi, "*$2*");
+  md = md.replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, "[$2]($1)");
+  md = md.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, function(m, inner) { var t = inner.trim(); return t ? t + "\n\n" : ""; });
+  md = md.replace(/<br\s*\/?/gi, "\n").replace(/<hr\s*\/?/gi, "\n---\n\n");
+  md = md.replace(/<[^>]+>/g, "");
+  md = md.replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,"\"").replace(/&#39;/g,"'");
+  md = md.replace(/\n{3,}/g, "\n\n").trim();
+  return md;
+}
+
 export async function onRequestOptions() {
-  return new Response(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
-    }
-  });
+  return new Response(null, { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" } });
 }
 
-/* === Helpers === */
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-  });
-}
+function jsonResponse(data, status) { return new Response(JSON.stringify(data), { status: status || 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }); }
 
-function slugify(text) {
-  let s = text.toLowerCase().trim();
-  /* Remove apostrophes and quotes first */
-  s = s.replace(/[''""']/g, '');
-  /* Replace non-alphanumeric with hyphens */
-  s = s.replace(/[^\w\s-]/g, '');
-  /* Collapse whitespace */
-  s = s.replace(/[\s_]+/g, '-');
-  /* Remove leading/trailing hyphens */
-  s = s.replace(/^-+|-+$/g, '');
-  /* Limit length */
-  return s.substring(0, 80) || 'article-' + Date.now();
-}
+function slugify(text) { var s = text.toLowerCase().trim().replace(/['\u2019\u2018""\u201C\u201D]/g,"").replace(/[^\w\s-]/g,"").replace(/[\s_]+/g,"-").replace(/^-+|-+$/g,""); return s.substring(0,80) || "article-" + Date.now(); }

@@ -15,41 +15,39 @@ export async function onRequestPost(context) {
     const { topic, category, tone, length } = await context.request.json();
 
     if (!topic || topic.trim().length < 3) {
-      return jsonResponse({ error: 'Please provide a topic (at least 3 characters)' }, 400);
+      return jsonResponse({ error: "Please provide a topic (at least 3 characters)" }, 400);
     }
 
-    const rawKey = context.env.AI_API_KEY || '';
-    const apiBase = (context.env.AI_API_BASE || 'https://api.cerebras.ai/v1').replace(/\/+$/, '');
-    const configuredModel = context.env.AI_MODEL || '';
-    const pexelsKey = context.env.PEXELS_API_KEY || '';
+    const rawKey = context.env.AI_API_KEY || "";
+    const apiBase = (context.env.AI_API_BASE || "https://api.cerebras.ai/v1").replace(/\/+$/, "");
+    const configuredModel = context.env.AI_MODEL || "";
+    const pexelsKey = context.env.PEXELS_API_KEY || "";
 
     if (!rawKey) {
       return jsonResponse({
-        error: 'AI API key not configured. Set AI_API_KEY in Cloudflare Pages environment variables.',
-        hint: 'Go to Cloudflare Dashboard > Pages > your site > Settings > Environment variables'
+        error: "AI API key not configured. Set AI_API_KEY in Cloudflare Pages environment variables.",
+        hint: "Go to Cloudflare Dashboard > Pages > your site > Settings > Environment variables"
       }, 503);
     }
 
-    /* Strip invisible Unicode chars that break auth (same as Python script) */
-    const apiKey = rawKey.replace(/[\u200b-\u200f\u2028-\u202e\ufeff\u00ad]/g, '').trim();
+    /* Strip invisible Unicode chars that break auth */
+    const apiKey = rawKey.replace(/[\u200b-\u200f\u2028-\u202e\ufeff\u00ad]/g, "").trim();
 
     /* === Auto-detect available models === */
     let availableModels = await getAvailableModels(apiKey, apiBase);
     let model = configuredModel;
 
-    // If a model is configured, verify it exists
     if (model && availableModels.length > 0 && !availableModels.includes(model)) {
-      console.log('Configured model not found, auto-detecting...');
-      model = null;
+      console.log("Configured model not found, auto-detecting...");
+      model = "";
     }
 
-    // Pick best available model from preference list
     if (!model && availableModels.length > 0) {
       const MODEL_PREFERENCES = [
-        'llama3.1-8b',
-        'llama-3.3-70b',
-        'qwen-3-235b-a22b-instruct-2507',
-        'deepseek-r1-distill-llama-70b'
+        "llama-3.3-70b",
+        "qwen-3-235b-a22b-instruct-2507",
+        "deepseek-r1-distill-llama-70b",
+        "llama3.1-8b"
       ];
       for (const pref of MODEL_PREFERENCES) {
         if (availableModels.includes(pref)) {
@@ -60,64 +58,62 @@ export async function onRequestPost(context) {
       if (!model) model = availableModels[0];
     }
 
-    if (!model) model = 'llama3.1-8b'; // last resort default
+    if (!model) model = "llama3.1-8b";
 
     /* === Category Map === */
     const categoryMap = {
-      'film-review': 'Film & TV Review',
-      'entertainment': 'Arts & Culture',
-      'personal-finance': 'Personal Finance',
-      'market-analysis': 'Market Analysis',
-      'business-strategy': 'Business Strategy',
-      'technology': 'Tech & Innovation',
-      'commentary': 'Expert Commentary'
+      "film-review": "Film & TV Review",
+      "entertainment": "Arts & Culture",
+      "personal-finance": "Personal Finance",
+      "market-analysis": "Market Analysis",
+      "business-strategy": "Business Strategy",
+      "technology": "Tech & Innovation",
+      "commentary": "Expert Commentary"
     };
 
     /* === Tone/Style Map === */
     const toneMap = {
-      'review': 'detailed review with clear verdict, pros/cons, and rating',
-      'analysis': 'in-depth analytical breakdown with data-driven insights',
-      'guide': 'practical how-to guide with actionable steps',
-      'opinion': 'thought-provoking opinion editorial with strong perspective',
-      'listicle': 'engaging numbered list/ranking format with short punchy entries',
-      'feature': 'engaging long-form feature with storytelling'
+      "review": "detailed review with clear verdict, pros/cons, and rating",
+      "analysis": "in-depth analytical breakdown with data-driven insights",
+      "guide": "practical how-to guide with actionable steps",
+      "opinion": "thought-provoking opinion editorial with strong perspective",
+      "listicle": "engaging numbered list/ranking format with short punchy entries",
+      "feature": "engaging long-form feature with storytelling"
     };
 
     const lengthMap = {
-      'short': '300-400 words',
-      'medium': '600-800 words',
-      'long': '1200-1500 words'
+      "short": "300-400 words",
+      "medium": "600-800 words",
+      "long": "1200-1500 words"
     };
 
-    const catLabel = categoryMap[category] || 'Analysis';
-    const toneLabel = toneMap[tone] || 'informative analysis style';
-    const lengthLabel = lengthMap[length] || '600-800 words';
+    const catLabel = categoryMap[category] || "Analysis";
+    const toneLabel = toneMap[tone] || "informative analysis style";
+    const lengthLabel = lengthMap[length] || "600-800 words";
 
-    /* === System Prompt — plain markdown output (like the Python script) === */
-    const systemPrompt = `You are a senior content creator for MenshlyGlobal, a premium international media platform. You write reviews, analysis, opinions, guides, and commentary — never breaking news.
+    /* === System Prompt - ask for structured plain text === */
+    const systemPrompt = `You are a senior content creator for MenshlyGlobal, a premium international media platform. You write reviews, analysis, opinions, guides, and commentary.
 
 Rules:
 - Style: ${toneLabel}
 - Target length: ${lengthLabel}
 - Category: ${catLabel}
-- Include a compelling headline (max 15 words)
-- Include a 1-2 sentence summary, then use ## subheadings for the body
-- Write in HTML using <h2>, <p>, <blockquote>, <ul>, <li> tags for the body
 - Be specific with concrete examples, numbers, and real-world references
 - End with a clear conclusion or actionable takeaway
+- Use proper markdown formatting: ## for subheadings, - or * for bullet points, **bold** for emphasis
 
-OUTPUT FORMAT — you MUST follow this exactly:
-Line 1: The article title (no # prefix)
-Line 2: empty
-Line 3-4: The summary (1-2 sentences)
-Then: the article body using <h2>, <p>, <ul>, <li>, <blockquote> HTML tags`;
+CRITICAL OUTPUT FORMAT - follow this exactly:
+Line 1: TITLE: The article title here (plain text, no # prefix)
+Line 2: SUMMARY: One or two sentences summarizing the article
+Line 3: (empty line)
+Line 4+: The article body in proper markdown format
+
+Do NOT output JSON. Do NOT output any code blocks or schema descriptions. Output ONLY the article as described above.`;
 
     const userPrompt = `Write a ${catLabel} piece about: "${topic}"`;
 
-    /* === Call AI API — plain text mode only (more reliable across models) === */
+    /* === Call AI API - plain text mode === */
     let rawContent = null;
-
-    // Build list of models to try: chosen model first, then all available
     let modelsToTry = [model];
     if (availableModels.length > 0) {
       for (const m of availableModels) {
@@ -127,17 +123,17 @@ Then: the article body using <h2>, <p>, <ul>, <li>, <blockquote> HTML tags`;
 
     for (const tryModel of modelsToTry) {
       try {
-        const aiResponse = await fetch(apiBase + '/chat/completions', {
-          method: 'POST',
+        const aiResponse = await fetch(apiBase + "/chat/completions", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + apiKey
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + apiKey
           },
           body: JSON.stringify({
             model: tryModel,
             messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt }
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt }
             ],
             max_tokens: 4000,
             temperature: 0.75
@@ -146,51 +142,50 @@ Then: the article body using <h2>, <p>, <ul>, <li>, <blockquote> HTML tags`;
 
         if (aiResponse.ok) {
           const aiData = await aiResponse.json();
-          const content = aiData.choices?.[0]?.message?.content;
+          const content = aiData.choices && aiData.choices[0] && aiData.choices[0].message && aiData.choices[0].message.content;
           if (content && content.length > 100) {
             rawContent = content;
             model = tryModel;
             break;
           }
         }
-        // 404 = model not found, skip to next
-        if (aiResponse.status === 404) continue;
-        // 401 = auth error, stop
         if (aiResponse.status === 401) {
           return jsonResponse({
-            error: 'Authentication failed (401). Check AI_API_KEY in Cloudflare env vars.'
+            error: "Authentication failed (401). Check AI_API_KEY in Cloudflare env vars."
           }, 500);
         }
-        // 422/400 = bad request, try next model
         continue;
-      } catch (e) { continue; }
+      } catch (e) {
+        continue;
+      }
     }
 
     if (!rawContent) {
       return jsonResponse({
-        error: 'Could not generate content with any available model.',
-        hint: 'Models tried: ' + modelsToTry.slice(0, 5).join(', '),
+        error: "Could not generate content with any available model.",
+        hint: "Models tried: " + modelsToTry.slice(0, 5).join(", "),
         tried: modelsToTry
       }, 500);
     }
 
-    /* === Parse response — handle multiple formats === */
+    /* === Parse response === */
     let article = parseAiResponse(rawContent, topic, catLabel);
 
-    article.id = 'ai-' + Date.now();
+    article.id = "ai-" + Date.now();
     article.topic = topic;
     article.tone = tone;
     article.category = catLabel;
     article.generatedAt = new Date().toISOString();
-    article.readTime = Math.max(2, Math.ceil((article.content || '').split(/\s+/).length / 200));
+    article.readTime = Math.max(2, Math.ceil((article.content || "").split(/\s+/).length / 200));
 
     /* === Fetch Image from Pexels === */
     if (pexelsKey) {
       try {
         const searchQuery = buildImageQuery(topic, category);
-        const imgResponse = await fetch('https://api.pexels.com/v1/search?query=' + encodeURIComponent(searchQuery) + '&per_page=1&orientation=landscape', {
-          headers: { 'Authorization': pexelsKey }
-        });
+        const imgResponse = await fetch(
+          "https://api.pexels.com/v1/search?query=" + encodeURIComponent(searchQuery) + "&per_page=1&orientation=landscape",
+          { headers: { "Authorization": pexelsKey } }
+        );
         if (imgResponse.ok) {
           const imgData = await imgResponse.json();
           if (imgData.photos && imgData.photos.length > 0) {
@@ -202,144 +197,182 @@ Then: the article body using <h2>, <p>, <ul>, <li>, <blockquote> HTML tags`;
           }
         }
       } catch (imgErr) {
-        // Image fetch failed — article is still valid
+        /* Image fetch failed - article is still valid */
       }
     }
 
     return jsonResponse(article, 200);
 
   } catch (err) {
-    return jsonResponse({ error: 'Server error: ' + (err.message || 'Unknown error') }, 500);
+    return jsonResponse({ error: "Server error: " + (err.message || "Unknown error") }, 500);
   }
 }
 
-/* === Response Parser — handles title/summary/body plain text + JSON === */
+/* === Response Parser === */
 function parseAiResponse(raw, topic, catLabel) {
-  // Format 1: Clean JSON (some models still return JSON)
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed.title && parsed.content && parsed.content.length >= 100) {
-      if (/<h[1-6]|<p|<div/i.test(parsed.content)) {
-        return parsed;
-      }
-      return {
-        title: parsed.title,
-        summary: parsed.summary || '',
-        category: parsed.category || catLabel,
-        content: ensureHtml(parsed.content)
-      };
+  /* Clean up: remove code fences, schema artifacts */
+  let cleaned = raw.trim();
+
+  /* Remove any backtick wrapping */
+  cleaned = cleaned.replace(/^```\w*\s*\n?/, "").replace(/\n?```\s*$/, "");
+
+  /* Remove JSON schema artifacts that some models output */
+  cleaned = cleaned.replace(/\{"type"\s*:\s*"object"\}/g, "");
+  cleaned = cleaned.replace(/```json\s*\{[^}]*\}\s*```/g, "");
+  cleaned = cleaned.replace(/^\s*\{[^}]*"type"[^}]*\}\s*$/gm, "");
+  cleaned = cleaned.trim();
+
+  /* Try to extract TITLE: and SUMMARY: prefixes */
+  let title = "";
+  let summary = "";
+  let body = "";
+
+  const titleMatch = cleaned.match(/^TITLE:\s*(.+)$/im);
+  const summaryMatch = cleaned.match(/^SUMMARY:\s*(.+)$/im);
+
+  if (titleMatch) {
+    title = titleMatch[1].trim().replace(/^#+\s+/, "");
+    const titleEnd = cleaned.indexOf(titleMatch[0]) + titleMatch[0].length;
+    let searchStart = titleEnd;
+
+    if (summaryMatch) {
+      summary = summaryMatch[1].trim();
+      const summaryEnd = cleaned.indexOf(summaryMatch[0]) + summaryMatch[0].length;
+      searchStart = summaryEnd;
     }
-  } catch (e) {}
 
-  // Format 2: JSON in code block
-  const codeBlockMatch = raw.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-  if (codeBlockMatch) {
-    try {
-      const parsed = JSON.parse(codeBlockMatch[1]);
-      if (parsed.title && parsed.content && parsed.content.length >= 100) {
-        return {
-          title: parsed.title,
-          summary: parsed.summary || '',
-          category: parsed.category || catLabel,
-          content: ensureHtml(parsed.content)
-        };
-      }
-    } catch (e) {}
-  }
+    body = cleaned.substring(searchStart).trim();
+    body = body.replace(/^\n+/, "");
+  } else {
+    /* No TITLE: prefix - try first line as title */
+    const lines = cleaned.split("\n");
+    title = lines[0].trim().replace(/^#+\s+/, "");
+    let summaryLines = [];
+    let bodyStart = 1;
 
-  // Format 3: Plain text — first line = title, next lines = summary, rest = body
-  const cleaned = raw.trim().replace(/^```\w*\s*/, '').replace(/\s*```$/, '');
-  if (cleaned.length >= 200) {
-    const lines = cleaned.split('\n');
-    let title = lines[0].trim().replace(/^#{1,6}\s+/, '');
-
-    let summary = '';
-    let bodyStartLine = 1;
-    const summaryLines = [];
     for (let i = 1; i < Math.min(lines.length, 8); i++) {
       const line = lines[i].trim();
-      if (line.startsWith('<h') || line.startsWith('<p') || line.startsWith('<div')) {
-        bodyStartLine = i;
-        break;
-      }
-      if (line === '') {
-        if (summaryLines.length > 0) { bodyStartLine = i + 1; break; }
+      if (line === "") {
+        if (summaryLines.length > 0) { bodyStart = i + 1; break; }
         continue;
+      }
+      if (line.startsWith("## ") || line.startsWith("### ") || line.startsWith("<h")) {
+        bodyStart = i;
+        break;
       }
       summaryLines.push(line);
     }
-    summary = summaryLines.join(' ').substring(0, 300);
-    const body = lines.slice(bodyStartLine).join('\n').trim();
-
-    if (body.length >= 150) {
-      return {
-        title: title || topic,
-        summary: summary || topic,
-        category: catLabel,
-        content: ensureHtml(body)
-      };
-    }
+    summary = summaryLines.join(" ").substring(0, 300);
+    body = lines.slice(bodyStart).join("\n").trim();
   }
 
-  // Format 4: Last resort
+  /* Ensure body is substantial */
+  if (body.length < 100 && cleaned.length > 200) {
+    body = cleaned.substring(Math.min(title.length + summary.length + 20, 100));
+  }
+
   return {
-    title: topic,
-    summary: cleaned.substring(0, 200),
+    title: title || topic,
+    summary: summary || topic,
     category: catLabel,
-    content: '<p>' + cleaned.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>') + '</p>'
+    content: markdownToHtml(body)
   };
 }
 
-/* Extract title from first heading or first meaningful line */
-function extractTitle(lines, fallback) {
-  for (const line of lines) {
-    const match = line.match(/^#{1,3}\s+(.+)/);
-    if (match) return match[1].trim();
-  }
-  return fallback;
-}
+/* === Convert Markdown to clean HTML === */
+function markdownToHtml(text) {
+  if (!text) return "<p>No content generated.</p>";
 
-/* Ensure content has HTML tags (convert basic markdown) */
-function ensureHtml(text) {
-  if (!text) return '';
-  // If it already has HTML tags, return as-is
-  if (/<h[1-6]|<p|<div|<br/i.test(text)) return text;
-  // Convert markdown to HTML
   let html = text;
-  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-  html = html.replace(/^# (.+)$/gm, '<h2>$1</h2>');
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
-  html = html.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
-  html = html.replace(/\n\n/g, '</p><p>');
-  html = '<p>' + html + '</p>';
-  html = html.replace(/<p>\s*<\/p>/g, '');
-  html = html.replace(/<p>\s*(<h[23]>)/g, '$1');
-  html = html.replace(/(<\/h[23]>)\s*<\/p>/g, '$1');
+
+  /* Remove any remaining artifacts */
+  html = html.replace(/\{"type"\s*:\s*"object"\}/g, "");
+  html = html.replace(/^\s*\{[^}]*"type"[^}]*\}\s*$/gm, "");
+
+  /* Headers */
+  html = html.replace(/^### (.+)$/gm, "<h3>$1</h3>");
+  html = html.replace(/^## (.+)$/gm, "<h2>$1</h2>");
+  html = html.replace(/^# (.+)$/gm, "<h2>$1</h2>");
+
+  /* Bold */
+  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+  /* Italic - avoid matching bold */
+  html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
+
+  /* Blockquotes */
+  html = html.replace(/^>\s*(.+)$/gm, "<blockquote>$1</blockquote>");
+
+  /* Unordered list items - handle indented bullets */
+  html = html.replace(/^\s*[-*]\s+(.+)$/gm, "<li>$1</li>");
+
+  /* Ordered list items */
+  html = html.replace(/^\d+\.\s+(.+)$/gm, "<li>$1</li>");
+
+  /* Wrap consecutive li items in ul */
+  html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, "<ul>$1</ul>");
+
+  /* Horizontal rules */
+  html = html.replace(/^---+$/gm, "<hr>");
+
+  /* Links */
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+  /* Build paragraphs from remaining text */
+  const lines = html.split("\n");
+  let result = [];
+  let inParagraph = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      if (inParagraph) { result.push("</p>"); inParagraph = false; }
+      continue;
+    }
+    if (/^<(h[1-6]|ul|\/ul|ol|\/ol|li|\/li|blockquote|hr|div|pre|table)/.test(trimmed)) {
+      if (inParagraph) { result.push("</p>"); inParagraph = false; }
+      result.push(trimmed);
+    } else {
+      if (!inParagraph) { result.push("<p>"); inParagraph = true; }
+      else { result.push("<br>"); }
+      result.push(trimmed);
+    }
+  }
+  if (inParagraph) result.push("</p>");
+
+  html = result.join("\n");
+
+  /* Clean up empty/wrong paragraph wrappers */
+  html = html.replace(/<p>\s*<\/p>/g, "");
+  html = html.replace(/<p>\s*(<h[23]>)/g, "$1");
+  html = html.replace(/(<\/h[23]>)\s*<\/p>/g, "$1");
+  html = html.replace(/<p>\s*(<ul>)/g, "$1");
+  html = html.replace(/(<\/ul>)\s*<\/p>/g, "$1");
+  html = html.replace(/<p>\s*(<hr>)/g, "$1");
+  html = html.replace(/(<hr>)\s*<\/p>/g, "$1");
+
   return html;
 }
 
 /* === Get available models from API === */
 async function getAvailableModels(apiKey, apiBase) {
   try {
-    const resp = await fetch(apiBase + '/models', {
+    const resp = await fetch(apiBase + "/models", {
       headers: {
-        'Authorization': 'Bearer ' + apiKey,
-        'User-Agent': 'MenshlyGlobal/1.0'
+        "Authorization": "Bearer " + apiKey,
+        "User-Agent": "MenshlyGlobal/1.0"
       }
     });
     if (!resp.ok) {
-      console.log('Model list failed:', resp.status);
+      console.log("Model list failed:", resp.status);
       return [];
     }
     const data = await resp.json();
-    const models = (data.data || []).map(m => m.id);
-    console.log('Available models:', models.join(', '));
+    const models = (data.data || []).map(function(m) { return m.id; });
+    console.log("Available models:", models.join(", "));
     return models;
   } catch (e) {
-    console.log('Model detection failed:', e.message);
+    console.log("Model detection failed:", e.message);
     return [];
   }
 }
@@ -347,34 +380,35 @@ async function getAvailableModels(apiKey, apiBase) {
 /* Build a search query for Pexels based on topic + category */
 function buildImageQuery(topic, category) {
   const categoryKeywords = {
-    'film-review': 'cinema movie film',
-    'entertainment': 'entertainment culture music',
-    'personal-finance': 'finance money business',
-    'market-analysis': 'business charts data analytics',
-    'business-strategy': 'business office corporate',
-    'technology': 'technology digital innovation',
-    'commentary': 'analysis thought leadership'
+    "film-review": "cinema movie film",
+    "entertainment": "entertainment culture music",
+    "personal-finance": "finance money business",
+    "market-analysis": "business charts data analytics",
+    "business-strategy": "business office corporate",
+    "technology": "technology digital innovation",
+    "commentary": "analysis thought leadership"
   };
-  const prefix = categoryKeywords[category] || 'media';
-  const topicWords = topic.split(/\s+/).slice(0, 4).join(' ');
-  return prefix + ' ' + topicWords;
+  const prefix = categoryKeywords[category] || "media";
+  const topicWords = topic.split(/\s+/).slice(0, 4).join(" ");
+  return prefix + " " + topicWords;
 }
 
 /* Handle CORS preflight */
 export async function onRequestOptions() {
   return new Response(null, {
     headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type"
     }
   });
 }
 
 /* === Helpers === */
-function jsonResponse(data, status = 200) {
+function jsonResponse(data, status) {
+  if (status === undefined) status = 200;
   return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+    status: status,
+    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
   });
 }
