@@ -6,15 +6,16 @@
   <h2 class="related-stories-header">Related Stories</h2>
   <div class="related-stories-grid">
     {{ range $related }}
+    {{ $page := . }}
     {{ $img := .Params.image }}
     {{ $cats := .Params.categories }}
     {{ $cat := "" }}{{ with $cats }}{{ $cat = index . 0 }}{{ end }}
     <a class="related-card" href="{{ .Permalink }}">
-      {{ with $img }}<img src="{{ . }}" alt="{{ .Title }}" loading="lazy">{{ end }}
+      {{ with $img }}<img src="{{ . }}" alt="{{ $page.Title }}" loading="lazy">{{ end }}
       <div class="related-card-body">
         {{ with $cat }}<span class="related-card-cat">{{ . }}</span>{{ end }}
-        <h3>{{ .Title }}</h3>
-        <span class="related-card-date">{{ .Date.Format "Jan 2, 2006" }}</span>
+        <h3>{{ $page.Title }}</h3>
+        <span class="related-card-date">{{ $page.Date.Format "Jan 2, 2006" }}</span>
       </div>
     </a>
     {{ end }}
