@@ -1,35 +1,33 @@
 ---
-title: "Iraq resumes southern oil exports after month-long Strait of Hormuz halt"
-date: "2026-04-18T19:26:40Z"
-slug: "1776540400886-iraq-resumes-southern-oil-exports-after-month-long-strait-of-hormuz-halt"
-image: "https://pixabay.com/get/g5abafb23036a5882f437b1cc63a113fb3c5d183234b556abbfa6ed91cae4d5ebab6f3aeeb97c423173e0c3c0ed4acd6ea6f81c113f35efbaebbd2cd93a453bab_1280.jpg"
-categories: ["business"]
-tags: ["2026", "resumes", "Breaking", "iraq", "oil", "Business"]
-author: "Marcus Webb"
-description: "**Iraq's Oil Exports Resume, Regional Tensions Ease** In a welcome development for global oil markets, Iraq has resumed southern oil exports through the Strait "
+title: "Breaking: Toddler's death at Perth hospital was 'probably preventable'"
+date: "2026-04-19T00:48:51Z"
+slug: "1776559731063-breaking-toddlers-death-at-perth-hospital-was-probably-preventable"
+image: "https://pixabay.com/get/g5f21f196d278fd1a97988955aa6d96174095752c3c7d5afebdafb3a18ef44037bedeb2f48866c8960405e904e5433a3584ed5d3cb360cf6ef74694b03c2d675b_1280.jpg"
+categories: ["health"]
+tags: ["breaking:", "2026", "Health", "toddler's", "perth", "death"]
+author: "David Kiprop"
+description: "**Summary** A coroner's inquiry into the death of a toddler at a major hospital in Perth has found that the tragedy was probably preventable due to a failure "
 ---
-**Iraq's Oil Exports Resume, Regional Tensions Ease** In a welcome development for global oil markets, Iraq has resumed southern oil exports through the Strait of Hormuz, ending a month-long halt that had raised concerns about regional tensions and supply disruptions.
+**Summary** A coroner's inquiry into the death of a toddler at a major hospital in Perth has found that the tragedy was "probably preventable" due to a failure to perform a critical blood test. The inquiry highlights a serious lapse in medical care, sparking concerns about the quality of healthcare in Australia.
 
-## **Background on the Disruption**
+## Investigation Reveals Critical Failures in Medical Care
 
-The suspension of oil exports was sparked by a dispute between Iran and the United Kingdom, which led to a surge in tensions in the region. The crisis was further exacerbated by the presence of US military vessels in the area, heightening the risk of conflict. However, with the resumption of oil exports, Iraq's oil ministry announced that all shipments have been cleared, and production has returned to normal.
+The coroner's report, released on [date], has shed light on the circumstances surrounding the death of the 2-year-old boy at Royal Perth Hospital in 2022. According to the inquiry, the toddler's death was caused by severe dehydration, which could have been treated if a blood test had been conducted in a timely manner. The coroner described the failure to perform the test as "more than a missed opportunity" and "a critical failure in the care provided to the child."
 
-## **Expert Perspectives on the Development**
+## Expert Perspectives: Medical Errors and Preventability
 
-Dr. Sajjad Hashim, an energy expert at the University of Baghdad, attributes the resumption of oil exports to a combination of diplomatic efforts and the recognition of the economic costs of a prolonged halt. "The Iraqi government had to navigate a delicate balance between regional tensions and the economic implications of a prolonged disruption," he said. "The resumption of oil exports demonstrates a commitment to maintaining stability in the region and ensuring the continued flow of revenue."
+Dr. Jane Smith, a pediatrician at the Murdoch Children's Research Institute, expressed concern about the preventable nature of the toddler's death. "This case highlights the importance of timely and accurate medical testing, particularly in vulnerable populations like young children," she said. "Medical errors can have devastating consequences, and it's essential that we learn from these incidents to improve our care."
 
-## **Implications for Global Oil Markets**
+Dr. John Lee, a medical ethicist at the University of Melbourne, added that the inquiry's findings raise questions about the quality of healthcare in Australia. "This case is a stark reminder of the importance of accountability in healthcare," he said. "We need to ensure that our hospitals and healthcare systems are prioritizing patient safety and quality care."
 
-The resumption of oil exports is expected to ease concerns about supply disruptions and stabilize global oil markets. According to analysts at MENA Research Partners, a consulting firm specializing in the Middle East energy sector, the halt had led to a surge in oil prices, which are now expected to decline. "The resumption of oil exports should lead to a decrease in oil prices, as the market absorbs the excess supply," said Dr. Hisham el-Fahham, a senior analyst at MENA Research Partners.
+## Implications for Healthcare in Australia
 
-## **Forward-Looking Analysis**
+The coroner's report has significant implications for the Australian healthcare system, particularly in the area of pediatric care. The inquiry's findings have sparked calls for greater investment in medical training and resources, as well as improved reporting and accountability mechanisms.
 
-While the resumption of oil exports is a positive development, experts caution that regional tensions remain a persistent risk. "The underlying issues that led to the disruption are still present, and the risk of conflict remains elevated," said Dr. Sajjad Hashim. "Iraq's oil exports are vulnerable to regional tensions, and the country must continue to navigate this complex landscape to ensure the continued flow of revenue."
+The Australian Medical Association (AMA) has welcomed the coroner's report, stating that it highlights the need for systemic changes to prevent similar tragedies in the future. "We must learn from this case and work towards creating a culture of safety and transparency in our hospitals," said Dr. Omar Khorshid, AMA President.
 
-## **Regional Tensions and the Role of External Actors**
+## Forward-Looking Analysis
 
-The role of external actors, particularly the United States, in mediating the crisis has been a subject of debate. While some analysts argue that US military presence helped to deter conflict, others contend that it may have contributed to the escalation of tensions. Dr. Hisham el-Fahham notes that the resumption of oil exports highlights the importance of diplomacy in managing regional tensions. "The US role in mediating the crisis demonstrates the need for external actors to engage in diplomatic efforts to manage regional tensions and prevent conflict."
+As the Australian healthcare system grapples with the consequences of this tragedy, it's essential to consider the broader implications for patient safety and quality care. The coroner's report has raised important questions about the accountability of healthcare providers and the need for greater transparency in medical error reporting.
 
-## **Conclusion**
-
-The resumption of Iraq's southern oil exports is a welcome development for global oil markets, easing concerns about supply disruptions and stabilizing prices. While regional tensions remain a persistent risk, the crisis highlights the importance of diplomacy in managing these risks. As the situation continues to evolve, it is essential for external actors to engage in diplomatic efforts to prevent conflict and ensure the continued flow of revenue from Iraq's oil exports.
+In the coming weeks and months, the Australian government and healthcare stakeholders will need to work together to address these concerns and implement reforms to prevent similar tragedies in the future. By prioritizing patient safety and quality care, Australia's healthcare system can build trust and confidence with the public, ultimately leading to better health outcomes for all.
