@@ -162,9 +162,9 @@
   }
 
   function getSignalIcon(sig) {
-    if (sig === 'bullish') return '<span class="ai-sig-icon ai-bull">&#9650;</span>';
-    if (sig === 'bearish') return '<span class="ai-sig-icon ai-bear">&#9660;</span>';
-    return '<span class="ai-sig-icon ai-neut">&#9644;</span>';
+    if (sig === 'bullish') return '<span class="ai-sig-icon ai-bull"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></span>';
+    if (sig === 'bearish') return '<span class="ai-sig-icon ai-bear"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>';
+    return '<span class="ai-sig-icon ai-neut"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></span>';
   }
 
   function getRiskLabel(score) {

@@ -1949,8 +1949,27 @@ img { max-width: 100%; height: auto; }
   margin-bottom: 2px;
 }
 .weather-city-flag {
-  font-size: 0.9rem;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  color: #fff;
+  line-height: 1.3;
+  flex-shrink: 0;
 }
+.weather-flag-ng { background: #008751; }
+.weather-flag-gb { background: #012169; }
+.weather-flag-us { background: #3C3B6E; }
+.weather-flag-jp { background: #BC002D; }
+.weather-flag-ae { background: #009639; }
+.weather-flag-cn { background: #DE2910; }
+[data-theme="dark"] .weather-flag-ng { background: #00a866; }
+[data-theme="dark"] .weather-flag-gb { background: #1a3a7a; }
+[data-theme="dark"] .weather-flag-us { background: #4a4a8e; }
+[data-theme="dark"] .weather-flag-jp { background: #d42040; }
+[data-theme="dark"] .weather-flag-ae { background: #20b050; }
+[data-theme="dark"] .weather-flag-cn { background: #ee3920; }
 .weather-city-name {
   font-weight: 700;
   color: var(--text-primary);

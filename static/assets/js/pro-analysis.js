@@ -168,11 +168,14 @@
   }
 
   function getRegime(score, signalCount) {
-    if (score >= 75 && signalCount >= 6) return { text: 'Risk-On', class: 'pro-regime-riskon', icon: '&#9650;' };
-    if (score >= 60) return { text: 'Optimistic', class: 'pro-regime-optimistic', icon: '&#9650;' };
-    if (score >= 40) return { text: 'Cautious', class: 'pro-regime-cautious', icon: '&#9644;' };
-    if (score >= 25) return { text: 'Risk-Off', class: 'pro-regime-riskoff', icon: '&#9660;' };
-    return { text: 'Panic Mode', class: 'pro-regime-panic', icon: '&#9660;' };
+    var svgUp = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>';
+    var svgDown = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+    var svgFlat = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+    if (score >= 75 && signalCount >= 6) return { text: 'Risk-On', class: 'pro-regime-riskon', icon: svgUp };
+    if (score >= 60) return { text: 'Optimistic', class: 'pro-regime-optimistic', icon: svgUp };
+    if (score >= 40) return { text: 'Cautious', class: 'pro-regime-cautious', icon: svgFlat };
+    if (score >= 25) return { text: 'Risk-Off', class: 'pro-regime-riskoff', icon: svgDown };
+    return { text: 'Panic Mode', class: 'pro-regime-panic', icon: svgDown };
   }
 
   function getSignalStrength() {
@@ -295,7 +298,7 @@
         trendHtml += '<div class="pro-trend-item">';
         if (t.isRisk) {
           trendHtml += '<span class="pro-trend-pair">' + t.pair + '</span>';
-          trendHtml += '<span class="pro-trend-dir ' + (t.diff > 0 ? 'pro-up' : 'pro-down') + '">' + (t.diff > 0 ? '&#9650; +' : '&#9660; ') + Math.abs(t.diff) + ' pts</span>';
+          trendHtml += '<span class="pro-trend-dir ' + (t.diff > 0 ? 'pro-up' : 'pro-down') + '">' + (t.diff > 0 ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><polyline points="18 15 12 9 6 15"/></svg> +' : '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><polyline points="6 9 12 15 18 9"/></svg> ') + Math.abs(t.diff) + ' pts</span>';
         } else {
           trendHtml += '<span class="pro-trend-pair">' + t.pair + '</span>';
           trendHtml += '<span class="pro-trend-from pro-bias-' + t.from + '">' + t.from + '</span>';
