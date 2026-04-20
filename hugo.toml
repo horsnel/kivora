@@ -1,18 +1,18 @@
-baseURL = "https://menshly-global.pages.dev/"
+baseURL = "https://kivora.pages.dev/"
 languageCode = "en-us"
-title = "MenshlyGlobal | The 2026 Frontier"
+title = "Kivora | Build. Automate. Monetize. Scale."
 [pagination]
   pagerSize = 9
 
 [params]
-  description = "Elite investigative journalism and 2026 global forecasts."
-  author = "Menshly Intelligence Board"
-  twitter = "Olhmescraxes1"
+  description = "Your digital business hub. Practical guides to build, automate, monetize, and scale your online income."
+  author = "Kivora Editorial"
+  twitter = "kivora_"
   fullWidth = true
   centerHeader = true
-  footer = "© 2026 MenshlyGlobal Intelligence. All rights reserved."
-  breakingHeadline = "Nigeria's public debt hits record high at 159.28 trillion naira, raising fresh concerns about fiscal sustainability."
-  breakingLink = "/posts/investors-are-expecting-donald-trump-to-back-down-/"
+  footer = "© 2026 Kivora. All rights reserved."
+  breakingHeadline = ""
+  breakingLink = ""
 
 [taxonomies]
   tag = "tags"
@@ -51,30 +51,22 @@ title = "MenshlyGlobal | The 2026 Frontier"
     weight = 10
 
 [[menu.main]]
-  name = "Business"
-  url = "/categories/business"
+  name = "Build"
+  url = "/categories/build"
   weight = 1
 [[menu.main]]
-  name = "Technology"
-  url = "/categories/technology"
+  name = "Automate"
+  url = "/categories/automate"
   weight = 2
 [[menu.main]]
-  name = "World"
-  url = "/categories/world"
+  name = "Monetize"
+  url = "/categories/monetize"
   weight = 3
 [[menu.main]]
-  name = "Health"
-  url = "/categories/health"
+  name = "Scale"
+  url = "/categories/scale"
   weight = 4
 [[menu.main]]
-  name = "Science"
-  url = "/categories/science"
+  name = "Stories"
+  url = "/categories/stories"
   weight = 5
-[[menu.main]]
-  name = "Entertainment"
-  url = "/categories/entertainment"
-  weight = 6
-[[menu.main]]
-  name = "Finance"
-  url = "/categories/finance"
-  weight = 7
