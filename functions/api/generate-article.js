@@ -92,7 +92,7 @@ export async function onRequestPost(context) {
     const lengthLabel = lengthMap[length] || "600-800 words";
 
     /* === System Prompt - ask for structured plain text === */
-    const systemPrompt = `You are a senior content creator for MenshlyGlobal, a premium international media platform. You write reviews, analysis, opinions, guides, and commentary.
+    const systemPrompt = `You are a senior content creator for Kivora, a premium international media platform. You write reviews, analysis, opinions, guides, and commentary.
 
 Rules:
 - Style: ${toneLabel}
@@ -384,7 +384,7 @@ async function getAvailableModels(apiKey, apiBase) {
     const resp = await fetch(apiBase + "/models", {
       headers: {
         "Authorization": "Bearer " + apiKey,
-        "User-Agent": "MenshlyGlobal/1.0"
+        "User-Agent": "Kivora/1.0"
       }
     });
     if (!resp.ok) {

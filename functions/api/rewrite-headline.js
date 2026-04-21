@@ -45,7 +45,7 @@ export async function onRequestPost(context) {
     }
     if (!model) model = "llama3.1-8b";
 
-    const systemPrompt = "You are a senior newspaper editor at MenshlyGlobal. Rewrite the given headline into 5 fresh, compelling alternative headlines. Output ONLY 5 headlines, one per line, with no numbering, no bullet points, no extra text. Each headline should be a different angle or style (e.g. provocative, factual, question, dramatic, concise).";
+    const systemPrompt = "You are a senior newspaper editor at Kivora. Rewrite the given headline into 5 fresh, compelling alternative headlines. Output ONLY 5 headlines, one per line, with no numbering, no bullet points, no extra text. Each headline should be a different angle or style (e.g. provocative, factual, question, dramatic, concise).";
 
     const userPrompt = "Rewrite this headline into 5 alternatives:\n" + title.trim();
 
@@ -120,7 +120,7 @@ export async function onRequestPost(context) {
 async function getAvailableModels(apiKey, apiBase) {
   try {
     const resp = await fetch(apiBase + "/models", {
-      headers: { "Authorization": "Bearer " + apiKey, "User-Agent": "MenshlyGlobal/1.0" }
+      headers: { "Authorization": "Bearer " + apiKey, "User-Agent": "Kivora/1.0" }
     });
     if (!resp.ok) return [];
     const data = await resp.json();

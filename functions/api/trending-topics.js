@@ -152,7 +152,7 @@ async function getAvailableModels(apiKey, apiBase) {
     const resp = await fetch(apiBase + "/models", {
       headers: {
         "Authorization": "Bearer " + apiKey,
-        "User-Agent": "MenshlyGlobal/1.0"
+        "User-Agent": "Kivora/1.0"
       }
     });
     if (!resp.ok) {

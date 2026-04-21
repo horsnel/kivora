@@ -70,7 +70,7 @@ async function loadStats(context) {
         headers: {
           Authorization: `Bearer ${GITHUB_TOKEN}`,
           Accept: 'application/vnd.github.v3+json',
-          'User-Agent': 'MenshlyGlobal-Stats'
+          'User-Agent': 'Kivora-Stats'
         }
       }
     );
@@ -98,7 +98,7 @@ async function saveStats(context, stats) {
         headers: {
           Authorization: `Bearer ${GITHUB_TOKEN}`,
           Accept: 'application/vnd.github.v3+json',
-          'User-Agent': 'MenshlyGlobal-Stats'
+          'User-Agent': 'Kivora-Stats'
         }
       }
     );
@@ -115,7 +115,7 @@ async function saveStats(context, stats) {
       headers: {
         Authorization: `Bearer ${GITHUB_TOKEN}`,
         'Content-Type': 'application/json',
-        'User-Agent': 'MenshlyGlobal-Stats'
+        'User-Agent': 'Kivora-Stats'
       },
       body: JSON.stringify({
         message: 'stats: update view counts [' + new Date().toISOString().slice(0, 10) + ']',

@@ -1,6 +1,6 @@
 /* ================================================================
    Audio Player — Text-to-Speech for Article Pages
-   MenshlyGlobal Client-Side Logic v3.0
+   Kivora Client-Side Logic v3.0
 
    Design: Pill-shaped player with animated wave bars
    Engine: Web Speech API with smart voice selection,

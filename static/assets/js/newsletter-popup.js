@@ -9,9 +9,9 @@
 (function () {
   'use strict';
 
-  var COOKIE_NAME = 'menshly_nl_popup';
+  var COOKIE_NAME = 'kivora_nl_popup';
   var COOKIE_DAYS = 30;
-  var SESSION_KEY = 'menshly_nl_session';
+  var SESSION_KEY = 'kivora_nl_session';
   var SHOW_DELAY = 12000;
   var SCROLL_THRESHOLD = 0.25;
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MenshlyGlobal — News Dispatch Generator
+Kivora — News Dispatch Generator
 Generates CNN-style news dispatches for the homepage (content/posts/).
 Called by GitHub Actions cron workflow.
 
@@ -71,7 +71,7 @@ def auto_detect_model():
             API_BASE + "/models",
             headers={
                 "Authorization": "Bearer " + API_KEY,
-                "User-Agent": "MenshlyGlobal/1.0 (Bot; +https://menshly-global.pages.dev)"
+                "User-Agent": "Kivora/1.0 (Bot; +https://kivora.pages.dev)"
             }
         )
         with urllib.request.urlopen(req, timeout=15) as resp:
@@ -385,7 +385,7 @@ def generate_news_article(headline, category_key, category_label):
     angles = NEWS_CATEGORIES[category_key]["angles"]
     angle = random.choice(angles)
 
-    system_prompt = f"""You are a senior news correspondent for MenshlyGlobal. Write a news analysis about the provided headline.
+    system_prompt = f"""You are a senior news correspondent for Kivora. Write a news analysis about the provided headline.
 
 Rules:
 - Category: {category_label}
@@ -419,7 +419,7 @@ Write a comprehensive news analysis with context, expert perspectives, and impli
         headers={
             "Content-Type": "application/json",
             "Authorization": "Bearer " + API_KEY,
-            "User-Agent": "MenshlyGlobal/1.0 (Bot; +https://menshly-global.pages.dev)"
+            "User-Agent": "Kivora/1.0 (Bot; +https://kivora.pages.dev)"
         }
     )
 

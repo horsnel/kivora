@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MenshlyGlobal — Auto Article Generator
+Kivora — Auto Article Generator
 Generates articles via AI API and outputs Hugo markdown.
 Called by GitHub Actions cron workflow.
 
@@ -75,7 +75,7 @@ def auto_detect_model():
             API_BASE + "/models",
             headers={
                 "Authorization": "Bearer " + API_KEY,
-                "User-Agent": "MenshlyGlobal/1.0 (Bot; +https://menshly-global.pages.dev)"
+                "User-Agent": "Kivora/1.0 (Bot; +https://kivora.pages.dev)"
             }
         )
         with urllib.request.urlopen(req, timeout=15) as resp:
@@ -659,7 +659,7 @@ def generate_article(topic, category_key, category_label):
     lengths = ["300-400", "500-700", "700-900"]
     length = random.choice(lengths)
 
-    system_prompt = f"""You are a content creator for MenshlyGlobal, a premium international media platform. You write ONLY reviews, analysis, opinions, guides, and commentary. You NEVER write breaking news or factual news reporting.
+    system_prompt = f"""You are a content creator for Kivora, a premium international media platform. You write ONLY reviews, analysis, opinions, guides, and commentary. You NEVER write breaking news or factual news reporting.
 
 CRITICAL RULES:
 - Write in {tone} style
@@ -695,7 +695,7 @@ CRITICAL RULES:
         headers={
             "Content-Type": "application/json",
             "Authorization": "Bearer " + API_KEY,
-            "User-Agent": "MenshlyGlobal/1.0 (Bot; +https://menshly-global.pages.dev)"
+            "User-Agent": "Kivora/1.0 (Bot; +https://kivora.pages.dev)"
         }
     )
 
@@ -765,7 +765,7 @@ def build_markdown(article, topic, category_key, category_label, image_data):
     words = topic.lower().split()
     tags = random.sample(words, min(4, len(words)))
     tags.append("2026")
-    tags.append("MenshlyGlobal")
+    tags.append("Kivora")
     tags = list(set(tags))[:6]
 
     # Build front matter

@@ -20,7 +20,7 @@ export async function onRequestPost(context) {
       });
     }
 
-    const siteUrl = 'https://menshly-global.pages.dev';
+    const siteUrl = 'https://kivora.pages.dev';
     const fullUrl = url.startsWith('http') ? url : siteUrl + url;
     const encodedTitle = encodeURIComponent(title);
     const encodedUrl = encodeURIComponent(fullUrl);
@@ -60,7 +60,7 @@ export async function onRequestPost(context) {
           break;
         }
         const discordPayload = {
-          username: 'MenshlyGlobal',
+          username: 'Kivora',
           avatar_url: `${siteUrl}/favicon.ico`,
           embeds: [{
             title: title.length > 256 ? title.substring(0, 253) + '...' : title,
@@ -68,7 +68,7 @@ export async function onRequestPost(context) {
             description: excerpt ? (excerpt.length > 350 ? excerpt.substring(0, 347) + '...' : excerpt) : '',
             color: 0xc0392b,
             footer: {
-              text: author ? `By ${author}` : 'MenshlyGlobal Intelligence Board'
+              text: author ? `By ${author}` : 'Kivora Intelligence Board'
             },
             fields: category ? [{ name: 'Category', value: category, inline: true }] : [],
             image: image ? { url: image } : undefined,
@@ -157,7 +157,7 @@ export async function onRequestPost(context) {
           author,
           category,
           publishedAt: new Date().toISOString(),
-          source: 'MenshlyGlobal'
+          source: 'Kivora'
         };
         if (webhookSecret) customPayload.secret = webhookSecret;
 

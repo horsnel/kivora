@@ -1,12 +1,12 @@
 /* ================================================================
    AI Content Studio — Reviews, Analysis, Guides Generator
    + Manual Post Writer & Publisher
-   MenshlyGlobal Client-Side Logic
+   Kivora Client-Side Logic
    ================================================================ */
 (function() {
   'use strict';
 
-  var STORAGE_KEY = 'menshly_ai_articles';
+  var STORAGE_KEY = 'kivora_ai_articles';
   var API_ENDPOINT = '/api/generate-article';
   var PUBLISH_ENDPOINT = '/api/publish-article';
   var DELETE_ENDPOINT = '/api/delete-article';
@@ -281,7 +281,7 @@
     var title = articleTitle || (currentArticle && currentArticle.title) || '';
     var text = encodeURIComponent(title);
     var encodedUrl = encodeURIComponent(url);
-    window.open('https://twitter.com/intent/tweet?text=' + text + '&url=' + encodedUrl + '&via=MenshlyGlobal', '_blank', 'width=600,height=400');
+    window.open('https://twitter.com/intent/tweet?text=' + text + '&url=' + encodedUrl + '&via=Kivora', '_blank', 'width=600,height=400');
   }
 
   function copyShareLink(publishUrl) {
@@ -495,7 +495,7 @@
     if (timeEl) timeEl.textContent = 'Just now';
     if (titleEl) titleEl.textContent = title;
     if (summaryEl) summaryEl.textContent = summary || '';
-    if (authorEl) authorEl.textContent = author || 'MenshlyGlobal Staff';
+    if (authorEl) authorEl.textContent = author || 'Kivora Staff';
     var wordCount = content.split(/\s+/).length;
     if (readTimeEl) readTimeEl.textContent = Math.max(1, Math.ceil(wordCount / 200)) + ' min read';
 
@@ -572,7 +572,7 @@
     if (!publishBtn) return;
 
     // Confirm
-    var confirmed = confirm('Publish this article to MenshlyGlobal?\n\nTitle: ' + title + '\nCategory: ' + category + '\n\nThe article will be live within 1-2 minutes.');
+    var confirmed = confirm('Publish this article to Kivora?\n\nTitle: ' + title + '\nCategory: ' + category + '\n\nThe article will be live within 1-2 minutes.');
     if (!confirmed) return;
 
     publishBtn.disabled = true;
@@ -942,7 +942,7 @@
     var publishBtn = getEl('aiNrPublishBtn');
     if (!publishBtn) return;
 
-    var confirmed = confirm('Publish this article to MenshlyGlobal?\n\nTitle: ' + (currentArticle.title || '') + '\n\nThe article will be live on the site within 1-2 minutes.');
+    var confirmed = confirm('Publish this article to Kivora?\n\nTitle: ' + (currentArticle.title || '') + '\n\nThe article will be live on the site within 1-2 minutes.');
     if (!confirmed) return;
 
     publishBtn.disabled = true;

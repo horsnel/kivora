@@ -23,7 +23,7 @@ export async function onRequestPost(context) {
     const path = "content/data/breaking.json";
     const headers = {
       "Authorization": "Bearer " + token,
-      "User-Agent": "MenshlyGlobal/1.0",
+      "User-Agent": "Kivora/1.0",
       "Content-Type": "application/json"
     };
 

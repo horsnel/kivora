@@ -1,5 +1,5 @@
 # ============================================================
-# MenshlyGlobal — Auto Article Publisher
+# Kivora — Auto Article Publisher
 # Runs on schedule + manual trigger
 # Generates AI articles and commits to repo → triggers Hugo build
 #
@@ -77,8 +77,8 @@ jobs:
         if: steps.check.outputs.created == 'true'
         run: |
           SLUG=$(head -10 output/article.md | grep "^slug:" | sed 's/slug: *//' | tr -d '"')
-          git config user.name "MenshlyGlobal Bot"
-          git config user.email "bot@menshly-global.pages.dev"
+          git config user.name "Kivora Bot"
+          git config user.email "bot@kivora.pages.dev"
           cp output/article.md "content/ai-newsroom/${SLUG}.md"
           git add "content/ai-newsroom/${SLUG}.md"
           git commit -m "Auto: publish ${SLUG}"

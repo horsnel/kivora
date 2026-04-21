@@ -1,5 +1,5 @@
 # ============================================================
-# MenshlyGlobal — News Dispatch Generator
+# Kivora — News Dispatch Generator
 # Runs frequently to generate CNN-style news dispatches for homepage
 # Fetches trending headlines from NewsAPI, generates AI dispatches,
 # and commits to content/posts/ which triggers Hugo rebuild.
@@ -68,8 +68,8 @@ jobs:
           if [ -f output/manifest.json ] && [ -s output/manifest.json ]; then
             ARTICLES=$(python3 -c "import json; data=json.load(open('output/manifest.json')); print(len(data))")
             if [ "$ARTICLES" -gt 0 ]; then
-              git config user.name "MenshlyGlobal News Bot"
-              git config user.email "newsbot@menshly-global.pages.dev"
+              git config user.name "Kivora News Bot"
+              git config user.email "bot@kivora.pages.dev"
               
               # Copy generated articles from output/ to content/posts/
               for f in output/news-*.md; do

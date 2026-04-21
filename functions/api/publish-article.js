@@ -37,7 +37,7 @@ export async function onRequestPost(context) {
     } else {
       var tw = (topic || title).toLowerCase().split(/\s+/).filter(w => w.length > 3);
       var s2 = {}; var u2 = []; tw.slice(0,4).forEach(t => { if (!s2[t]) { s2[t] = true; u2.push(t); } });
-      u2.push("2026","MenshlyGlobal"); tags = u2.slice(0, 6);
+      u2.push("2026","Kivora"); tags = u2.slice(0, 6);
     }
 
     let fm = "---\n";
@@ -61,7 +61,7 @@ export async function onRequestPost(context) {
     var ab = "https://api.github.com";
 
     var chk = await fetch(ab + "/repos/" + rp[0] + "/" + rp[1] + "/contents/" + fp, {
-      headers: { "Authorization": "Bearer " + githubToken, "User-Agent": "MenshlyGlobal-Bot", "Accept": "application/vnd.github.v3+json" }
+      headers: { "Authorization": "Bearer " + githubToken, "User-Agent": "Kivora-Bot", "Accept": "application/vnd.github.v3+json" }
     });
 
     var cb = { message: "Newsroom: publish article", content: btoa(unescape(encodeURIComponent(fullMd))) };
@@ -69,14 +69,14 @@ export async function onRequestPost(context) {
 
     var pr = await fetch(ab + "/repos/" + rp[0] + "/" + rp[1] + "/contents/" + fp, {
       method: "PUT",
-      headers: { "Authorization": "Bearer " + githubToken, "User-Agent": "MenshlyGlobal-Bot", "Accept": "application/vnd.github.v3+json", "Content-Type": "application/json" },
+      headers: { "Authorization": "Bearer " + githubToken, "User-Agent": "Kivora-Bot", "Accept": "application/vnd.github.v3+json", "Content-Type": "application/json" },
       body: JSON.stringify(cb)
     });
 
     if (!pr.ok) { var et = await pr.text(); var em = "GitHub API " + pr.status; try { em = JSON.parse(et).message || em; } catch(e){} return jsonResponse({ error: "Publish failed: " + em }, 500); }
 
     var res = await pr.json();
-    return jsonResponse({ success: true, message: "Published! Live in 1-2 min.", slug: slug, url: "https://menshly-global.pages.dev/ai-newsroom/" + slug + "/", commitSha: (res.commit && res.commit.sha) ? res.commit.sha.substring(0,7) : "?", category: hugoCat, author: author });
+    return jsonResponse({ success: true, message: "Published! Live in 1-2 min.", slug: slug, url: "https://kivora.pages.dev/ai-newsroom/" + slug + "/", commitSha: (res.commit && res.commit.sha) ? res.commit.sha.substring(0,7) : "?", category: hugoCat, author: author });
 
   } catch (err) { return jsonResponse({ error: "Publish failed: " + (err.message || "Unknown") }, 500); }
 }

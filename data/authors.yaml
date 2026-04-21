@@ -1,7 +1,7 @@
 james-chen:
   name: "James Chen"
   role: "Senior Geopolitical Analyst"
-  bio: "James Chen serves as MenshlyGlobal's Senior Geopolitical Analyst, covering US foreign policy, trade sanctions, and global energy markets. With over a decade of experience in international relations and financial markets, James provides readers with deep strategic analysis of geopolitical risk and its impact on global markets.\n\nHis expertise spans Middle East diplomacy, US-China trade dynamics, and emerging market sovereign risk. Prior to joining MenshlyGlobal, James worked as a risk consultant for multinational corporations operating in high-stakes regulatory environments."
+  bio: "James Chen serves as Kivora's Senior Geopolitical Analyst, covering US foreign policy, trade sanctions, and global energy markets. With over a decade of experience in international relations and financial markets, James provides readers with deep strategic analysis of geopolitical risk and its impact on global markets.\n\nHis expertise spans Middle East diplomacy, US-China trade dynamics, and emerging market sovereign risk. Prior to joining Kivora, James worked as a risk consultant for multinational corporations operating in high-stakes regulatory environments."
 
 amara-okonkwo:
   name: "Amara Okonkwo"
@@ -26,14 +26,14 @@ dr-fatima-al-hassan:
 marcus-webb:
   name: "Marcus Webb"
   role: "Financial Markets & Earnings Analyst"
-  bio: "Marcus Webb decodes financial markets for MenshlyGlobal readers, covering earnings reports, IPOs, and macroeconomic trends. His analysis helps investors navigate market volatility and identify emerging opportunities across global equity and bond markets.\n\nWith experience in equity research and portfolio strategy, Marcus brings Wall Street-level insight to everyday readers."
+  bio: "Marcus Webb decodes financial markets for Kivora readers, covering earnings reports, IPOs, and macroeconomic trends. His analysis helps investors navigate market volatility and identify emerging opportunities across global equity and bond markets.\n\nWith experience in equity research and portfolio strategy, Marcus brings Wall Street-level insight to everyday readers."
 
 sarah-mitchell:
   name: "Sarah Mitchell"
   role: "Technology & Innovation Editor"
-  bio: "Sarah Mitchell leads MenshlyGlobal's technology coverage, tracking the biggest stories in AI, cybersecurity, consumer tech, and Silicon Valley. Her reporting combines technical accuracy with narrative storytelling.\n\nFrom major product launches to antitrust investigations and AI ethics debates, Sarah provides comprehensive coverage of the forces shaping the technology industry."
+  bio: "Sarah Mitchell leads Kivora's technology coverage, tracking the biggest stories in AI, cybersecurity, consumer tech, and Silicon Valley. Her reporting combines technical accuracy with narrative storytelling.\n\nFrom major product launches to antitrust investigations and AI ethics debates, Sarah provides comprehensive coverage of the forces shaping the technology industry."
 
-menshly-intelligence-board:
-  name: "Menshly Intelligence Board"
+kivora-editorial-board:
+  name: "Kivora Editorial Board"
   role: "AI-Powered News Desk"
-  bio: "The Menshly Intelligence Board is our AI-assisted editorial team that aggregates, curates, and synthesizes breaking news and analysis from hundreds of global sources in real time. Powered by advanced language models and machine learning, the Intelligence Board delivers comprehensive coverage across geopolitics, finance, technology, science, and health.\n\nEvery article produced by the Intelligence Board undergoes automated fact-checking and source verification, ensuring the highest standards of accuracy and reliability for our readers."
+  bio: "The Kivora Editorial Board is our AI-assisted editorial team that aggregates, curates, and synthesizes breaking news and analysis from hundreds of global sources in real time. Powered by advanced language models and machine learning, the Intelligence Board delivers comprehensive coverage across geopolitics, finance, technology, science, and health.\n\nEvery article produced by the Intelligence Board undergoes automated fact-checking and source verification, ensuring the highest standards of accuracy and reliability for our readers."

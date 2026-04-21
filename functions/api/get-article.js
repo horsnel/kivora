@@ -35,7 +35,7 @@ export async function onRequestPost(context) {
     var resp = await fetch(apiBase + "/repos/" + owner + "/" + repo + "/contents/" + filePath, {
       headers: {
         "Authorization": "Bearer " + githubToken,
-        "User-Agent": "MenshlyGlobal-Bot",
+        "User-Agent": "Kivora-Bot",
         "Accept": "application/vnd.github.v3+json"
       }
     });
