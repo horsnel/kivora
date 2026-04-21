@@ -2,6 +2,9 @@ import { supabaseAdmin } from '@/lib/supabase'
 
 export async function POST(req) {
   try {
+    if (!supabaseAdmin) {
+      return Response.json({ error: 'Database not configured' }, { status: 503 })
+    }
     const { userId, query, resultSlug } = await req.json()
     if (!userId || !resultSlug) {
       return Response.json({ error: 'userId and resultSlug required' }, { status: 400 })

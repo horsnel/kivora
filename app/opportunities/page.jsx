@@ -4,10 +4,6 @@ import { useRouter } from 'next/navigation'
 import { useCurrency } from '@/components/CurrencyToggle'
 import { IconMoney, IconLightning, IconTool, IconSearch, IconFilter, IconEye, IconArrowRight, IconSpinner, IconPlus } from '@/components/Icons'
 
-function IconEye({ size = 16, className = '' }) {
-  return <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" stroke="currentColor" strokeWidth="1.25"/><circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.25"/></svg>
-}
-
 const CATEGORIES = ['All','Automation','Content','YouTube','E-Commerce','Affiliate','Freelance','SaaS','Finance','Education','Africa','Developer']
 
 export default function OpportunitiesPage() {

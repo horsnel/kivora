@@ -3,6 +3,9 @@ import { groq, MODEL_FAST } from '@/lib/groq'
 
 export async function POST(req) {
   try {
+    if (!supabaseAdmin || !groq) {
+      return Response.json({ error: 'Service not configured' }, { status: 503 })
+    }
     const { topic, category } = await req.json()
     if (!topic) return Response.json({ context: null, pages: [] })
 

@@ -9,6 +9,9 @@ export async function POST(req) {
   }
 
   try {
+    if (!supabaseAdmin || !groq) {
+      return Response.json({ error: 'Service not configured' }, { status: 503 })
+    }
     const { messages, sessionId, userId } = await req.json()
     if (!messages?.length) {
       return Response.json({ error: 'messages required' }, { status: 400 })

@@ -18,6 +18,9 @@ export async function POST(req) {
   }
 
   try {
+    if (!supabaseAdmin || !groq) {
+      return Response.json({ error: 'Service not configured' }, { status: 503 })
+    }
     const { query, category } = await req.json()
     if (!query?.trim()) {
       return Response.json({ error: 'query is required' }, { status: 400 })

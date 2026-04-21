@@ -2,6 +2,9 @@ import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET() {
   try {
+    if (!supabaseAdmin) {
+      return Response.json({ error: 'Database not configured' }, { status: 503 })
+    }
     // Check Supabase cache first (24hr TTL)
     const { data: cached } = await supabaseAdmin
       .from('exchange_rates')

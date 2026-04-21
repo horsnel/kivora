@@ -79,6 +79,9 @@ export async function POST(req) {
   }
 
   try {
+    if (!groq) {
+      return Response.json({ error: 'AI service not configured' }, { status: 503 })
+    }
     const { type, payload } = await req.json()
     const promptFn = PROMPTS[type]
     if (!promptFn) {
