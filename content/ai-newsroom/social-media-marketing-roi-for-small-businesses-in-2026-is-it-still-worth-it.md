@@ -8,7 +8,7 @@ authors:
 - "Dr. Fatima Al-Hassan"
 description: "In 2026, social media marketing remains a powerful tool for small businesses, but rising competition, algorithm changes, and ad costs are reshaping ROI. This de"
 categories: ["finance"]
-tags: ["social","media","marketing","small","2026","MenshlyGlobal"]
+tags: ["social","media","marketing","small","2026","Kivora"]
 ---
 In 2026, social media marketing remains a powerful tool for small businesses, but rising competition, algorithm changes, and ad costs are reshaping ROI. This deep dive explores real-world returns, platform performance, and data-backed strategies to maximize profitability.
 

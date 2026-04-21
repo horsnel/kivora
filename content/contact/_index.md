@@ -1,6 +1,6 @@
 ---
 title: "Contact Us"
-description: "Get in touch with MenshlyGlobal"
+description: "Get in touch with Kivora"
 ---
 
 {{ define "main" }}

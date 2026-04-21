@@ -1,9 +1,9 @@
 ---
-title: "About MenshlyGlobal"
-description: "About MenshlyGlobal intelligence and news platform"
+title: "About Kivora"
+description: "About Kivora intelligence and news platform"
 ---
 
-MenshlyGlobal is a premier intelligence and news platform dedicated to delivering elite investigative journalism, data-driven analysis, and forward-looking forecasts for 2026 and beyond.
+Kivora is a premier intelligence and news platform dedicated to delivering elite investigative journalism, data-driven analysis, and forward-looking forecasts for 2026 and beyond.
 
 Our team of experienced journalists and analysts covers the most critical developments across Business, Technology, World Affairs, Health, and Science.
 

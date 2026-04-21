@@ -1,4 +1,4 @@
 ---
 title: "Search"
-description: "Search MenshlyGlobal articles"
+description: "Search Kivora articles"
 ---

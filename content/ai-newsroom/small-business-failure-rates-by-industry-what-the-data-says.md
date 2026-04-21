@@ -8,7 +8,7 @@ authors:
 - "James Chen"
 description: "Not all industries are created equal when it comes to small business survival. This deep dive explores failure rates across key sectors, backed by government an"
 categories: ["finance"]
-tags: ["small","business","failure","rates","2026","MenshlyGlobal"]
+tags: ["small","business","failure","rates","2026","Kivora"]
 ---
 Not all industries are created equal when it comes to small business survival. This deep dive explores failure rates across key sectors, backed by government and private data, and reveals what aspiring entrepreneurs should know before launching.
 

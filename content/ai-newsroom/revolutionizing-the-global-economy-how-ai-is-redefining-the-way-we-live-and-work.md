@@ -6,7 +6,7 @@ image: "https://bernardmarr.com/img/The%20Economics%20Of%20Artificial%20Intellig
 author: "Marcus Webb"
 description: "**Summary:** Artificial Intelligence (AI) is transforming the world's largest economy, bringing immense benefits and challenges alike. From automation to intell"
 categories: ["finance"]
-tags: ["changing","world","largest","economy","2026","MenshlyGlobal"]
+tags: ["changing","world","largest","economy","2026","Kivora"]
 ---
 **Summary:** Artificial Intelligence (AI) is transforming the world's largest economy, bringing immense benefits and challenges alike. From automation to intelligent investment, AI is redefining the way we live, work, and earn. In this article, we'll delve into the impact of AI on the global economy
 

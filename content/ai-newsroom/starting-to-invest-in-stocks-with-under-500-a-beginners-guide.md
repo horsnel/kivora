@@ -4,7 +4,7 @@ date: "2026-04-18T01:38:18.770Z"
 slug: "starting-to-invest-in-stocks-with-under-500-a-beginners-guide"
 image: "https://images.pexels.com/photos/7876656/pexels-photo-7876656.jpeg?auto=compress&cs=tinysrgb&h=650&w=940"
 categories: ["finance"]
-tags: ["start","investing","stocks","with","2026","MenshlyGlobal"]
+tags: ["start","investing","stocks","with","2026","Kivora"]
 author: "Dr. Elena Vasquez"
 authors:
 - "Dr. Elena Vasquez"

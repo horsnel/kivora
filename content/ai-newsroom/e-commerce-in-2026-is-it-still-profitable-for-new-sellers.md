@@ -4,7 +4,7 @@ date: "2026-04-18T01:28:38.479Z"
 slug: "e-commerce-in-2026-is-it-still-profitable-for-new-sellers"
 image: "https://images.pexels.com/photos/7654180/pexels-photo-7654180.jpeg?auto=compress&cs=tinysrgb&h=650&w=940"
 categories: ["finance"]
-tags: ["e-commerce","2026:","still","profitable","2026","MenshlyGlobal"]
+tags: ["e-commerce","2026:","still","profitable","2026","Kivora"]
 author: "James Chen"
 authors:
 - "James Chen"

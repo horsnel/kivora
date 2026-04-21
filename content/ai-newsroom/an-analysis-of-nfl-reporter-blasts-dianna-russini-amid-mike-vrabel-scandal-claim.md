@@ -4,7 +4,7 @@ date: "2026-04-17T18:57:55Z"
 slug: "an-analysis-of-nfl-reporter-blasts-dianna-russini-amid-mike-vrabel-scandal-claim"
 image: "https://pixabay.com/get/g9faa0025f9b6523eee05299b98fd7d15dc48e018667897654622cfe0929f6d8acd79576439e00fb8fa5d30a8b36b9642fb765405d6cbf51b1cbc612e245c84e9_1280.jpg"
 categories: ["world"]
-tags: ["of:", "amid", "russini", "analysis", "2026", "MenshlyGlobal"]
+tags: ["of:", "amid", "russini", "analysis", "2026", "Kivora"]
 author: "Dr. Fatima Al-Hassan"
 authors:
 - "Dr. Fatima Al-Hassan"

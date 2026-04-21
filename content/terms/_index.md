@@ -1,6 +1,6 @@
 ---
 title: "Terms of Use"
-description: "MenshlyGlobal Terms of Use"
+description: "Kivora Terms of Use"
 ---
 
 {{ define "main" }}

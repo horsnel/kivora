@@ -1,7 +1,7 @@
 ---
 Task ID: 1
 Agent: Super Z (Main Agent)
-Task: Implement all 20 premium features for MenshlyGlobal Hugo news site
+Task: Implement all 20 premium features for Kivora Hugo news site
 
 Work Log:
 - Audited entire codebase: 11 posts, Hugo templates, CSS, config
@@ -25,7 +25,7 @@ Work Log:
 - Committed, pushed to GitHub, deployed to CloudFlare Pages
 
 Stage Summary:
-- All 20 features implemented and deployed to https://menshly-global.pages.dev
+- All 20 features implemented and deployed to https://kivora-global.pages.dev
 - 45 files changed, 1244 insertions, 213 deletions
 - Hugo build: 126 pages, 199ms build time
 - CloudFlare deployment: 225 files uploaded successfully
@@ -53,7 +53,7 @@ Stage Summary:
 - Search system fully functional: overlay search (Ctrl+K), landing page at /search/, Fuse.js fuzzy matching
 - 7 author pages with professional content at /author/{name}
 - TradingView live market charts fixed (no more Hugo build errors)
-- Site live at https://menshly-global.pages.dev
+- Site live at https://kivora-global.pages.dev
 
 ---
 Task ID: 6
@@ -101,7 +101,7 @@ Stage Summary:
 - Live clock visible on ALL pages
 - Pope post category fixed from "undefined" to "world"
 - All category navigation links work correctly
-- Site deployed at https://menshly-global.pages.dev/
+- Site deployed at https://kivora-global.pages.dev/
 
 ---
 Task ID: 7
@@ -130,7 +130,7 @@ Stage Summary:
 - Auto-generates and publishes articles twice daily
 - User needs to configure GitHub Secrets: AI_API_KEY, PEXELS_API_KEY, AI_API_BASE, AI_MODEL
 - Manual trigger available via Actions tab with optional category/topic override
-- Pushed to https://github.com/horsnel/menshly-global-repo.git
+- Pushed to https://github.com/horsnel/kivora-global-repo.git
 
 ---
 Task ID: 1
@@ -156,13 +156,13 @@ Stage Summary:
 ---
 Task ID: 1
 Agent: Main Agent
-Task: Fix all audit issues identified on MenshlyGlobal live site
+Task: Fix all audit issues identified on Kivora live site
 
 Work Log:
 - Reviewed all 8 partially-built and 3 not-built features from audit
 - Confirmed 4 features already fixed: reading progress bar, related articles, audio player CSS, tags cloud
 - Fixed author taxonomy: Updated 47 content files to use slug-based authors taxonomy (james-chen, sarah-mitchell, etc.)
-- Added menshly-intelligence-board entry to data/authors.yaml with AI-powered news desk bio
+- Added kivora-intelligence-board entry to data/authors.yaml with AI-powered news desk bio
 - Rewrote taxonomy.html template to properly look up author names and bios from data/authors.yaml
 - Rewrote term.html template to use .Pages for Hugo taxonomy pages and look up author display names
 - Fixed template rendering errors: .Title called on string type inside {{ with $img }} blocks

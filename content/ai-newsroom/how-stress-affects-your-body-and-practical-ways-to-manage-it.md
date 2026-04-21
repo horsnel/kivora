@@ -4,7 +4,7 @@ date: "2026-04-18T06:58:51Z"
 slug: "how-stress-affects-your-body-and-practical-ways-to-manage-it"
 image: "https://pixabay.com/get/g120b82887601d232bb996020dd93292b78748d8abfd594596fe67a24224ebaf982df9b06fdc5b12e593bd2ad349099937f1d082c2332b96eb80def8d5edd752f_1280.jpg"
 categories: ["health"]
-tags: ["2026", "MenshlyGlobal", "your", "how", "ways", "it"]
+tags: ["2026", "Kivora", "your", "how", "ways", "it"]
 author: "James Chen"
 description: "```json
 {
