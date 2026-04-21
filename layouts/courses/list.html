@@ -1,0 +1,697 @@
+{{ define "main" }}
+<div class="courses-page">
+  <!-- Hero Section -->
+  <div class="courses-hero">
+    <div class="courses-hero-inner">
+      <h1>Learn to Build, Automate, Monetize & Scale</h1>
+      <p class="courses-hero-tagline">Hand-picked courses for digital entrepreneurs. From zero to revenue to scalable business — every stage, covered.</p>
+      <div class="courses-hero-stats">
+        <div class="courses-stat">
+          <span class="courses-stat-num">30+</span>
+          <span class="courses-stat-label">Courses</span>
+        </div>
+        <div class="courses-stat">
+          <span class="courses-stat-num">4</span>
+          <span class="courses-stat-label">Pillars</span>
+        </div>
+        <div class="courses-stat">
+          <span class="courses-stat-num">Free & Paid</span>
+          <span class="courses-stat-label">Options</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pillar Filter Tabs -->
+  <div class="courses-filter-bar">
+    <div class="courses-filter-inner">
+      <button class="courses-filter-btn active" data-filter="all">All Courses</button>
+      <button class="courses-filter-btn" data-filter="build">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20"/><path d="M5 20V8l7-5 7 5v12"/><rect x="9" y="12" width="6" height="8"/></svg>
+        Build
+      </button>
+      <button class="courses-filter-btn" data-filter="automate">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+        Automate
+      </button>
+      <button class="courses-filter-btn" data-filter="monetize">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Monetize
+      </button>
+      <button class="courses-filter-btn" data-filter="scale">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+        Scale
+      </button>
+    </div>
+  </div>
+
+  <!-- Top Picks -->
+  <div class="courses-section">
+    <div class="courses-section-header">
+      <div class="courses-section-icon courses-pick-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </div>
+      <h2>Kivora Top Picks</h2>
+      <span class="courses-section-badge">Editor's Choice</span>
+    </div>
+    <div class="courses-top-grid">
+      <!-- Top Pick 1 -->
+      <div class="course-card course-featured" data-pillar="build">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-build">Build</span>
+          <span class="course-price free">Free</span>
+        </div>
+        <div class="course-card-body">
+          <h3>Y Combinator Startup School</h3>
+          <p class="course-provider">Y Combinator</p>
+          <p class="course-desc">The gold standard for building a startup from zero. Covers ideation, MVP development, product-market fit, and fundraising. Used by 50,000+ startups including Airbnb, Stripe, and DoorDash.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              10 weeks
+            </span>
+            <span class="course-meta-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              50K+ alumni
+            </span>
+            <span class="course-meta-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              Legendary
+            </span>
+          </div>
+        </div>
+        <a href="https://www.startupschool.org/" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <!-- Top Pick 2 -->
+      <div class="course-card course-featured" data-pillar="automate">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-automate">Automate</span>
+          <span class="course-price free">Free</span>
+        </div>
+        <div class="course-card-body">
+          <h3>Automate the Boring Stuff with Python</h3>
+          <p class="course-provider">Udemy / Al Sweigart</p>
+          <p class="course-desc">Practical Python automation for non-programmers. Learn web scraping, file handling, email automation, spreadsheet manipulation, and more. Immediate ROI — automate your first task within hours.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              9.5 hours
+            </span>
+            <span class="course-meta-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+              Beginner
+            </span>
+            <span class="course-meta-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              Bestseller
+            </span>
+          </div>
+        </div>
+        <a href="https://automatetheboringstuff.com/" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <!-- Top Pick 3 -->
+      <div class="course-card course-featured" data-pillar="monetize">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-monetize">Monetize</span>
+          <span class="course-price paid">Paid</span>
+        </div>
+        <div class="course-card-body">
+          <h3>Digital Marketing Specialization</h3>
+          <p class="course-provider">Coursera — University of Illinois</p>
+          <p class="course-desc">Complete digital marketing mastery: SEO, SEM, social media, analytics, and conversion optimization. Industry-recognized certificate. The foundation every digital business needs to drive revenue.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              8 months
+            </span>
+            <span class="course-meta-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Certificate
+            </span>
+            <span class="course-meta-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              Top Rated
+            </span>
+          </div>
+        </div>
+        <a href="https://www.coursera.org/specializations/digital-marketing" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <!-- Top Pick 4 -->
+      <div class="course-card course-featured" data-pillar="scale">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-scale">Scale</span>
+          <span class="course-price paid">Paid</span>
+        </div>
+        <div class="course-card-body">
+          <h3>Growth Engineering by Reforge</h3>
+          <p class="course-provider">Reforge</p>
+          <p class="course-desc">The industry standard for growth. Used by product and growth leaders at Airbnb, Pinterest, Uber, and Stripe. Covers acquisition, activation, retention, and monetization loops at scale.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              8 weeks
+            </span>
+            <span class="course-meta-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Senior level
+            </span>
+            <span class="course-meta-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              Premium
+            </span>
+          </div>
+        </div>
+        <a href="https://www.reforge.com/" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- BUILD Section -->
+  <div class="courses-section" data-section="build">
+    <div class="courses-section-header">
+      <div class="courses-section-icon build-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20"/><path d="M5 20V8l7-5 7 5v12"/><rect x="9" y="12" width="6" height="8"/></svg>
+      </div>
+      <h2>Build</h2>
+      <p>Start & create your digital business</p>
+    </div>
+    <div class="courses-grid">
+      <div class="course-card" data-pillar="build">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-build">Build</span>
+          <span class="course-price free">Free</span>
+        </div>
+        <div class="course-card-body">
+          <h3>How to Build a Startup</h3>
+          <p class="course-provider">Udacity — Steve Blank</p>
+          <p class="course-desc">Learn the Customer Development methodology that launched the Lean Startup movement. Validated learning, rapid experimentation, and iterative product releases.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">8 weeks</span>
+            <span class="course-meta-item">Beginner</span>
+          </div>
+        </div>
+        <a href="https://www.udacity.com/course/how-to-build-a-startup--ep245" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="build">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-build">Build</span>
+          <span class="course-price paid">Paid</span>
+        </div>
+        <div class="course-card-body">
+          <h3>The Complete Digital Marketing Course</h3>
+          <p class="course-provider">Udemy — Rob Percival</p>
+          <p class="course-desc">12-in-1 course covering SEO, social media marketing, Google Ads, analytics, email marketing, and more. Build your marketing machine from the ground up with hands-on projects.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">23 hours</span>
+            <span class="course-meta-item">All levels</span>
+          </div>
+        </div>
+        <a href="https://www.udemy.com/course/the-complete-digital-marketing-course/" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="build">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-build">Build</span>
+          <span class="course-price free">Free</span>
+        </div>
+        <div class="course-card-body">
+          <h3>The Odin Project — Full Stack</h3>
+          <p class="course-provider">The Odin Project</p>
+          <p class="course-desc">The most comprehensive free full-stack web development curriculum. 1000+ hours covering HTML, CSS, JavaScript, Ruby, Rails, Node.js, and databases. Build real projects from day one.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">1000+ hours</span>
+            <span class="course-meta-item">Beginner to Advanced</span>
+          </div>
+        </div>
+        <a href="https://www.theodinproject.com/" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="build">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-build">Build</span>
+          <span class="course-price paid">Paid</span>
+        </div>
+        <div class="course-card-body">
+          <h3>Product Management Fundamentals</h3>
+          <p class="course-provider">Coursera — University of Virginia</p>
+          <p class="course-desc">Learn how to build products people actually want. Covers user research, product strategy, roadmap planning, and metrics-driven decision making. Essential for any digital entrepreneur.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">6 weeks</span>
+            <span class="course-meta-item">Intermediate</span>
+          </div>
+        </div>
+        <a href="https://www.coursera.org/learn/product-management" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="build">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-build">Build</span>
+          <span class="course-price free">Free</span>
+        </div>
+        <div class="course-card-body">
+          <h3>No-Code App Building</h3>
+          <p class="course-provider">Makerpad</p>
+          <p class="course-desc">Build fully functional apps with Bubble, Webflow, Make, and Zapier — no coding required. Perfect for non-technical founders who want to ship fast and validate ideas quickly.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">Self-paced</span>
+            <span class="course-meta-item">Beginner</span>
+          </div>
+        </div>
+        <a href="https://www.makerpad.co/" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- AUTOMATE Section -->
+  <div class="courses-section" data-section="automate">
+    <div class="courses-section-header">
+      <div class="courses-section-icon automate-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+      </div>
+      <h2>Automate</h2>
+      <p>Systems, workflows & AI-powered efficiency</p>
+    </div>
+    <div class="courses-grid">
+      <div class="course-card" data-pillar="automate">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-automate">Automate</span>
+          <span class="course-price free">Free</span>
+        </div>
+        <div class="course-card-body">
+          <h3>AI for Everyone</h3>
+          <p class="course-provider">Coursera — Andrew Ng</p>
+          <p class="course-desc">Understand what AI can and cannot do. Learn to spot AI opportunities, work with AI teams, and develop an AI strategy. Critical for making smart automation decisions without needing technical depth.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">4 weeks</span>
+            <span class="course-meta-item">Non-technical</span>
+          </div>
+        </div>
+        <a href="https://www.coursera.org/learn/ai-for-everyone" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="automate">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-automate">Automate</span>
+          <span class="course-price paid">Paid</span>
+        </div>
+        <div class="course-card-body">
+          <h3>Deep Learning Specialization</h3>
+          <p class="course-provider">Coursera — Andrew Ng</p>
+          <p class="course-desc">Five-course series covering neural networks, CNNs, RNNs, and structured ML projects. Build custom AI and ML solutions for automation at the highest level. Over 1 million learners worldwide.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">16 weeks</span>
+            <span class="course-meta-item">Intermediate</span>
+          </div>
+        </div>
+        <a href="https://www.coursera.org/specializations/deep-learning" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="automate">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-automate">Automate</span>
+          <span class="course-price free">Free</span>
+        </div>
+        <div class="course-card-body">
+          <h3>ChatGPT Prompt Engineering</h3>
+          <p class="course-provider">DeepLearning.AI — OpenAI</p>
+          <p class="course-desc">Build AI-powered automations using large language models. Learn prompt design, API integration, chatbot development, and how to chain LLM calls into powerful automated workflows.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">1 week</span>
+            <span class="course-meta-item">Beginner</span>
+          </div>
+        </div>
+        <a href="https://www.deeplearning.ai/short-courses/chatgpt-prompt-engineering-for-developers/" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="automate">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-automate">Automate</span>
+          <span class="course-price free">Free</span>
+        </div>
+        <div class="course-card-body">
+          <h3>RPA — Robotic Process Automation</h3>
+          <p class="course-provider">UiPath Academy</p>
+          <p class="course-desc">Enterprise-grade automation training. Learn to automate repetitive business processes, data extraction, form filling, and report generation. A high-paying skill in growing demand across industries.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">20+ hours</span>
+            <span class="course-meta-item">Beginner</span>
+          </div>
+        </div>
+        <a href="https://academy.uipath.com/" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="automate">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-automate">Automate</span>
+          <span class="course-price free">Free</span>
+        </div>
+        <div class="course-card-body">
+          <h3>Zapier & Make Automation Mastery</h3>
+          <p class="course-provider">Makerpad</p>
+          <p class="course-desc">Connect 1000+ apps and automate workflows without writing code. Build multi-step automations for lead management, content distribution, customer support, and data syncing across platforms.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">Self-paced</span>
+            <span class="course-meta-item">Beginner</span>
+          </div>
+        </div>
+        <a href="https://www.makerpad.co/" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- MONETIZE Section -->
+  <div class="courses-section" data-section="monetize">
+    <div class="courses-section-header">
+      <div class="courses-section-icon monetize-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      </div>
+      <h2>Monetize</h2>
+      <p>Revenue, sales & business models that work</p>
+    </div>
+    <div class="courses-grid">
+      <div class="course-card" data-pillar="monetize">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-monetize">Monetize</span>
+          <span class="course-price paid">Paid</span>
+        </div>
+        <div class="course-card-body">
+          <h3>The Complete Freelancer Course</h3>
+          <p class="course-provider">Udemy</p>
+          <p class="course-desc">Turn your skills into income. Covers finding clients, pricing your services, building a portfolio, managing projects, and scaling from freelancer to agency owner. Practical and immediately actionable.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">12 hours</span>
+            <span class="course-meta-item">All levels</span>
+          </div>
+        </div>
+        <a href="https://www.udemy.com/courses/search/?q=freelancing" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="monetize">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-monetize">Monetize</span>
+          <span class="course-price free">Free</span>
+        </div>
+        <div class="course-card-body">
+          <h3>E-Commerce Mastery</h3>
+          <p class="course-provider">Shopify Learn</p>
+          <p class="course-desc">Build, launch, and scale an online store from scratch. Covers product research, store design, dropshipping, Facebook and Google ads, email marketing, and conversion optimization.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">Self-paced</span>
+            <span class="course-meta-item">Beginner</span>
+          </div>
+        </div>
+        <a href="https://www.shopify.com/learn" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="monetize">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-monetize">Monetize</span>
+          <span class="course-price paid">Paid</span>
+        </div>
+        <div class="course-card-body">
+          <h3>Copywriting Secrets Masterclass</h3>
+          <p class="course-provider">Skillshare</p>
+          <p class="course-desc">Words that sell. Master the art of persuasive writing for landing pages, emails, ads, and sales pages. The single highest-ROI skill for any digital entrepreneur looking to increase conversions.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">6 hours</span>
+            <span class="course-meta-item">All levels</span>
+          </div>
+        </div>
+        <a href="https://www.skillshare.com/browse/copywriting" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="monetize">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-monetize">Monetize</span>
+          <span class="course-price free">Free</span>
+        </div>
+        <div class="course-card-body">
+          <h3>Affiliate Marketing Bootcamp</h3>
+          <p class="course-provider">Wealthy Affiliate</p>
+          <p class="course-desc">Complete A-to-Z affiliate marketing system. Learn how to choose profitable niches, build content websites, rank in Google, and generate passive income through affiliate partnerships.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">10 phases</span>
+            <span class="course-meta-item">Beginner</span>
+          </div>
+        </div>
+        <a href="https://www.wealthyaffiliate.com/" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="monetize">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-monetize">Monetize</span>
+          <span class="course-price paid">Paid</span>
+        </div>
+        <div class="course-card-body">
+          <h3>Pricing Strategy</h3>
+          <p class="course-provider">Coursera — IESE Business School</p>
+          <p class="course-desc">How to price for maximum profit. Most entrepreneurs get this wrong. Covers value-based pricing, competitive analysis, price elasticity, and dynamic pricing models used by top companies.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">4 weeks</span>
+            <span class="course-meta-item">Intermediate</span>
+          </div>
+        </div>
+        <a href="https://www.coursera.org/learn/pricing-strategy" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="monetize">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-monetize">Monetize</span>
+          <span class="course-price paid">Paid</span>
+        </div>
+        <div class="course-card-body">
+          <h3>SaaS Business Model & Economics</h3>
+          <p class="course-provider">Coursera — Wharton</p>
+          <p class="course-desc">Master recurring revenue, subscription economics, churn management, LTV/CAC analysis, and SaaS metrics. Essential for anyone building or investing in software-as-a-service businesses.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">4 weeks</span>
+            <span class="course-meta-item">Intermediate</span>
+          </div>
+        </div>
+        <a href="https://www.coursera.org/learn/wharton-saas" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCALE Section -->
+  <div class="courses-section" data-section="scale">
+    <div class="courses-section-header">
+      <div class="courses-section-icon scale-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+      </div>
+      <h2>Scale</h2>
+      <p>Growth, teams & systems that don't break</p>
+    </div>
+    <div class="courses-grid">
+      <div class="course-card" data-pillar="scale">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-scale">Scale</span>
+          <span class="course-price paid">Paid</span>
+        </div>
+        <div class="course-card-body">
+          <h3>Scaling Operations</h3>
+          <p class="course-provider">Coursera — Northwestern University</p>
+          <p class="course-desc">How to scale processes without breaking everything. Covers operational frameworks, supply chain optimization, process design, and the metrics that matter when growing from 10 to 1000+ customers.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">4 weeks</span>
+            <span class="course-meta-item">Intermediate</span>
+          </div>
+        </div>
+        <a href="https://www.coursera.org/learn/scaling-operations" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="scale">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-scale">Scale</span>
+          <span class="course-price paid">Paid</span>
+        </div>
+        <div class="course-card-body">
+          <h3>High-Performance Leadership</h3>
+          <p class="course-provider">Coursera — Imperial College London</p>
+          <p class="course-desc">Lead teams through hypergrowth. Covers coaching, conflict resolution, team culture, remote management, and the leadership skills needed when your business is scaling faster than your headcount.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">4 weeks</span>
+            <span class="course-meta-item">Advanced</span>
+          </div>
+        </div>
+        <a href="https://www.coursera.org/learn/high-performance-leadership" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="scale">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-scale">Scale</span>
+          <span class="course-price paid">Paid</span>
+        </div>
+        <div class="course-card-body">
+          <h3>Google Project Management Certificate</h3>
+          <p class="course-provider">Coursera — Google</p>
+          <p class="course-desc">Professional certificate covering agile, scrum, risk management, and stakeholder communication. Manage complex projects at scale. Recognized by top employers worldwide.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">6 months</span>
+            <span class="course-meta-item">Beginner</span>
+          </div>
+        </div>
+        <a href="https://www.coursera.org/professional-certificates/google-project-management" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="scale">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-scale">Scale</span>
+          <span class="course-price paid">Paid</span>
+        </div>
+        <div class="course-card-body">
+          <h3>Venture Capital & Startup Funding</h3>
+          <p class="course-provider">Coursera — Duke University</p>
+          <p class="course-desc">Raise capital to fuel growth. Covers term sheets, valuations, pitch decks, due diligence, and negotiation. Understand the investor mindset and secure the funding your business needs to scale.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">4 weeks</span>
+            <span class="course-meta-item">Intermediate</span>
+          </div>
+        </div>
+        <a href="https://www.coursera.org/learn/venture-capital" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="scale">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-scale">Scale</span>
+          <span class="course-price free">Free</span>
+        </div>
+        <div class="course-card-body">
+          <h3>The Lean Startup Methodology</h3>
+          <p class="course-provider">Udacity</p>
+          <p class="course-desc">Scale through validated learning, not guesswork. Learn the Build-Measure-Learn feedback loop, MVP testing, innovation accounting, and pivoting strategies used by the fastest-growing startups.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">4 weeks</span>
+            <span class="course-meta-item">All levels</span>
+          </div>
+        </div>
+        <a href="https://www.udacity.com/" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cross-Cutting Section -->
+  <div class="courses-section" data-section="all">
+    <div class="courses-section-header">
+      <div class="courses-section-icon cross-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      </div>
+      <h2>Cross-Cutting Essentials</h2>
+      <p>Courses that span all four pillars</p>
+    </div>
+    <div class="courses-grid">
+      <div class="course-card" data-pillar="build automate monetize scale">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-cross">All Pillars</span>
+          <span class="course-price free">Free</span>
+        </div>
+        <div class="course-card-body">
+          <h3>CS50: Introduction to Computer Science</h3>
+          <p class="course-provider">Harvard / edX</p>
+          <p class="course-desc">The most popular CS course in the world. Covers C, Python, SQL, and web development. Over 4 million enrollees. Understanding code is the ultimate leverage for building, automating, monetizing, and scaling.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">12 weeks</span>
+            <span class="course-meta-item">Beginner</span>
+          </div>
+        </div>
+        <a href="https://cs50.harvard.edu/x/" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="build automate monetize scale">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-cross">All Pillars</span>
+          <span class="course-price paid">Paid</span>
+        </div>
+        <div class="course-card-body">
+          <h3>Entrepreneurship Specialization</h3>
+          <p class="course-provider">Coursera — Wharton</p>
+          <p class="course-desc">Five courses covering opportunity identification, strategy formulation, funding, growth, and exit. The complete entrepreneur's toolkit from one of the world's top business schools.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">5 courses</span>
+            <span class="course-meta-item">Intermediate</span>
+          </div>
+        </div>
+        <a href="https://www.coursera.org/specializations/entrepreneurship" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="build automate monetize scale">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-cross">All Pillars</span>
+          <span class="course-price free">Free</span>
+        </div>
+        <div class="course-card-body">
+          <h3>Learning How to Learn</h3>
+          <p class="course-provider">Coursera — Barbara Oakley</p>
+          <p class="course-desc">The most popular Coursera course ever with over 2 million enrollees. Master focused and diffuse thinking, memory techniques, and overcoming procrastination. The meta-skill that accelerates all other learning.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">4 weeks</span>
+            <span class="course-meta-item">All levels</span>
+          </div>
+        </div>
+        <a href="https://www.coursera.org/learn/learning-how-to-learn" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+
+      <div class="course-card" data-pillar="build automate monetize scale">
+        <div class="course-card-header">
+          <span class="course-pillar-tag pillar-cross">All Pillars</span>
+          <span class="course-price paid">Paid</span>
+        </div>
+        <div class="course-card-body">
+          <h3>Machine Learning Specialization</h3>
+          <p class="course-provider">Coursera — Andrew Ng / Stanford</p>
+          <p class="course-desc">The course that launched millions of ML careers. Covers regression, classification, neural networks, and unsupervised learning. Updated for 2026 with modern frameworks and tools.</p>
+          <div class="course-meta-row">
+            <span class="course-meta-item">11 weeks</span>
+            <span class="course-meta-item">Intermediate</span>
+          </div>
+        </div>
+        <a href="https://www.coursera.org/specializations/machine-learning-introduction" target="_blank" rel="noopener" class="course-card-link">Start Learning &rarr;</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var btns = document.querySelectorAll('.courses-filter-btn');
+  var sections = document.querySelectorAll('.courses-section');
+  var allCards = document.querySelectorAll('.course-card');
+
+  btns.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      btns.forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      var filter = btn.getAttribute('data-filter');
+
+      if(filter === 'all'){
+        sections.forEach(function(s){ s.style.display = ''; });
+        allCards.forEach(function(c){ c.style.display = ''; });
+      } else {
+        sections.forEach(function(s){
+          var sec = s.getAttribute('data-section') || '';
+          if(sec === filter || sec === 'all' || filter === 'all'){
+            s.style.display = '';
+          } else {
+            s.style.display = 'none';
+          }
+        });
+        allCards.forEach(function(card){
+          var pillar = card.getAttribute('data-pillar') || '';
+          if(pillar.indexOf(filter) !== -1){
+            card.style.display = '';
+          } else {
+            card.style.display = 'none';
+          }
+        });
+        // Always show the top picks section
+        document.querySelector('.courses-section:first-of-type').style.display = '';
+      }
+    });
+  });
+})();
+</script>
+{{ end }}
