@@ -1,8 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
-  experimental: {
-    serverComponentsExternalPackages: ['groq-sdk']
+  serverExternalPackages: ['groq-sdk'],
+  images: {
+    unoptimized: true
   }
 }
 

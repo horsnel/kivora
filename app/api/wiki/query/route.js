@@ -1,3 +1,4 @@
+export const runtime = 'edge'
 import { supabaseAdmin } from '@/lib/supabase'
 import { groq, MODEL_FAST } from '@/lib/groq'
 
