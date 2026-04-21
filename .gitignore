@@ -1,2 +1,21 @@
-public/
-public/\nresources/\n.hugo_build.lock
+# Dependencies
+node_modules/
+.npm
+
+# Next.js
+.next/
+out/
+build/
+
+# Env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Misc
+.DS_Store
+*.pem
+.vercel
+.turbo

@@ -1,5 +1,0 @@
-(function(){
-  var s=document.getElementById("search-input-page"),n=document.getElementById("search-results-page");
-  s&&n&&(var a=null,u=null;
-  fetch("/index.json").then(function(e){return e.json()}).then(function(e){a=new Fuse(e,{keys:["title","summary","categories","tags"],threshold:.35,ignoreLocation:true})}).catch(function(){});
-  s.addEventListener("input",function(){clearTimeout(u);var e=s.value.trim();if(!e){n.innerHTML="";return}u=setTimeout(function(){if(!a)return;var t,r,c,l,i=a.search(e);if(!i.length){n.innerHTML="<p>No results found.</p>";return}for(t="",l=Math.min(i.length,10),r=0;r<l;r++)c=i[r].item,t+='<a class="search-result-item" href="'+c.permalink+'"><div class="search-result-body"><h3>'+c.title+"</h3><p>"+(c.summary||"").substring(0,140)+"...</p></div></a>";n.innerHTML=t},250)})})})();
