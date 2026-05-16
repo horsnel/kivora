@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 export const runtime = 'edge'
 import { useCurrency } from '@/components/CurrencyToggle'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
+import DataTable from '@/components/DataTable'
 import { supabasePublic } from '@/lib/supabase'
 import {
   IconMoney, IconLightning, IconTool, IconArrowLeft, IconCheck,
@@ -136,6 +137,62 @@ export default function ExplorePage() {
     </div>
   )
 
+  // ── Cost Breakdown Table ──
+  const costColumns = [
+    { key: 'tool', header: 'Tool' },
+    { key: 'note', header: 'What it does' },
+    { key: 'cost', header: 'Cost', align: 'right', numeric: true },
+  ]
+  const costRows = (data.cost_breakdown || []).map(item => ({
+    tool: <span className="font-medium">{item.tool}</span>,
+    note: <span className="text-[#737373]">{item.note}</span>,
+    cost: item.cost === 0 ? 'Free' : `${format(item.cost)}/mo`,
+  }))
+  const costFooter = {
+    tool: 'Total monthly',
+    note: '',
+    cost: `${format(data.monthly_cost)}/mo`,
+  }
+
+  // ── Tool Stack Table ──
+  const toolColumns = [
+    { key: 'tool', header: 'Tool' },
+    { key: 'use', header: 'Use' },
+    { key: 'cost', header: 'Cost', align: 'right', numeric: true },
+    { key: 'vpn', header: 'Access' },
+    { key: 'payment', header: 'Payment' },
+  ]
+  const toolRows = (data.tool_stack || []).map(tool => ({
+    tool: (
+      <span className="font-medium flex items-center gap-1.5">
+        {tool.name}
+        {tool.url && (
+          <a href={tool.url} target="_blank" rel="noopener noreferrer" className="text-muted2 hover:text-muted transition-colors" onClick={e => e.stopPropagation()}>
+            <IconExternal size={11} />
+          </a>
+        )}
+      </span>
+    ),
+    use: <span className="text-[#737373]">{tool.use}</span>,
+    cost: <span className="text-[#a3a3a3]">{tool.cost}</span>,
+    vpn: (
+      <span className={`flex items-center gap-1 ${tool.works_without_vpn ? '' : 'font-semibold px-2 py-0.5'}`}>
+        <IconVpn size={12} className={tool.works_without_vpn ? '' : 'stroke-[2]'} />
+        <span className={tool.works_without_vpn ? 'text-[#737373]' : 'text-[#d4d4d4]'}>
+          {tool.works_without_vpn ? 'No VPN' : 'VPN needed'}
+        </span>
+      </span>
+    ),
+    payment: (
+      <span className={`flex items-center gap-1 ${tool.accepts_local_payment ? '' : 'font-semibold px-2 py-0.5'}`}>
+        <IconCard size={12} className={tool.accepts_local_payment ? '' : 'stroke-[2]'} />
+        <span className={tool.accepts_local_payment ? 'text-[#737373]' : 'text-[#d4d4d4]'}>
+          {tool.accepts_local_payment ? 'Local OK' : 'USD card'}
+        </span>
+      </span>
+    ),
+  }))
+
   return (
     <main className="min-h-screen bg-[#0a0a0a]">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
@@ -211,23 +268,7 @@ export default function ExplorePage() {
           </Section>
 
           <Section num="02" title="What It Actually Costs">
-            <div className="bg-[#141414] border border-white/[0.06] rounded-xl overflow-hidden">
-              {(data.cost_breakdown || []).map((item, i) => (
-                <div key={i} className="flex items-center justify-between px-4 sm:px-5 py-3.5 sm:py-4 border-b border-white/[0.04] last:border-0">
-                  <div className="min-w-0 mr-3">
-                    <div className="text-body font-medium truncate text-[#D1D5DB]">{item.tool}</div>
-                    <div className="text-caption text-muted mt-0.5 truncate">{item.note}</div>
-                  </div>
-                  <div className="text-slate-400 text-body font-mono shrink-0">
-                    {item.cost === 0 ? 'Free' : `${format(item.cost)}/mo`}
-                  </div>
-                </div>
-              ))}
-              <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 sm:py-4 bg-[#1a1a1a]">
-                <span className="text-body font-semibold text-[#D1D5DB]">Total monthly</span>
-                <span className="text-slate-400 font-mono font-bold">{format(data.monthly_cost)}/mo</span>
-              </div>
-            </div>
+            <DataTable columns={costColumns} rows={costRows} footer={costFooter} />
             <p className="text-caption text-muted2 mt-2 flex items-center gap-1">
               <IconCard size={12} /> Prices shown in {currency.code} · Most tools accept international cards
             </p>
@@ -237,7 +278,7 @@ export default function ExplorePage() {
             <div className="space-y-2">
               {(data.failure_reasons || []).map((reason, i) => (
                 <div key={i} className="flex gap-3 bg-[#141414] border border-white/[0.06] rounded-xl px-4 sm:px-5 py-3.5 sm:py-4">
-                  <IconWarning size={14} className="text-amber-500/70 shrink-0 mt-0.5" />
+                  <IconWarning size={14} className="shrink-0 mt-0.5" />
                   <span className="text-[#A1A1AA] text-body leading-relaxed">{reason}</span>
                 </div>
               ))}
@@ -245,36 +286,7 @@ export default function ExplorePage() {
           </Section>
 
           <Section num="04" title="Works Anywhere Stack">
-            <div className="space-y-2">
-              {(data.tool_stack || []).map((tool, i) => (
-                <div key={i} className="bg-[#141414] border border-white/[0.06] rounded-xl px-4 sm:px-5 py-3.5 sm:py-4">
-                  <div className="flex items-start justify-between gap-2 sm:gap-3 mb-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-body text-[#D1D5DB]">{tool.name}</span>
-                        {tool.url && (
-                          <a href={tool.url} target="_blank" rel="noopener noreferrer" className="text-muted2 hover:text-muted transition-colors" onClick={e => e.stopPropagation()}>
-                            <IconExternal size={12} />
-                          </a>
-                        )}
-                      </div>
-                      <div className="text-caption text-muted mt-0.5">{tool.use}</div>
-                    </div>
-                    <span className="text-slate-400 text-caption font-mono shrink-0">{tool.cost}</span>
-                  </div>
-                  <div className="flex gap-3 text-caption">
-                    <span className={`flex items-center gap-1 ${tool.works_without_vpn ? 'text-slate-400' : 'text-amber-500/70'}`}>
-                      <IconVpn size={12} />
-                      {tool.works_without_vpn ? 'No VPN needed' : 'May need VPN'}
-                    </span>
-                    <span className={`flex items-center gap-1 ${tool.accepts_local_payment ? 'text-slate-400' : 'text-muted'}`}>
-                      <IconCard size={12} />
-                      {tool.accepts_local_payment ? 'Local payment OK' : 'USD card needed'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <DataTable columns={toolColumns} rows={toolRows} />
           </Section>
 
           <Section num="05" title="Your Action Plan">
