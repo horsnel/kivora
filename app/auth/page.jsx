@@ -1,0 +1,223 @@
+'use client'
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
+import { supabasePublic } from '@/lib/supabase'
+import { IconSpinner, IconCheck } from '@/components/Icons'
+
+function GoogleIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
+  )
+}
+
+function GitHubIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+    </svg>
+  )
+}
+
+function AuthForm() {
+  const router = useRouter()
+  const params = useSearchParams()
+  const [mode, setMode] = useState(params.get('mode') === 'signup' ? 'signup' : 'signin')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [oauthLoading, setOauthLoading] = useState('')
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  async function submit() {
+    if (!email || !password) { setError('Email and password are required'); return }
+    if (mode === 'signup' && password.length < 8) { setError('Password must be at least 8 characters'); return }
+    setLoading(true); setError(''); setSuccess('')
+    try {
+      if (mode === 'signup') {
+        const { data, error } = await supabasePublic.auth.signUp({
+          email, password,
+          options: {
+            data: { full_name: name },
+            emailRedirectTo: `${window.location.origin}/auth/callback`
+          }
+        })
+        if (error) throw error
+        if (data.user && !data.user.email_confirmed_at) {
+          setSuccess('Account created! Check your email to confirm, then sign in.')
+        } else {
+          router.push('/onboarding')
+        }
+      } else {
+        const { error } = await supabasePublic.auth.signInWithPassword({ email, password })
+        if (error) throw error
+        const { data: { user } } = await supabasePublic.auth.getUser()
+        const { data: profile } = await supabasePublic.from('profiles').select('onboarding_done').eq('id', user.id).single()
+        router.push(profile?.onboarding_done ? '/dashboard' : '/onboarding')
+      }
+    } catch (err) {
+      setError(err.message || 'Something went wrong')
+    }
+    setLoading(false)
+  }
+
+  async function signInWith(provider) {
+    setOauthLoading(provider); setError('')
+    try {
+      const { error } = await supabasePublic.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: `${window.location.origin}/auth/callback` }
+      })
+      if (error) throw error
+    } catch (err) {
+      setError(err.message || 'Something went wrong')
+      setOauthLoading('')
+    }
+  }
+
+  const inputClass = "w-full bg-[#0d0d0d] border border-[#262626] rounded-xl px-4 py-3 text-sm text-white placeholder-[#404040] transition-all duration-200 focus:border-red-500 focus:outline-none focus:shadow-[0_0_0_2px_rgba(220,38,38,0.15),0_0_16px_rgba(220,38,38,0.06)]"
+
+  return (
+    <main className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-sm">
+
+        {/* ── Success state: full card replacement ── */}
+        {success ? (
+          <div className="text-center animate-scale-in">
+            <div className="w-14 h-14 bg-emerald-950/30 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <IconCheck size={24} className="text-emerald-400" />
+            </div>
+            <h1 className="font-semibold text-xl tracking-tight mb-2">Check your email</h1>
+            <p className="text-[#737373] text-sm mb-1">We sent a confirmation link to</p>
+            <p className="text-white text-sm font-medium mb-6">{email}</p>
+            <p className="text-[#404040] text-xs leading-relaxed mb-8">
+              Click the link in the email to verify your account, then sign in below.
+            </p>
+            <button
+              onClick={() => { setSuccess(''); setMode('signin') }}
+              className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl text-sm font-semibold transition-colors press"
+            >
+              Sign in
+            </button>
+            <p className="text-[#2e2e2e] text-[10px] mt-4">Didn't get the email? Check your spam folder.</p>
+          </div>
+        ) : (
+        <>
+        {/* Logo + Back to home on same line */}
+        <div className="flex items-center justify-between mb-8">
+          <Link href="/welcome" className="inline-flex items-center gap-2">
+            <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center">
+              <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white"/></svg>
+            </div>
+            <span className="font-bold text-base">Ki<span className="text-red-500">vora</span></span>
+          </Link>
+          {mode === 'signin' && (
+            <Link href="/welcome" className="text-[#737373] hover:text-white text-xs transition-colors">
+              Back to home
+            </Link>
+          )}
+        </div>
+
+        <div className="mb-8">
+          <h1 className="font-semibold text-xl tracking-tight">
+            {mode === 'signin' ? 'Welcome back' : 'Create your account'}
+          </h1>
+          <p className="text-[#737373] text-xs mt-1.5">
+            {mode === 'signin' ? 'Sign in to access your saved results' : 'Free forever. No credit card required.'}
+          </p>
+        </div>
+
+        <div className="bg-[#141414] rounded-xl p-6 space-y-4">
+          {/* OAuth buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => signInWith('google')}
+              disabled={!!oauthLoading}
+              className="flex-1 flex items-center justify-center gap-2 bg-[#0d0d0d] border border-[#262626] hover:border-[#3a3a3a] py-2.5 rounded-xl text-xs text-[#d4d4d4] font-medium transition-colors disabled:opacity-50"
+            >
+              {oauthLoading === 'google' ? <IconSpinner size={14} /> : <GoogleIcon />}
+              Google
+            </button>
+            <button
+              onClick={() => signInWith('github')}
+              disabled={!!oauthLoading}
+              className="flex-1 flex items-center justify-center gap-2 bg-[#0d0d0d] border border-[#262626] hover:border-[#3a3a3a] py-2.5 rounded-xl text-xs text-[#d4d4d4] font-medium transition-colors disabled:opacity-50"
+            >
+              {oauthLoading === 'github' ? <IconSpinner size={14} /> : <GitHubIcon />}
+              GitHub
+            </button>
+          </div>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-[#262626]"></div>
+            <span className="text-[10px] text-[#404040] uppercase tracking-widest">or</span>
+            <div className="flex-1 h-px bg-[#262626]"></div>
+          </div>
+
+          {mode === 'signup' && (
+            <div>
+              <label className="text-xs text-[#737373] block mb-1.5 font-medium">Full name</label>
+              <input type="text" className={inputClass} placeholder="Your name" value={name} onChange={e => setName(e.target.value)} />
+            </div>
+          )}
+          <div>
+            <label className="text-xs text-[#737373] block mb-1.5 font-medium">Email address</label>
+            <input type="email" className={inputClass} placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()} />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs text-[#737373] font-medium">Password</label>
+              {mode === 'signin' && <Link href="/auth/reset" className="text-xs text-[#737373] hover:text-white transition-colors">Forgot?</Link>}
+            </div>
+            <input type="password" className={inputClass} placeholder={mode === 'signup' ? 'At least 8 characters' : '••••••••'} value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()} />
+          </div>
+
+          {error && <div className="bg-red-950/30 border border-red-900/40 rounded-xl px-4 py-2.5 text-xs text-red-400">{error}</div>}
+
+          <button onClick={submit} disabled={loading}
+            className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white py-3 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 press">
+            {loading && <IconSpinner size={14} />}
+            {mode === 'signin' ? 'Sign in' : 'Create account'}
+          </button>
+
+          {mode === 'signup' && (
+            <p className="text-xs text-[#404040] text-center leading-relaxed">
+              By signing up you agree to our{' '}
+              <Link href="/terms" className="text-[#737373] hover:text-white">Terms</Link> and{' '}
+              <Link href="/privacy" className="text-[#737373] hover:text-white">Privacy Policy</Link>.
+            </p>
+          )}
+        </div>
+
+        <div className="text-center mt-5">
+          <button onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(''); setSuccess('') }}
+            className="text-xs text-[#737373] hover:text-white transition-colors">
+            {mode === 'signin' ? 'No account yet? Sign up free' : 'Already have an account? Sign in'}
+          </button>
+        </div>
+        <p className="text-center text-xs text-[#2e2e2e] mt-4">
+          All tools work without an account.{' '}
+          <Link href="/" className="text-[#404040] hover:text-white transition-colors">Skip</Link>
+        </p>
+        </>
+        )}
+      </div>
+    </main>
+  )
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center"><div className="w-5 h-5 border border-[#262626] border-t-red-500 rounded-full animate-spin" /></div>}>
+      <AuthForm />
+    </Suspense>
+  )
+}

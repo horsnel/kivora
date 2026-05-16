@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kivora — Offline</title>
+  <style>
+    * { margin: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0a;
+      color: #fafafa;
+      font-family: 'Inter', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+    .logo { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 32px; }
+    .logo-icon { width: 28px; height: 28px; background: #dc2626; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    .logo-icon svg { width: 12px; height: 12px; }
+    .logo-text { font-size: 16px; font-weight: 700; }
+    .logo-text span { color: #dc2626; }
+    .icon { width: 48px; height: 48px; background: #141414; border: 1px solid #262626; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+    .icon svg { width: 20px; height: 20px; stroke: #404040; fill: none; stroke-width: 1.5; }
+    h1 { font-size: 20px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.3px; }
+    p { color: #737373; font-size: 14px; line-height: 1.6; max-width: 320px; margin: 0 auto 24px; }
+    a { color: #dc2626; text-decoration: none; font-size: 14px; font-weight: 600; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div>
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 14 14" fill="none"><path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white"/></svg>
+      </div>
+      <div class="logo-text">Ki<span>vora</span></div>
+    </div>
+    <div class="icon">
+      <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="1" y1="1" x2="23" y2="23" />
+        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" />
+        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" />
+        <path d="M10.71 5.05A16 16 0 0 1 22.56 9" />
+        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" />
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+        <line x1="12" y1="20" x2="12.01" y2="20" />
+      </svg>
+    </div>
+    <h1>You're offline</h1>
+    <p>It looks like you've lost your internet connection. Check your network and try again.</p>
+    <a href="/">Try again</a>
+  </div>
+</body>
+</html>
