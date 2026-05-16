@@ -1,13 +1,14 @@
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+})
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
   serverExternalPackages: ['groq-sdk'],
   images: {
     unoptimized: true
-  },
-  turbopack: {
-    root: '/tmp/my-project'
   }
 }
 
-module.exports = nextConfig
+module.exports = withBundleAnalyzer(nextConfig)
