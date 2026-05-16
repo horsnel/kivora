@@ -44,8 +44,8 @@ export default function RootLayout({ children }) {
       </head>
       <body className="grain bg-[#0a0a0a] text-white antialiased">
         <CurrencyProvider>
-          {/* App shell: constrains to viewport so body never scrolls (Kimi/ElevenLabs pattern) */}
-          <div className="h-dvh flex flex-col overflow-hidden">
+          {/* App shell: full viewport, sidebar + content side by side */}
+          <div className="h-dvh flex overflow-hidden">
             <Navbar />
             <PageContent>
               {children}

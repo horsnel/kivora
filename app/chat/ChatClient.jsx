@@ -1,8 +1,8 @@
 'use client'
 import Link from 'next/link'
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconPlus, IconDashboard, IconUser, IconSearch, IconLogout, IconMoney, IconLightning, IconCode, IconBulb, IconTool } from '@/components/Icons'
+import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconPlus, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconTool } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
@@ -47,12 +47,12 @@ export default function ChatClient() {
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState(() => crypto.randomUUID())
   const [copiedIndex, setCopiedIndex] = useState(null)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [user, setUser] = useState(null)
   const [chatHistory, setChatHistory] = useState([])
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
-  const sidebarRef = useRef(null)
+  const historyRef = useRef(null)
   const pathname = usePathname()
   const { startSession, endSession, markFollowUp } = useSessionTracker()
   const studySessionRef = useRef(null)
@@ -98,18 +98,19 @@ export default function ChatClient() {
     return () => { if (studySessionRef.current) endSession(studySessionRef.current) }
   }, [])
 
-  useEffect(() => { setSidebarOpen(false) }, [pathname])
+  useEffect(() => { setHistoryOpen(false) }, [pathname])
 
+  // Close history panel on click outside (mobile)
   useEffect(() => {
-    if (!sidebarOpen) return
+    if (!historyOpen) return
     function handleClick(e) {
-      if (sidebarRef.current && !sidebarRef.current.contains(e.target)) {
-        setSidebarOpen(false)
+      if (historyRef.current && !historyRef.current.contains(e.target)) {
+        setHistoryOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
-  }, [sidebarOpen])
+  }, [historyOpen])
 
   function autoResize(el) {
     el.style.height = 'auto'
@@ -136,13 +137,7 @@ export default function ChatClient() {
     setSessionId(session.id)
     setMessages(session.messages || [])
     firstMessageSent.current = true
-    setSidebarOpen(false)
-  }
-
-  async function signOut() {
-    if (!supabasePublic) return
-    await supabasePublic.auth.signOut()
-    router.push('/auth')
+    setHistoryOpen(false)
   }
 
   async function send() {
@@ -180,8 +175,6 @@ export default function ChatClient() {
     setTimeout(() => setCopiedIndex(null), 2000)
   }
 
-  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || ''
-  const initials = displayName.slice(0, 2).toUpperCase()
   const historyGroups = groupByDate(chatHistory)
 
   function chatTitle(session) {
@@ -191,43 +184,27 @@ export default function ChatClient() {
   }
 
   return (
-    <main className="h-full -mt-12 sm:-mt-14 flex bg-[#0a0a0a]">
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setSidebarOpen(false)} />
+    <main className="h-full flex bg-[#0a0a0a]">
+      {/* Chat history panel — second sidebar, only on desktop or when toggled on mobile */}
+      {historyOpen && (
+        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setHistoryOpen(false)} />
       )}
-
       <aside
-        ref={sidebarRef}
-        className={`fixed md:relative z-50 md:z-auto top-0 left-0 h-full w-60 bg-[#0f0f0f] border-r border-[#181818] flex flex-col transition-transform duration-200 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        ref={historyRef}
+        className={`fixed lg:relative z-50 lg:z-auto top-0 left-0 h-full w-60 bg-[#0f0f0f] border-r border-[#181818] flex flex-col transition-transform duration-200 ${
+          historyOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         <div className="px-3 pt-3 pb-2 shrink-0">
-          <div className="flex items-center justify-between mb-3">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-red-600 rounded-md flex items-center justify-center">
-                <svg width="9" height="9" viewBox="0 0 14 14" fill="none">
-                  <path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white" />
-                </svg>
-              </div>
-              <span className="font-bold text-body-sm tracking-tight">
-                Ki<span className="text-red-500">vora</span>
-              </span>
-            </Link>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-caption text-[#525252] uppercase tracking-wider font-medium">Chat history</span>
             <button
-              className="md:hidden w-7 h-7 flex items-center justify-center text-[#525252] hover:text-white transition-colors"
-              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden w-7 h-7 flex items-center justify-center text-[#525252] hover:text-white transition-colors"
+              onClick={() => setHistoryOpen(false)}
             >
               <IconClose size={14} />
             </button>
           </div>
-          <Link
-            href="/"
-            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-caption font-medium text-[#525252] hover:text-white hover:bg-[#141414] transition-colors"
-          >
-            <IconSearch size={14} className="shrink-0" />
-            Explore
-          </Link>
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-behavior-contain px-2.5 min-h-0">
@@ -268,54 +245,16 @@ export default function ChatClient() {
             </div>
           )}
         </div>
-
-        <div className="p-2.5 border-t border-[#181818] space-y-1 shrink-0">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-caption text-[#525252] hover:text-white hover:bg-[#141414] transition-colors font-medium"
-          >
-            <IconDashboard size={14} />
-            Dashboard
-          </Link>
-
-          {user ? (
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 px-3 py-2">
-                <div className="w-6 h-6 bg-red-600 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0">
-                  {initials}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-caption text-white font-medium truncate">{displayName}</p>
-                  <p className="text-[10px] text-[#525252] truncate">{user.email}</p>
-                </div>
-              </div>
-              <button
-                onClick={signOut}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-caption text-[#525252] hover:text-red-400 hover:bg-[#141414] transition-colors font-medium"
-              >
-                <IconLogout size={14} />
-                Sign out
-              </button>
-            </div>
-          ) : (
-            <Link
-              href="/auth"
-              className="flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-caption py-2 rounded-lg transition-colors font-semibold"
-            >
-              <IconUser size={12} />
-              Sign in
-            </Link>
-          )}
-        </div>
       </aside>
 
+      {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0">
         <div className="border-b border-[#141414] px-4 py-2.5 shrink-0 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <button
-              className="md:hidden w-8 h-8 flex items-center justify-center text-[#525252] hover:text-white transition-colors -ml-1"
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Open sidebar"
+              className="lg:hidden w-8 h-8 flex items-center justify-center text-[#525252] hover:text-white transition-colors -ml-1"
+              onClick={() => setHistoryOpen(true)}
+              aria-label="Chat history"
             >
               <IconMenu size={14} />
             </button>

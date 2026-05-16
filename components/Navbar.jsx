@@ -6,39 +6,35 @@ import { IconMenu, IconClose, IconDashboard, IconUser, IconLogout, IconChevronDo
 import { supabasePublic } from '@/lib/supabase'
 import { useCurrency } from '@/components/CurrencyToggle'
 
-const NAV_MAIN = [
-  { label: 'Explore',       href: '/' },
-  { label: 'Chat',          href: '/chat' },
-  { label: 'StudyDesk',     href: '/study' },
-  { label: 'Dev Tools',     href: '/devtools' },
-  { label: 'Opportunities', href: '/opportunities' },
+const NAV_LINKS = [
+  { label: 'Explore',       href: '/',          Icon: IconSearch },
+  { label: 'Chat',          href: '/chat',      Icon: IconChat },
+  { label: 'StudyDesk',     href: '/study',     Icon: IconBook },
+  { label: 'Dev Tools',     href: '/devtools',  Icon: IconCode },
+  { label: 'Opportunities', href: '/opportunities', Icon: IconTrending },
 ]
 
 const NAV_SECONDARY = [
-  { label: 'About',   href: '/about' },
-  { label: 'Blog',    href: '/blog' },
+  { label: 'About',   href: '/about',   Icon: IconGlobe },
+  { label: 'Blog',    href: '/blog',    Icon: IconWrite },
 ]
 
-// Pages that manage their own layout — no shared navbar
-const NO_NAVBAR = ['/auth', '/chat']
+// Pages that manage their own layout — no shared sidebar
+const NO_SIDEBAR = ['/auth']
 
-// Pages where the navbar is minimal (transparent, no nav links)
+// Pages where the sidebar is hidden (full-width landing pages)
 const MINIMAL_ROUTES = ['/welcome', '/onboarding']
 
-// Pages where the navbar scrolls with the page (not fixed overlay)
-const SCROLL_ROUTES = ['/welcome']
-
 export default function Navbar() {
-  const [open, setOpen] = useState(false)
-  const [scrolled, setScrolled] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
   const [user, setUser] = useState(null)
   const [currencyOpen, setCurrencyOpen] = useState(false)
   const pathname = usePathname()
   const currencyDropdownRef = useRef(null)
+  const sidebarRef = useRef(null)
 
   const isMinimal = MINIMAL_ROUTES.some(r => pathname.startsWith(r))
-  const isScrollable = SCROLL_ROUTES.some(r => pathname.startsWith(r))
-  const hideNavbar = NO_NAVBAR.some(p => pathname.startsWith(p))
+  const hideSidebar = NO_SIDEBAR.some(p => pathname.startsWith(p))
 
   // Auth state
   useEffect(() => {
@@ -50,20 +46,8 @@ export default function Navbar() {
     return () => subscription.unsubscribe()
   }, [])
 
-  useEffect(() => {
-    // Scrolling now happens inside the app shell's scroll container, not the window
-    const scrollEl = document.getElementById('app-scroll-container')
-    const fn = () => setScrolled((scrollEl?.scrollTop || window.scrollY) > 10)
-    if (scrollEl) {
-      scrollEl.addEventListener('scroll', fn)
-      return () => scrollEl.removeEventListener('scroll', fn)
-    } else {
-      window.addEventListener('scroll', fn)
-      return () => window.removeEventListener('scroll', fn)
-    }
-  }, [])
-
-  useEffect(() => setOpen(false), [pathname])
+  // Close mobile sidebar on route change
+  useEffect(() => setMobileOpen(false), [pathname])
 
   // Close currency dropdown on click outside
   useEffect(() => {
@@ -80,6 +64,18 @@ export default function Navbar() {
   // Close currency dropdown on route change
   useEffect(() => setCurrencyOpen(false), [pathname])
 
+  // Close mobile sidebar on click outside
+  useEffect(() => {
+    if (!mobileOpen) return
+    function handleClick(e) {
+      if (sidebarRef.current && !sidebarRef.current.contains(e.target)) {
+        setMobileOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [mobileOpen])
+
   const router = useRouter()
 
   async function signOut() {
@@ -88,175 +84,207 @@ export default function Navbar() {
     router.push('/auth')
   }
 
-  // Auth pages manage their own header — render nothing
-  if (hideNavbar) return null
+  // Auth pages manage their own layout — render nothing
+  if (hideSidebar) return null
 
-  // Minimal navbar for onboarding/welcome — just logo + currency toggle
+  // Minimal pages (welcome, onboarding) — no sidebar, just a top bar
   if (isMinimal) {
     return (
-      <nav className={`${isScrollable ? 'relative' : 'fixed top-0 left-0 right-0 z-50'} bg-transparent`}>
-        <div className="max-w-6xl mx-auto px-3 sm:px-4 h-12 sm:h-14 flex items-center justify-between">
-          <Link href="/welcome" className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-red-600 rounded-lg flex items-center justify-center">
-              <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
-                <path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white" />
-              </svg>
-            </div>
-            <span className="font-bold text-headline-sm tracking-tight">
-              Ki<span className="text-red-500">vora</span>
-            </span>
-          </Link>
-
-          {/* Inline currency toggle for welcome page */}
-          {isScrollable && <InlineCurrencyToggle
-            open={currencyOpen}
-            setOpen={setCurrencyOpen}
-            dropdownRef={currencyDropdownRef}
-          />}
-        </div>
-      </nav>
+      <>
+        <nav className="relative bg-transparent">
+          <div className="max-w-6xl mx-auto px-3 sm:px-4 h-12 sm:h-14 flex items-center justify-between">
+            <Link href="/welcome" className="flex items-center gap-2">
+              <div className="w-7 h-7 bg-red-600 rounded-lg flex items-center justify-center">
+                <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
+                  <path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white" />
+                </svg>
+              </div>
+              <span className="font-bold text-headline-sm tracking-tight">
+                Ki<span className="text-red-500">vora</span>
+              </span>
+            </Link>
+            <InlineCurrencyToggle
+              open={currencyOpen}
+              setOpen={setCurrencyOpen}
+              dropdownRef={currencyDropdownRef}
+            />
+          </div>
+        </nav>
+        {/* Mobile hamburger — visible on minimal pages for navigation */}
+        <button
+          className="fixed top-3 right-3 md:hidden z-50 w-9 h-9 flex items-center justify-center bg-[#141414] border border-[#262626] rounded-lg text-[#737373] hover:text-white transition-colors"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open menu"
+        >
+          <IconMenu size={14} />
+        </button>
+        {mobileOpen && (
+          <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setMobileOpen(false)} />
+        )}
+        <aside
+          ref={sidebarRef}
+          className={`fixed z-50 md:hidden top-0 left-0 h-full w-60 bg-[#0f0f0f] border-r border-[#181818] flex flex-col transition-transform duration-200 ${
+            mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <SidebarContent user={user} pathname={pathname} signOut={signOut} onClose={() => setMobileOpen(false)} />
+        </aside>
+      </>
     )
   }
 
-  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || ''
-  const initials = displayName.slice(0, 2).toUpperCase()
-
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      open
-        ? 'bg-[#0a0a0a]'
-        : scrolled
-          ? 'bg-[#0a0a0a]/96 backdrop-blur-md'
-          : 'bg-transparent'
-    }`}>
-      <div className="max-w-6xl mx-auto px-3 sm:px-4 h-12 sm:h-14 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2.5 shrink-0">
-          <div className="w-7 h-7 bg-red-600 rounded-lg flex items-center justify-center">
-            <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
-              <path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white" />
-            </svg>
-          </div>
-          <span className="font-bold text-headline-sm tracking-tight">
-            Ki<span className="text-red-500">vora</span>
-          </span>
-        </Link>
-
-        {/* Desktop nav — main tools */}
-        <div className="hidden md:flex items-center gap-0.5">
-          <Link href="/" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body transition-colors font-medium text-[#737373] hover:text-white hover:bg-[#141414]"><IconSearch size={14} />Explore</Link>
-          <Link href="/chat" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body transition-colors font-medium text-[#737373] hover:text-white hover:bg-[#141414]"><IconChat size={14} />Chat</Link>
-          <Link href="/study" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body transition-colors font-medium text-[#737373] hover:text-white hover:bg-[#141414]"><IconBook size={14} />StudyDesk</Link>
-          <Link href="/devtools" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body transition-colors font-medium text-[#737373] hover:text-white hover:bg-[#141414]"><IconCode size={14} />Dev Tools</Link>
-          <Link href="/opportunities" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body transition-colors font-medium text-[#737373] hover:text-white hover:bg-[#141414]"><IconTrending size={14} />Opportunities</Link>
-
-          {/* Divider */}
-          <div className="w-px h-4 bg-[#262626] mx-1" />
-
-          <Link href="/about" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body transition-colors font-medium text-[#737373] hover:text-white hover:bg-[#141414]"><IconGlobe size={14} />About</Link>
-          <Link href="/blog" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body transition-colors font-medium text-[#737373] hover:text-white hover:bg-[#141414]"><IconWrite size={14} />Blog</Link>
-        </div>
-
-        {/* Right side — auth aware */}
-        <div className="hidden md:flex items-center gap-2 shrink-0">
-          <Link
-            href="/dashboard"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body transition-colors font-medium ${
-              pathname === '/dashboard'
-                ? 'bg-[#1a1a1a] text-white'
-                : 'text-[#737373] hover:text-white hover:bg-[#141414]'
-            }`}
-          >
-            <IconDashboard size={14} />
-            Dashboard
-          </Link>
-          {user ? (
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#1a1a1a]">
-                <div className="w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0">
-                  {initials}
-                </div>
-                <span className="text-caption text-[#d4d4d4] font-medium max-w-[100px] truncate">{displayName}</span>
-              </div>
-              <button
-                onClick={signOut}
-                className="flex items-center gap-1 text-[#525252] hover:text-red-400 px-2 py-1 rounded-lg text-caption transition-colors"
-                title="Sign out"
-              >
-                <IconLogout size={14} />
-              </button>
-            </div>
-          ) : (
-            <Link
-              href="/auth"
-              className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-body px-3.5 py-1.5 rounded-lg transition-colors font-semibold"
-            >
-              <IconUser size={14} />
-              Sign in
-            </Link>
-          )}
-        </div>
-
-        {/* Mobile toggle */}
-        <button
-          className="md:hidden w-8 h-8 flex items-center justify-center text-[#737373] hover:text-white transition-colors"
-          onClick={() => setOpen(!open)}
-          aria-label="Toggle menu"
-        >
-          {open ? <IconClose size={14} /> : <IconMenu size={14} />}
-        </button>
-      </div>
-
-      {/* Mobile menu */}
-      {open && (
-        <div className="md:hidden bg-[#0a0a0a] px-4 py-3 space-y-0.5 animate-slide-down">
-          <Link href="/" className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-body font-medium transition-colors text-[#737373] hover:text-white"><IconSearch size={16} />Explore</Link>
-          <Link href="/chat" className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-body font-medium transition-colors text-[#737373] hover:text-white"><IconChat size={16} />Chat</Link>
-          <Link href="/study" className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-body font-medium transition-colors text-[#737373] hover:text-white"><IconBook size={16} />StudyDesk</Link>
-          <Link href="/devtools" className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-body font-medium transition-colors text-[#737373] hover:text-white"><IconCode size={16} />Dev Tools</Link>
-          <Link href="/opportunities" className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-body font-medium transition-colors text-[#737373] hover:text-white"><IconTrending size={16} />Opportunities</Link>
-          <Link href="/about" className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-body font-medium transition-colors text-[#737373] hover:text-white"><IconGlobe size={16} />About</Link>
-          <Link href="/blog" className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-body font-medium transition-colors text-[#737373] hover:text-white"><IconWrite size={16} />Blog</Link>
-          <div className="pt-2 border-t border-[#141414] mt-2 space-y-1.5">
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-2 px-3 py-2.5 text-body text-[#737373] hover:text-white rounded-lg font-medium"
-            >
-              <IconDashboard size={14} /> Dashboard
-            </Link>
-            {user ? (
-              <>
-                <div className="flex items-center gap-2 px-3 py-2.5">
-                  <div className="w-6 h-6 bg-red-600 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0">
-                    {initials}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-caption text-white font-medium truncate">{displayName}</p>
-                    <p className="text-caption text-[#525252] truncate">{user.email}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={signOut}
-                  className="flex items-center gap-2 px-3 py-2.5 text-body text-[#737373] hover:text-red-400 rounded-lg font-medium w-full"
-                >
-                  <IconLogout size={14} /> Sign out
-                </button>
-              </>
-            ) : (
-              <Link
-                href="/auth"
-                className="flex items-center justify-center gap-2 px-3 py-2.5 bg-red-600 text-white text-body rounded-lg font-semibold"
-              >
-                <IconUser size={14} /> Sign in
-              </Link>
-            )}
-          </div>
-        </div>
+    <>
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setMobileOpen(false)} />
       )}
-    </nav>
+
+      {/* Sidebar — full height, always visible on desktop, slide-in on mobile */}
+      <aside
+        ref={sidebarRef}
+        className={`fixed md:relative z-50 md:z-auto top-0 left-0 h-full w-60 bg-[#0f0f0f] border-r border-[#181818] flex flex-col transition-transform duration-200 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
+        <SidebarContent user={user} pathname={pathname} signOut={signOut} onClose={() => setMobileOpen(false)} />
+      </aside>
+
+      {/* Mobile hamburger — top-left, only on small screens */}
+      <button
+        className="fixed top-3 left-3 md:hidden z-30 w-9 h-9 flex items-center justify-center bg-[#141414] border border-[#262626] rounded-lg text-[#737373] hover:text-white transition-colors"
+        onClick={() => setMobileOpen(true)}
+        aria-label="Open sidebar"
+      >
+        <IconMenu size={14} />
+      </button>
+    </>
   )
 }
 
-/** Inline currency toggle used in the minimal navbar on scrollable pages like /welcome */
+/** Shared sidebar content — used by both the main sidebar and the mobile overlay on minimal pages */
+function SidebarContent({ user, pathname, signOut, onClose }) {
+  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || ''
+  const initials = displayName.slice(0, 2).toUpperCase()
+
+  function isActive(href) {
+    if (href === '/') return pathname === '/'
+    return pathname.startsWith(href)
+  }
+
+  const linkClass = (href) =>
+    `flex items-center gap-2.5 px-3 py-2 rounded-lg text-caption font-medium transition-colors ${
+      isActive(href)
+        ? 'bg-[#1a1a1a] text-white'
+        : 'text-[#525252] hover:text-white hover:bg-[#141414]'
+    }`
+
+  return (
+    <>
+      {/* ── Logo + close ── */}
+      <div className="px-3 pt-3 pb-2 shrink-0">
+        <div className="flex items-center justify-between mb-3">
+          <Link href="/" className="flex items-center gap-2" onClick={onClose}>
+            <div className="w-6 h-6 bg-red-600 rounded-md flex items-center justify-center">
+              <svg width="9" height="9" viewBox="0 0 14 14" fill="none">
+                <path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white" />
+              </svg>
+            </div>
+            <span className="font-bold text-body-sm tracking-tight">
+              Ki<span className="text-red-500">vora</span>
+            </span>
+          </Link>
+          <button
+            className="md:hidden w-7 h-7 flex items-center justify-center text-[#525252] hover:text-white transition-colors"
+            onClick={onClose}
+          >
+            <IconClose size={14} />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Nav links ── */}
+      <div className="flex-1 overflow-y-auto overscroll-behavior-contain px-2.5 min-h-0">
+        <div className="space-y-0.5">
+          {NAV_LINKS.map(({ label, href, Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className={linkClass(href)}
+              onClick={onClose}
+            >
+              <Icon size={14} className="shrink-0" />
+              {label}
+            </Link>
+          ))}
+
+          {/* Divider */}
+          <div className="h-px bg-[#1a1a1a] my-2" />
+
+          {NAV_SECONDARY.map(({ label, href, Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className={linkClass(href)}
+              onClick={onClose}
+            >
+              <Icon size={14} className="shrink-0" />
+              {label}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Auth section — pinned to bottom ── */}
+      <div className="p-2.5 border-t border-[#181818] space-y-1 shrink-0">
+        <Link
+          href="/dashboard"
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-caption transition-colors font-medium ${
+            isActive('/dashboard')
+              ? 'bg-[#1a1a1a] text-white'
+              : 'text-[#525252] hover:text-white hover:bg-[#141414]'
+          }`}
+          onClick={onClose}
+        >
+          <IconDashboard size={14} />
+          Dashboard
+        </Link>
+
+        {user ? (
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 px-3 py-2">
+              <div className="w-6 h-6 bg-red-600 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0">
+                {initials}
+              </div>
+              <div className="min-w-0">
+                <p className="text-caption text-white font-medium truncate">{displayName}</p>
+                <p className="text-[10px] text-[#525252] truncate">{user.email}</p>
+              </div>
+            </div>
+            <button
+              onClick={signOut}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-caption text-[#525252] hover:text-red-400 hover:bg-[#141414] transition-colors font-medium"
+            >
+              <IconLogout size={14} />
+              Sign out
+            </button>
+          </div>
+        ) : (
+          <Link
+            href="/auth"
+            className="flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-caption py-2 rounded-lg transition-colors font-semibold"
+            onClick={onClose}
+          >
+            <IconUser size={12} />
+            Sign in
+          </Link>
+        )}
+      </div>
+    </>
+  )
+}
+
+/** Inline currency toggle used on the minimal navbar for /welcome */
 function InlineCurrencyToggle({ open, setOpen, dropdownRef }) {
   const { currency, selectCurrency, currencies } = useCurrency()
 
