@@ -697,59 +697,6 @@ export default function ChatClient() {
               <div className="flex items-center gap-2">
                 <div>
                   <h1 className="font-semibold text-caption leading-none">Kivora AI</h1>
-                  <p className="text-[10px] text-[#525252] mt-0.5">Powered by Groq · Free</p>
-                </div>
-
-                {/* ── Feature #54: Model Selector ── */}
-                <div className="relative" ref={modelDropdownRef}>
-                  <button
-                    onClick={() => {
-                      if (user) setModelDropdownOpen(!modelDropdownOpen)
-                    }}
-                    className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1 text-[11px] text-[#737373] hover:text-[#a3a3a3] hover:border-[#3a3a3a] transition-all"
-                    title={user ? `Model: ${currentModel.name}` : 'Sign in for more models'}
-                  >
-                    <span>{currentModel.short}</span>
-                    {user ? (
-                      <IconChevronDown size={10} />
-                    ) : (
-                      <IconLock size={10} className="text-[#525252]" />
-                    )}
-                  </button>
-
-                  {modelDropdownOpen && user && (
-                    <div className="absolute top-full left-0 mt-1.5 w-56 bg-[#141414] border border-[#262626] rounded-xl shadow-2xl z-50 py-1 animate-scale-in overflow-hidden">
-                      {MODELS.map(m => (
-                        <button
-                          key={m.id}
-                          onClick={() => {
-                            setModel(m.id)
-                            setModelDropdownOpen(false)
-                          }}
-                          className={`w-full text-left px-3 py-2.5 flex items-center justify-between transition-colors ${
-                            m.id === model
-                              ? 'bg-[#1a1a1a] text-white'
-                              : 'text-[#a3a3a3] hover:bg-[#1a1a1a] hover:text-white'
-                          }`}
-                        >
-                          <div>
-                            <div className="text-body-sm font-medium">{m.name}</div>
-                            <div className="text-[11px] text-[#525252]">{m.tag}</div>
-                          </div>
-                          {m.id === model && (
-                            <IconCheck size={14} className="text-red-500 shrink-0" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Tooltip for anonymous users */}
-                  {!user && (
-                    <div className="absolute top-full left-0 mt-1.5 w-44 bg-[#1a1a1a] border border-[#262626] rounded-lg px-3 py-2 text-[11px] text-[#737373] shadow-lg z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity hidden">
-                      Sign in for more models
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
