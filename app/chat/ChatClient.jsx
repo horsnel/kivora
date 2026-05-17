@@ -1010,22 +1010,6 @@ export default function ChatClient() {
                   </svg>
                 </button>
 
-                {/* Model pill */}
-                <button
-                  className="chat-collapsed-model-pill"
-                  onClick={() => {
-                    if (user) setBarExpanded(true)
-                  }}
-                  title={user ? `Model: ${currentModel.name}` : 'Sign in for more models'}
-                >
-                  <span>{currentModel.short}</span>
-                  {user ? (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                  ) : (
-                    <IconLock size={10} className="text-[#525252]" />
-                  )}
-                </button>
-
                 {/* Input field — single line in collapsed state */}
                 <div className="chat-collapsed-input-wrap">
                   <input
@@ -1144,7 +1128,10 @@ export default function ChatClient() {
                       onClick={() => fileInputRef.current?.click()}
                       title="Attach file"
                     >
-                      <IconPaperclip size={15} />
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                      </svg>
                       <span>Attach</span>
                     </button>
 
@@ -1177,20 +1164,7 @@ export default function ChatClient() {
                       </button>
                     )}
 
-                    {/* Web Search toggle */}
-                    <button
-                      className={`chat-toolbar-btn ${webSearch ? 'chat-toolbar-btn-active' : ''}`}
-                      onClick={() => setWebSearch(!webSearch)}
-                      title="Search the web"
-                    >
-                      <IconGlobe size={15} />
-                      <span>Search</span>
-                    </button>
-                  </div>
-
-                  {/* Right actions */}
-                  <div className="chat-toolbar-right">
-                    {/* Model chip */}
+                    {/* Model chip — replaces web search */}
                     <div className="relative" ref={modelChipDropdownRef}>
                       <button
                         className="chat-model-chip"
@@ -1219,6 +1193,10 @@ export default function ChatClient() {
                         </div>
                       )}
                     </div>
+                  </div>
+
+                  {/* Right actions */}
+                  <div className="chat-toolbar-right">
 
                     {/* Pro toggle with dropup */}
                     <div className="relative" ref={proTypeDropdownRef}>
@@ -1331,25 +1309,7 @@ export default function ChatClient() {
         }
 
         .chat-collapsed-model-pill {
-          height: 36px;
-          padding: 0 14px;
-          border-radius: 18px;
-          border: none;
-          background: #2d3030;
-          color: #8a8f8f;
-          font-size: 14px;
-          font-weight: 500;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          flex-shrink: 0;
-          transition: background 0.15s ease, color 0.15s ease;
-          font-family: inherit;
-        }
-        .chat-collapsed-model-pill:hover {
-          background: #3a3d3d;
-          color: #e3e3e3;
+          display: none;
         }
 
         .chat-collapsed-input-wrap {
@@ -1413,11 +1373,12 @@ export default function ChatClient() {
           background-color: #202222;
           border: 1px solid #2f3232;
           border-radius: 16px;
-          padding: 12px 16px 8px 16px;
+          padding: 10px 12px 6px 12px;
           display: flex;
           flex-direction: column;
           transition: border-color 0.2s ease, box-shadow 0.2s ease;
           animation: expandBar 0.25s ease-out;
+          overflow: hidden;
         }
         @keyframes expandBar {
           from {
@@ -1443,13 +1404,13 @@ export default function ChatClient() {
           outline: none !important;
           box-shadow: none !important;
           color: #e3e3e3;
-          font-size: 16px;
+          font-size: 15px;
           line-height: 1.5;
           resize: none;
           max-height: 200px;
           font-family: inherit;
           padding: 0;
-          margin-bottom: 12px;
+          margin-bottom: 8px;
         }
         .chat-textarea-expanded:focus {
           border: none !important;
@@ -1469,7 +1430,8 @@ export default function ChatClient() {
         .chat-toolbar-left, .chat-toolbar-right {
           display: flex;
           align-items: center;
-          gap: 4px;
+          gap: 2px;
+          flex-shrink: 0;
         }
 
         .chat-toolbar-btn {
@@ -1479,13 +1441,15 @@ export default function ChatClient() {
           color: #8a8f8f;
           display: flex;
           align-items: center;
-          gap: 5px;
-          padding: 5px 10px;
+          gap: 4px;
+          padding: 4px 8px;
           border-radius: 9999px;
           cursor: pointer;
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 500;
           transition: background 0.2s, color 0.2s;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
         .chat-toolbar-btn:hover {
           background-color: #2d3030;
@@ -1508,14 +1472,16 @@ export default function ChatClient() {
           color: #8a8f8f;
           display: flex;
           align-items: center;
-          gap: 4px;
-          padding: 4px 10px;
+          gap: 3px;
+          padding: 4px 8px;
           border-radius: 9999px;
           cursor: pointer;
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 500;
           transition: background 0.2s, color 0.2s;
           font-family: inherit;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
         .chat-model-chip:hover {
           background-color: #3a3d3d;
@@ -1640,11 +1606,12 @@ export default function ChatClient() {
         .chat-pro-toggle {
           display: flex;
           align-items: center;
-          gap: 6px;
-          padding-right: 4px;
+          gap: 4px;
+          padding-right: 2px;
+          flex-shrink: 0;
         }
         .chat-pro-label {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 600;
           color: #8a8f8f;
         }
