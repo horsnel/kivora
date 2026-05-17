@@ -39,6 +39,7 @@ function AuthForm() {
   async function submit() {
     if (!email || !password) { setError('Email and password are required'); return }
     if (mode === 'signup' && password.length < 8) { setError('Password must be at least 8 characters'); return }
+    if (!supabasePublic) { setError('Authentication is not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.'); return }
     setLoading(true); setError(''); setSuccess('')
     try {
       if (mode === 'signup') {
@@ -69,6 +70,7 @@ function AuthForm() {
   }
 
   async function signInWith(provider) {
+    if (!supabasePublic) { setError('Authentication is not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.'); return }
     setOauthLoading(provider); setError('')
     try {
       const { error } = await supabasePublic.auth.signInWithOAuth({
