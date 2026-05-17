@@ -8,7 +8,7 @@ import { useCurrency } from '@/components/CurrencyToggle'
 import { useTranslation } from '@/components/LanguageProvider'
 
 const NAV_LINKS = [
-  { label: 'Home',         href: '/',           Icon: IconHome },
+  { label: 'Home',         href: '/discover',   Icon: IconHome },
   { label: 'Explore',      href: '/home',       Icon: IconSearch },
   { label: 'Chat',         href: '/chat',       Icon: IconChat },
   { label: 'StudyDesk',    href: '/study',      Icon: IconBook },
@@ -193,7 +193,7 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
       {/* ── Logo + close ── */}
       <div className="px-3 pt-3 pb-2 shrink-0">
         <div className="flex items-center justify-between mb-3">
-          <Link href="/" className="flex items-center gap-2.5" onClick={onClose}>
+          <Link href="/discover" className="flex items-center gap-2.5" onClick={onClose}>
             <div className="w-7 h-7 bg-[#dc2626] rounded-lg flex items-center justify-center">
               <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
                 <path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white" />

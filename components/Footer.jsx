@@ -25,6 +25,7 @@ export default function Footer() {
 
         <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-caption text-[#737373]">
           {[
+            ['Home',          '/discover'],
             ['Explore',       '/home'],
             ['Chat',          '/chat'],
             ['StudyDesk',     '/study'],
