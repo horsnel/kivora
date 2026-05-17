@@ -130,23 +130,25 @@ export default function Navbar() {
               />
             </div>
 
-            {/* Mobile: currency + hamburger */}
+            {/* Mobile: currency only */}
             <div className="flex items-center gap-2 md:hidden">
               <InlineCurrencyToggle
                 open={currencyOpen}
                 setOpen={setCurrencyOpen}
                 dropdownRef={currencyDropdownRef}
               />
-              <button
-                className="w-9 h-9 flex items-center justify-center bg-[#141414] border border-[#262626] rounded-lg text-[#737373] hover:text-white transition-colors"
-                onClick={() => setMobileOpen(true)}
-                aria-label="Open menu"
-              >
-                <IconMenu size={14} />
-              </button>
             </div>
           </div>
         </nav>
+
+        {/* Mobile hamburger — top-left, same position as other pages */}
+        <button
+          className="fixed top-3 left-3 md:hidden z-50 w-9 h-9 flex items-center justify-center bg-[#141414] border border-[#262626] rounded-lg text-[#737373] hover:text-white transition-colors"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open menu"
+        >
+          <IconMenu size={14} />
+        </button>
 
         {/* Mobile sidebar overlay */}
         {mobileOpen && (
