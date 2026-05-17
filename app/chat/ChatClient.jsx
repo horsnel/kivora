@@ -962,8 +962,8 @@ export default function ChatClient() {
         </div>
 
         {/* ── Expandable Chat Bar ────────────────────── */}
-        <div className="shrink-0 px-4 pb-4 pt-2">
-          <div className="max-w-3xl mx-auto">
+        <div className="shrink-0 px-4 pb-4 pt-2" style={{ overflow: 'visible' }}>
+          <div className="max-w-3xl mx-auto" style={{ overflow: 'visible' }}>
             {/* File attachment chip */}
             {attachedFile && barExpanded && (
               <div className="mb-2 flex items-center justify-end">
@@ -1099,7 +1099,6 @@ export default function ChatClient() {
                         title="Focus mode"
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
-                        <span>{focusMode}</span>
                       </button>
 
                       {focusDropdownOpen && (
@@ -1132,7 +1131,6 @@ export default function ChatClient() {
                         <line x1="12" y1="5" x2="12" y2="19"/>
                         <line x1="5" y1="12" x2="19" y2="12"/>
                       </svg>
-                      <span>Attach</span>
                     </button>
 
                     {/* Voice input */}
@@ -1150,7 +1148,6 @@ export default function ChatClient() {
                         ) : (
                           <IconMicrophone size={16} />
                         )}
-                        <span>{isListening ? 'Listening...' : 'Voice'}</span>
                       </button>
                     ) : (
                       <button
@@ -1160,19 +1157,17 @@ export default function ChatClient() {
                         style={{ opacity: 0.4, cursor: 'not-allowed' }}
                       >
                         <IconMicrophone size={16} />
-                        <span>Voice</span>
                       </button>
                     )}
 
                     {/* Model chip — replaces web search */}
                     <div className="relative" ref={modelChipDropdownRef}>
                       <button
-                        className="chat-model-chip"
+                        className="chat-toolbar-btn"
                         onClick={() => { if (user) { setModelChipDropdownOpen(!modelChipDropdownOpen); setFocusDropdownOpen(false); setProTypeDropdownOpen(false) } }}
                         title={user ? `Model: ${currentModel.name}` : 'Sign in for models'}
                       >
-                        <span>{currentModel.short}</span>
-                        {user ? <IconChevronDown size={10} /> : <IconLock size={10} className="text-[#525252]" />}
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10A15 15 0 0 1 12 2z"/></svg>
                       </button>
 
                       {modelChipDropdownOpen && user && (
@@ -1437,8 +1432,8 @@ export default function ChatClient() {
           flex-shrink: 0;
         }
         .chat-toolbar-left {
-          flex-wrap: wrap;
-          gap: 3px;
+          flex-wrap: nowrap;
+          gap: 2px;
         }
 
         .chat-toolbar-btn {
@@ -1448,16 +1443,18 @@ export default function ChatClient() {
           color: #8a8f8f;
           display: flex;
           align-items: center;
+          justify-content: center;
           gap: 5px;
-          padding: 6px 12px;
-          border-radius: 9999px;
+          padding: 6px;
+          border-radius: 50%;
           cursor: pointer;
           font-size: 13px;
           font-weight: 500;
           transition: background 0.2s, color 0.2s;
           white-space: nowrap;
           flex-shrink: 0;
-          min-height: 32px;
+          width: 32px;
+          height: 32px;
         }
         .chat-toolbar-btn:hover {
           background-color: #2d3030;
@@ -1472,45 +1469,27 @@ export default function ChatClient() {
           color: #f87171 !important;
         }
 
-        /* ── Model chip in toolbar ── */
-        .chat-model-chip {
-          background: #2d3030;
-          border: none;
-          outline: none;
-          color: #8a8f8f;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          padding: 6px 12px;
-          border-radius: 9999px;
-          cursor: pointer;
-          font-size: 12px;
-          font-weight: 500;
-          transition: background 0.2s, color 0.2s;
-          font-family: inherit;
-          white-space: nowrap;
-          flex-shrink: 0;
-          min-height: 32px;
-        }
-        .chat-model-chip:hover {
-          background-color: #3a3d3d;
-          color: #e3e3e3;
-        }
+        /* ── Model dropdown (reuses toolbar-btn) ── */
 
         .chat-model-dropdown {
           position: absolute;
-          bottom: calc(100% + 6px);
-          right: 0;
+          bottom: calc(100% + 8px);
+          left: 50%;
+          transform: translateX(-50%);
           width: 220px;
           background: #141414;
           border: 1px solid #262626;
           border-radius: 12px;
           box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-          z-index: 50;
+          z-index: 100;
           padding: 4px 0;
           animation: dropUp 0.15s ease-out;
         }
         @keyframes dropUp {
+          from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+          to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        @keyframes dropUpRight {
           from { opacity: 0; transform: translateY(4px); }
           to { opacity: 1; transform: translateY(0); }
         }
@@ -1553,14 +1532,15 @@ export default function ChatClient() {
         /* ── Focus mode dropdown ── */
         .chat-focus-dropdown {
           position: absolute;
-          bottom: calc(100% + 6px);
-          left: 0;
+          bottom: calc(100% + 8px);
+          left: 50%;
+          transform: translateX(-50%);
           width: 260px;
           background: #141414;
           border: 1px solid #262626;
           border-radius: 12px;
           box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-          z-index: 50;
+          z-index: 100;
           padding: 4px 0;
           animation: dropUp 0.15s ease-out;
         }
@@ -1668,16 +1648,16 @@ export default function ChatClient() {
         /* ── Pro mode dropdown ── */
         .chat-pro-dropdown {
           position: absolute;
-          bottom: calc(100% + 6px);
+          bottom: calc(100% + 8px);
           right: 0;
           width: 260px;
           background: #141414;
           border: 1px solid #262626;
           border-radius: 12px;
           box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-          z-index: 50;
+          z-index: 100;
           padding: 4px 0;
-          animation: dropUp 0.15s ease-out;
+          animation: dropUpRight 0.15s ease-out;
         }
         .chat-pro-option {
           width: 100%;
@@ -1763,31 +1743,19 @@ export default function ChatClient() {
           .chat-toolbar-left {
             gap: 1px;
             flex-wrap: nowrap;
-            overflow-x: auto;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-          }
-          .chat-toolbar-left::-webkit-scrollbar {
-            display: none;
+            overflow: visible;
           }
           .chat-toolbar-right {
             gap: 3px;
           }
           .chat-toolbar-btn {
-            padding: 4px 7px;
-            font-size: 11px;
-            gap: 3px;
-            min-height: 28px;
+            width: 28px;
+            height: 28px;
+            padding: 4px;
           }
           .chat-toolbar-btn svg {
-            width: 13px;
-            height: 13px;
-          }
-          .chat-model-chip {
-            padding: 4px 7px;
-            font-size: 10px;
-            gap: 2px;
-            min-height: 28px;
+            width: 14px;
+            height: 14px;
           }
           .chat-pro-toggle {
             gap: 3px;
@@ -1797,7 +1765,7 @@ export default function ChatClient() {
             font-size: 11px;
           }
           .chat-switch {
-            width: 32px;
+            width: 30px;
             height: 18px;
           }
           .chat-slider:before {
@@ -1805,11 +1773,11 @@ export default function ChatClient() {
             width: 12px;
           }
           .chat-switch input:checked + .chat-slider:before {
-            transform: translateX(14px);
+            transform: translateX(12px);
           }
           .chat-submit-btn {
-            width: 32px;
-            height: 32px;
+            width: 30px;
+            height: 30px;
           }
           .chat-container-expanded {
             padding: 12px 10px 8px 10px;
@@ -1819,6 +1787,17 @@ export default function ChatClient() {
             font-size: 15px;
             min-height: 48px;
             margin-bottom: 8px;
+          }
+          .chat-focus-dropdown,
+          .chat-model-dropdown {
+            left: 0;
+            transform: none;
+          }
+          .chat-focus-dropdown {
+            animation: dropUpRight 0.15s ease-out;
+          }
+          .chat-model-dropdown {
+            animation: dropUpRight 0.15s ease-out;
           }
         }
       `}</style>
