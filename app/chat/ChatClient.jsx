@@ -30,6 +30,19 @@ const STARTERS = [
   { text: 'How do I start freelancing with AI skills?', icon: IconBulb },
 ]
 
+const FOCUS_MODES = [
+  { id: 'All', label: 'All', desc: 'Default mode — general purpose', icon: '✦' },
+  { id: 'Academic', label: 'Academic', desc: 'Scholarly responses with citations', icon: '🎓' },
+  { id: 'Writing', label: 'Writing', desc: 'Creative & storytelling focus', icon: '✍' },
+  { id: 'Math', label: 'Math', desc: 'Step-by-step calculations', icon: 'Σ' },
+  { id: 'Code', label: 'Code', desc: 'Programming & technical focus', icon: '</>' },
+]
+
+const PRO_MODES = [
+  { id: 'reasoning', label: 'Deep Reasoning', desc: 'Sends with a chain-of-thought prompt' },
+  { id: 'prosearch', label: 'Pro Search', desc: 'Enables web search + deeper analysis' },
+]
+
 function groupByDate(sessions) {
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -91,11 +104,25 @@ export default function ChatClient() {
   const customizeRef = useRef(null)
   const customPromptTextareaRef = useRef(null)
 
+  // Expandable chat bar states
+  const [barExpanded, setBarExpanded] = useState(false)
+  const [focusMode, setFocusMode] = useState('All')
+  const [focusDropdownOpen, setFocusDropdownOpen] = useState(false)
+  const [proMode, setProMode] = useState(false)
+  const [proModeType, setProModeType] = useState('reasoning') // 'reasoning' or 'prosearch'
+  const [proTypeDropdownOpen, setProTypeDropdownOpen] = useState(false)
+  const [modelChipDropdownOpen, setModelChipDropdownOpen] = useState(false)
+
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
+  const collapsedInputRef = useRef(null)
   const historyRef = useRef(null)
   const modelDropdownRef = useRef(null)
   const exportDropdownRef = useRef(null)
+  const chatBarRef = useRef(null)
+  const focusDropdownRef = useRef(null)
+  const proTypeDropdownRef = useRef(null)
+  const modelChipDropdownRef = useRef(null)
   const pathname = usePathname()
   const { startSession, endSession, markFollowUp } = useSessionTracker()
   const studySessionRef = useRef(null)
@@ -178,6 +205,66 @@ export default function ChatClient() {
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [exportDropdownOpen])
+
+  // Close focus dropdown on click outside
+  useEffect(() => {
+    if (!focusDropdownOpen) return
+    function handleClick(e) {
+      if (focusDropdownRef.current && !focusDropdownRef.current.contains(e.target)) {
+        setFocusDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [focusDropdownOpen])
+
+  // Close pro type dropdown on click outside
+  useEffect(() => {
+    if (!proTypeDropdownOpen) return
+    function handleClick(e) {
+      if (proTypeDropdownRef.current && !proTypeDropdownRef.current.contains(e.target)) {
+        setProTypeDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [proTypeDropdownOpen])
+
+  // Close model chip dropdown on click outside
+  useEffect(() => {
+    if (!modelChipDropdownOpen) return
+    function handleClick(e) {
+      if (modelChipDropdownRef.current && !modelChipDropdownRef.current.contains(e.target)) {
+        setModelChipDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [modelChipDropdownOpen])
+
+  // Auto-collapse bar on click outside (only when input is empty)
+  useEffect(() => {
+    if (!barExpanded) return
+    function handleClick(e) {
+      if (chatBarRef.current && !chatBarRef.current.contains(e.target)) {
+        if (!input.trim() && !attachedFile) {
+          setBarExpanded(false)
+          setFocusDropdownOpen(false)
+          setProTypeDropdownOpen(false)
+          setModelChipDropdownOpen(false)
+        }
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [barExpanded, input, attachedFile])
+
+  // Auto-expand bar when input is pre-filled (e.g. starter prompts)
+  useEffect(() => {
+    if (input.trim() && !barExpanded) {
+      setBarExpanded(true)
+    }
+  }, [input])
 
   // Load custom system prompt from localStorage
   useEffect(() => {
@@ -364,6 +451,9 @@ export default function ChatClient() {
     setInput('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
     setLoading(true)
+
+    // Collapse bar after sending
+    setBarExpanded(false)
 
     // Clear attachment after sending
     const wasImage = attachedIsImage
@@ -871,11 +961,11 @@ export default function ChatClient() {
           </div>
         </div>
 
-        {/* ── Perplexity-style input bar ────────────────────── */}
+        {/* ── Expandable Chat Bar ────────────────────── */}
         <div className="shrink-0 px-4 pb-4 pt-2">
           <div className="max-w-3xl mx-auto">
             {/* File attachment chip */}
-            {attachedFile && (
+            {attachedFile && barExpanded && (
               <div className="mb-2 flex items-center justify-end">
                 <div className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#262626] rounded-lg px-3 py-1.5 text-[12px] text-[#a3a3a3]">
                   {attachedIsImage ? (
@@ -904,98 +994,292 @@ export default function ChatClient() {
               onChange={handleFileSelect}
             />
 
-            {/* Chat container — Perplexity style */}
-            <div className="chat-container-perplexity">
-              <textarea
-                ref={textareaRef}
-                rows={1}
-                className="chat-textarea-perplexity scrollbar-none"
-                placeholder="Ask anything..."
-                value={input}
-                onChange={e => { setInput(e.target.value); autoResize(e.target) }}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-              />
+            {/* ═══ COLLAPSED STATE ═══ */}
+            {!barExpanded && (
+              <div className="chat-bar-collapsed">
+                {/* + New chat button */}
+                <button
+                  className="chat-collapsed-btn-circle"
+                  onClick={clearChat}
+                  aria-label="New chat"
+                  title="New chat"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                </button>
 
-              <div className="chat-toolbar-perplexity">
-                {/* Left actions */}
-                <div className="chat-toolbar-left">
-                  {/* Feature #6: File Attachment button */}
-                  <button
-                    className="chat-toolbar-btn"
-                    onClick={() => fileInputRef.current?.click()}
-                    title="Attach file"
-                  >
-                    <IconPaperclip size={15} />
-                    <span>Attach</span>
-                  </button>
-
-                  {/* Voice Input (ASR) */}
-                  {typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition) ? (
-                    <button
-                      className={`chat-toolbar-btn ${isListening ? 'chat-toolbar-btn-active' : ''}`}
-                      onClick={toggleListening}
-                      title={isListening ? 'Stop listening' : 'Voice input'}
-                    >
-                      {isListening ? (
-                        <span className="relative flex items-center justify-center" style={{ width: 15, height: 15 }}>
-                          <span className="absolute w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-                          <IconMicrophone size={15} className="relative z-10" />
-                        </span>
-                      ) : (
-                        <IconMicrophone size={15} />
-                      )}
-                      <span>{isListening ? 'Listening...' : 'Voice'}</span>
-                    </button>
+                {/* Model pill */}
+                <button
+                  className="chat-collapsed-model-pill"
+                  onClick={() => {
+                    if (user) setBarExpanded(true)
+                  }}
+                  title={user ? `Model: ${currentModel.name}` : 'Sign in for more models'}
+                >
+                  <span>{currentModel.short}</span>
+                  {user ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                   ) : (
-                    <button
-                      className="chat-toolbar-btn"
-                      title="Voice input not supported in this browser"
-                      disabled
-                      style={{ opacity: 0.4, cursor: 'not-allowed' }}
-                    >
-                      <IconMicrophone size={15} />
-                      <span>Voice</span>
-                    </button>
+                    <IconLock size={10} className="text-[#525252]" />
                   )}
+                </button>
 
-                  {/* Web Search toggle */}
-                  <button
-                    className={`chat-toolbar-btn ${webSearch ? 'chat-toolbar-btn-active' : ''}`}
-                    onClick={() => setWebSearch(!webSearch)}
-                    title="Search the web"
-                  >
-                    <IconGlobe size={15} />
-                    <span>Search</span>
-                  </button>
-
-                  {/* Focus mode */}
-                  <button
-                    className="chat-toolbar-btn"
-                    title="Focus mode"
-                  >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
-                    <span>Focus</span>
-                  </button>
+                {/* Input field — single line in collapsed state */}
+                <div className="chat-collapsed-input-wrap">
+                  <input
+                    ref={collapsedInputRef}
+                    type="text"
+                    placeholder="Ask anything..."
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    onFocus={() => setBarExpanded(true)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+                    className="chat-collapsed-input"
+                    autoComplete="off"
+                    spellCheck="false"
+                  />
                 </div>
 
-                {/* Right actions */}
-                <div className="chat-toolbar-right">
-                  {/* Submit button — circle, lights up when text is entered */}
+                {/* Voice input button */}
+                {typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition) ? (
                   <button
-                    onClick={send}
-                    disabled={loading || !hasInput}
-                    className={`chat-submit-btn ${hasInput ? 'chat-submit-btn-active' : ''}`}
-                    aria-label="Send message"
+                    className={`chat-collapsed-btn-circle ${isListening ? 'chat-collapsed-btn-active' : ''}`}
+                    onClick={toggleListening}
+                    aria-label="Voice input"
+                    title={isListening ? 'Stop listening' : 'Voice input'}
                   >
-                    {loading ? (
-                      <IconSpinner size={14} />
+                    {isListening ? (
+                      <span className="relative flex items-center justify-center" style={{ width: 18, height: 18 }}>
+                        <span className="absolute w-4 h-4 bg-red-500 rounded-full animate-pulse" />
+                        <IconMicrophone size={18} className="relative z-10 text-red-400" />
+                      </span>
                     ) : (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                      <IconMicrophone size={18} />
                     )}
                   </button>
+                ) : (
+                  <button
+                    className="chat-collapsed-btn-circle"
+                    disabled
+                    style={{ opacity: 0.35, cursor: 'not-allowed' }}
+                    title="Voice input not supported"
+                  >
+                    <IconMicrophone size={18} />
+                  </button>
+                )}
+
+                {/* Send button */}
+                <button
+                  onClick={send}
+                  disabled={loading || !hasInput}
+                  className={`chat-collapsed-send ${hasInput ? 'chat-collapsed-send-active' : ''}`}
+                  aria-label="Send message"
+                >
+                  {loading ? (
+                    <IconSpinner size={16} />
+                  ) : hasInput ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="8" y="5" width="2" height="14" rx="1" fill="currentColor"/><rect x="12" y="9" width="2" height="6" rx="1" fill="currentColor"/><rect x="16" y="6" width="2" height="12" rx="1" fill="currentColor"/><rect x="20" y="10" width="2" height="4" rx="1" fill="currentColor"/></svg>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* ═══ EXPANDED STATE ═══ */}
+            {barExpanded && (
+              <div className="chat-container-expanded" ref={chatBarRef}>
+                {/* Textarea */}
+                <textarea
+                  ref={textareaRef}
+                  rows={1}
+                  className="chat-textarea-expanded scrollbar-none"
+                  placeholder="Ask anything..."
+                  value={input}
+                  onChange={e => { setInput(e.target.value); autoResize(e.target) }}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+                  autoFocus
+                />
+
+                {/* Toolbar */}
+                <div className="chat-toolbar-expanded">
+                  {/* Left actions */}
+                  <div className="chat-toolbar-left">
+                    {/* Focus mode */}
+                    <div className="relative" ref={focusDropdownRef}>
+                      <button
+                        className={`chat-toolbar-btn ${focusMode !== 'All' ? 'chat-toolbar-btn-active' : ''}`}
+                        onClick={() => { setFocusDropdownOpen(!focusDropdownOpen); setProTypeDropdownOpen(false); setModelChipDropdownOpen(false) }}
+                        title="Focus mode"
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                        <span>{focusMode}</span>
+                      </button>
+
+                      {focusDropdownOpen && (
+                        <div className="chat-focus-dropdown">
+                          {FOCUS_MODES.map(m => (
+                            <button
+                              key={m.id}
+                              onClick={() => { setFocusMode(m.id); setFocusDropdownOpen(false) }}
+                              className={`chat-focus-option ${m.id === focusMode ? 'chat-focus-option-active' : ''}`}
+                            >
+                              <span className="chat-focus-icon">{m.icon}</span>
+                              <div className="chat-focus-text">
+                                <span className="chat-focus-label">{m.label}</span>
+                                <span className="chat-focus-desc">{m.desc}</span>
+                              </div>
+                              {m.id === focusMode && <IconCheck size={14} className="text-[#ef4444] shrink-0 ml-auto" />}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Attach file */}
+                    <button
+                      className="chat-toolbar-btn"
+                      onClick={() => fileInputRef.current?.click()}
+                      title="Attach file"
+                    >
+                      <IconPaperclip size={15} />
+                      <span>Attach</span>
+                    </button>
+
+                    {/* Voice input */}
+                    {typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition) ? (
+                      <button
+                        className={`chat-toolbar-btn ${isListening ? 'chat-toolbar-btn-active' : ''}`}
+                        onClick={toggleListening}
+                        title={isListening ? 'Stop listening' : 'Voice input'}
+                      >
+                        {isListening ? (
+                          <span className="relative flex items-center justify-center" style={{ width: 15, height: 15 }}>
+                            <span className="absolute w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                            <IconMicrophone size={15} className="relative z-10" />
+                          </span>
+                        ) : (
+                          <IconMicrophone size={15} />
+                        )}
+                        <span>{isListening ? 'Listening...' : 'Voice'}</span>
+                      </button>
+                    ) : (
+                      <button
+                        className="chat-toolbar-btn"
+                        title="Voice input not supported in this browser"
+                        disabled
+                        style={{ opacity: 0.4, cursor: 'not-allowed' }}
+                      >
+                        <IconMicrophone size={15} />
+                        <span>Voice</span>
+                      </button>
+                    )}
+
+                    {/* Web Search toggle */}
+                    <button
+                      className={`chat-toolbar-btn ${webSearch ? 'chat-toolbar-btn-active' : ''}`}
+                      onClick={() => setWebSearch(!webSearch)}
+                      title="Search the web"
+                    >
+                      <IconGlobe size={15} />
+                      <span>Search</span>
+                    </button>
+                  </div>
+
+                  {/* Right actions */}
+                  <div className="chat-toolbar-right">
+                    {/* Model chip */}
+                    <div className="relative" ref={modelChipDropdownRef}>
+                      <button
+                        className="chat-model-chip"
+                        onClick={() => { if (user) { setModelChipDropdownOpen(!modelChipDropdownOpen); setFocusDropdownOpen(false); setProTypeDropdownOpen(false) } }}
+                        title={user ? `Model: ${currentModel.name}` : 'Sign in for models'}
+                      >
+                        <span>{currentModel.short}</span>
+                        {user ? <IconChevronDown size={10} /> : <IconLock size={10} className="text-[#525252]" />}
+                      </button>
+
+                      {modelChipDropdownOpen && user && (
+                        <div className="chat-model-dropdown">
+                          {MODELS.map(m => (
+                            <button
+                              key={m.id}
+                              onClick={() => { setModel(m.id); setModelChipDropdownOpen(false) }}
+                              className={`chat-model-option ${m.id === model ? 'chat-model-option-active' : ''}`}
+                            >
+                              <div>
+                                <div className="chat-model-name">{m.name}</div>
+                                <div className="chat-model-tag">{m.tag}</div>
+                              </div>
+                              {m.id === model && <IconCheck size={14} className="text-red-500 shrink-0" />}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Pro toggle with dropup */}
+                    <div className="relative" ref={proTypeDropdownRef}>
+                      <div className="chat-pro-toggle">
+                        <span className="chat-pro-label">Pro</span>
+                        <label className="chat-switch">
+                          <input
+                            type="checkbox"
+                            checked={proMode}
+                            onChange={() => {
+                              const newPro = !proMode
+                              setProMode(newPro)
+                              if (newPro) {
+                                setProTypeDropdownOpen(true)
+                                setFocusDropdownOpen(false)
+                                setModelChipDropdownOpen(false)
+                              } else {
+                                setProTypeDropdownOpen(false)
+                              }
+                            }}
+                          />
+                          <span className="chat-slider round" />
+                        </label>
+                      </div>
+
+                      {proMode && proTypeDropdownOpen && (
+                        <div className="chat-pro-dropdown">
+                          {PRO_MODES.map(m => (
+                            <button
+                              key={m.id}
+                              onClick={() => { setProModeType(m.id); setProTypeDropdownOpen(false) }}
+                              className={`chat-pro-option ${m.id === proModeType ? 'chat-pro-option-active' : ''}`}
+                            >
+                              <div className="chat-pro-text">
+                                <span className="chat-pro-option-label">{m.label}</span>
+                                <span className="chat-pro-option-desc">{m.desc}</span>
+                              </div>
+                              {m.id === proModeType && <IconCheck size={14} className="text-[#1d9bf0] shrink-0" />}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Submit button */}
+                    <button
+                      onClick={send}
+                      disabled={loading || !hasInput}
+                      className={`chat-submit-btn ${hasInput ? 'chat-submit-btn-active' : ''}`}
+                      aria-label="Send message"
+                    >
+                      {loading ? (
+                        <IconSpinner size={14} />
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             <p className="text-[11px] text-[#2e2e2e] text-center mt-2.5">AI can make mistakes. Verify important information.</p>
           </div>
@@ -1004,7 +1288,127 @@ export default function ChatClient() {
 
       {/* ── Perplexity-style chat bar CSS ── */}
       <style jsx>{`
-        .chat-container-perplexity {
+        /* ═══════════════════════════════════════
+           COLLAPSED STATE — Single-row bar
+           ═══════════════════════════════════════ */
+        .chat-bar-collapsed {
+          display: flex;
+          align-items: center;
+          background: #202222;
+          border-radius: 28px;
+          padding: 8px 12px;
+          gap: 8px;
+          border: 1px solid #2f3232;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .chat-bar-collapsed:focus-within {
+          border-color: #4c4f4f;
+          box-shadow: 0 0 0 3px rgba(255,255,255,0.03);
+        }
+
+        .chat-collapsed-btn-circle {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          border: none;
+          background: #2d3030;
+          color: #8a8f8f;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          transition: background 0.15s ease, color 0.15s ease;
+          padding: 0;
+        }
+        .chat-collapsed-btn-circle:hover {
+          background: #3a3d3d;
+          color: #e3e3e3;
+        }
+        .chat-collapsed-btn-active {
+          background-color: rgba(220, 38, 38, 0.15) !important;
+          color: #ef4444 !important;
+        }
+
+        .chat-collapsed-model-pill {
+          height: 36px;
+          padding: 0 14px;
+          border-radius: 18px;
+          border: none;
+          background: #2d3030;
+          color: #8a8f8f;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-shrink: 0;
+          transition: background 0.15s ease, color 0.15s ease;
+          font-family: inherit;
+        }
+        .chat-collapsed-model-pill:hover {
+          background: #3a3d3d;
+          color: #e3e3e3;
+        }
+
+        .chat-collapsed-input-wrap {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          align-items: center;
+        }
+        .chat-collapsed-input {
+          width: 100%;
+          height: 36px;
+          border: none !important;
+          outline: none !important;
+          box-shadow: none !important;
+          background: transparent;
+          font-size: 16px;
+          color: #e3e3e3;
+          padding: 0 4px;
+          font-family: inherit;
+        }
+        .chat-collapsed-input::placeholder {
+          color: #8a8f8f;
+          opacity: 1;
+        }
+
+        .chat-collapsed-send {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          border: none;
+          background: #dc2626;
+          color: #ffffff;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          transition: background 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
+          padding: 0;
+        }
+        .chat-collapsed-send:disabled {
+          cursor: not-allowed;
+          opacity: 0.5;
+        }
+        .chat-collapsed-send-active {
+          background: #dc2626;
+        }
+        .chat-collapsed-send-active:hover {
+          background: #b91c1c;
+          transform: scale(1.05);
+        }
+        .chat-collapsed-send-active:active {
+          transform: scale(0.95);
+        }
+
+        /* ═══════════════════════════════════════
+           EXPANDED STATE — Full Perplexity-style
+           ═══════════════════════════════════════ */
+        .chat-container-expanded {
           width: 100%;
           background-color: #202222;
           border: 1px solid #2f3232;
@@ -1013,12 +1417,26 @@ export default function ChatClient() {
           display: flex;
           flex-direction: column;
           transition: border-color 0.2s ease, box-shadow 0.2s ease;
+          animation: expandBar 0.25s ease-out;
         }
-        .chat-container-perplexity:focus-within {
+        @keyframes expandBar {
+          from {
+            opacity: 0.7;
+            transform: scaleY(0.95);
+            transform-origin: bottom;
+          }
+          to {
+            opacity: 1;
+            transform: scaleY(1);
+            transform-origin: bottom;
+          }
+        }
+        .chat-container-expanded:focus-within {
           border-color: #4c4f4f;
           box-shadow: 0 0 0 3px rgba(255,255,255,0.03);
         }
-        .chat-textarea-perplexity {
+
+        .chat-textarea-expanded {
           width: 100%;
           background: transparent;
           border: none !important;
@@ -1033,16 +1451,17 @@ export default function ChatClient() {
           padding: 0;
           margin-bottom: 12px;
         }
-        .chat-textarea-perplexity:focus {
+        .chat-textarea-expanded:focus {
           border: none !important;
           outline: none !important;
           box-shadow: none !important;
           border-color: transparent !important;
         }
-        .chat-textarea-perplexity::placeholder {
+        .chat-textarea-expanded::placeholder {
           color: #8a8f8f;
         }
-        .chat-toolbar-perplexity {
+
+        .chat-toolbar-expanded {
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -1052,6 +1471,7 @@ export default function ChatClient() {
           align-items: center;
           gap: 4px;
         }
+
         .chat-toolbar-btn {
           background: transparent;
           border: none;
@@ -1072,13 +1492,259 @@ export default function ChatClient() {
           color: #e3e3e3;
         }
         .chat-toolbar-btn-active {
-          background-color: rgba(220, 38, 38, 0.12);
-          color: #ef4444;
+          background-color: rgba(220, 38, 38, 0.12) !important;
+          color: #ef4444 !important;
         }
         .chat-toolbar-btn-active:hover {
-          background-color: rgba(220, 38, 38, 0.18);
-          color: #f87171;
+          background-color: rgba(220, 38, 38, 0.18) !important;
+          color: #f87171 !important;
         }
+
+        /* ── Model chip in toolbar ── */
+        .chat-model-chip {
+          background: #2d3030;
+          border: none;
+          outline: none;
+          color: #8a8f8f;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 10px;
+          border-radius: 9999px;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 500;
+          transition: background 0.2s, color 0.2s;
+          font-family: inherit;
+        }
+        .chat-model-chip:hover {
+          background-color: #3a3d3d;
+          color: #e3e3e3;
+        }
+
+        .chat-model-dropdown {
+          position: absolute;
+          bottom: calc(100% + 6px);
+          right: 0;
+          width: 220px;
+          background: #141414;
+          border: 1px solid #262626;
+          border-radius: 12px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+          z-index: 50;
+          padding: 4px 0;
+          animation: dropUp 0.15s ease-out;
+        }
+        @keyframes dropUp {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .chat-model-option {
+          width: 100%;
+          text-align: left;
+          padding: 8px 12px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          transition: background 0.15s;
+          border: none;
+          background: none;
+          cursor: pointer;
+          font-family: inherit;
+        }
+        .chat-model-option:hover {
+          background: #1a1a1a;
+        }
+        .chat-model-option-active {
+          background: #1a1a1a !important;
+        }
+        .chat-model-name {
+          font-size: 13px;
+          font-weight: 500;
+          color: #e3e3e3;
+        }
+        .chat-model-option:not(.chat-model-option-active) .chat-model-name {
+          color: #a3a3a3;
+        }
+        .chat-model-option:hover .chat-model-name {
+          color: #ffffff;
+        }
+        .chat-model-tag {
+          font-size: 11px;
+          color: #525252;
+          margin-top: 1px;
+        }
+
+        /* ── Focus mode dropdown ── */
+        .chat-focus-dropdown {
+          position: absolute;
+          bottom: calc(100% + 6px);
+          left: 0;
+          width: 260px;
+          background: #141414;
+          border: 1px solid #262626;
+          border-radius: 12px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+          z-index: 50;
+          padding: 4px 0;
+          animation: dropUp 0.15s ease-out;
+        }
+        .chat-focus-option {
+          width: 100%;
+          text-align: left;
+          padding: 10px 12px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          transition: background 0.15s;
+          border: none;
+          background: none;
+          cursor: pointer;
+          font-family: inherit;
+        }
+        .chat-focus-option:hover {
+          background: #1a1a1a;
+        }
+        .chat-focus-option-active {
+          background: #1a1a1a !important;
+        }
+        .chat-focus-icon {
+          font-size: 16px;
+          width: 24px;
+          text-align: center;
+          flex-shrink: 0;
+        }
+        .chat-focus-text {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+        }
+        .chat-focus-label {
+          font-size: 13px;
+          font-weight: 500;
+          color: #e3e3e3;
+        }
+        .chat-focus-option:not(.chat-focus-option-active) .chat-focus-label {
+          color: #a3a3a3;
+        }
+        .chat-focus-option:hover .chat-focus-label {
+          color: #ffffff;
+        }
+        .chat-focus-desc {
+          font-size: 11px;
+          color: #525252;
+          margin-top: 1px;
+        }
+
+        /* ── Pro toggle ── */
+        .chat-pro-toggle {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding-right: 4px;
+        }
+        .chat-pro-label {
+          font-size: 13px;
+          font-weight: 600;
+          color: #8a8f8f;
+        }
+        .chat-switch {
+          position: relative;
+          display: inline-block;
+          width: 34px;
+          height: 20px;
+        }
+        .chat-switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+        .chat-slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: #2f3232;
+          transition: 0.2s;
+          border-radius: 34px;
+        }
+        .chat-slider:before {
+          position: absolute;
+          content: "";
+          height: 14px;
+          width: 14px;
+          left: 3px;
+          bottom: 3px;
+          background-color: #8a8f8f;
+          transition: 0.2s;
+          border-radius: 50%;
+        }
+        .chat-switch input:checked + .chat-slider {
+          background-color: #1d9bf0;
+        }
+        .chat-switch input:checked + .chat-slider:before {
+          transform: translateX(14px);
+          background-color: white;
+        }
+
+        /* ── Pro mode dropdown ── */
+        .chat-pro-dropdown {
+          position: absolute;
+          bottom: calc(100% + 6px);
+          right: 0;
+          width: 260px;
+          background: #141414;
+          border: 1px solid #262626;
+          border-radius: 12px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+          z-index: 50;
+          padding: 4px 0;
+          animation: dropUp 0.15s ease-out;
+        }
+        .chat-pro-option {
+          width: 100%;
+          text-align: left;
+          padding: 10px 12px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          transition: background 0.15s;
+          border: none;
+          background: none;
+          cursor: pointer;
+          font-family: inherit;
+        }
+        .chat-pro-option:hover {
+          background: #1a1a1a;
+        }
+        .chat-pro-option-active {
+          background: #1a1a1a !important;
+        }
+        .chat-pro-text {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+        }
+        .chat-pro-option-label {
+          font-size: 13px;
+          font-weight: 500;
+          color: #e3e3e3;
+        }
+        .chat-pro-option:not(.chat-pro-option-active) .chat-pro-option-label {
+          color: #a3a3a3;
+        }
+        .chat-pro-option:hover .chat-pro-option-label {
+          color: #ffffff;
+        }
+        .chat-pro-option-desc {
+          font-size: 11px;
+          color: #525252;
+          margin-top: 1px;
+        }
+
+        /* ── Submit button ── */
         .chat-submit-btn {
           background-color: #2f3232;
           color: #8a8f8f;
