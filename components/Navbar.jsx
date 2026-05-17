@@ -98,13 +98,13 @@ export default function Navbar() {
         {/* Fixed top navigation bar */}
         <nav className="fixed top-0 left-0 right-0 z-30 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-[#141414]/60">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 h-12 sm:h-14 flex items-center justify-between">
-            <Link href="/welcome" className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-red-600 rounded-lg flex items-center justify-center">
+            <Link href="/welcome" className="flex items-center gap-2.5">
+              <div className="w-7 h-7 bg-[#dc2626] rounded-lg flex items-center justify-center">
                 <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
                   <path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white" />
                 </svg>
               </div>
-              <span className="font-bold text-headline-sm tracking-tight">
+              <span className="font-bold text-[15px] tracking-tight">
                 Ki<span className="text-red-500">vora</span>
               </span>
             </Link>
@@ -115,7 +115,7 @@ export default function Navbar() {
                 <Link
                   key={href}
                   href={href}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-caption font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     (href === '/' ? pathname === '/' : pathname.startsWith(href))
                       ? 'bg-[#1a1a1a] text-white'
                       : 'text-[#737373] hover:text-white hover:bg-[#141414]'
@@ -210,10 +210,10 @@ function SidebarContent({ user, pathname, signOut, onClose }) {
   }
 
   const linkClass = (href) =>
-    `flex items-center gap-2.5 px-3 py-2 rounded-lg text-caption font-medium transition-colors ${
+    `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
       isActive(href)
         ? 'bg-[#1a1a1a] text-white'
-        : 'text-[#525252] hover:text-white hover:bg-[#141414]'
+        : 'text-[#737373] hover:text-white hover:bg-[#141414]'
     }`
 
   return (
@@ -221,18 +221,18 @@ function SidebarContent({ user, pathname, signOut, onClose }) {
       {/* ── Logo + close ── */}
       <div className="px-3 pt-3 pb-2 shrink-0">
         <div className="flex items-center justify-between mb-3">
-          <Link href="/welcome" className="flex items-center gap-2" onClick={onClose}>
-            <div className="w-6 h-6 bg-red-600 rounded-md flex items-center justify-center">
-              <svg width="9" height="9" viewBox="0 0 14 14" fill="none">
+          <Link href="/welcome" className="flex items-center gap-2.5" onClick={onClose}>
+            <div className="w-7 h-7 bg-[#dc2626] rounded-lg flex items-center justify-center">
+              <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
                 <path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white" />
               </svg>
             </div>
-            <span className="font-bold text-body-sm tracking-tight">
+            <span className="font-bold text-[15px] tracking-tight">
               Ki<span className="text-red-500">vora</span>
             </span>
           </Link>
           <button
-            className="md:hidden w-7 h-7 flex items-center justify-center text-[#525252] hover:text-white transition-colors"
+            className="md:hidden w-7 h-7 flex items-center justify-center text-[#737373] hover:text-white transition-colors"
             onClick={onClose}
           >
             <IconClose size={14} />
@@ -281,10 +281,10 @@ function SidebarContent({ user, pathname, signOut, onClose }) {
       <div className="p-2.5 border-t border-[#181818] space-y-1 shrink-0">
         <Link
           href="/dashboard"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-caption transition-colors font-medium ${
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors font-medium ${
             isActive('/dashboard')
               ? 'bg-[#1a1a1a] text-white'
-              : 'text-[#525252] hover:text-white hover:bg-[#141414]'
+              : 'text-[#737373] hover:text-white hover:bg-[#141414]'
           }`}
           onClick={onClose}
         >
@@ -295,10 +295,10 @@ function SidebarContent({ user, pathname, signOut, onClose }) {
         {user && (
           <Link
             href="/profile"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-caption transition-colors font-medium ${
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors font-medium ${
               isActive('/profile')
                 ? 'bg-[#1a1a1a] text-white'
-                : 'text-[#525252] hover:text-white hover:bg-[#141414]'
+                : 'text-[#737373] hover:text-white hover:bg-[#141414]'
             }`}
             onClick={onClose}
           >
@@ -310,17 +310,17 @@ function SidebarContent({ user, pathname, signOut, onClose }) {
         {user ? (
           <div className="space-y-1">
             <div className="flex items-center gap-2 px-3 py-2">
-              <div className="w-6 h-6 bg-red-600 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0">
+              <div className="w-6 h-6 bg-[#dc2626] rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0">
                 {initials}
               </div>
               <div className="min-w-0">
-                <p className="text-caption text-white font-medium truncate">{displayName}</p>
-                <p className="text-[10px] text-[#525252] truncate">{user.email}</p>
+                <p className="text-sm text-white font-medium truncate">{displayName}</p>
+                <p className="text-[10px] text-[#737373] truncate">{user.email}</p>
               </div>
             </div>
             <button
               onClick={signOut}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-caption text-[#525252] hover:text-red-400 hover:bg-[#141414] transition-colors font-medium"
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-[#737373] hover:text-red-400 hover:bg-[#141414] transition-colors font-medium"
             >
               <IconLogout size={14} />
               Sign out
@@ -329,7 +329,7 @@ function SidebarContent({ user, pathname, signOut, onClose }) {
         ) : (
           <Link
             href="/auth"
-            className="flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-caption py-2 rounded-lg transition-colors font-semibold"
+            className="flex items-center justify-center gap-1.5 bg-[#dc2626] hover:bg-red-700 text-white text-sm py-2 rounded-lg transition-colors font-semibold"
             onClick={onClose}
           >
             <IconUser size={12} />
@@ -349,9 +349,9 @@ function InlineCurrencyToggle({ open, setOpen, dropdownRef }) {
     <div ref={dropdownRef} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 sm:gap-1.5 bg-[#141414]/60 border border-[#262626] hover:border-[#3a3a3a] px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-caption text-[#737373] hover:text-white transition-all font-mono"
+        className="flex items-center gap-1 sm:gap-1.5 bg-[#141414]/60 border border-[#262626] hover:border-[#3a3a3a] px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-sm text-[#737373] hover:text-white transition-all font-mono"
       >
-        <span className="font-sans text-caption font-medium">{currency.symbol}</span>
+        <span className="font-sans text-sm font-medium">{currency.symbol}</span>
         <span>{currency.code}</span>
         <IconChevronDown size={12} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -363,7 +363,7 @@ function InlineCurrencyToggle({ open, setOpen, dropdownRef }) {
               <button
                 key={c.code}
                 onClick={() => { selectCurrency(c); setOpen(false) }}
-                className={`w-full flex items-center justify-between px-3 py-2 text-caption hover:bg-[#1a1a1a] transition-colors ${
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-[#1a1a1a] transition-colors ${
                   currency.code === c.code ? 'text-red-400' : 'text-[#737373] hover:text-white'
                 }`}
               >
@@ -404,7 +404,7 @@ function InlineLanguageSwitcher() {
     <div ref={dropdownRef} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-caption text-[#525252] hover:text-white hover:bg-[#141414] transition-colors font-medium"
+        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-[#737373] hover:text-white hover:bg-[#141414] transition-colors font-medium"
       >
         <IconGlobe size={14} className="shrink-0" />
         <span>{currentLang.nativeLabel}</span>
@@ -418,7 +418,7 @@ function InlineLanguageSwitcher() {
               <button
                 key={l.code}
                 onClick={() => { setLang(l.code); setOpen(false) }}
-                className={`w-full flex items-center justify-between px-3 py-2 text-caption hover:bg-[#1a1a1a] transition-colors ${
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-[#1a1a1a] transition-colors ${
                   lang === l.code ? 'text-red-400' : 'text-[#737373] hover:text-white'
                 }`}
               >
