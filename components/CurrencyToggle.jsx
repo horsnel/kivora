@@ -40,7 +40,6 @@ export function CurrencyProvider({ children }) {
   const [suggested, setSuggested] = useState(null)
   const pathname = usePathname()
   const dropdownRef = useRef(null)
-  const hideToggle = ['/auth', '/privacy', '/terms', '/contact', '/chat', '/welcome', '/onboarding', '/dashboard'].some(p => pathname.startsWith(p))
 
   // Load saved currency + fetch rates + detect country
   useEffect(() => {
@@ -73,20 +72,8 @@ export function CurrencyProvider({ children }) {
     }
   }, [])
 
-  // Close dropdown on route change
-  useEffect(() => { setOpen(false) }, [pathname])
-
-  // Close dropdown on click outside
-  useEffect(() => {
-    if (!open) return
-    function handleClick(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [open])
+  // Close banner on route change
+  useEffect(() => { setShowBanner(false) }, [pathname])
 
   function select(c) {
     setCurrency(c)
@@ -133,43 +120,7 @@ export function CurrencyProvider({ children }) {
         </div>
       )}
 
-      {/* Currency toggle — rendered AFTER children so it sits above navbar */}
-      {!hideToggle && (
-      <div ref={dropdownRef} className="fixed top-[10px] sm:top-[14px] right-[52px] sm:right-[72px] md:right-[144px] z-[60]">
-        <div className="relative">
-          <button
-            onClick={() => setOpen(!open)}
-            className="flex items-center gap-1 sm:gap-1.5 bg-[#141414] border border-[#262626] hover:border-[#3a3a3a] px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-caption text-[#737373] hover:text-white transition-all font-mono"
-          >
-            <span className="font-sans text-caption font-medium">{currency.symbol}</span>
-            <span>{currency.code}</span>
-            <IconChevronDown size={12} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
-          </button>
-
-          {open && (
-            <div className="absolute right-0 top-full mt-1.5 w-44 bg-[#141414] border border-[#262626] rounded-xl overflow-hidden shadow-2xl animate-scale-in">
-              <div className="py-1">
-                {CURRENCIES.map(c => (
-                  <button
-                    key={c.code}
-                    onClick={() => select(c)}
-                    className={`w-full flex items-center justify-between px-3 py-2 text-caption hover:bg-[#1a1a1a] transition-colors ${
-                      currency.code === c.code ? 'text-red-400' : 'text-[#737373] hover:text-white'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono w-8">{c.code}</span>
-                      <span className="text-[#404040]">{c.symbol}</span>
-                    </div>
-                    {currency.code === c.code && <IconCheck size={12} className="text-red-400" />}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-      )}
+      {/* Currency toggle is now in the sidebar only — no floating toggle */}
     </CurrencyContext.Provider>
   )
 }
