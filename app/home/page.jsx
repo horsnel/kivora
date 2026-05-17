@@ -2,20 +2,21 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCurrency } from '@/components/CurrencyToggle'
+import { useTranslation } from '@/components/LanguageProvider'
 import {
   IconMoney, IconRobot, IconVideo, IconShop, IconWrite, IconCode,
   IconChat, IconSearch, IconFlame, IconTrending, IconArrowRight,
   IconLightning, IconTool, IconSpinner, IconGlobe, IconEye
 } from '@/components/Icons'
 
-const PILLS = [
-  { label: 'Make Money',         Icon: IconMoney,  query: 'make money with AI automation 2024' },
-  { label: 'AI Business',        Icon: IconRobot,  query: 'start an AI-powered business from scratch' },
-  { label: 'YouTube Automation', Icon: IconVideo,  query: 'faceless YouTube channel automation with AI' },
-  { label: 'E-Commerce',         Icon: IconShop,   query: 'dropshipping store that runs itself with AI' },
-  { label: 'Content Agency',     Icon: IconWrite,  query: 'AI content agency build and run' },
-  { label: 'Dev Tools',          Icon: IconCode,   href: '/devtools' },
-  { label: 'Ask Anything',       Icon: IconChat,   href: '/chat' },
+const PILL_KEYS = [
+  { key: 'make_money',  Icon: IconMoney,  query: 'make money with AI automation 2024' },
+  { key: 'ai_business', Icon: IconRobot,  query: 'start an AI-powered business from scratch' },
+  { key: 'youtube',     Icon: IconVideo,  query: 'faceless YouTube channel automation with AI' },
+  { key: 'ecommerce',   Icon: IconShop,   query: 'dropshipping store that runs itself with AI' },
+  { key: 'content',     Icon: IconWrite,  query: 'AI content agency build and run' },
+  { key: 'dev_tools',   Icon: IconCode,   href: '/devtools' },
+  { key: 'ask',         Icon: IconChat,   href: '/chat' },
 ]
 
 const SUGGESTIONS = [
@@ -30,6 +31,7 @@ const SUGGESTIONS = [
 export default function HomePage() {
   const router = useRouter()
   const { format } = useCurrency()
+  const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [trending, setTrending] = useState([])
   const [cards, setCards] = useState([])
@@ -92,16 +94,16 @@ export default function HomePage() {
         <div className="relative">
           <div className="inline-flex items-center gap-2 bg-[#141414] border border-[#262626] rounded-full px-3 sm:px-4 py-1.5 mb-4 sm:mb-6 animate-fade-up">
             <span className="w-1.5 h-1.5 bg-red-500 rounded-full pulse-dot" />
-            <span className="text-caption font-medium">Free for everyone · No signup required</span>
+            <span className="text-caption font-medium">{t('home.badge')}</span>
           </div>
 
           <h1 className="text-display-xl sm:text-[40px] md:text-[56px] font-semibold mb-3 sm:mb-4 leading-[1.1] sm:leading-[1.08] tracking-tight animate-fade-up animate-fade-up-1">
-            Your unfair advantage
-            <br /><span className="text-red-500">starts here.</span>
+            {t('home.title1')}
+            <br /><span className="text-red-500">{t('home.title2')}</span>
           </h1>
 
           <p className="text-muted text-body mb-6 sm:mb-10 max-w-xl mx-auto animate-fade-up animate-fade-up-2 leading-relaxed">
-            Tools, opportunities, and honest guides for builders everywhere.
+            {t('home.subtitle')}
           </p>
 
           {/* Search row — larger, more prominent */}
@@ -113,7 +115,7 @@ export default function HomePage() {
               <input
                 ref={inputRef}
                 className="w-full bg-[#141414] border border-[#262626] rounded-xl pl-10 pr-10 py-4 text-body text-white placeholder-muted2 transition-all focus:border-red-500/60 focus:shadow-[0_0_0_3px_rgba(220,38,38,0.1),0_0_24px_rgba(220,38,38,0.06)]"
-                placeholder={displayText || 'What do you want to build or earn?'}
+                placeholder={displayText || t('home.placeholder')}
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -130,19 +132,19 @@ export default function HomePage() {
               className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white px-6 py-4 rounded-xl font-semibold text-body transition-colors flex items-center justify-center gap-2 press"
             >
               {loading ? <IconSpinner size={14} /> : <IconArrowRight size={14} />}
-              {loading ? 'Thinking' : 'Explore'}
+              {loading ? t('home.thinking') : t('home.explore')}
             </button>
           </div>
 
           <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2 mt-3 animate-fade-up animate-fade-up-4">
-            {PILLS.map(({ label, Icon, query: q, href }) => (
+            {PILL_KEYS.map(({ key, Icon, query: q, href }) => (
               <button
-                key={label}
+                key={key}
                 onClick={() => href ? router.push(href) : handleSearch(q)}
                 className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-[#141414] border border-[#262626] hover:border-[#3a3a3a] hover:text-white text-muted rounded-full text-caption transition-all"
               >
                 <Icon size={12} />
-                {label}
+                {t(`home.pill.${key}`)}
               </button>
             ))}
           </div>
@@ -188,7 +190,7 @@ export default function HomePage() {
             <section className="max-w-5xl mx-auto px-4 sm:px-6 pb-8 sm:pb-12">
               <div className="flex items-center gap-2 mb-3">
                 <IconFlame size={14} className="text-red-500" />
-                <span className="text-caption font-semibold text-muted uppercase tracking-widest">Trending today</span>
+                <span className="text-caption font-semibold text-muted uppercase tracking-widest">{t('home.trending')}</span>
               </div>
               <div className="space-y-1.5">
                 {trending.map((item, i) => (
@@ -216,10 +218,10 @@ export default function HomePage() {
               <div className="flex items-center justify-between mb-3 sm:mb-4">
                 <div className="flex items-center gap-2">
                   <IconTrending size={14} className="text-muted2" />
-                  <span className="text-caption font-semibold text-muted uppercase tracking-widest">Recent Results</span>
+                  <span className="text-caption font-semibold text-muted uppercase tracking-widest">{t('home.recent')}</span>
                 </div>
                 <button onClick={() => router.push('/opportunities')} className="text-caption text-red-500 hover:text-red-400 transition-colors flex items-center gap-1">
-                  View all <IconArrowRight size={12} />
+                  {t('home.view_all')} <IconArrowRight size={12} />
                 </button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -257,8 +259,8 @@ export default function HomePage() {
                 <div className="w-10 h-10 bg-[#1a1a1a] rounded-xl flex items-center justify-center mx-auto mb-4">
                   <IconSearch size={20} className="text-muted2" />
                 </div>
-                <h3 className="font-semibold text-headline-sm mb-2 tracking-tight">Be the first to explore</h3>
-                <p className="text-muted text-body">Search for any business idea above.</p>
+                <h3 className="font-semibold text-headline-sm mb-2 tracking-tight">{t('home.empty_title')}</h3>
+                <p className="text-muted text-body">{t('home.empty_desc')}</p>
               </div>
             </section>
           )}
@@ -267,10 +269,10 @@ export default function HomePage() {
 
       <div className="border-t border-[#141414] py-4 sm:py-5 text-center">
         <p className="text-caption text-muted2 flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap">
-          {stats.views > 0 && <><span className="text-muted font-mono">{stats.views.toLocaleString()}</span> explored <span className="text-[#262626]">·</span> <span className="text-muted font-mono">{stats.total}</span> cached <span className="text-[#262626]">·</span></>}
-          <span className="text-muted">free forever</span>
+          {stats.views > 0 && <><span className="text-muted font-mono">{stats.views.toLocaleString()}</span> {t('home.stats.explored')} <span className="text-[#262626]">·</span> <span className="text-muted font-mono">{stats.total}</span> {t('home.stats.cached')} <span className="text-[#262626]">·</span></>}
+          <span className="text-muted">{t('home.stats.free_forever')}</span>
           <span className="text-[#262626]">·</span>
-          <span className="flex items-center gap-1"><IconGlobe size={12} /> built for the world</span>
+          <span className="flex items-center gap-1"><IconGlobe size={12} /> {t('home.stats.built_for_world')}</span>
         </p>
       </div>
     </main>

@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabasePublic } from '@/lib/supabase'
 import { IconSpinner, IconCheck } from '@/components/Icons'
+import { useTranslation } from '@/components/LanguageProvider'
 
 function GoogleIcon() {
   return (
@@ -27,6 +28,7 @@ function GitHubIcon() {
 function AuthForm() {
   const router = useRouter()
   const params = useSearchParams()
+  const { t } = useTranslation()
   const [mode, setMode] = useState(params.get('mode') === 'signup' ? 'signup' : 'signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -37,8 +39,8 @@ function AuthForm() {
   const [success, setSuccess] = useState('')
 
   async function submit() {
-    if (!email || !password) { setError('Email and password are required'); return }
-    if (mode === 'signup' && password.length < 8) { setError('Password must be at least 8 characters'); return }
+    if (!email || !password) { setError(t('auth.error.required')); return }
+    if (mode === 'signup' && password.length < 8) { setError(t('auth.error.password_min')); return }
     if (!supabasePublic) { setError('Authentication is not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.'); return }
     setLoading(true); setError(''); setSuccess('')
     try {
@@ -96,17 +98,17 @@ function AuthForm() {
             <div className="w-14 h-14 bg-emerald-950/30 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <IconCheck size={24} className="text-emerald-400" />
             </div>
-            <h1 className="font-semibold text-xl tracking-tight mb-2">Check your email</h1>
-            <p className="text-[#737373] text-sm mb-1">We sent a confirmation link to</p>
+            <h1 className="font-semibold text-xl tracking-tight mb-2">{t('auth.check_email')}</h1>
+            <p className="text-[#737373] text-sm mb-1">{t('auth.confirmation_sent')}</p>
             <p className="text-white text-sm font-medium mb-6">{email}</p>
             <p className="text-[#404040] text-xs leading-relaxed mb-8">
-              Click the link in the email to verify your account, then sign in below.
+              {t('auth.verify_instruction')}
             </p>
             <button
               onClick={() => { setSuccess(''); setMode('signin') }}
               className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl text-sm font-semibold transition-colors press"
             >
-              Sign in
+              {t('auth.signin')}
             </button>
             <p className="text-[#2e2e2e] text-[10px] mt-4">Didn't get the email? Check your spam folder.</p>
           </div>
@@ -122,17 +124,17 @@ function AuthForm() {
           </Link>
           {mode === 'signin' && (
             <Link href="/" className="text-[#737373] hover:text-white text-xs transition-colors">
-              Back to home
+              {t('auth.back_home')}
             </Link>
           )}
         </div>
 
         <div className="mb-8">
           <h1 className="font-semibold text-xl tracking-tight">
-            {mode === 'signin' ? 'Welcome back' : 'Create your account'}
+            {mode === 'signin' ? t('auth.welcome_back') : t('auth.create_account')}
           </h1>
           <p className="text-[#737373] text-xs mt-1.5">
-            {mode === 'signin' ? 'Sign in to access your saved results' : 'Free forever. No credit card required.'}
+            {mode === 'signin' ? t('auth.signin_subtitle') : t('auth.signup_subtitle')}
           </p>
         </div>
 
@@ -160,26 +162,26 @@ function AuthForm() {
           {/* Divider */}
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-[#262626]"></div>
-            <span className="text-[10px] text-[#404040] uppercase tracking-widest">or</span>
+            <span className="text-[10px] text-[#404040] uppercase tracking-widest">{t('auth.or')}</span>
             <div className="flex-1 h-px bg-[#262626]"></div>
           </div>
 
           {mode === 'signup' && (
             <div>
-              <label className="text-xs text-[#737373] block mb-1.5 font-medium">Full name</label>
+              <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('auth.full_name')}</label>
               <input type="text" className={inputClass} placeholder="Your name" value={name} onChange={e => setName(e.target.value)} />
             </div>
           )}
           <div>
-            <label className="text-xs text-[#737373] block mb-1.5 font-medium">Email address</label>
+            <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('auth.email')}</label>
             <input type="email" className={inputClass} placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()} />
           </div>
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs text-[#737373] font-medium">Password</label>
-              {mode === 'signin' && <Link href="/auth/reset" className="text-xs text-[#737373] hover:text-white transition-colors">Forgot?</Link>}
+              <label className="text-xs text-[#737373] font-medium">{t('auth.password')}</label>
+              {mode === 'signin' && <Link href="/auth/reset" className="text-xs text-[#737373] hover:text-white transition-colors">{t('auth.forgot')}</Link>}
             </div>
-            <input type="password" className={inputClass} placeholder={mode === 'signup' ? 'At least 8 characters' : '••••••••'} value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()} />
+            <input type="password" className={inputClass} placeholder={mode === 'signup' ? t('auth.password_min') : '••••••••'} value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()} />
           </div>
 
           {error && <div className="bg-red-950/30 border border-red-900/40 rounded-xl px-4 py-2.5 text-xs text-red-400">{error}</div>}
@@ -187,14 +189,12 @@ function AuthForm() {
           <button onClick={submit} disabled={loading}
             className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white py-3 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 press">
             {loading && <IconSpinner size={14} />}
-            {mode === 'signin' ? 'Sign in' : 'Create account'}
+            {mode === 'signin' ? t('auth.signin') : t('auth.create')}
           </button>
 
           {mode === 'signup' && (
             <p className="text-xs text-[#404040] text-center leading-relaxed">
-              By signing up you agree to our{' '}
-              <Link href="/terms" className="text-[#737373] hover:text-white">Terms</Link> and{' '}
-              <Link href="/privacy" className="text-[#737373] hover:text-white">Privacy Policy</Link>.
+              {t('auth.agreement')}
             </p>
           )}
         </div>
@@ -202,12 +202,12 @@ function AuthForm() {
         <div className="text-center mt-5">
           <button onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(''); setSuccess('') }}
             className="text-xs text-[#737373] hover:text-white transition-colors">
-            {mode === 'signin' ? 'No account yet? Sign up free' : 'Already have an account? Sign in'}
+            {mode === 'signin' ? t('auth.no_account') : t('auth.has_account')}
           </button>
         </div>
         <p className="text-center text-xs text-[#2e2e2e] mt-4">
-          All tools work without an account.{' '}
-          <Link href="/home" className="text-[#404040] hover:text-white transition-colors">Skip</Link>
+          {t('auth.no_account_needed')}{' '}
+          <Link href="/home" className="text-[#404040] hover:text-white transition-colors">{t('auth.skip')}</Link>
         </p>
         </>
         )}

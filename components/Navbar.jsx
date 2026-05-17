@@ -8,13 +8,13 @@ import { useCurrency } from '@/components/CurrencyToggle'
 import { useTranslation } from '@/components/LanguageProvider'
 
 const NAV_LINKS = [
-  { label: 'Home',         href: '/discover',   Icon: IconHome },
-  { label: 'Explore',      href: '/home',       Icon: IconSearch },
-  { label: 'Chat',         href: '/chat',       Icon: IconChat },
-  { label: 'StudyDesk',    href: '/study',      Icon: IconBook },
-  { label: 'Dev Tools',    href: '/devtools',   Icon: IconCode },
-  { label: 'Community',    href: '/community',  Icon: IconChat },
-  { label: 'Opportunities', href: '/opportunities', Icon: IconTrending },
+  { labelKey: 'nav.home',         href: '/discover',   Icon: IconHome },
+  { labelKey: 'nav.explore',      href: '/home',       Icon: IconSearch },
+  { labelKey: 'nav.chat',         href: '/chat',       Icon: IconChat },
+  { labelKey: 'nav.studydesk',    href: '/study',      Icon: IconBook },
+  { labelKey: 'nav.devtools',     href: '/devtools',   Icon: IconCode },
+  { labelKey: 'nav.community',    href: '/community',  Icon: IconChat },
+  { labelKey: 'nav.opportunities', href: '/opportunities', Icon: IconTrending },
 ]
 
 // About, Blog, Admin links removed from sidebar — About & Blog are in the footer, Admin is via O.L.H.M.E.S in footer
@@ -99,20 +99,7 @@ export default function Navbar() {
 
             {/* Desktop nav links */}
             <div className="hidden md:flex items-center gap-1">
-              {NAV_LINKS.map(({ label, href, Icon }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    (href === '/' ? pathname === '/' : pathname.startsWith(href))
-                      ? 'bg-[#1a1a1a] text-white'
-                      : 'text-[#737373] hover:text-white hover:bg-[#141414]'
-                  }`}
-                >
-                  <Icon size={13} />
-                  {label}
-                </Link>
-              ))}
+              <NavLinks pathname={pathname} onClose={() => {}} minimal />
             </div>
           </div>
         </nav>
@@ -171,8 +158,37 @@ export default function Navbar() {
   )
 }
 
+/** Nav links using translations */
+function NavLinks({ pathname, onClose, minimal }) {
+  const { t } = useTranslation()
+  const linkClass = (href) => {
+    const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
+    if (minimal) {
+      return `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+        active ? 'bg-[#1a1a1a] text-white' : 'text-[#737373] hover:text-white hover:bg-[#141414]'
+      }`
+    }
+    return `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+      active ? 'bg-[#1a1a1a] text-white' : 'text-[#737373] hover:text-white hover:bg-[#141414]'
+    }`
+  }
+
+  return NAV_LINKS.map(({ labelKey, href, Icon }) => (
+    <Link
+      key={href}
+      href={href}
+      className={linkClass(href)}
+      onClick={onClose}
+    >
+      <Icon size={minimal ? 13 : 14} className={minimal ? '' : 'shrink-0'} />
+      {t(labelKey)}
+    </Link>
+  ))
+}
+
 /** Shared sidebar content — used by both the main sidebar and the mobile overlay on minimal pages */
 function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen, currencyDropdownRef }) {
+  const { t } = useTranslation()
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || ''
   const initials = displayName.slice(0, 2).toUpperCase()
 
@@ -180,13 +196,6 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
     if (href === '/') return pathname === '/'
     return pathname.startsWith(href)
   }
-
-  const linkClass = (href) =>
-    `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-      isActive(href)
-        ? 'bg-[#1a1a1a] text-white'
-        : 'text-[#737373] hover:text-white hover:bg-[#141414]'
-    }`
 
   return (
     <>
@@ -215,18 +224,7 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
       {/* ── Nav links ── */}
       <div className="flex-1 overflow-y-auto overscroll-behavior-contain px-2.5 min-h-0">
         <div className="space-y-0.5">
-          {NAV_LINKS.map(({ label, href, Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className={linkClass(href)}
-              onClick={onClose}
-            >
-              <Icon size={14} className="shrink-0" />
-              {label}
-            </Link>
-          ))}
-
+          <NavLinks pathname={pathname} onClose={onClose} />
         </div>
       </div>
 
@@ -252,7 +250,7 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
           onClick={onClose}
         >
           <IconDashboard size={14} />
-          Dashboard
+          {t('nav.dashboard')}
         </Link>
 
         {user ? (
@@ -280,7 +278,7 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
             onClick={onClose}
           >
             <IconUser size={12} />
-            Sign in
+            {t('nav.signin')}
           </Link>
         )}
       </div>

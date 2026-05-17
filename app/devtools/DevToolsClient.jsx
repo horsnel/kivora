@@ -7,6 +7,7 @@ import {
 import Select from '@/components/Select'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
 import { useSessionTracker } from '@/lib/useSessionTracker'
+import { useTranslation } from '@/components/LanguageProvider'
 
 // ── Inline SVG icons for tools not in the main library ────────────────
 function Ico({ path, size = 16, className = '' }) {
@@ -37,68 +38,68 @@ const I = {
 const CATEGORIES = [
   {
     id: 'code',
-    label: 'Code',
+    labelKey: 'devtools.cat.code',
     color: '#3b82f6',
     tools: [
-      { id: 'code_explainer', label: 'Code Explainer',    Icon: (p) => <IconCode {...p} />,      desc: 'Understand any code block instantly' },
-      { id: 'code_reviewer',  label: 'Code Reviewer',     Icon: (p) => <I.Shield {...p} />,      desc: 'Spot bugs, security issues, and improvements' },
-      { id: 'regex',          label: 'Regex Generator',   Icon: (p) => <IconSearch {...p} />,    desc: 'Describe it in English, get the pattern' },
-      { id: 'sql_builder',    label: 'SQL Builder',       Icon: (p) => <IconDatabase {...p} />,  desc: 'Plain English to SQL query' },
-      { id: 'terminal',       label: 'Terminal Helper',   Icon: (p) => <I.Terminal {...p} />,    desc: 'Explain or generate shell commands' },
-      { id: 'git_helper',     label: 'Git Helper',        Icon: (p) => <I.Hash {...p} />,        desc: 'Explain git commands and workflows' },
-      { id: 'regex_tester',  label: 'Regex Tester',      Icon: (p) => <IconSearch {...p} />,    desc: 'Live regex testing with match highlighting' },
-      { id: 'diff_checker',  label: 'Diff Checker',      Icon: (p) => <I.Diff {...p} />,        desc: 'Side-by-side text comparison with diff highlighting' },
+      { id: 'code_explainer', labelKey: 'devtools.code_explainer',    Icon: (p) => <IconCode {...p} />,      descKey: 'devtools.code_explainer.desc' },
+      { id: 'code_reviewer',  labelKey: 'devtools.code_reviewer',     Icon: (p) => <I.Shield {...p} />,      descKey: 'devtools.code_reviewer.desc' },
+      { id: 'regex',          labelKey: 'devtools.regex',             Icon: (p) => <IconSearch {...p} />,    descKey: 'devtools.regex.desc' },
+      { id: 'sql_builder',    labelKey: 'devtools.sql_builder',       Icon: (p) => <IconDatabase {...p} />,  descKey: 'devtools.sql_builder.desc' },
+      { id: 'terminal',       labelKey: 'devtools.terminal',          Icon: (p) => <I.Terminal {...p} />,    descKey: 'devtools.terminal.desc' },
+      { id: 'git_helper',     labelKey: 'devtools.git_helper',        Icon: (p) => <I.Hash {...p} />,        descKey: 'devtools.git_helper.desc' },
+      { id: 'regex_tester',   labelKey: 'devtools.regex_tester',      Icon: (p) => <IconSearch {...p} />,    descKey: 'devtools.regex_tester.desc' },
+      { id: 'diff_checker',   labelKey: 'devtools.diff_checker',      Icon: (p) => <I.Diff {...p} />,        descKey: 'devtools.diff_checker.desc' },
     ]
   },
   {
     id: 'data',
-    label: 'Data',
+    labelKey: 'devtools.cat.data',
     color: '#a855f7',
     tools: [
-      { id: 'json_formatter', label: 'JSON Formatter',    Icon: (p) => <I.Braces {...p} />,      desc: 'Format, validate and analyse JSON' },
-      { id: 'csv_analyser',   label: 'CSV Analyser',      Icon: (p) => <I.Diff {...p} />,        desc: 'Analyse CSV data and suggest insights' },
-      { id: 'data_to_schema', label: 'Schema Generator',  Icon: (p) => <IconDatabase {...p} />,  desc: 'Generate database schema from description' },
-      { id: 'api_analyzer',   label: 'API Analyzer',      Icon: (p) => <I.Api {...p} />,         desc: 'Debug and improve API requests' },
-      { id: 'env_checker',    label: 'Env File Auditor',  Icon: (p) => <I.Shield {...p} />,      desc: 'Audit .env files for security issues' },
-      { id: 'jwt_decoder',   label: 'JWT Decoder',       Icon: (p) => <I.Shield {...p} />,      desc: 'Decode and inspect JWT tokens' },
-      { id: 'base64',        label: 'Base64 Encoder/Decoder', Icon: (p) => <I.Braces {...p} />,  desc: 'Quick encode and decode utility' },
-      { id: 'api_tester',    label: 'API Tester',        Icon: (p) => <I.Api {...p} />,         desc: 'Send HTTP requests and inspect responses' },
+      { id: 'json_formatter', labelKey: 'devtools.json_formatter',    Icon: (p) => <I.Braces {...p} />,      descKey: 'devtools.json_formatter.desc' },
+      { id: 'csv_analyser',   labelKey: 'devtools.csv_analyser',      Icon: (p) => <I.Diff {...p} />,        descKey: 'devtools.csv_analyser.desc' },
+      { id: 'data_to_schema', labelKey: 'devtools.data_to_schema',    Icon: (p) => <IconDatabase {...p} />,  descKey: 'devtools.data_to_schema.desc' },
+      { id: 'api_analyzer',   labelKey: 'devtools.api_analyzer',      Icon: (p) => <I.Api {...p} />,         descKey: 'devtools.api_analyzer.desc' },
+      { id: 'env_checker',    labelKey: 'devtools.env_checker',       Icon: (p) => <I.Shield {...p} />,      descKey: 'devtools.env_checker.desc' },
+      { id: 'jwt_decoder',    labelKey: 'devtools.jwt_decoder',       Icon: (p) => <I.Shield {...p} />,      descKey: 'devtools.jwt_decoder.desc' },
+      { id: 'base64',         labelKey: 'devtools.base64',            Icon: (p) => <I.Braces {...p} />,      descKey: 'devtools.base64.desc' },
+      { id: 'api_tester',     labelKey: 'devtools.api_tester',        Icon: (p) => <I.Api {...p} />,         descKey: 'devtools.api_tester.desc' },
     ]
   },
   {
     id: 'content',
-    label: 'Content & Docs',
+    labelKey: 'devtools.cat.content',
     color: '#16a34a',
     tools: [
-      { id: 'readme',         label: 'README Generator',  Icon: (p) => <IconBook {...p} />,      desc: 'Professional docs from a description' },
-      { id: 'email_writer',   label: 'Email Writer',      Icon: (p) => <I.Mail {...p} />,        desc: 'Write professional emails fast' },
-      { id: 'text_improver',  label: 'Text Improver',     Icon: (p) => <I.FileText {...p} />,    desc: 'Rewrite any text for clarity and tone' },
-      { id: 'translator',     label: 'Translator',        Icon: (p) => <I.Translate {...p} />,   desc: 'Translate text to any language' },
-      { id: 'summariser',     label: 'Summariser',        Icon: (p) => <I.Compress {...p} />,    desc: 'Summarise long text into key points' },
+      { id: 'readme',         labelKey: 'devtools.readme',            Icon: (p) => <IconBook {...p} />,      descKey: 'devtools.readme.desc' },
+      { id: 'email_writer',   labelKey: 'devtools.email_writer',      Icon: (p) => <I.Mail {...p} />,        descKey: 'devtools.email_writer.desc' },
+      { id: 'text_improver',  labelKey: 'devtools.text_improver',     Icon: (p) => <I.FileText {...p} />,    descKey: 'devtools.text_improver.desc' },
+      { id: 'translator',     labelKey: 'devtools.translator',        Icon: (p) => <I.Translate {...p} />,   descKey: 'devtools.translator.desc' },
+      { id: 'summariser',     labelKey: 'devtools.summariser',        Icon: (p) => <I.Compress {...p} />,    descKey: 'devtools.summariser.desc' },
     ]
   },
   {
     id: 'business',
-    label: 'Business',
+    labelKey: 'devtools.cat.business',
     color: '#f59e0b',
     tools: [
-      { id: 'pitch_writer',   label: 'Pitch Writer',      Icon: (p) => <I.Zap {...p} />,         desc: 'Write investor or client pitches' },
-      { id: 'job_desc',       label: 'Job Description',   Icon: (p) => <I.FileText {...p} />,    desc: 'Write job posts that attract great hires' },
-      { id: 'sop_writer',     label: 'SOP Writer',        Icon: (p) => <I.Clock {...p} />,       desc: 'Create standard operating procedures' },
-      { id: 'cold_email',     label: 'Cold Email',        Icon: (p) => <I.Mail {...p} />,        desc: 'Write cold outreach that gets replies' },
+      { id: 'pitch_writer',   labelKey: 'devtools.pitch_writer',      Icon: (p) => <I.Zap {...p} />,         descKey: 'devtools.pitch_writer.desc' },
+      { id: 'job_desc',       labelKey: 'devtools.job_desc',          Icon: (p) => <I.FileText {...p} />,    descKey: 'devtools.job_desc.desc' },
+      { id: 'sop_writer',     labelKey: 'devtools.sop_writer',        Icon: (p) => <I.Clock {...p} />,       descKey: 'devtools.sop_writer.desc' },
+      { id: 'cold_email',     labelKey: 'devtools.cold_email',        Icon: (p) => <I.Mail {...p} />,        descKey: 'devtools.cold_email.desc' },
     ]
   },
   {
     id: 'education',
-    label: 'Education',
+    labelKey: 'devtools.cat.education',
     color: '#06b6d4',
     tools: [
-      { id: 'math_solver',    label: 'Math Solver',       Icon: (p) => <I.Calc {...p} />,        desc: 'LaTeX equations with step-by-step AI solutions' },
+      { id: 'math_solver',    labelKey: 'devtools.math_solver',       Icon: (p) => <I.Calc {...p} />,        descKey: 'devtools.math_solver.desc' },
     ]
   },
 ]
 
-const ALL_TOOLS = CATEGORIES.flatMap(c => c.tools.map(t => ({ ...t, category: c.id })))
+const ALL_TOOLS = CATEGORIES.flatMap(c => c.tools.map(tool => ({ ...tool, category: c.id })))
 
 const LANGUAGES    = ['JavaScript','TypeScript','Python','Go','Rust','Java','C++','PHP','Ruby','Swift','Kotlin','SQL','Bash']
 const SQL_DIALECTS = ['PostgreSQL','MySQL','SQLite','MSSQL','Oracle','BigQuery']
@@ -153,6 +154,7 @@ export default function DevToolsClient() {
   const [validationError, setValidationError] = useState('')
   const { startSession, endSession, markCopied } = useSessionTracker()
   const sessionRef = useRef(null)
+  const { t } = useTranslation()
 
   // End session on unmount
   useEffect(() => {
@@ -164,39 +166,39 @@ export default function DevToolsClient() {
     if (validationError) setValidationError('')
   }
 
-  // Validation for all 23 tools
+  // Validation for all 26 tools
   function validate() {
     const checks = {
-      code_explainer:  { field: form.code, label: 'Code is required to explain' },
-      code_reviewer:   { field: form.reviewCode, label: 'Paste the code to review' },
-      regex:           { field: form.description, label: 'Describe what pattern to match' },
-      sql_builder:     { field: form.sqlDesc, label: 'Describe the query you need' },
-      terminal:        { field: form.terminalCmd, label: 'Enter a command or task' },
-      git_helper:      { field: form.gitCmd, label: 'Enter a git question or task' },
-      regex_tester:    { field: form.regexPattern, label: 'Enter a regex pattern to test' },
-      json_formatter:  { field: form.json, label: 'Paste JSON to format' },
-      csv_analyser:    { field: form.csvData, label: 'Paste CSV data to analyse' },
-      data_to_schema:  { field: form.schemaDesc, label: 'Describe your data model' },
-      api_analyzer:    { field: form.endpoint, label: 'Enter an endpoint URL' },
-      env_checker:     { field: form.envContent, label: 'Paste your .env file' },
-      jwt_decoder:     { field: form.jwtToken, label: 'Paste a JWT token to decode' },
-      base64:          { field: form.base64Input, label: 'Enter text to encode or decode' },
-      readme:          { field: form.info, label: 'Describe your project first' },
-      email_writer:    { field: form.emailContext, label: 'Describe what the email should say' },
-      text_improver:   { field: form.textInput, label: 'Paste the text to improve' },
-      translator:      { field: form.translateText, label: 'Paste the text to translate' },
-      summariser:      { field: form.summariseText, label: 'Paste text to summarise' },
-      pitch_writer:    { field: form.pitchProduct, label: 'Describe what you\'re pitching' },
-      job_desc:        { field: form.jobTitle, label: 'Enter the job title' },
-      sop_writer:      { field: form.sopProcess, label: 'Describe the process to document' },
-      cold_email:      { field: form.coldTarget, label: 'Describe who you\'re emailing' },
-      diff_checker:    { field: form.diffOriginal, label: 'Enter original text to compare' },
-      api_tester:      { field: form.apiTesterUrl, label: 'Enter a URL to test' },
-      math_solver:     { field: form.mathEquation, label: 'Enter a math equation to solve' },
+      code_explainer:  { field: form.code, validationKey: 'devtools.validation.code_explainer' },
+      code_reviewer:   { field: form.reviewCode, validationKey: 'devtools.validation.code_reviewer' },
+      regex:           { field: form.description, validationKey: 'devtools.validation.regex' },
+      sql_builder:     { field: form.sqlDesc, validationKey: 'devtools.validation.sql_builder' },
+      terminal:        { field: form.terminalCmd, validationKey: 'devtools.validation.terminal' },
+      git_helper:      { field: form.gitCmd, validationKey: 'devtools.validation.git_helper' },
+      regex_tester:    { field: form.regexPattern, validationKey: 'devtools.validation.regex_tester' },
+      json_formatter:  { field: form.json, validationKey: 'devtools.validation.json_formatter' },
+      csv_analyser:    { field: form.csvData, validationKey: 'devtools.validation.csv_analyser' },
+      data_to_schema:  { field: form.schemaDesc, validationKey: 'devtools.validation.data_to_schema' },
+      api_analyzer:    { field: form.endpoint, validationKey: 'devtools.validation.api_analyzer' },
+      env_checker:     { field: form.envContent, validationKey: 'devtools.validation.env_checker' },
+      jwt_decoder:     { field: form.jwtToken, validationKey: 'devtools.validation.jwt_decoder' },
+      base64:          { field: form.base64Input, validationKey: 'devtools.validation.base64' },
+      readme:          { field: form.info, validationKey: 'devtools.validation.readme' },
+      email_writer:    { field: form.emailContext, validationKey: 'devtools.validation.email_writer' },
+      text_improver:   { field: form.textInput, validationKey: 'devtools.validation.text_improver' },
+      translator:      { field: form.translateText, validationKey: 'devtools.validation.translator' },
+      summariser:      { field: form.summariseText, validationKey: 'devtools.validation.summariser' },
+      pitch_writer:    { field: form.pitchProduct, validationKey: 'devtools.validation.pitch_writer' },
+      job_desc:        { field: form.jobTitle, validationKey: 'devtools.validation.job_desc' },
+      sop_writer:      { field: form.sopProcess, validationKey: 'devtools.validation.sop_writer' },
+      cold_email:      { field: form.coldTarget, validationKey: 'devtools.validation.cold_email' },
+      diff_checker:    { field: form.diffOriginal, validationKey: 'devtools.validation.diff_checker' },
+      api_tester:      { field: form.apiTesterUrl, validationKey: 'devtools.validation.api_tester' },
+      math_solver:     { field: form.mathEquation, validationKey: 'devtools.validation.math_solver' },
     }
     const check = checks[active]
     if (check && !check.field?.trim()) {
-      setValidationError(check.label)
+      setValidationError(t(check.validationKey))
       return false
     }
     setValidationError('')
@@ -331,8 +333,8 @@ export default function DevToolsClient() {
         body: JSON.stringify({ tool: active, payload: form })
       })
       const data = await res.json()
-      setResult(data.result || data.error || 'Something went wrong.')
-    } catch { setResult('Network error. Please try again.') }
+      setResult(data.result || data.error || t('common.error.general'))
+    } catch { setResult(t('common.error.network')) }
     setLoading(false)
   }
 
@@ -353,7 +355,7 @@ export default function DevToolsClient() {
   }
 
   const currentCat = CATEGORIES.find(c => c.id === activeCat)
-  const currentTool = ALL_TOOLS.find(t => t.id === active)
+  const currentTool = ALL_TOOLS.find(tool => tool.id === active)
 
   const inp   = "w-full bg-[#0a0a0a] border border-[#262626] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors"
   const mono  = `${inp} font-mono`
@@ -437,10 +439,10 @@ export default function DevToolsClient() {
         {/* Header */}
         <div className="mb-8 animate-fade-up">
           <h1 className="text-3xl font-semibold mb-1.5 tracking-tight">
-            Dev <span className="text-red-500">Tools</span>
+            {t('devtools.title1')} <span className="text-red-500">{t('devtools.title2')}</span>
           </h1>
           <p className="text-[#737373] text-sm">
-            26 AI-powered tools for developers, writers, and builders. Free. No account needed.
+            {t('devtools.subtitle')}
           </p>
         </div>
 
@@ -457,7 +459,7 @@ export default function DevToolsClient() {
               }`}
               style={activeCat === cat.id ? { background: cat.color, borderColor: cat.color } : {}}
             >
-              {cat.label}
+              {t(cat.labelKey)}
             </button>
           ))}
         </div>
@@ -474,7 +476,7 @@ export default function DevToolsClient() {
                   : 'bg-[#141414] border-[#262626] text-[#737373] hover:text-white hover:border-[#3a3a3a]'
               }`}
             >
-              <tool.Icon size={12} /> {tool.label}
+              <tool.Icon size={12} /> {t(tool.labelKey)}
             </button>
           ))}
         </div>
@@ -489,8 +491,8 @@ export default function DevToolsClient() {
                 <currentTool.Icon size={15} className="text-[#737373]" />
               </div>
               <div>
-                <h2 className="font-semibold text-sm tracking-tight">{currentTool.label}</h2>
-                <p className="text-xs text-[#737373]">{currentTool.desc}</p>
+                <h2 className="font-semibold text-sm tracking-tight">{t(currentTool.labelKey)}</h2>
+                <p className="text-xs text-[#737373]">{t(currentTool.descKey)}</p>
               </div>
             </div>
 
@@ -500,88 +502,88 @@ export default function DevToolsClient() {
 
               {active === 'code_explainer' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Language</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.language')}</label>
                   <Select value={form.language} onChange={v => set('language', v)} options={LANGUAGES.map(l => ({ value: l, label: l }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Paste your code</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.code')}</label>
                   <textarea className={`${tamono} h-52`} placeholder="Paste any code here..." value={form.code} onChange={e => set('code', e.target.value)} />
                 </div>
               </>}
 
               {active === 'code_reviewer' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Language</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.language')}</label>
                   <Select value={form.reviewLang} onChange={v => set('reviewLang', v)} options={LANGUAGES.map(l => ({ value: l, label: l }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Code to review</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.code_to_review')}</label>
                   <textarea className={`${tamono} h-52`} placeholder="Paste the code you want reviewed..." value={form.reviewCode} onChange={e => set('reviewCode', e.target.value)} />
                 </div>
               </>}
 
               {active === 'regex' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">What should the pattern match?</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.pattern_match')}</label>
                   <textarea className={`${ta} h-24`} placeholder="e.g. Nigerian phone numbers starting with 070, 080, 081, 090..." value={form.description} onChange={e => set('description', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Language</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.language')}</label>
                   <Select value={form.regexLang} onChange={v => set('regexLang', v)} options={LANGUAGES.map(l => ({ value: l, label: l }))} />
                 </div>
               </>}
 
               {active === 'sql_builder' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Describe the query</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.describe_query')}</label>
                   <textarea className={`${ta} h-24`} placeholder="e.g. Get all users who signed up in the last 30 days with their total order count, sorted by most recent" value={form.sqlDesc} onChange={e => set('sqlDesc', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">SQL Dialect</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.sql_dialect')}</label>
                   <Select value={form.dialect} onChange={v => set('dialect', v)} options={SQL_DIALECTS.map(d => ({ value: d, label: d }))} />
                 </div>
               </>}
 
               {active === 'terminal' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Context</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.context')}</label>
                   <Select value={form.terminalContext} onChange={v => set('terminalContext', v)} options={['Linux/Mac','Windows','Docker','AWS CLI','Git Bash'].map(c => ({ value: c, label: c }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Command or task</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.command')}</label>
                   <textarea className={`${tamono} h-28`} placeholder="e.g. find all .env files in this folder and subfolders but not in node_modules" value={form.terminalCmd} onChange={e => set('terminalCmd', e.target.value)} />
                 </div>
               </>}
 
               {active === 'git_helper' && (
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Git question or task</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.git_task')}</label>
                   <textarea className={`${ta} h-36`} placeholder="e.g. How do I squash my last 4 commits into one? / What does this error mean: fatal: refusing to merge unrelated histories" value={form.gitCmd} onChange={e => set('gitCmd', e.target.value)} />
                 </div>
               )}
 
               {active === 'regex_tester' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Regex pattern</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.regex_pattern')}</label>
                   <input className={mono} placeholder="e.g. \b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b" value={form.regexPattern} onChange={e => set('regexPattern', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Flags</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.flags')}</label>
                   <Select value={form.regexFlags} onChange={v => set('regexFlags', v)} options={['g','gi','gm','gs','gim','gims','i','im','m','s'].map(f => ({ value: f, label: f }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Test string</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.test_string')}</label>
                   <textarea className={`${ta} h-32`} placeholder="Enter text to test against the pattern..." value={form.regexTestString} onChange={e => set('regexTestString', e.target.value)} />
                 </div>
               </>}
 
               {active === 'diff_checker' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Original text</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.original_text')}</label>
                   <textarea className={`${tamono} h-36`} placeholder="Paste the original text here..." value={form.diffOriginal} onChange={e => set('diffOriginal', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Modified text</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.modified_text')}</label>
                   <textarea className={`${tamono} h-36`} placeholder="Paste the modified text here..." value={form.diffModified} onChange={e => set('diffModified', e.target.value)} />
                 </div>
               </>}
@@ -590,88 +592,88 @@ export default function DevToolsClient() {
 
               {active === 'json_formatter' && (
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Paste JSON</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.paste_json')}</label>
                   <textarea className={`${tamono} h-56`} placeholder={'{"key": "value"}'} value={form.json} onChange={e => set('json', e.target.value)} />
                 </div>
               )}
 
               {active === 'csv_analyser' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Paste CSV data (first 20 rows is enough)</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.paste_csv')}</label>
                   <textarea className={`${tamono} h-40`} placeholder={"name,email,plan,created_at\nAlex,alex@example.com,pro,2026-01-01"} value={form.csvData} onChange={e => set('csvData', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">What do you want to know? (optional)</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.csv_goal')}</label>
                   <input className={inp} placeholder="e.g. Which plan has the most users? Any patterns in the data?" value={form.csvGoal} onChange={e => set('csvGoal', e.target.value)} />
                 </div>
               </>}
 
               {active === 'data_to_schema' && (
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Describe your data model</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.describe_data')}</label>
                   <textarea className={`${ta} h-44`} placeholder={"e.g. An e-commerce platform with products, customers, orders, and order items. Customers can have multiple addresses. Products have categories and images."} value={form.schemaDesc} onChange={e => set('schemaDesc', e.target.value)} />
                 </div>
               )}
 
               {active === 'api_analyzer' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Endpoint URL</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.endpoint')}</label>
                   <input className={mono} placeholder="https://api.example.com/v1/users" value={form.endpoint} onChange={e => set('endpoint', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Method</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.method')}</label>
                   <Select value={form.method} onChange={v => set('method', v)} options={HTTP_METHODS.map(m => ({ value: m, label: m }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Headers (JSON)</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.headers')}</label>
                   <textarea className={`${tamono} h-14`} placeholder='{"Authorization": "Bearer token"}' value={form.headers} onChange={e => set('headers', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Body (JSON)</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.body')}</label>
                   <textarea className={`${tamono} h-14`} placeholder='{"email": "user@example.com"}' value={form.body} onChange={e => set('body', e.target.value)} />
                 </div>
               </>}
 
               {active === 'env_checker' && (
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Paste your .env file (sensitive values will not be stored)</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.paste_env')}</label>
                   <textarea className={`${tamono} h-52`} placeholder={"DATABASE_URL=...\nJWT_SECRET=...\nNEXT_PUBLIC_API_URL=..."} value={form.envContent} onChange={e => set('envContent', e.target.value)} />
                 </div>
               )}
 
               {active === 'jwt_decoder' && (
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Paste your JWT token</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.paste_jwt')}</label>
                   <textarea className={`${tamono} h-52`} placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c" value={form.jwtToken} onChange={e => set('jwtToken', e.target.value)} />
                 </div>
               )}
 
               {active === 'base64' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Mode</label>
-                  <Select value={form.base64Mode} onChange={v => set('base64Mode', v)} options={[{ value: 'encode', label: 'Encode' }, { value: 'decode', label: 'Decode' }]} />
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.mode')}</label>
+                  <Select value={form.base64Mode} onChange={v => set('base64Mode', v)} options={[{ value: 'encode', label: t('devtools.label.encode') }, { value: 'decode', label: t('devtools.label.decode') }]} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{form.base64Mode === 'encode' ? 'Text to encode' : 'Base64 string to decode'}</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{form.base64Mode === 'encode' ? t('devtools.label.text_to_encode') : t('devtools.label.base64_to_decode')}</label>
                   <textarea className={`${tamono} h-40`} placeholder={form.base64Mode === 'encode' ? 'Enter text to encode...' : 'Enter Base64 string to decode...'} value={form.base64Input} onChange={e => set('base64Input', e.target.value)} />
                 </div>
               </>}
 
               {active === 'api_tester' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">URL</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.url')}</label>
                   <input className={mono} placeholder="https://api.example.com/v1/users" value={form.apiTesterUrl} onChange={e => set('apiTesterUrl', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Method</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.method')}</label>
                   <Select value={form.apiTesterMethod} onChange={v => set('apiTesterMethod', v)} options={HTTP_METHODS.map(m => ({ value: m, label: m }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Headers (JSON)</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.headers')}</label>
                   <textarea className={`${tamono} h-14`} placeholder='{"Authorization": "Bearer token"}' value={form.apiTesterHeaders} onChange={e => set('apiTesterHeaders', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Body (JSON)</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.body')}</label>
                   <textarea className={`${tamono} h-14`} placeholder='{"email": "user@example.com"}' value={form.apiTesterBody} onChange={e => set('apiTesterBody', e.target.value)} />
                 </div>
               </>}
@@ -680,55 +682,55 @@ export default function DevToolsClient() {
 
               {active === 'readme' && (
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Describe your project</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.describe_project')}</label>
                   <textarea className={`${ta} h-52`} placeholder={"Project name, what it does, tech stack, key features, how to install and use it..."} value={form.info} onChange={e => set('info', e.target.value)} />
                 </div>
               )}
 
               {active === 'email_writer' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Recipient (role or name)</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.recipient')}</label>
                   <input className={inp} placeholder="e.g. CEO of a logistics company / potential client" value={form.emailRecipient} onChange={e => set('emailRecipient', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Tone</label>
-                  <Select value={form.emailTone} onChange={v => set('emailTone', v)} options={TONES.map(t => ({ value: t, label: t }))} />
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.tone')}</label>
+                  <Select value={form.emailTone} onChange={v => set('emailTone', v)} options={TONES.map(tn => ({ value: tn, label: tn }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">What does the email need to say?</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.email_content')}</label>
                   <textarea className={`${ta} h-32`} placeholder="Bullet points or a rough description. e.g. Following up on the proposal I sent Tuesday. Asking if they have questions. Suggesting a call this week." value={form.emailContext} onChange={e => set('emailContext', e.target.value)} />
                 </div>
               </>}
 
               {active === 'text_improver' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Goal</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.goal')}</label>
                   <Select value={form.textGoal} onChange={v => set('textGoal', v)} options={['Improve clarity','Make more professional','Make more concise','Fix grammar','Make more persuasive','Simplify for non-experts','Make more engaging'].map(g => ({ value: g, label: g }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Your text</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.your_text')}</label>
                   <textarea className={`${ta} h-44`} placeholder="Paste the text you want improved..." value={form.textInput} onChange={e => set('textInput', e.target.value)} />
                 </div>
               </>}
 
               {active === 'translator' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Target language</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.target_lang')}</label>
                   <Select value={form.targetLang} onChange={v => set('targetLang', v)} options={LANGUAGES_HUMAN.map(l => ({ value: l, label: l }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Text to translate</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.text_to_translate')}</label>
                   <textarea className={`${ta} h-44`} placeholder="Paste the text to translate..." value={form.translateText} onChange={e => set('translateText', e.target.value)} />
                 </div>
               </>}
 
               {active === 'summariser' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Summary style</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.summary_style')}</label>
                   <Select value={form.summariseStyle} onChange={v => set('summariseStyle', v)} options={['Bullet points','One paragraph','Executive summary','Tweet thread','ELI5 (simple)','Key quotes only'].map(s => ({ value: s, label: s }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Text to summarise</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.text_to_summarise')}</label>
                   <textarea className={`${ta} h-44`} placeholder="Paste an article, report, meeting notes, or any long text..." value={form.summariseText} onChange={e => set('summariseText', e.target.value)} />
                 </div>
               </>}
@@ -737,56 +739,56 @@ export default function DevToolsClient() {
 
               {active === 'pitch_writer' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Product or service</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.pitch_product')}</label>
                   <textarea className={`${ta} h-24`} placeholder="What you're pitching — the product, service, or idea. What it does, who it's for." value={form.pitchProduct} onChange={e => set('pitchProduct', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Audience</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.pitch_audience')}</label>
                   <input className={inp} placeholder="e.g. Seed-stage investors / a potential enterprise client / a strategic partner" value={form.pitchAudience} onChange={e => set('pitchAudience', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">The ask</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.pitch_ask')}</label>
                   <input className={inp} placeholder="e.g. $150,000 pre-seed / a 30-minute meeting / a pilot contract" value={form.pitchAsk} onChange={e => set('pitchAsk', e.target.value)} />
                 </div>
               </>}
 
               {active === 'job_desc' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Job title</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.job_title')}</label>
                   <input className={inp} placeholder="e.g. Senior Backend Engineer / Content Manager / Operations Lead" value={form.jobTitle} onChange={e => set('jobTitle', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Key responsibilities</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.job_responsibilities')}</label>
                   <textarea className={`${ta} h-24`} placeholder="3–5 bullet points of what this person will own..." value={form.jobResponsibilities} onChange={e => set('jobResponsibilities', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Requirements (must-have)</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.job_requirements')}</label>
                   <textarea className={`${ta} h-20`} placeholder="Skills, experience, and tools required..." value={form.jobRequirements} onChange={e => set('jobRequirements', e.target.value)} />
                 </div>
               </>}
 
               {active === 'sop_writer' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Process to document</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.sop_process')}</label>
                   <textarea className={`${ta} h-28`} placeholder="e.g. How to onboard a new client: from signed contract to first deliverable. Includes Slack setup, project creation in Notion, first call, questionnaire." value={form.sopProcess} onChange={e => set('sopProcess', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Who follows this SOP?</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.sop_role')}</label>
                   <input className={inp} placeholder="e.g. Junior account manager / any new team member / the founder" value={form.sopRole} onChange={e => set('sopRole', e.target.value)} />
                 </div>
               </>}
 
               {active === 'cold_email' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Who you're emailing (role + industry)</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.cold_target')}</label>
                   <input className={inp} placeholder="e.g. Operations manager at a mid-sized Lagos logistics company" value={form.coldTarget} onChange={e => set('coldTarget', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">What you offer</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.cold_product')}</label>
                   <input className={inp} placeholder="e.g. WhatsApp automation that handles customer queries automatically" value={form.coldProduct} onChange={e => set('coldProduct', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">One specific observation about their business (optional but powerful)</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.cold_observation')}</label>
                   <textarea className={`${ta} h-20`} placeholder="e.g. I noticed on their Google listing that customers complained about slow WhatsApp response times..." value={form.coldObservation} onChange={e => set('coldObservation', e.target.value)} />
                 </div>
               </>}
@@ -795,11 +797,11 @@ export default function DevToolsClient() {
 
               {active === 'math_solver' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Equation</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.equation')}</label>
                   <textarea className={`${tamono} h-28`} placeholder="e.g. Solve x² + 5x + 6 = 0" value={form.mathEquation} onChange={e => set('mathEquation', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">Context (optional)</label>
+                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.math_context')}</label>
                   <input className={inp} placeholder="e.g. Find all real roots" value={form.mathContext} onChange={e => set('mathContext', e.target.value)} />
                 </div>
               </>}
@@ -810,44 +812,44 @@ export default function DevToolsClient() {
 
             <button onClick={run} disabled={loading}
               className="mt-5 w-full bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white py-3 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 press">
-              {loading ? <><IconSpinner size={14} /> Running...</> : `Run ${currentTool.label} `}
+              {loading ? <><IconSpinner size={14} /> {t('devtools.running')}</> : `${t('common.run')} ${t(currentTool.labelKey)} `}
             </button>
 
             {/* ── Live display: JWT Decoder ─────────────── */}
             {active === 'jwt_decoder' && form.jwtToken.trim() && (
               <div className="mt-4 space-y-3">
-                <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider">Decoded Token</h3>
+                <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider">{t('devtools.decoded_token')}</h3>
                 {jwtDecoded?.error ? (
                   <div className="bg-red-950/20 border border-red-900/30 rounded-lg px-3 py-2 text-xs text-red-400">{jwtDecoded.error}</div>
                 ) : jwtDecoded ? (
                   <>
                     <div>
-                      <span className="text-xs text-[#737373]">Header</span>
+                      <span className="text-xs text-[#737373]">{t('devtools.jwt_header')}</span>
                       <pre className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-3 text-xs font-mono text-emerald-400 overflow-auto max-h-28 mt-1">{JSON.stringify(jwtDecoded.header, null, 2)}</pre>
                     </div>
                     <div>
-                      <span className="text-xs text-[#737373]">Payload</span>
+                      <span className="text-xs text-[#737373]">{t('devtools.jwt_payload')}</span>
                       <pre className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-3 text-xs font-mono text-sky-400 overflow-auto max-h-36 mt-1">{JSON.stringify(jwtDecoded.payload, null, 2)}</pre>
                     </div>
                     <div className="flex flex-wrap gap-3 text-xs">
                       {jwtDecoded.expDate && (
                         <div className="flex items-center gap-1.5">
                           <span className={`w-1.5 h-1.5 rounded-full ${jwtDecoded.expired ? 'bg-red-500' : 'bg-emerald-500'}`} />
-                          <span className="text-[#737373]">{jwtDecoded.expired ? 'Expired' : 'Valid'}</span>
+                          <span className="text-[#737373]">{jwtDecoded.expired ? t('devtools.jwt_expired') : t('devtools.jwt_valid')}</span>
                           <span className="text-[#525252]">{jwtDecoded.expDate}</span>
                         </div>
                       )}
                       {jwtDecoded.iatDate && (
                         <div className="flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                          <span className="text-[#737373]">Issued</span>
+                          <span className="text-[#737373]">{t('devtools.jwt_issued')}</span>
                           <span className="text-[#525252]">{jwtDecoded.iatDate}</span>
                         </div>
                       )}
                       {jwtDecoded.nbfDate && (
                         <div className="flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                          <span className="text-[#737373]">Not Before</span>
+                          <span className="text-[#737373]">{t('devtools.jwt_not_before')}</span>
                           <span className="text-[#525252]">{jwtDecoded.nbfDate}</span>
                         </div>
                       )}
@@ -860,9 +862,9 @@ export default function DevToolsClient() {
             {/* ── Live display: Base64 ──────────────────── */}
             {active === 'base64' && form.base64Input.trim() && (
               <div className="mt-4 space-y-3">
-                <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider">{form.base64Mode === 'encode' ? 'Encoded' : 'Decoded'} Result</h3>
+                <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider">{form.base64Mode === 'encode' ? t('devtools.encoded_result') : t('devtools.decoded_result')}</h3>
                 {base64Result === '__ERROR__' ? (
-                  <div className="bg-red-950/20 border border-red-900/30 rounded-lg px-3 py-2 text-xs text-red-400">Invalid input for {form.base64Mode} operation</div>
+                  <div className="bg-red-950/20 border border-red-900/30 rounded-lg px-3 py-2 text-xs text-red-400">{t('devtools.invalid_base64', { mode: form.base64Mode })}</div>
                 ) : base64Result ? (
                   <pre className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-3 text-xs font-mono text-emerald-400 overflow-auto max-h-32 whitespace-pre-wrap break-all">{base64Result}</pre>
                 ) : null}
@@ -872,9 +874,9 @@ export default function DevToolsClient() {
             {/* ── Live display: Regex Tester ────────────── */}
             {active === 'regex_tester' && form.regexPattern && form.regexTestString && (
               <div className="mt-4 space-y-3">
-                <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider">Matches</h3>
+                <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider">{t('devtools.matches')}</h3>
                 {regexMatches === null ? (
-                  <div className="bg-red-950/20 border border-red-900/30 rounded-lg px-3 py-2 text-xs text-red-400">Invalid regex pattern</div>
+                  <div className="bg-red-950/20 border border-red-900/30 rounded-lg px-3 py-2 text-xs text-red-400">{t('devtools.invalid_regex')}</div>
                 ) : (
                   <>
                     <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-3 text-sm overflow-auto max-h-36 whitespace-pre-wrap font-mono">
@@ -885,9 +887,9 @@ export default function DevToolsClient() {
                       )}
                     </div>
                     <div className="flex items-center gap-3 text-xs text-[#737373]">
-                      <span>{regexMatches.length} match{regexMatches.length !== 1 ? 'es' : ''}</span>
+                      <span>{regexMatches.length} {t('devtools.match')}{regexMatches.length !== 1 ? 'es' : ''}</span>
                       {regexMatches.some(m => m.groups.length > 0) && (
-                        <span>{regexMatches.reduce((acc, m) => acc + m.groups.length, 0)} captured group{regexMatches.reduce((acc, m) => acc + m.groups.length, 0) !== 1 ? 's' : ''}</span>
+                        <span>{regexMatches.reduce((acc, m) => acc + m.groups.length, 0)} {t('devtools.captured_group')}{regexMatches.reduce((acc, m) => acc + m.groups.length, 0) !== 1 ? 's' : ''}</span>
                       )}
                     </div>
                     {regexMatches.length > 0 && (
@@ -913,12 +915,12 @@ export default function DevToolsClient() {
           {/* ── Output Panel ─────────────────────────────────── */}
           <div className="bg-[#141414] rounded-xl p-6 flex flex-col min-h-[560px]">
             <div className="flex items-center justify-between mb-4 shrink-0">
-              <h2 className="font-semibold text-sm">Output</h2>
+              <h2 className="font-semibold text-sm">{t('devtools.output')}</h2>
               {result && (
                 <button onClick={copy} className="flex items-center gap-1.5 text-xs text-[#737373] hover:text-white transition-colors">
                   {copied
-                    ? <><IconCheck size={11} className="text-emerald-400" /> Copied</>
-                    : <><IconCopy size={11} /> Copy</>}
+                    ? <><IconCheck size={11} className="text-emerald-400" /> {t('common.copied')}</>
+                    : <><IconCopy size={11} /> {t('common.copy')}</>}
                 </button>
               )}
             </div>
@@ -945,9 +947,9 @@ export default function DevToolsClient() {
                     ))}
                   </div>
                   <div className="flex items-center gap-4 mt-3 text-xs text-[#737373]">
-                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Added ({diffResult.filter(l => l.type === 'added').length})</span>
-                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500" /> Removed ({diffResult.filter(l => l.type === 'removed').length})</span>
-                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#525252]" /> Unchanged ({diffResult.filter(l => l.type === 'unchanged').length})</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" /> {t('devtools.diff_added')} ({diffResult.filter(l => l.type === 'added').length})</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500" /> {t('devtools.diff_removed')} ({diffResult.filter(l => l.type === 'removed').length})</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#525252]" /> {t('devtools.diff_unchanged')} ({diffResult.filter(l => l.type === 'unchanged').length})</span>
                   </div>
                 </div>
               )
@@ -971,12 +973,12 @@ export default function DevToolsClient() {
                       </div>
                       {/* Headers */}
                       <div>
-                        <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider mb-1.5">Headers</h3>
+                        <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider mb-1.5">{t('devtools.label.headers')}</h3>
                         <pre className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-3 text-xs font-mono text-sky-400 overflow-auto max-h-28">{Object.entries(apiTestResult.headers).map(([k, v]) => `${k}: ${v}`).join('\n')}</pre>
                       </div>
                       {/* Body */}
                       <div>
-                        <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider mb-1.5">Body</h3>
+                        <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider mb-1.5">{t('devtools.label.body')}</h3>
                         <pre className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-3 text-xs font-mono text-emerald-400 overflow-auto max-h-64 whitespace-pre-wrap break-all">{apiTestResult.body}</pre>
                       </div>
                     </>
@@ -989,8 +991,8 @@ export default function DevToolsClient() {
                     <div className="w-12 h-12 bg-[#1a1a1a] rounded-xl flex items-center justify-center mx-auto mb-3">
                       <currentTool.Icon size={20} className="text-[#2e2e2e]" />
                     </div>
-                    <p className="text-[#404040] text-sm">{loading ? 'Running...' : 'Output appears here'}</p>
-                    <p className="text-[#2e2e2e] text-xs mt-1">Fill in the form and click Run</p>
+                    <p className="text-[#404040] text-sm">{loading ? t('devtools.running') : t('devtools.output_appears_here')}</p>
+                    <p className="text-[#2e2e2e] text-xs mt-1">{t('devtools.fill_and_run')}</p>
                   </div>
                 </div>
               )
@@ -1000,13 +1002,13 @@ export default function DevToolsClient() {
 
         {/* All tools quick reference */}
         <div className="mt-10 border-t border-[#141414] pt-10">
-          <h2 className="font-semibold text-base tracking-tight mb-6">All 26 tools</h2>
+          <h2 className="font-semibold text-base tracking-tight mb-6">{t('devtools.all_tools')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {CATEGORIES.map(cat => (
               <div key={cat.id} className="bg-[#141414] rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-2 h-5 rounded-full" style={{ background: cat.color }} />
-                  <h3 className="font-semibold text-sm">{cat.label}</h3>
+                  <h3 className="font-semibold text-sm">{t(cat.labelKey)}</h3>
                 </div>
                 <ul className="space-y-1.5">
                   {cat.tools.map(tool => (
@@ -1020,7 +1022,7 @@ export default function DevToolsClient() {
                         }`}
                       >
                         <tool.Icon size={11} className="shrink-0" />
-                        {tool.label}
+                        {t(tool.labelKey)}
                       </button>
                     </li>
                   ))}
@@ -1031,7 +1033,7 @@ export default function DevToolsClient() {
         </div>
 
         <p className="text-center text-xs text-[#2e2e2e] mt-8">
-          All tools free · Powered by Groq · 10 requests/minute limit
+          {t('devtools.footer_tagline')}
         </p>
       </div>
     </main>

@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCurrency } from '@/components/CurrencyToggle'
+import { useTranslation } from '@/components/LanguageProvider'
 import { supabasePublic } from '@/lib/supabase'
 import {
   IconTarget, IconFlame, IconLightning, IconTrending, IconSearch,
@@ -111,11 +112,13 @@ export default function DiscoverPage() {
     return () => clearInterval(timer)
   }, [])
 
+  const { t } = useTranslation()
+
   const getGreeting = () => {
     const h = new Date().getHours()
-    if (h < 12) return 'Good morning'
-    if (h < 18) return 'Good afternoon'
-    return 'Good evening'
+    if (h < 12) return t('discover.greeting.morning')
+    if (h < 18) return t('discover.greeting.afternoon')
+    return t('discover.greeting.evening')
   }
 
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Builder'
@@ -253,7 +256,7 @@ export default function DiscoverPage() {
             <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">
               {getGreeting()}, <span className="text-red-500">{displayName}</span>
             </h1>
-            <p className="text-[#737373] text-sm mt-0.5">Here&apos;s what&apos;s happening on your journey today.</p>
+            <p className="text-[#737373] text-sm mt-0.5">{t('discover.greeting.subtitle')}</p>
           </div>
           <div className="flex items-center gap-2 text-xs text-[#737373] shrink-0">
             <span className="w-1.5 h-1.5 bg-red-500 rounded-full pulse-dot" />
@@ -267,7 +270,7 @@ export default function DiscoverPage() {
             <IconLightning size={14} className="text-red-400" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] uppercase tracking-widest text-red-400 font-semibold mb-1">Did You Know?</p>
+            <p className="text-[10px] uppercase tracking-widest text-red-400 font-semibold mb-1">{t('discover.didyouknow')}</p>
             <p className="text-sm text-[#d4d4d4] leading-relaxed transition-all duration-300">{FACTS[factIndex]}</p>
           </div>
           <button
@@ -285,10 +288,10 @@ export default function DiscoverPage() {
       ═══════════════════════════════════════════════ */}
       <section className="max-w-4xl mx-auto px-4 py-5 animate-fade-up animate-fade-up-1">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <ProgressRing value={profileCompletion} label="Profile" color="#dc2626" />
-          <ProgressRing value={goalsProgress} label="Goals" color="#f59e0b" />
-          <ProgressRing value={Math.min(100, oppsExplored)} label="Available" color="#3b82f6" subtitle={`${oppsExplored} opps`} />
-          <ProgressRing value={savedCount > 0 ? 100 : 0} label="Saved" color="#16a34a" subtitle={`${savedCount}`} />
+          <ProgressRing value={profileCompletion} label={t('discover.progress.profile')} color="#dc2626" />
+          <ProgressRing value={goalsProgress} label={t('discover.progress.goals')} color="#f59e0b" />
+          <ProgressRing value={Math.min(100, oppsExplored)} label={t('discover.progress.available')} color="#3b82f6" subtitle={t('discover.progress.opps', { count: oppsExplored })} />
+          <ProgressRing value={savedCount > 0 ? 100 : 0} label={t('discover.progress.saved')} color="#16a34a" subtitle={`${savedCount}`} />
         </div>
       </section>
 
@@ -299,7 +302,7 @@ export default function DiscoverPage() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <IconTarget size={16} className="text-red-500" />
-            <h2 className="text-base font-semibold tracking-tight">Your Goals</h2>
+            <h2 className="text-base font-semibold tracking-tight">{t('discover.goals.title')}</h2>
             {goals.length > 0 && (
               <span className="text-[10px] font-mono text-[#737373] bg-[#141414] px-2 py-0.5 rounded-full">{goals.length}</span>
             )}
@@ -308,7 +311,7 @@ export default function DiscoverPage() {
             onClick={() => setShowGoalModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold transition-colors press"
           >
-            <IconPlus size={12} /> New Goal
+            <IconPlus size={12} /> {t('discover.goals.new')}
           </button>
         </div>
 
@@ -317,13 +320,13 @@ export default function DiscoverPage() {
             <div className="w-10 h-10 bg-[#1a1a1a] rounded-xl flex items-center justify-center mx-auto mb-3">
               <IconTarget size={18} className="text-[#737373]" />
             </div>
-            <h3 className="font-semibold text-sm mb-1.5 tracking-tight">No goals yet</h3>
-            <p className="text-[#737373] text-xs mb-4 max-w-xs mx-auto">Define what you want to achieve and track your progress with milestones.</p>
+            <h3 className="font-semibold text-sm mb-1.5 tracking-tight">{t('discover.goals.empty')}</h3>
+            <p className="text-[#737373] text-xs mb-4 max-w-xs mx-auto">{t('discover.goals.empty.desc')}</p>
             <button
               onClick={() => setShowGoalModal(true)}
               className="text-red-500 hover:text-red-400 text-xs font-medium transition-colors"
             >
-              Create your first goal
+              {t('discover.goals.create_first')}
             </button>
           </div>
         ) : (
@@ -344,7 +347,7 @@ export default function DiscoverPage() {
                         </div>
                         <div className="min-w-0">
                           <h3 className="font-semibold text-sm tracking-tight truncate">{goal.title}</h3>
-                          <p className="text-[10px] text-[#737373]">{completedSteps}/{goal.milestones.length} milestones</p>
+                          <p className="text-[10px] text-[#737373]">{t('discover.goals.milestones', { done: completedSteps, total: goal.milestones.length })}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -396,29 +399,29 @@ export default function DiscoverPage() {
                       className="mt-3 flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 transition-colors"
                     >
                       <IconSearch size={11} />
-                      {isGapOpen ? 'Hide' : 'Show'} Gap Analysis
+                      {isGapOpen ? t('discover.goals.gap.hide') : t('discover.goals.gap.show')}
                     </button>
                   </div>
 
                   {/* Gap Analysis panel */}
                   {isGapOpen && (
                     <div className="border-t border-[#1a1a1a] p-4 bg-[#0d0d0d] animate-fade-in">
-                      <p className="text-[10px] uppercase tracking-widest text-[#737373] font-semibold mb-3">Gap Analysis — What&apos;s between you and &ldquo;{goal.title}&rdquo;?</p>
+                      <p className="text-[10px] uppercase tracking-widest text-[#737373] font-semibold mb-3">{t('discover.goals.gap.title', { title: goal.title })}</p>
                       <div className="space-y-2 mb-3">
                         <div>
-                          <label className="text-[10px] text-[#737373] block mb-1">What you currently have</label>
+                          <label className="text-[10px] text-[#737373] block mb-1">{t('discover.goals.gap.current_label')}</label>
                           <input
                             className="w-full bg-[#141414] rounded-lg px-3 py-2 text-xs text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors"
-                            placeholder="e.g. Python basics, 3.8 GPA, laptop"
+                            placeholder={t('discover.goals.gap.current_placeholder')}
                             value={gapInput.current}
                             onChange={e => setGapInput(prev => ({ ...prev, current: e.target.value }))}
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] text-[#737373] block mb-1">What you need to get there</label>
+                          <label className="text-[10px] text-[#737373] block mb-1">{t('discover.goals.gap.target_label')}</label>
                           <input
                             className="w-full bg-[#141414] rounded-lg px-3 py-2 text-xs text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors"
-                            placeholder="e.g. Research experience, recommendation letters, leadership portfolio"
+                            placeholder={t('discover.goals.gap.target_placeholder')}
                             value={gapInput.target}
                             onChange={e => setGapInput(prev => ({ ...prev, target: e.target.value }))}
                           />
@@ -428,7 +431,7 @@ export default function DiscoverPage() {
                         <div className="bg-[#141414] rounded-lg p-3">
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <p className="text-[10px] text-green-400 font-semibold mb-1">You Have</p>
+                              <p className="text-[10px] text-green-400 font-semibold mb-1">{t('discover.goals.gap.have')}</p>
                               <div className="space-y-1">
                                 {gapInput.current.split(',').map((s, i) => (
                                   <div key={i} className="flex items-center gap-1.5 text-xs text-[#d4d4d4]">
@@ -439,7 +442,7 @@ export default function DiscoverPage() {
                               </div>
                             </div>
                             <div>
-                              <p className="text-[10px] text-red-400 font-semibold mb-1">You Need</p>
+                              <p className="text-[10px] text-red-400 font-semibold mb-1">{t('discover.goals.gap.need')}</p>
                               <div className="space-y-1">
                                 {gapInput.target.split(',').map((s, i) => (
                                   <div key={i} className="flex items-center gap-1.5 text-xs text-[#d4d4d4]">
@@ -468,7 +471,7 @@ export default function DiscoverPage() {
         <section className="max-w-4xl mx-auto px-4 py-3 animate-fade-up animate-fade-up-3">
           <div className="flex items-center gap-2 mb-3">
             <IconStar size={14} className="text-amber-400" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-400">Opportunity of the Day</span>
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-400">{t('discover.opp_of_day')}</span>
           </div>
           <div className="bg-[#141414] rounded-xl p-5 sm:p-6 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-[60px] pointer-events-none" />
@@ -497,7 +500,7 @@ export default function DiscoverPage() {
                 onClick={() => router.push(`/explore/${oppOfDay.slug}`)}
                 className="flex items-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 px-4 py-2.5 rounded-lg text-xs font-semibold transition-colors"
               >
-                View Opportunity <IconArrowRight size={12} />
+                {t('discover.opp.view_opportunity')} <IconArrowRight size={12} />
               </button>
             </div>
           </div>
@@ -512,10 +515,10 @@ export default function DiscoverPage() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <IconFlame size={14} className="text-red-500" />
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-[#737373]">Featured Opportunities</span>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-[#737373]">{t('discover.featured')}</span>
             </div>
             <Link href="/opportunities" className="text-xs text-red-500 hover:text-red-400 transition-colors flex items-center gap-1">
-              View all <IconArrowRight size={11} />
+              {t('discover.opp.view_all')} <IconArrowRight size={11} />
             </Link>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory -mx-4 px-4">
@@ -557,7 +560,7 @@ export default function DiscoverPage() {
       <section className="max-w-4xl mx-auto px-4 py-3 animate-fade-up animate-fade-up-5">
         <div className="flex items-center gap-2 mb-3">
           <IconTrending size={14} className="text-red-500" />
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-[#737373]">Discover Opportunities</span>
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-[#737373]">{t('discover.discover')}</span>
         </div>
 
         {/* Filters */}
@@ -587,7 +590,7 @@ export default function DiscoverPage() {
         {dataLoading ? (
           <div className="bg-[#141414] rounded-xl p-8 text-center">
             <IconSpinner size={16} className="text-red-500 mx-auto mb-2" />
-            <p className="text-xs text-[#737373]">Loading opportunities...</p>
+            <p className="text-xs text-[#737373]">{t('discover.swipe.loading')}</p>
           </div>
         ) : filteredSwipeOpps.length === 0 || swipeIndex >= filteredSwipeOpps.length ? (
           <div className="bg-[#141414] rounded-xl p-8 text-center">
@@ -595,21 +598,21 @@ export default function DiscoverPage() {
               <IconCheck size={16} className="text-green-400" />
             </div>
             <h3 className="font-semibold text-sm mb-1.5 tracking-tight">
-              {filteredSwipeOpps.length === 0 ? 'No opportunities match your filters' : 'You\'ve seen them all!'}
+              {filteredSwipeOpps.length === 0 ? t('discover.swipe.empty') : t('discover.swipe.all_seen')}
             </h3>
             <p className="text-[#737373] text-xs mb-4">
-              {savedOpps.length > 0 ? `You saved ${savedOpps.length} opportunities.` : 'Try changing your filters.'}
+              {savedOpps.length > 0 ? t('discover.swipe.saved_count', { count: savedOpps.length }) : t('discover.swipe.change_filters')}
             </p>
             {savedOpps.length > 0 && (
               <Link href="/opportunities" className="text-red-500 hover:text-red-400 text-xs font-medium transition-colors">
-                View saved opportunities
+                {t('discover.swipe.view_saved')}
               </Link>
             )}
           </div>
         ) : (
           <div>
             <p className="text-[10px] text-[#404040] font-mono mb-2">
-              {swipeIndex + 1} of {filteredSwipeOpps.length} opportunities
+              {t('discover.swipe.of', { current: swipeIndex + 1, total: filteredSwipeOpps.length })}
             </p>
 
             {(() => {
@@ -652,20 +655,20 @@ export default function DiscoverPage() {
                       onClick={() => handleSwipe('left')}
                       className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[#0a0a0a] text-[#737373] hover:text-white hover:bg-[#1a1a1a] transition-all text-xs font-medium press"
                     >
-                      Skip
+                      {t('discover.swipe.skip')}
                     </button>
                     <button
                       onClick={() => handleSwipe('right')}
                       className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-green-600/10 text-green-400 hover:bg-green-600/20 transition-all text-xs font-semibold press"
                     >
                       {isSaved ? <IconBookmarkFill size={13} /> : <IconBookmark size={13} />}
-                      Save
+                      {t('discover.swipe.save')}
                     </button>
                     <Link
                       href={`/explore/${opp.slug}`}
                       className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white transition-all text-xs font-semibold press"
                     >
-                      Explore <IconArrowRight size={11} />
+                      {t('discover.swipe.explore')} <IconArrowRight size={11} />
                     </Link>
                   </div>
                 </div>
@@ -674,7 +677,7 @@ export default function DiscoverPage() {
 
             {swipeIndex > 0 && (
               <button onClick={undoSwipe} className="mt-2 text-[10px] text-[#737373] hover:text-white transition-colors flex items-center gap-1 mx-auto">
-                Undo last swipe
+                {t('discover.swipe.undo')}
               </button>
             )}
           </div>
@@ -688,7 +691,7 @@ export default function DiscoverPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowGoalModal(false)}>
           <div className="bg-[#141414] rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto animate-scale-in" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b border-[#1a1a1a]">
-              <h3 className="font-semibold text-sm tracking-tight">Create a New Goal</h3>
+              <h3 className="font-semibold text-sm tracking-tight">{t('discover.modal.title')}</h3>
               <button onClick={() => setShowGoalModal(false)} className="text-[#737373] hover:text-white transition-colors">
                 <IconClose size={14} />
               </button>
@@ -701,7 +704,7 @@ export default function DiscoverPage() {
                   newGoalType === 'template' ? 'bg-red-600 text-white' : 'bg-[#0a0a0a] text-[#737373] hover:text-white'
                 }`}
               >
-                Templates
+                {t('discover.modal.template')}
               </button>
               <button
                 onClick={() => setNewGoalType('custom')}
@@ -709,7 +712,7 @@ export default function DiscoverPage() {
                   newGoalType === 'custom' ? 'bg-red-600 text-white' : 'bg-[#0a0a0a] text-[#737373] hover:text-white'
                 }`}
               >
-                Custom Goal
+                {t('discover.modal.custom')}
               </button>
             </div>
 
@@ -741,16 +744,16 @@ export default function DiscoverPage() {
             ) : (
               <div className="p-4 space-y-3">
                 <div>
-                  <label className="text-[10px] text-[#737373] block mb-1.5">Goal Title</label>
+                  <label className="text-[10px] text-[#737373] block mb-1.5">{t('discover.modal.goal_title')}</label>
                   <input
                     className="w-full bg-[#0a0a0a] rounded-lg px-3 py-2.5 text-xs text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors"
-                    placeholder="e.g. Get a tech internship by summer"
+                    placeholder={t('discover.modal.goal_title_placeholder')}
                     value={customGoalTitle}
                     onChange={e => setCustomGoalTitle(e.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] text-[#737373] block mb-1.5">Milestones (one per line)</label>
+                  <label className="text-[10px] text-[#737373] block mb-1.5">{t('discover.modal.milestones')}</label>
                   <textarea
                     className="w-full bg-[#0a0a0a] rounded-lg px-3 py-2.5 text-xs text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors min-h-[120px] resize-none"
                     placeholder={`Build portfolio\nPrepare resume\nApply to 20 companies\nPractice interviews\nAccept offer`}
@@ -763,7 +766,7 @@ export default function DiscoverPage() {
                   disabled={!customGoalTitle.trim()}
                   className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white py-2.5 rounded-lg text-xs font-semibold transition-colors press"
                 >
-                  Create Goal
+                  {t('discover.modal.create')}
                 </button>
               </div>
             )}

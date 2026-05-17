@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabasePublic } from '@/lib/supabase'
 import { IconUser, IconCheck, IconSpinner, IconGlobe, IconMapPin, IconLink, IconWarning, IconLogout } from '@/components/Icons'
+import { useTranslation } from '@/components/LanguageProvider'
 
 function IconShield({ size = 16, className = '' }) {
   return (
@@ -43,6 +44,7 @@ function parseUserAgent(ua) {
 
 export default function ProfilePage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -62,8 +64,8 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (toast) {
-      const t = setTimeout(() => setToast(null), 3000)
-      return () => clearTimeout(t)
+      const timer = setTimeout(() => setToast(null), 3000)
+      return () => clearTimeout(timer)
     }
   }, [toast])
 
@@ -112,9 +114,9 @@ export default function ProfilePage() {
         .eq('id', user.id)
 
       if (error) throw error
-      setToast({ type: 'success', message: 'Profile updated!' })
+      setToast({ type: 'success', message: t('profile.updated') })
     } catch (err) {
-      setToast({ type: 'error', message: err.message || 'Failed to update profile' })
+      setToast({ type: 'error', message: err.message || t('profile.update_failed') })
     }
     setSaving(false)
   }
@@ -183,8 +185,8 @@ export default function ProfilePage() {
             <IconUser size={14} className="text-[#737373]" />
           </div>
           <div>
-            <h1 className="font-semibold text-headline tracking-tight">Profile</h1>
-            <p className="text-[#737373] text-caption">Manage your account details</p>
+            <h1 className="font-semibold text-headline tracking-tight">{t('profile.title')}</h1>
+            <p className="text-[#737373] text-caption">{t('profile.subtitle')}</p>
           </div>
         </div>
 
@@ -221,7 +223,7 @@ export default function ProfilePage() {
               <h3 className="font-semibold text-body-sm mb-1">{displayName || 'Your name'}</h3>
               <p className="text-[#737373] text-caption truncate">{user?.email}</p>
               <div className="mt-4 pt-4 border-t border-[#1a1a1a]">
-                <label className="text-xs text-[#737373] block mb-1.5 font-medium text-left">Avatar URL</label>
+                <label className="text-xs text-[#737373] block mb-1.5 font-medium text-left">{t('profile.avatar')}</label>
                 <input
                   type="url"
                   className={inputClass}
@@ -238,11 +240,11 @@ export default function ProfilePage() {
             <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 space-y-5">
               {/* Display name */}
               <div>
-                <label className="text-xs text-[#737373] block mb-1.5 font-medium">Display name</label>
+                <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('profile.display_name')}</label>
                 <input
                   type="text"
                   className={inputClass}
-                  placeholder="Your display name"
+                  placeholder={t('profile.display_name_placeholder')}
                   value={form.display_name}
                   onChange={e => set('display_name', e.target.value)}
                 />
@@ -250,19 +252,19 @@ export default function ProfilePage() {
 
               {/* Email (read-only) */}
               <div>
-                <label className="text-xs text-[#737373] block mb-1.5 font-medium">Email</label>
+                <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('profile.email')}</label>
                 <div className="w-full bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl px-4 py-2.5 text-sm text-[#525252] cursor-not-allowed">
                   {user?.email}
                 </div>
-                <p className="text-[10px] text-[#404040] mt-1">Email cannot be changed here</p>
+                <p className="text-[10px] text-[#404040] mt-1">{t('profile.email_cannot_change')}</p>
               </div>
 
               {/* Bio */}
               <div>
-                <label className="text-xs text-[#737373] block mb-1.5 font-medium">Bio</label>
+                <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('profile.bio')}</label>
                 <textarea
                   className={`${inputClass} h-24 resize-none leading-relaxed`}
-                  placeholder="Tell us about yourself..."
+                  placeholder={t('profile.bio_placeholder')}
                   value={form.bio}
                   onChange={e => set('bio', e.target.value)}
                   maxLength={300}
@@ -273,20 +275,20 @@ export default function ProfilePage() {
               {/* Location + Website row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5 font-medium">Location</label>
+                  <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('profile.location')}</label>
                   <div className="relative">
                     <IconMapPin size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#404040]" />
                     <input
                       type="text"
                       className={`${inputClass} pl-9`}
-                      placeholder="Lagos, Nigeria"
+                      placeholder={t('profile.location_placeholder')}
                       value={form.location}
                       onChange={e => set('location', e.target.value)}
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5 font-medium">Website</label>
+                  <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('profile.website')}</label>
                   <div className="relative">
                     <IconGlobe size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#404040]" />
                     <input
@@ -306,7 +308,7 @@ export default function ProfilePage() {
                 disabled={saving}
                 className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 press"
               >
-                {saving ? <><IconSpinner size={14} /> Saving...</> : 'Save changes'}
+                {saving ? <><IconSpinner size={14} /> {t('profile.saving')}</> : t('profile.save')}
               </button>
             </div>
 
@@ -316,7 +318,7 @@ export default function ProfilePage() {
                 <div className="w-7 h-7 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
                   <IconMonitor size={14} className="text-[#737373]" />
                 </div>
-                <h2 className="font-semibold text-sm">Sessions</h2>
+                <h2 className="font-semibold text-sm">{t('profile.sessions')}</h2>
               </div>
 
               <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl p-4 space-y-3">
@@ -326,14 +328,14 @@ export default function ProfilePage() {
                       <IconMonitor size={14} className="text-emerald-400" />
                     </div>
                     <div>
-                      <div className="text-sm text-white font-medium">Current session</div>
+                      <div className="text-sm text-white font-medium">{t('profile.current_session')}</div>
                       <div className="text-xs text-[#737373]">{browser} on {os}</div>
                     </div>
                   </div>
-                  <span className="text-xs text-emerald-400 bg-emerald-950/30 border border-emerald-900/40 px-2 py-0.5 rounded-full">Active</span>
+                  <span className="text-xs text-emerald-400 bg-emerald-950/30 border border-emerald-900/40 px-2 py-0.5 rounded-full">{t('profile.active')}</span>
                 </div>
                 <div className="flex items-center gap-4 text-xs text-[#525252]">
-                  <span>Last active: {lastSignIn}</span>
+                  <span>{t('profile.last_active')} {lastSignIn}</span>
                 </div>
               </div>
 
@@ -342,7 +344,7 @@ export default function ProfilePage() {
                   onClick={signOutAll}
                   className="w-full bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-[#a3a3a3] hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
                 >
-                  <IconLogout size={14} /> Sign out of all devices
+                  <IconLogout size={14} /> {t('profile.sign_out_all')}
                 </button>
                 <p className="text-[10px] text-[#404040] mt-2 text-center">This will invalidate all active sessions across all devices</p>
               </div>
@@ -354,7 +356,7 @@ export default function ProfilePage() {
                 <div className="w-7 h-7 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
                   <IconLogout size={14} className="text-[#737373]" />
                 </div>
-                <h2 className="font-semibold text-sm">Sign Out</h2>
+                <h2 className="font-semibold text-sm">{t('profile.sign_out')}</h2>
               </div>
               <p className="text-xs text-[#737373] mb-4">
                 Sign out of your account on this device. You can always sign back in later.
@@ -373,7 +375,7 @@ export default function ProfilePage() {
                 <div className="w-7 h-7 bg-red-950/30 rounded-lg flex items-center justify-center">
                   <IconWarning size={14} className="text-red-400" />
                 </div>
-                <h2 className="font-semibold text-sm text-red-400">Danger Zone</h2>
+                <h2 className="font-semibold text-sm text-red-400">{t('profile.danger_zone')}</h2>
               </div>
 
               {!showDeleteDialog ? (
@@ -385,15 +387,15 @@ export default function ProfilePage() {
                     onClick={() => setShowDeleteDialog(true)}
                     className="w-full bg-red-950/30 border border-red-900/40 hover:bg-red-950/50 text-red-400 py-2.5 rounded-xl text-sm font-semibold transition-colors"
                   >
-                    Delete Account
+                    {t('profile.delete_account')}
                   </button>
                 </>
               ) : (
                 <div className="space-y-4">
                   <div className="bg-red-950/20 border border-red-900/30 rounded-xl p-4">
-                    <p className="text-sm text-red-300 mb-3 font-medium">Are you absolutely sure?</p>
+                    <p className="text-sm text-red-300 mb-3 font-medium">{t('profile.delete_confirm')}</p>
                     <p className="text-xs text-[#737373] mb-3">
-                      This action cannot be undone. Type <span className="text-red-400 font-mono font-bold">DELETE</span> to confirm.
+                      {t('profile.delete_description')} Type <span className="text-red-400 font-mono font-bold">DELETE</span> to confirm.
                     </p>
                     <input
                       type="text"
@@ -409,14 +411,14 @@ export default function ProfilePage() {
                       onClick={() => { setShowDeleteDialog(false); setDeleteConfirm('') }}
                       className="flex-1 bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-[#a3a3a3] hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-colors"
                     >
-                      Cancel
+                      {t('profile.cancel')}
                     </button>
                     <button
                       onClick={deleteAccount}
                       disabled={deleteConfirm !== 'DELETE' || deleting}
                       className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-30 disabled:cursor-not-allowed text-white py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
                     >
-                      {deleting ? <><IconSpinner size={14} /> Deleting...</> : 'Delete my account'}
+                      {deleting ? <><IconSpinner size={14} /> {t('profile.deleting')}</> : t('profile.delete_my_account')}
                     </button>
                   </div>
                 </div>

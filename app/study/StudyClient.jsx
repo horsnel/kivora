@@ -4,6 +4,7 @@ import { IconBook, IconWrite, IconMicroscope, IconCode, IconCopy, IconCheck, Ico
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
 import Select from '@/components/Select'
+import { useTranslation } from '@/components/LanguageProvider'
 
 /* ─── Icon Components ─────────────────────────────────────────── */
 
@@ -63,15 +64,15 @@ function IconNotes({ size = 16, className = '' }) {
 /* ─── Constants ────────────────────────────────────────────────── */
 
 const TOOLS = [
-  { id: 'homework',  label: 'Homework Helper',     Icon: IconBook,       desc: 'Step-by-step help on any subject' },
-  { id: 'essay',     label: 'Essay Outliner',       Icon: IconWrite,      desc: 'Build structured outlines fast' },
-  { id: 'research',  label: 'Research Summarizer',  Icon: IconMicroscope, desc: 'Paste a paper, get the key points' },
-  { id: 'citation',  label: 'Citation Generator',   Icon: IconCitation,   desc: 'APA, MLA, Chicago, Harvard' },
-  { id: 'coding',    label: 'Coding Practice',      Icon: IconCode,       desc: 'Practice problems with hints' },
-  { id: 'flashcard', label: 'Flashcard Generator',  Icon: IconFlashcard,  desc: 'Auto-generate flashcards with spaced repetition' },
-  { id: 'quiz',      label: 'Quiz Mode',            Icon: IconQuiz,       desc: 'AI-generated quizzes with scoring' },
-  { id: 'notes',     label: 'Study Notes Generator',Icon: IconNotes,      desc: 'Compile topics into organized study notes' },
-  { id: 'pomodoro',  label: 'Pomodoro Timer',       Icon: IconTimer,      desc: 'Built-in focus timer for study sessions' },
+  { id: 'homework',  labelKey: 'study.homework',  Icon: IconBook,      descKey: 'study.homework.desc' },
+  { id: 'essay',     labelKey: 'study.essay',     Icon: IconWrite,     descKey: 'study.essay.desc' },
+  { id: 'research',  labelKey: 'study.research',  Icon: IconMicroscope,descKey: 'study.research.desc' },
+  { id: 'citation',  labelKey: 'study.citation',  Icon: IconCitation,  descKey: 'study.citation.desc' },
+  { id: 'coding',    labelKey: 'study.coding',    Icon: IconCode,      descKey: 'study.coding.desc' },
+  { id: 'flashcard', labelKey: 'study.flashcard', Icon: IconFlashcard, descKey: 'study.flashcard.desc' },
+  { id: 'quiz',      labelKey: 'study.quiz',      Icon: IconQuiz,      descKey: 'study.quiz.desc' },
+  { id: 'notes',     labelKey: 'study.notes',     Icon: IconNotes,     descKey: 'study.notes.desc' },
+  { id: 'pomodoro',  labelKey: 'study.pomodoro',  Icon: IconTimer,     descKey: 'study.pomodoro.desc' },
 ]
 
 const SUBJECTS = ['Mathematics','Physics','Chemistry','Biology','History','English','Economics','Computer Science','Statistics','Psychology','Philosophy','Geography']
@@ -84,10 +85,10 @@ const QUIZ_DIFFICULTIES = ['Easy','Medium','Hard']
 const QUIZ_COUNTS = ['5','10','15']
 const NOTE_STYLES = ['Cornell Notes', 'Outline', 'Mind Map Text', 'Summary']
 const POMODORO_MODES = [
-  { value: 'pomodoro', label: 'Pomodoro (25 min)' },
-  { value: 'short', label: 'Short Break (5 min)' },
-  { value: 'long', label: 'Long Break (15 min)' },
-  { value: 'custom', label: 'Custom' },
+  { value: 'pomodoro', labelKey: 'study.pomodoro.mode_pomodoro' },
+  { value: 'short', labelKey: 'study.pomodoro.mode_short' },
+  { value: 'long', labelKey: 'study.pomodoro.mode_long' },
+  { value: 'custom', labelKey: 'study.pomodoro.mode_custom' },
 ]
 
 /* ─── Helpers ──────────────────────────────────────────────────── */
@@ -183,6 +184,7 @@ export default function StudyClient() {
   const [timerDone, setTimerDone] = useState(false)
 
   const { startSession, endSession, markCopied, markFollowUp } = useSessionTracker()
+  const { t } = useTranslation()
   const sessionRef = useRef(null)
 
   // Computed pomodoro total time
@@ -228,14 +230,14 @@ export default function StudyClient() {
 
   function validate() {
     const checks = {
-      homework:  { field: form.question, label: 'Enter your homework question' },
-      essay:     { field: form.topic, label: 'Enter an essay topic' },
-      research:  { field: form.text, label: 'Paste the paper text to summarize' },
-      citation:  { field: form.source, label: 'Enter source information for the citation' },
+      homework:  { field: form.question, label: t('study.validation.homework') },
+      essay:     { field: form.topic, label: t('study.validation.essay') },
+      research:  { field: form.text, label: t('study.validation.research') },
+      citation:  { field: form.source, label: t('study.validation.citation') },
       coding:    { skip: true },
-      flashcard: { field: form.flashcardNotes, label: 'Enter topic or notes for flashcards' },
-      quiz:      { field: form.quizTopic, label: 'Enter a quiz topic' },
-      notes:     { field: form.notesTopics, label: 'Enter topics or key concepts for notes' },
+      flashcard: { field: form.flashcardNotes, label: t('study.validation.flashcard') },
+      quiz:      { field: form.quizTopic, label: t('study.validation.quiz') },
+      notes:     { field: form.notesTopics, label: t('study.validation.notes') },
       pomodoro:  { skip: true },
     }
     const check = checks[active]
@@ -280,12 +282,12 @@ export default function StudyClient() {
         body: JSON.stringify({ type: active, payload: payloads[active] })
       })
       const data = await res.json()
-      setResult(data.result || data.error || 'Something went wrong.')
+      setResult(data.result || data.error || t('common.error.general'))
       if (active === 'quiz' && data.result) {
         const parsed = parseQuiz(data.result)
         if (parsed.length > 0) setQuizQuestions(parsed)
       }
-    } catch { setResult('Network error. Please try again.') }
+    } catch { setResult(t('common.error.network')) }
     setLoading(false)
   }
 
@@ -312,7 +314,7 @@ export default function StudyClient() {
     if (sessionRef.current) { endSession(sessionRef.current); sessionRef.current = null }
   }
 
-  const meta = TOOLS.find(t => t.id === active)
+  const meta = TOOLS.find(tool => tool.id === active)
 
   const inputClass = "w-full bg-[#0a0a0a] border border-[#262626] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#404040] focus:border-red-500 focus:outline-none focus:shadow-[0_0_0_2px_rgba(220,38,38,0.15),0_0_16px_rgba(220,38,38,0.06)] transition-all duration-200"
   const textareaClass = `${inputClass} resize-none leading-relaxed`
@@ -330,13 +332,13 @@ export default function StudyClient() {
     <main className="min-h-screen bg-[#0a0a0a]">
       <div className="max-w-4xl mx-auto px-4 py-10">
         <div className="mb-8 animate-fade-up">
-          <h1 className="text-3xl font-semibold mb-2 tracking-tight">Study<span className="text-red-500">Desk</span></h1>
-          <p className="text-[#737373] text-sm">9 AI-powered tools for students, researchers, and professors. Free, no account needed.</p>
+          <h1 className="text-3xl font-semibold mb-2 tracking-tight">{t('study.title').slice(0,5)}<span className="text-red-500">{t('study.title').slice(5)}</span></h1>
+          <p className="text-[#737373] text-sm">{t('study.subtitle')}</p>
         </div>
 
         {/* Tool tabs */}
         <div className="flex flex-wrap gap-2 mb-7">
-          {TOOLS.map(({ id, label, Icon }) => (
+          {TOOLS.map(({ id, labelKey, Icon }) => (
             <button key={id} onClick={() => {
               setActive(id); setResult('')
               setQuizQuestions([]); setQuizAnswers({}); setQuizChecked(false)
@@ -348,7 +350,7 @@ export default function StudyClient() {
               className={`flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium border transition-all ${
                 active === id ? 'bg-red-600 border-red-600 text-white' : 'bg-[#141414] border-[#262626] text-[#737373] hover:text-white hover:border-[#3a3a3a]'
               }`}>
-              <Icon size={13} /> {label}
+              <Icon size={13} /> {t(labelKey)}
             </button>
           ))}
         </div>
@@ -359,67 +361,67 @@ export default function StudyClient() {
             <div className="flex items-center gap-2 mb-5">
               <meta.Icon size={15} className="text-[#737373]" />
               <div>
-                <h2 className="font-semibold text-sm">{meta.label}</h2>
-                <p className="text-xs text-[#737373]">{meta.desc}</p>
+                <h2 className="font-semibold text-sm">{t(meta.labelKey)}</h2>
+                <p className="text-xs text-[#737373]">{t(meta.descKey)}</p>
               </div>
             </div>
 
             <div className="space-y-3">
               {active === 'homework' && <>
-                <div><label className="text-xs text-[#737373] block mb-1.5">Subject</label>
+                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.subject')}</label>
                   <Select value={form.subject} onChange={v => set('subject', v)} options={SUBJECTS.map(s => ({ value: s, label: s }))} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">Your Question</label>
+                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.question')}</label>
                   <textarea className={`${textareaClass} h-32`} placeholder="Paste your homework question here..." value={form.question} onChange={e => set('question', e.target.value)} /></div>
               </>}
 
               {active === 'essay' && <>
-                <div><label className="text-xs text-[#737373] block mb-1.5">Essay Topic</label>
+                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.topic')}</label>
                   <input className={inputClass} placeholder="e.g. The impact of social media on democracy" value={form.topic} onChange={e => set('topic', e.target.value)} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">Academic Level</label>
+                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.level')}</label>
                   <Select value={form.level} onChange={v => set('level', v)} options={ESSAY_LEVELS.map(l => ({ value: l, label: l }))} /></div>
               </>}
 
               {active === 'research' && (
-                <div><label className="text-xs text-[#737373] block mb-1.5">Paper or Article Text</label>
+                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.paper')}</label>
                   <textarea className={`${textareaClass} h-48`} placeholder="Paste the full text of the research paper..." value={form.text} onChange={e => set('text', e.target.value)} /></div>
               )}
 
               {active === 'citation' && <>
-                <div><label className="text-xs text-[#737373] block mb-1.5">Source Information</label>
+                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.source')}</label>
                   <textarea className={`${textareaClass} h-24`} placeholder="Author, title, year, publisher, URL..." value={form.source} onChange={e => set('source', e.target.value)} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">Citation Style</label>
+                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.style')}</label>
                   <Select value={form.style} onChange={v => set('style', v)} options={CITATION_STYLES.map(s => ({ value: s, label: s }))} /></div>
               </>}
 
               {active === 'coding' && <>
-                <div><label className="text-xs text-[#737373] block mb-1.5">Language</label>
+                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.language')}</label>
                   <Select value={form.language} onChange={v => set('language', v)} options={LANGUAGES.map(l => ({ value: l, label: l }))} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">Difficulty</label>
+                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.difficulty')}</label>
                   <Select value={form.codeLevel} onChange={v => set('codeLevel', v)} options={CODE_LEVELS.map(l => ({ value: l, label: l }))} /></div>
               </>}
 
               {active === 'flashcard' && <>
-                <div><label className="text-xs text-[#737373] block mb-1.5">Subject</label>
+                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.subject')}</label>
                   <Select value={form.flashcardSubject} onChange={v => set('flashcardSubject', v)} options={SUBJECTS.map(s => ({ value: s, label: s }))} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">Topic / Notes</label>
+                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.notes')}</label>
                   <textarea className={`${textareaClass} h-28`} placeholder="Enter the topic or paste your notes..." value={form.flashcardNotes} onChange={e => set('flashcardNotes', e.target.value)} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">Number of Cards</label>
+                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.cards')}</label>
                   <Select value={form.flashcardCount} onChange={v => set('flashcardCount', v)} options={FLASHCARD_COUNTS.map(c => ({ value: c, label: c }))} /></div>
               </>}
 
               {active === 'quiz' && <>
-                <div><label className="text-xs text-[#737373] block mb-1.5">Subject</label>
+                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.subject')}</label>
                   <Select value={form.quizSubject} onChange={v => set('quizSubject', v)} options={SUBJECTS.map(s => ({ value: s, label: s }))} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">Topic</label>
+                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.quizTopic')}</label>
                   <input className={inputClass} placeholder="e.g. World War II, Organic Chemistry" value={form.quizTopic} onChange={e => set('quizTopic', e.target.value)} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">Difficulty</label>
+                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.difficulty')}</label>
                   <Select value={form.quizDifficulty} onChange={v => set('quizDifficulty', v)} options={QUIZ_DIFFICULTIES.map(d => ({ value: d, label: d }))} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">Number of Questions</label>
+                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.questions')}</label>
                   <Select value={form.quizCount} onChange={v => set('quizCount', v)} options={QUIZ_COUNTS.map(c => ({ value: c, label: c }))} /></div>
               </>}
 
               {active === 'notes' && <>
-                <div><label className="text-xs text-[#737373] block mb-1.5">Subject</label>
+                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.subject')}</label>
                   <Select value={form.notesSubject} onChange={v => set('notesSubject', v)} options={SUBJECTS.map(s => ({ value: s, label: s }))} /></div>
                 <div><label className="text-xs text-[#737373] block mb-1.5">Topics / Key Concepts</label>
                   <textarea className={`${textareaClass} h-28`} placeholder="Enter topics or key concepts to compile into notes..." value={form.notesTopics} onChange={e => set('notesTopics', e.target.value)} /></div>
@@ -428,7 +430,7 @@ export default function StudyClient() {
               </>}
 
               {active === 'pomodoro' && <>
-                <div><label className="text-xs text-[#737373] block mb-1.5">Mode</label>
+                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.mode')}</label>
                   <div className="flex flex-wrap gap-2">
                     {POMODORO_MODES.map(m => (
                       <button key={m.value} type="button" onClick={() => set('pomodoroMode', m.value)}
@@ -437,13 +439,13 @@ export default function StudyClient() {
                             ? 'bg-red-600 border-red-600 text-white'
                             : 'bg-[#0a0a0a] border-[#262626] text-[#737373] hover:text-white hover:border-[#3a3a3a]'
                         }`}>
-                        {m.label}
+                        {t(m.labelKey)}
                       </button>
                     ))}
                   </div>
                 </div>
                 {form.pomodoroMode === 'custom' && (
-                  <div><label className="text-xs text-[#737373] block mb-1.5">Minutes</label>
+                  <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.minutes')}</label>
                     <input type="number" min="1" max="120" className={inputClass} placeholder="25" value={form.pomodoroMinutes} onChange={e => set('pomodoroMinutes', parseInt(e.target.value) || 25)} /></div>
                 )}
               </>}
@@ -454,7 +456,7 @@ export default function StudyClient() {
             {active !== 'pomodoro' && (
               <button onClick={run} disabled={loading}
                 className="mt-5 w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 press">
-                {loading ? <><IconSpinner size={14} /> Generating...</> : `Generate ${meta.label}`}
+                {loading ? <><IconSpinner size={14} /> {t('common.loading')}</> : `${t('study.generate')} ${t(meta.labelKey)}`}
               </button>
             )}
           </div>
@@ -463,11 +465,11 @@ export default function StudyClient() {
           <div className="bg-[#141414] rounded-xl p-6 flex flex-col min-h-[400px]">
             <div className="flex items-center justify-between mb-4 shrink-0">
               <h2 className="font-semibold text-sm">
-                {active === 'pomodoro' ? 'Timer' : active === 'quiz' && quizQuestions.length > 0 ? 'Quiz' : 'Output'}
+                {active === 'pomodoro' ? t('study.timer') : active === 'quiz' && quizQuestions.length > 0 ? 'Quiz' : t('study.output')}
               </h2>
               {result && active !== 'pomodoro' && !(active === 'quiz' && quizQuestions.length > 0) && (
                 <button onClick={copy} className="flex items-center gap-1 text-xs text-[#737373] hover:text-white transition-colors">
-                  {copied ? <><IconCheck size={11} className="text-emerald-400" /> Copied</> : <><IconCopy size={11} /> Copy</>}
+                  {copied ? <><IconCheck size={11} className="text-emerald-400" /> {t('common.copied')}</> : <><IconCopy size={11} /> {t('common.copy')}</>}
                 </button>
               )}
             </div>
@@ -493,29 +495,29 @@ export default function StudyClient() {
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <span className="text-4xl font-semibold text-white tracking-wider">{formatTime(timeLeft)}</span>
                     <span className="text-xs text-[#525252] mt-1.5">
-                      {form.pomodoroMode === 'pomodoro' ? 'Focus' : form.pomodoroMode === 'short' ? 'Short Break' : form.pomodoroMode === 'long' ? 'Long Break' : 'Custom'}
+                      {form.pomodoroMode === 'pomodoro' ? t('study.pomodoro.focus') : form.pomodoroMode === 'short' ? t('study.pomodoro.short_break') : form.pomodoroMode === 'long' ? t('study.pomodoro.long_break') : t('study.pomodoro.custom')}
                     </span>
                   </div>
                 </div>
 
                 {timerDone && (
                   <div className="bg-emerald-950/30 border border-emerald-800/40 rounded-xl px-4 py-2.5 text-xs text-emerald-400 mb-4">
-                    Time&apos;s up! Great focus session.
+                    {t('study.pomodoro.done')}
                   </div>
                 )}
 
                 <div className="text-sm text-[#525252] mb-6">
-                  Sessions completed: <span className="text-white font-semibold">{sessionCount}</span>
+                  {t('study.pomodoro.sessions')} <span className="text-white font-semibold">{sessionCount}</span>
                 </div>
 
                 <div className="flex gap-3">
                   <button onClick={startPomodoro}
                     className="bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors">
-                    {isRunning ? 'Pause' : timeLeft === pomodoroTotal ? 'Start' : 'Resume'}
+                    {isRunning ? t('study.pomodoro.pause') : timeLeft === pomodoroTotal ? t('study.pomodoro.start') : t('study.pomodoro.resume')}
                   </button>
                   <button onClick={resetPomodoro}
                     className="bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-[#a3a3a3] hover:text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors">
-                    Reset
+                    {t('study.pomodoro.reset')}
                   </button>
                 </div>
               </div>
@@ -524,7 +526,7 @@ export default function StudyClient() {
               <div className="flex-1 overflow-auto overscroll-behavior-contain space-y-4 max-h-[600px]">
                 {quizChecked && (
                   <div className="bg-[#1a1a1a] rounded-xl p-4 text-center shrink-0">
-                    <span className="text-lg font-bold text-white">Score: {quizScore}/{quizQuestions.length}</span>
+                    <span className="text-lg font-bold text-white">{t('study.quiz.score')} {quizScore}/{quizQuestions.length}</span>
                     <span className="text-[#737373] ml-2">({quizQuestions.length > 0 ? Math.round((quizScore / quizQuestions.length) * 100) : 0}%)</span>
                   </div>
                 )}
@@ -562,13 +564,13 @@ export default function StudyClient() {
                 {!quizChecked && (
                   <button onClick={() => setQuizChecked(true)}
                     className="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors">
-                    Check Answers
+                    {t('study.quiz.check')}
                   </button>
                 )}
                 {quizChecked && (
                   <button onClick={() => { setQuizAnswers({}); setQuizChecked(false) }}
                     className="w-full bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-[#a3a3a3] hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-colors">
-                    Retake Quiz
+                    {t('study.quiz.retake')}
                   </button>
                 )}
               </div>
@@ -580,7 +582,7 @@ export default function StudyClient() {
                   <div className="w-10 h-10 bg-[#1a1a1a] rounded-xl flex items-center justify-center mx-auto mb-3">
                     <meta.Icon size={18} className="text-[#2e2e2e]" />
                   </div>
-                  <p className="text-[#404040] text-sm">{loading ? 'Generating...' : active === 'pomodoro' ? 'Configure and start your focus session' : 'Fill in the form and click Generate'}</p>
+                  <p className="text-[#404040] text-sm">{loading ? t('common.loading') : active === 'pomodoro' ? 'Configure and start your focus session' : t('study.empty_hint')}</p>
                 </div>
               </div>
             )}

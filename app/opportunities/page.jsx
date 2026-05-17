@@ -2,9 +2,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCurrency } from '@/components/CurrencyToggle'
+import { useTranslation } from '@/components/LanguageProvider'
 import { IconMoney, IconLightning, IconTool, IconSearch, IconFilter, IconEye, IconArrowRight, IconSpinner, IconPlus, IconCheck, IconClose, IconTrending } from '@/components/Icons'
 
-const CATEGORIES = ['All','Automation','Content','YouTube','E-Commerce','Affiliate','Freelance','SaaS','Finance','Education','Africa','Developer']
+const CATEGORY_KEYS = ['all','automation','content','youtube','ecommerce','affiliate','freelance','saas','finance','education','africa','developer']
 
 // Inline icon: Calculator
 function IconCalc({ size = 16, className = '' }) {
@@ -58,6 +59,7 @@ function IconAddStep({ size = 16, className = '' }) {
 export default function OpportunitiesPage() {
   const router = useRouter()
   const { format } = useCurrency()
+  const { t } = useTranslation()
   const [opps, setOpps] = useState([])
   const [filtered, setFiltered] = useState([])
   const [loading, setLoading] = useState(true)
@@ -208,13 +210,13 @@ export default function OpportunitiesPage() {
     <main className="min-h-screen bg-[#0a0a0a]">
       <div className="max-w-6xl mx-auto px-4 py-10">
         <div className="mb-8 animate-fade-up">
-          <h1 className="text-display font-semibold mb-2 tracking-tight">Opportunity <span className="text-red-500">Engine</span></h1>
-          <p className="text-muted text-body">Browse {opps.length} cached guides or generate a new one.</p>
+          <h1 className="text-display font-semibold mb-2 tracking-tight">{t('opportunities.title')} <span className="text-red-500">{t('opportunities.title_highlight')}</span></h1>
+          <p className="text-muted text-body">{t('opportunities.browse', { count: opps.length })}</p>
         </div>
 
         {/* Generate new */}
         <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mb-7">
-          <p className="text-caption text-muted font-medium mb-3 flex items-center gap-1.5"><IconPlus size={12} /> Generate a new opportunity guide</p>
+          <p className="text-caption text-muted font-medium mb-3 flex items-center gap-1.5"><IconPlus size={12} /> {t('opportunities.generate_new')}</p>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <IconSearch size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted2 pointer-events-none" />
@@ -229,20 +231,20 @@ export default function OpportunitiesPage() {
             <button onClick={generate} disabled={generating || !genQuery.trim()}
               className="bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white px-5 py-3 rounded-xl text-body font-semibold transition-colors flex items-center gap-2 press whitespace-nowrap">
               {generating ? <IconSpinner size={14} /> : <IconArrowRight size={14} />}
-              {generating ? 'Generating...' : 'Generate'}
+              {generating ? t('opportunities.generating') : t('opportunities.generate')}
             </button>
           </div>
         </div>
 
         {/* ── Feature 1: Income Calculator ── */}
         <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mb-7">
-          <p className="text-caption text-muted font-medium mb-4 flex items-center gap-1.5"><IconCalc size={12} /> Income Calculator</p>
+          <p className="text-caption text-muted font-medium mb-4 flex items-center gap-1.5"><IconCalc size={12} /> {t('opportunities.income_calc')}</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
             {/* Min slider */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-caption text-muted2">Min Income</span>
+                <span className="text-caption text-muted2">{t('opportunities.min_income')}</span>
                 <span className="text-caption text-white font-mono">{format(calcMin)}</span>
               </div>
               <input type="range" min={0} max={20000} step={50} value={calcMin}
@@ -254,7 +256,7 @@ export default function OpportunitiesPage() {
             {/* Max slider */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-caption text-muted2">Max Income</span>
+                <span className="text-caption text-muted2">{t('opportunities.max_income')}</span>
                 <span className="text-caption text-white font-mono">{format(calcMax)}</span>
               </div>
               <input type="range" min={0} max={50000} step={100} value={calcMax}
@@ -309,7 +311,7 @@ export default function OpportunitiesPage() {
             <IconSearch size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted2 pointer-events-none" />
             <input
               className="w-full bg-[#141414] border border-white/[0.06] rounded-xl pl-9 pr-4 py-3 text-body text-white placeholder-muted2 focus:border-red-500 focus:outline-none transition-colors"
-              placeholder="Search opportunities..."
+              placeholder={t('opportunities.search')}
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
@@ -317,18 +319,22 @@ export default function OpportunitiesPage() {
         </div>
 
         <div className="flex flex-wrap gap-1.5 mb-5">
-          {CATEGORIES.map(c => (
-            <button key={c} onClick={() => setCat(c)}
+          {CATEGORY_KEYS.map(c => {
+            const label = c === 'all' ? t('opportunities.cat.all') : t(`opportunities.cat.${c}`)
+            const catValue = c === 'all' ? 'All' : c.charAt(0).toUpperCase() + c.slice(1)
+            return (
+            <button key={c} onClick={() => setCat(catValue)}
               className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-caption font-medium border transition-all ${
-                cat === c ? 'bg-red-600 border-red-600 text-white' : 'bg-[#141414] border-[#262626] text-muted hover:text-white hover:border-[#3a3a3a]'
+                cat === catValue ? 'bg-red-600 border-red-600 text-white' : 'bg-[#141414] border-[#262626] text-muted hover:text-white hover:border-[#3a3a3a]'
               }`}>
-              {c === 'All' && <IconFilter size={12} />}
-              {c}
+              {c === 'all' && <IconFilter size={12} />}
+              {label}
             </button>
-          ))}
+            )
+          })}
         </div>
 
-        {!loading && <p className="text-caption text-muted2 mb-4 font-mono">{filtered.length} results{cat !== 'All' ? ` in ${cat}` : ''}</p>}
+        {!loading && <p className="text-caption text-muted2 mb-4 font-mono">{filtered.length} {cat !== 'All' ? t('opportunities.results_in', { cat }) : t('opportunities.results')}</p>}
 
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -377,7 +383,7 @@ export default function OpportunitiesPage() {
                       className="flex items-center gap-1 px-2 py-1 rounded-md text-caption text-muted2 hover:text-white hover:bg-[#0a0a0a] transition-colors"
                       title="Use in income calculator">
                       <IconCalc size={12} />
-                      <span>Calc</span>
+                      <span>{t('opportunities.calc')}</span>
                     </button>
 
                     {/* Open checklist */}
@@ -385,7 +391,7 @@ export default function OpportunitiesPage() {
                       className="flex items-center gap-1 px-2 py-1 rounded-md text-caption text-muted2 hover:text-white hover:bg-[#0a0a0a] transition-colors"
                       title="Action plan checklist">
                       <IconChecklist size={12} />
-                      <span>Plan</span>
+                      <span>{t('opportunities.plan')}</span>
                     </button>
 
                     {/* Compare toggle */}
@@ -395,7 +401,7 @@ export default function OpportunitiesPage() {
                       }`}
                       title={isComparing ? 'Remove from comparison' : 'Add to comparison'}>
                       <IconCompare size={12} />
-                      <span>{isComparing ? 'Added' : 'Compare'}</span>
+                      <span>{isComparing ? t('opportunities.added') : t('opportunities.compare_short')}</span>
                     </button>
                   </div>
                 </div>
@@ -407,9 +413,9 @@ export default function OpportunitiesPage() {
             <div className="w-10 h-10 bg-[#141414] border border-white/[0.06] rounded-xl flex items-center justify-center mx-auto mb-3">
               <IconSearch size={20} className="text-[#2e2e2e]" />
             </div>
-            <h3 className="font-semibold mb-1.5 tracking-tight">No results found</h3>
-            <p className="text-muted text-body mb-4">{search ? `No matches for "${search}"` : 'No opportunities in this category yet'}</p>
-            <button onClick={() => { setSearch(''); setCat('All') }} className="text-red-500 hover:text-red-400 text-body">Clear filters</button>
+            <h3 className="font-semibold mb-1.5 tracking-tight">{t('opportunities.no_results')}</h3>
+            <p className="text-muted text-body mb-4">{search ? t('opportunities.no_matches', { search }) : t('opportunities.no_cat_results')}</p>
+            <button onClick={() => { setSearch(''); setCat('All') }} className="text-red-500 hover:text-red-400 text-body">{t('opportunities.clear_filters')}</button>
           </div>
         )}
       </div>
@@ -422,7 +428,7 @@ export default function OpportunitiesPage() {
             <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
               <div>
                 <h3 className="font-semibold text-body tracking-tight line-clamp-1">{checklistOpp.result?.title || checklistOpp.query}</h3>
-                <p className="text-caption text-muted2 mt-0.5">Action Plan Checklist</p>
+                <p className="text-caption text-muted2 mt-0.5">{t('opportunities.action_plan')}</p>
               </div>
               <button onClick={() => setChecklistSlug(null)} className="text-muted2 hover:text-white transition-colors p-1">
                 <IconClose size={16} />
@@ -432,7 +438,7 @@ export default function OpportunitiesPage() {
             {/* Progress bar */}
             <div className="px-5 pt-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-caption text-muted2">{completedCount}/{totalSteps} steps completed</span>
+                <span className="text-caption text-muted2">{completedCount}/{totalSteps} {t('opportunities.steps_completed')}</span>
                 <span className="text-caption text-white font-mono">{totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0}%</span>
               </div>
               <div className="w-full h-1.5 bg-[#262626] rounded-full overflow-hidden">
@@ -464,7 +470,7 @@ export default function OpportunitiesPage() {
               })}
 
               {allSteps.length === 0 && (
-                <p className="text-center text-muted text-body py-8">No action plan steps available for this opportunity.</p>
+                <p className="text-center text-muted text-body py-8">{t('opportunities.no_steps')}</p>
               )}
             </div>
 
@@ -473,7 +479,7 @@ export default function OpportunitiesPage() {
               <div className="flex gap-2">
                 <input
                   className="flex-1 bg-[#0a0a0a] border border-[#262626] rounded-lg px-3 py-2 text-body text-white placeholder-muted2 focus:border-red-500 focus:outline-none transition-colors"
-                  placeholder="Add a custom step..."
+                  placeholder={t('opportunities.add_step')}
                   value={newStepText}
                   onChange={e => setNewStepText(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && addCustomStep()}
@@ -481,7 +487,7 @@ export default function OpportunitiesPage() {
                 <button onClick={addCustomStep} disabled={!newStepText.trim()}
                   className="bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5">
                   <IconPlus size={12} />
-                  <span className="text-caption font-semibold">Add</span>
+                  <span className="text-caption font-semibold">{t('opportunities.add')}</span>
                 </button>
               </div>
             </div>
@@ -495,7 +501,7 @@ export default function OpportunitiesPage() {
           <button onClick={() => setShowCompare(true)}
             className="bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-xl text-body font-semibold transition-colors flex items-center gap-2 shadow-lg shadow-red-500/20 press">
             <IconCompare size={14} />
-            Compare ({compareSlugs.length})
+            {t('opportunities.compare')} ({compareSlugs.length})
           </button>
         </div>
       )}
@@ -508,7 +514,7 @@ export default function OpportunitiesPage() {
             <div className="flex items-center justify-between p-5 border-b border-white/[0.06] sticky top-0 bg-[#141414] z-10">
               <div className="flex items-center gap-2">
                 <IconCompare size={16} className="text-red-500" />
-                <h3 className="font-semibold text-body tracking-tight">Opportunity Comparison</h3>
+                <h3 className="font-semibold text-body tracking-tight">{t('opportunities.compare_title')}</h3>
               </div>
               <button onClick={() => setShowCompare(false)} className="text-muted2 hover:text-white transition-colors p-1">
                 <IconClose size={16} />
@@ -520,7 +526,7 @@ export default function OpportunitiesPage() {
               <table className="w-full text-left">
                 <thead>
                   <tr className="border-b border-white/[0.06]">
-                    <th className="pb-3 pr-4 text-caption text-muted2 font-medium w-32">Attribute</th>
+                    <th className="pb-3 pr-4 text-caption text-muted2 font-medium w-32">{t('opportunities.attribute')}</th>
                     {compareOpps.map(opp => (
                       <th key={opp.slug} className="pb-3 px-4 text-body text-white font-semibold min-w-[200px]">
                         <div className="line-clamp-2">{opp.result?.title || opp.query}</div>
@@ -531,7 +537,7 @@ export default function OpportunitiesPage() {
                 <tbody>
                   {/* Income Range */}
                   <tr className="border-b border-white/[0.04]">
-                    <td className="py-3 pr-4 text-caption text-muted2 font-medium flex items-center gap-1.5"><IconMoney size={12} /> Income</td>
+                    <td className="py-3 pr-4 text-caption text-muted2 font-medium flex items-center gap-1.5"><IconMoney size={12} /> {t('opportunities.income')}</td>
                     {compareOpps.map(opp => (
                       <td key={opp.slug} className="py-3 px-4 text-body text-white">
                         {format(opp.result?.income_min || 0)} – {format(opp.result?.income_max || 0)}
@@ -541,7 +547,7 @@ export default function OpportunitiesPage() {
                   </tr>
                   {/* Monthly Cost */}
                   <tr className="border-b border-white/[0.04]">
-                    <td className="py-3 pr-4 text-caption text-muted2 font-medium flex items-center gap-1.5"><IconTool size={12} /> Monthly Cost</td>
+                    <td className="py-3 pr-4 text-caption text-muted2 font-medium flex items-center gap-1.5"><IconTool size={12} /> {t('opportunities.monthly_cost')}</td>
                     {compareOpps.map(opp => (
                       <td key={opp.slug} className="py-3 px-4 text-body text-white">
                         {format(opp.result?.monthly_cost || 0)}<span className="text-muted2 text-caption">/mo</span>
@@ -550,16 +556,16 @@ export default function OpportunitiesPage() {
                   </tr>
                   {/* Startup Time */}
                   <tr className="border-b border-white/[0.04]">
-                    <td className="py-3 pr-4 text-caption text-muted2 font-medium flex items-center gap-1.5"><IconLightning size={12} /> Start Time</td>
+                    <td className="py-3 pr-4 text-caption text-muted2 font-medium flex items-center gap-1.5"><IconLightning size={12} /> {t('opportunities.start_time')}</td>
                     {compareOpps.map(opp => (
                       <td key={opp.slug} className="py-3 px-4 text-body text-white">
-                        {opp.result?.start_days || '?'} days
+                        {opp.result?.start_days || '?'} {t('opportunities.days')}
                       </td>
                     ))}
                   </tr>
                   {/* Tags */}
                   <tr>
-                    <td className="py-3 pr-4 text-caption text-muted2 font-medium flex items-center gap-1.5"><IconTrending size={12} /> Tags</td>
+                    <td className="py-3 pr-4 text-caption text-muted2 font-medium flex items-center gap-1.5"><IconTrending size={12} /> {t('opportunities.tags')}</td>
                     {compareOpps.map(opp => (
                       <td key={opp.slug} className="py-3 px-4">
                         <div className="flex flex-wrap gap-1">
@@ -578,11 +584,11 @@ export default function OpportunitiesPage() {
             <div className="p-5 border-t border-white/[0.06] flex items-center justify-between">
               <button onClick={() => { setCompareSlugs([]); setShowCompare(false) }}
                 className="text-caption text-muted2 hover:text-white transition-colors">
-                Clear all comparisons
+                {t('opportunities.clear_all')}
               </button>
               <button onClick={() => setShowCompare(false)}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-caption font-semibold transition-colors">
-                Done
+                {t('opportunities.done')}
               </button>
             </div>
           </div>

@@ -6,6 +6,7 @@ import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClo
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
+import { useTranslation } from '@/components/LanguageProvider'
 
 const MODELS = [
   { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', tag: 'Default · Fastest', short: '3.3 70B' },
@@ -22,25 +23,25 @@ const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp']
 const MAX_FILE_SIZE = 100 * 1024 // 100KB
 
 const STARTERS = [
-  { text: 'How do I start a WhatsApp bot business?', icon: IconChat },
-  { text: 'What\'s the cheapest stack to build a SaaS?', icon: IconLightning },
-  { text: 'How do I make money with AI automation?', icon: IconMoney },
-  { text: 'Explain how n8n workflows work', icon: IconTool },
-  { text: 'Best free AI tools for content creation?', icon: IconCode },
-  { text: 'How do I start freelancing with AI skills?', icon: IconBulb },
+  { labelKey: 'chat.starter.whatsapp', icon: IconChat },
+  { labelKey: 'chat.starter.saas', icon: IconLightning },
+  { labelKey: 'chat.starter.automation', icon: IconMoney },
+  { labelKey: 'chat.starter.n8n', icon: IconTool },
+  { labelKey: 'chat.starter.content', icon: IconCode },
+  { labelKey: 'chat.starter.freelancing', icon: IconBulb },
 ]
 
 const FOCUS_MODES = [
-  { id: 'All', label: 'All', desc: 'Default mode — general purpose', icon: '✦' },
-  { id: 'Academic', label: 'Academic', desc: 'Scholarly responses with citations', icon: '🎓' },
-  { id: 'Writing', label: 'Writing', desc: 'Creative & storytelling focus', icon: '✍' },
-  { id: 'Math', label: 'Math', desc: 'Step-by-step calculations', icon: 'Σ' },
-  { id: 'Code', label: 'Code', desc: 'Programming & technical focus', icon: '</>' },
+  { id: 'All', labelKey: 'chat.focus.all', descKey: 'chat.focus.all.desc', icon: '✦' },
+  { id: 'Academic', labelKey: 'chat.focus.academic', descKey: 'chat.focus.academic.desc', icon: '🎓' },
+  { id: 'Writing', labelKey: 'chat.focus.writing', descKey: 'chat.focus.writing.desc', icon: '✍' },
+  { id: 'Math', labelKey: 'chat.focus.math', descKey: 'chat.focus.math.desc', icon: 'Σ' },
+  { id: 'Code', labelKey: 'chat.focus.code', descKey: 'chat.focus.code.desc', icon: '</>' },
 ]
 
 const PRO_MODES = [
-  { id: 'reasoning', label: 'Deep Reasoning', desc: 'Sends with a chain-of-thought prompt' },
-  { id: 'prosearch', label: 'Pro Search', desc: 'Enables web search + deeper analysis' },
+  { id: 'reasoning', labelKey: 'chat.focus.reasoning', descKey: 'chat.focus.reasoning.desc' },
+  { id: 'prosearch', labelKey: 'chat.focus.prosearch', descKey: 'chat.focus.prosearch.desc' },
 ]
 
 function groupByDate(sessions) {
@@ -60,10 +61,10 @@ function groupByDate(sessions) {
   })
 
   const result = []
-  if (groups.today.length) result.push({ label: 'Today', sessions: groups.today })
-  if (groups.yesterday.length) result.push({ label: 'Yesterday', sessions: groups.yesterday })
-  if (groups.week.length) result.push({ label: 'This week', sessions: groups.week })
-  if (groups.older.length) result.push({ label: 'Older', sessions: groups.older })
+  if (groups.today.length) result.push({ labelKey: 'chat.date.today', sessions: groups.today })
+  if (groups.yesterday.length) result.push({ labelKey: 'chat.date.yesterday', sessions: groups.yesterday })
+  if (groups.week.length) result.push({ labelKey: 'chat.date.this_week', sessions: groups.week })
+  if (groups.older.length) result.push({ labelKey: 'chat.date.older', sessions: groups.older })
   return result
 }
 
@@ -127,6 +128,7 @@ export default function ChatClient() {
   const { startSession, endSession, markFollowUp } = useSessionTracker()
   const studySessionRef = useRef(null)
   const firstMessageSent = useRef(false)
+  const { t } = useTranslation()
 
   useEffect(() => {
     if (!supabasePublic) return
@@ -339,13 +341,13 @@ export default function ChatClient() {
     const isText = ALLOWED_TEXT_EXTENSIONS.includes(ext)
 
     if (!isImage && !isText) {
-      alert('Unsupported file type. Supported: ' + [...ALLOWED_TEXT_EXTENSIONS, ...ALLOWED_IMAGE_EXTENSIONS].join(', '))
+      alert(t('chat.error.unsupported_file'))
       e.target.value = ''
       return
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      alert('File too large. Maximum size is 100KB.')
+      alert(t('chat.error.file_too_large'))
       e.target.value = ''
       return
     }
@@ -481,9 +483,9 @@ export default function ChatClient() {
         })
       })
       const data = await res.json()
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply || data.error || 'Something went wrong.' }])
+      setMessages(prev => [...prev, { role: 'assistant', content: data.reply || data.error || t('chat.error.general') }])
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Network error. Please try again.' }])
+      setMessages(prev => [...prev, { role: 'assistant', content: t('chat.error.network') }])
     }
     setLoading(false)
   }
@@ -607,7 +609,7 @@ export default function ChatClient() {
   function chatTitle(session) {
     const msgs = session.messages || []
     const first = msgs.find(m => m.role === 'user')
-    return first?.content?.slice(0, 40) || 'New chat'
+    return first?.content?.slice(0, 40) || t('chat.new')
   }
 
   const hasInput = input.trim().length > 0 || attachedFile
@@ -628,7 +630,7 @@ export default function ChatClient() {
       >
         <div className="px-3 pt-3 pb-2 shrink-0">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-caption text-[#525252] uppercase tracking-wider font-medium">Chat history</span>
+            <span className="text-caption text-[#525252] uppercase tracking-wider font-medium">{t('chat.history')}</span>
             <button
               className="lg:hidden w-7 h-7 flex items-center justify-center text-[#525252] hover:text-white transition-colors"
               onClick={() => setHistoryOpen(false)}
@@ -642,8 +644,8 @@ export default function ChatClient() {
           {user && chatHistory.length > 0 ? (
             <div className="space-y-3">
               {historyGroups.map(group => (
-                <div key={group.label}>
-                  <p className="text-caption text-muted2 px-1 mb-1 uppercase tracking-wider font-medium">{group.label}</p>
+                <div key={group.labelKey}>
+                  <p className="text-caption text-muted2 px-1 mb-1 uppercase tracking-wider font-medium">{t(group.labelKey)}</p>
                   <div className="space-y-0.5">
                     {group.sessions.map(s => (
                       <button
@@ -663,7 +665,7 @@ export default function ChatClient() {
               ))}
             </div>
           ) : user ? (
-            <p className="text-caption text-[#2e2e2e] px-1 pt-2">No conversations yet</p>
+            <p className="text-caption text-[#2e2e2e] px-1 pt-2">{t('chat.history.empty')}</p>
           ) : (
             <div className="px-1 pt-2">
               <Link
@@ -671,7 +673,7 @@ export default function ChatClient() {
                 className="flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-caption py-2 rounded-lg transition-colors font-semibold w-full"
               >
                 <IconUser size={12} />
-                Sign in to save chats
+                {t('chat.history.signin')}
               </Link>
             </div>
           )}
@@ -686,7 +688,7 @@ export default function ChatClient() {
             <button
               className="lg:hidden w-8 h-8 flex items-center justify-center text-[#525252] hover:text-white transition-colors -ml-1"
               onClick={() => setHistoryOpen(true)}
-              aria-label="Chat history"
+              aria-label={t('chat.history')}
             >
               <IconMenu size={14} />
             </button>
@@ -696,7 +698,7 @@ export default function ChatClient() {
               </div>
               <div className="flex items-center gap-2">
                 <div>
-                  <h1 className="font-semibold text-caption leading-none">Kivora AI</h1>
+                  <h1 className="font-semibold text-caption leading-none">{t('chat.title')}</h1>
                 </div>
               </div>
             </div>
@@ -721,12 +723,12 @@ export default function ChatClient() {
               {customizeOpen && (
                 <div className="absolute top-full right-0 mt-1.5 w-72 bg-[#141414] border border-[#262626] rounded-xl shadow-2xl z-50 p-3 animate-scale-in overflow-hidden">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-body-sm font-medium text-white">Custom System Prompt</span>
+                    <span className="text-body-sm font-medium text-white">{t('chat.custom_prompt')}</span>
                     <button
                       onClick={resetCustomSystemPrompt}
                       className="text-[11px] text-[#525252] hover:text-red-400 transition-colors"
                     >
-                      Reset to default
+                      {t('chat.custom_prompt.reset')}
                     </button>
                   </div>
                   <textarea
@@ -737,7 +739,7 @@ export default function ChatClient() {
                     value={customSystemPrompt}
                     onChange={e => saveCustomSystemPrompt(e.target.value)}
                   />
-                  <p className="text-[11px] text-[#525252] mt-1.5">Instruct the AI how to behave. This is prepended to its system prompt.</p>
+                  <p className="text-[11px] text-[#525252] mt-1.5">{t('chat.custom_prompt.hint')}</p>
                 </div>
               )}
             </div>
@@ -760,14 +762,14 @@ export default function ChatClient() {
                     className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 text-body-sm text-[#a3a3a3] hover:bg-[#1a1a1a] hover:text-white transition-colors"
                   >
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M3 2h10v12H3z"/><path d="M5 5h6M5 8h4M5 11h6"/></svg>
-                    Export as Markdown
+                    {t('chat.export.md')}
                   </button>
                   <button
                     onClick={() => exportChat('txt')}
                     className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 text-body-sm text-[#a3a3a3] hover:bg-[#1a1a1a] hover:text-white transition-colors"
                   >
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M9 2v4h4"/></svg>
-                    Export as Text
+                    {t('chat.export.txt')}
                   </button>
                 </div>
               )}
@@ -776,8 +778,8 @@ export default function ChatClient() {
             <button
               onClick={clearChat}
               className="w-8 h-8 flex items-center justify-center text-[#525252] hover:text-white hover:bg-[#141414] rounded-lg transition-colors"
-              aria-label="New chat"
-              title="New chat"
+              aria-label={t('chat.new')}
+              title={t('chat.new')}
             >
               <IconPlus size={14} />
             </button>
@@ -792,19 +794,19 @@ export default function ChatClient() {
                 <div className="w-14 h-14 bg-[#141414] border border-white/[0.06] rounded-2xl flex items-center justify-center mx-auto mb-5">
                   <IconChat size={20} className="text-[#525252]" />
                 </div>
-                <h2 className="font-semibold text-headline mb-2 tracking-tight">Ask me anything</h2>
+                <h2 className="font-semibold text-headline mb-2 tracking-tight">{t('chat.empty.title')}</h2>
                 <p className="text-muted text-body mb-8 max-w-xs mx-auto leading-relaxed">
-                  AI tools, automation, making money, coding, research — I've got you.
+                  {t('chat.empty.subtitle')}
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left max-w-lg mx-auto">
-                  {STARTERS.map(({ text, icon: Icon }) => (
+                  {STARTERS.map(({ labelKey, icon: Icon }) => (
                     <button
-                      key={text}
-                      onClick={() => setInput(text)}
+                      key={labelKey}
+                      onClick={() => setInput(t(labelKey))}
                       className="flex items-center gap-3 bg-transparent border border-white/[0.08] hover:border-white/[0.15] hover:bg-[#141414] rounded-xl px-4 py-3.5 text-muted hover:text-white text-left transition-all leading-snug"
                     >
                       <Icon size={14} className="text-[#525252] shrink-0" />
-                      <span className="text-body-sm">{text}</span>
+                      <span className="text-body-sm">{t(labelKey)}</span>
                     </button>
                   ))}
                 </div>
@@ -871,7 +873,7 @@ export default function ChatClient() {
                           className="flex items-center gap-1 text-caption text-muted2 hover:text-muted transition-colors"
                         >
                           {copiedIndex === i ? <IconCheck size={12} /> : <IconCopy size={12} />}
-                          {copiedIndex === i ? 'Copied' : 'Copy'}
+                          {copiedIndex === i ? t('common.copied') : t('common.copy')}
                         </button>
                         {typeof window !== 'undefined' && window.speechSynthesis && (
                           <button
@@ -883,7 +885,7 @@ export default function ChatClient() {
                             }`}
                           >
                             <IconSpeaker size={12} />
-                            {isSpeaking && speakingIndex === i ? 'Stop' : 'Read aloud'}
+                            {isSpeaking && speakingIndex === i ? t('chat.stop') : t('chat.read_aloud')}
                           </button>
                         )}
                       </div>
@@ -948,8 +950,8 @@ export default function ChatClient() {
                 <button
                   className="chat-collapsed-btn-circle"
                   onClick={clearChat}
-                  aria-label="New chat"
-                  title="New chat"
+                  aria-label={t('chat.new')}
+                  title={t('chat.new')}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <line x1="12" y1="5" x2="12" y2="19"/>
@@ -962,7 +964,7 @@ export default function ChatClient() {
                   <input
                     ref={collapsedInputRef}
                     type="text"
-                    placeholder="Ask anything..."
+                    placeholder={t('chat.placeholder')}
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onFocus={() => setBarExpanded(true)}
@@ -1027,7 +1029,7 @@ export default function ChatClient() {
                   ref={textareaRef}
                   rows={1}
                   className="chat-textarea-expanded scrollbar-none"
-                  placeholder="Ask anything..."
+                  placeholder={t('chat.placeholder')}
                   value={input}
                   onChange={e => { setInput(e.target.value); autoResize(e.target) }}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
@@ -1058,8 +1060,8 @@ export default function ChatClient() {
                             >
                               <span className="chat-focus-icon">{m.icon}</span>
                               <div className="chat-focus-text">
-                                <span className="chat-focus-label">{m.label}</span>
-                                <span className="chat-focus-desc">{m.desc}</span>
+                                <span className="chat-focus-label">{t(m.labelKey)}</span>
+                                <span className="chat-focus-desc">{t(m.descKey)}</span>
                               </div>
                               {m.id === focusMode && <IconCheck size={14} className="text-[#ef4444] shrink-0 ml-auto" />}
                             </button>
@@ -1173,8 +1175,8 @@ export default function ChatClient() {
                               className={`chat-pro-option ${m.id === proModeType ? 'chat-pro-option-active' : ''}`}
                             >
                               <div className="chat-pro-text">
-                                <span className="chat-pro-option-label">{m.label}</span>
-                                <span className="chat-pro-option-desc">{m.desc}</span>
+                                <span className="chat-pro-option-label">{t(m.labelKey)}</span>
+                                <span className="chat-pro-option-desc">{t(m.descKey)}</span>
                               </div>
                               {m.id === proModeType && <IconCheck size={14} className="text-[#1d9bf0] shrink-0" />}
                             </button>
@@ -1201,7 +1203,7 @@ export default function ChatClient() {
               </div>
             )}
 
-            <p className="text-[11px] text-[#2e2e2e] text-center mt-2.5">AI can make mistakes. Verify important information.</p>
+            <p className="text-[11px] text-[#2e2e2e] text-center mt-2.5">{t('chat.disclaimer')}</p>
           </div>
         </div>
       </div>

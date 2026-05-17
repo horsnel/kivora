@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabasePublic } from '@/lib/supabase'
+import { useTranslation } from '@/components/LanguageProvider'
 import { IconChat, IconArrowLeft, IconPlus, IconSpinner, IconTrash, IconSend, IconUser } from '@/components/Icons'
 
 function IconForum({ size = 16, className = '' }) {
@@ -17,6 +18,7 @@ function IconForum({ size = 16, className = '' }) {
 const inputClass = "w-full bg-[#0a0a0a] border border-[#262626] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors"
 
 export default function CommunityPage() {
+  const { t } = useTranslation()
   const [user, setUser] = useState(null)
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -63,7 +65,7 @@ export default function CommunityPage() {
   }
 
   async function createPost() {
-    if (!user) { setError('Sign in to create a post'); return }
+    if (!user) { setError(t('community.signin_to_post')); return }
     if (!newPost.title.trim() || !newPost.body.trim()) { setError('Title and body are required'); return }
     setSubmitting(true); setError('')
     try {
@@ -168,8 +170,8 @@ export default function CommunityPage() {
               <IconForum size={14} className="text-[#737373]" />
             </div>
             <div>
-              <h1 className="font-semibold text-headline tracking-tight">Community</h1>
-              <p className="text-[#737373] text-caption">Discuss, share, and learn together</p>
+              <h1 className="font-semibold text-headline tracking-tight">{t('community.title')}</h1>
+              <p className="text-[#737373] text-caption">{t('community.subtitle')}</p>
             </div>
           </div>
           {user && (
@@ -177,7 +179,7 @@ export default function CommunityPage() {
               onClick={() => { setView('new'); setError('') }}
               className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors press"
             >
-              <IconPlus size={14} /> New post
+              <IconPlus size={14} /> {t('community.new_post')}
             </button>
           )}
         </div>
@@ -200,14 +202,14 @@ export default function CommunityPage() {
             <div className="w-12 h-12 bg-[#141414] rounded-xl flex items-center justify-center mx-auto mb-4">
               <IconChat size={20} className="text-[#2e2e2e]" />
             </div>
-            <h3 className="font-semibold text-headline mb-2 tracking-tight">No discussions yet</h3>
-            <p className="text-[#737373] text-body mb-6">Be the first to start a conversation!</p>
+            <h3 className="font-semibold text-headline mb-2 tracking-tight">{t('community.empty')}</h3>
+            <p className="text-[#737373] text-body mb-6">{t('community.empty_desc')}</p>
             {user && (
               <button
                 onClick={() => { setView('new'); setError('') }}
                 className="text-red-500 hover:text-red-400 text-body flex items-center gap-1 mx-auto"
               >
-                <IconPlus size={14} /> Create a post
+                <IconPlus size={14} /> {t('community.create_post')}
               </button>
             )}
           </div>
@@ -234,7 +236,7 @@ export default function CommunityPage() {
                       <span>{formatTime(post.created_at)}</span>
                       {post.reply_count > 0 && (
                         <span className="flex items-center gap-1 text-[#737373]">
-                          <IconChat size={10} /> {post.reply_count} {post.reply_count === 1 ? 'reply' : 'replies'}
+                          <IconChat size={10} /> {post.reply_count} {post.reply_count === 1 ? t('community.reply') : t('community.replies')}
                         </span>
                       )}
                     </div>
@@ -268,8 +270,8 @@ export default function CommunityPage() {
             <IconArrowLeft size={14} />
           </button>
           <div>
-            <h1 className="font-semibold text-headline tracking-tight">New discussion</h1>
-            <p className="text-[#737373] text-caption">Start a new conversation</p>
+            <h1 className="font-semibold text-headline tracking-tight">{t('community.new_discussion')}</h1>
+            <p className="text-[#737373] text-caption">{t('community.start_conversation')}</p>
           </div>
         </div>
 
@@ -281,11 +283,11 @@ export default function CommunityPage() {
 
         <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 space-y-4">
           <div>
-            <label className="text-xs text-[#737373] block mb-1.5 font-medium">Title</label>
+            <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('community.title_label')}</label>
             <input
               type="text"
               className={inputClass}
-              placeholder="What do you want to discuss?"
+              placeholder={t('community.body_placeholder')}
               value={newPost.title}
               onChange={e => setNewPost(p => ({ ...p, title: e.target.value }))}
               maxLength={200}
@@ -293,7 +295,7 @@ export default function CommunityPage() {
             <p className="text-[10px] text-[#404040] mt-1 text-right">{newPost.title.length}/200</p>
           </div>
           <div>
-            <label className="text-xs text-[#737373] block mb-1.5 font-medium">Body</label>
+            <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('community.body')}</label>
             <textarea
               className={`${inputClass} h-40 resize-none leading-relaxed`}
               placeholder="Share your thoughts, questions, or ideas..."
@@ -307,13 +309,13 @@ export default function CommunityPage() {
               disabled={submitting || !newPost.title.trim() || !newPost.body.trim()}
               className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 press"
             >
-              {submitting ? <><IconSpinner size={14} /> Posting...</> : <><IconSend size={14} /> Post discussion</>}
+              {submitting ? <><IconSpinner size={14} /> {t('community.posting')}</> : <><IconSend size={14} /> {t('community.post')}</>}
             </button>
             <button
               onClick={() => { setView('list'); setError('') }}
               className="px-4 py-2.5 border border-[#262626] hover:border-[#3a3a3a] text-[#737373] hover:text-white rounded-xl text-sm font-medium transition-colors"
             >
-              Cancel
+              {t('community.cancel')}
             </button>
           </div>
         </div>
@@ -334,8 +336,8 @@ export default function CommunityPage() {
             <IconArrowLeft size={14} />
           </button>
           <div>
-            <h1 className="font-semibold text-headline tracking-tight">Discussion</h1>
-            <p className="text-[#737373] text-caption">Back to community</p>
+            <h1 className="font-semibold text-headline tracking-tight">{t('community.discussion')}</h1>
+            <p className="text-[#737373] text-caption">{t('community.back')}</p>
           </div>
         </div>
 
@@ -371,7 +373,7 @@ export default function CommunityPage() {
                 </span>
                 <span>{formatTime(selectedPost.created_at)}</span>
                 <span className="flex items-center gap-1">
-                  <IconChat size={12} /> {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
+                  <IconChat size={12} /> {replies.length} {replies.length === 1 ? t('community.reply') : t('community.replies')}
                 </span>
               </div>
             </div>
@@ -416,7 +418,7 @@ export default function CommunityPage() {
                   <div className="flex-1">
                     <textarea
                       className={`${inputClass} h-20 resize-none leading-relaxed mb-2`}
-                      placeholder="Write a reply..."
+                      placeholder={t('community.reply_placeholder')}
                       value={replyBody}
                       onChange={e => setReplyBody(e.target.value)}
                     />
@@ -427,7 +429,7 @@ export default function CommunityPage() {
                         className="bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex items-center gap-2 press"
                       >
                         {submitting ? <IconSpinner size={14} /> : <IconSend size={14} />}
-                        Reply
+                        {t('community.reply_button')}
                       </button>
                     </div>
                   </div>
@@ -436,7 +438,7 @@ export default function CommunityPage() {
             ) : (
               <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5 text-center">
                 <p className="text-[#737373] text-caption">
-                  <a href="/auth" className="text-red-400 hover:text-red-300 transition-colors">Sign in</a> to join the discussion
+                  <a href="/auth" className="text-red-400 hover:text-red-300 transition-colors">Sign in</a> {t('community.signin_to_reply')}
                 </p>
               </div>
             )}

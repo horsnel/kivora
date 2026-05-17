@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabasePublic } from '@/lib/supabase'
 import { IconBookmark, IconChat, IconTrash, IconArrowRight, IconUser, IconMail, IconClock, IconCode, IconBook, IconFlame } from '@/components/Icons'
+import { useTranslation } from '@/components/LanguageProvider'
 
 function IconActivity({ size = 16, className = '' }) {
   return (
@@ -160,6 +161,7 @@ function buildWeeklyHeatmap(sessions) {
 
 export default function DashboardPage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saves, setSaves] = useState([])
@@ -328,23 +330,23 @@ export default function DashboardPage() {
               <IconUser size={14} className="text-[#737373]" />
             </div>
             <div>
-              <h1 className="font-semibold text-headline tracking-tight">Dashboard</h1>
+              <h1 className="font-semibold text-headline tracking-tight">{t('dashboard.title')}</h1>
               <p className="text-[#737373] text-caption">{user?.email}</p>
             </div>
           </div>
           <button onClick={() => router.push('/profile')} className="flex items-center gap-1.5 text-caption text-[#737373] hover:text-white border border-[#262626] hover:border-[#3a3a3a] px-3 py-1.5 rounded-lg transition-all">
-            <IconUser size={14} /> Profile
+            <IconUser size={14} /> {t('dashboard.profile')}
           </button>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-7">
           {[
-            { label: 'Streak', value: streakInfo.current > 0 ? `${streakInfo.current}d` : '0d', icon: streakInfo.current > 0 ? '🔥' : null },
-            { label: 'Saved', value: saves.length },
-            { label: 'Chats', value: chats.length },
-            { label: 'Messages', value: messages.length },
-            { label: 'Member since', value: user?.created_at ? new Date(user.created_at).toLocaleDateString('en', { month: 'short', year: 'numeric' }) : '—' },
+            { label: t('dashboard.streak'), value: streakInfo.current > 0 ? `${streakInfo.current}d` : '0d', icon: streakInfo.current > 0 ? '🔥' : null },
+            { label: t('dashboard.saved'), value: saves.length },
+            { label: t('dashboard.chats'), value: chats.length },
+            { label: t('dashboard.messages'), value: messages.length },
+            { label: t('dashboard.member_since'), value: user?.created_at ? new Date(user.created_at).toLocaleDateString('en', { month: 'short', year: 'numeric' }) : '—' },
           ].map(s => (
             <div key={s.label} className="bg-[#141414] border border-white/[0.06] rounded-xl px-4 py-3 text-center">
               <div className="font-bold text-headline tracking-tight">{s.icon ? `${s.icon} ` : ''}{s.value}</div>
@@ -362,7 +364,7 @@ export default function DashboardPage() {
                 <div className="w-6 h-6 bg-red-600/10 rounded-lg flex items-center justify-center">
                   <IconFlame size={14} className="text-red-400" />
                 </div>
-                <span className="text-caption text-[#737373]">Study Streak</span>
+                <span className="text-caption text-[#737373]">{t('dashboard.study_streak')}</span>
               </div>
               <div className="flex items-end gap-4">
                 <div>
@@ -370,11 +372,11 @@ export default function DashboardPage() {
                     {streakInfo.current > 0 && <span className="mr-1">🔥</span>}
                     {streakInfo.current}
                   </div>
-                  <div className="text-caption text-[#737373]">day{streakInfo.current !== 1 ? 's' : ''} current</div>
+                  <div className="text-caption text-[#737373]">{t('dashboard.current')}</div>
                 </div>
                 <div className="border-l border-[#262626] pl-4">
                   <div className="font-bold text-lg text-[#737373] tracking-tight">{streakInfo.best}</div>
-                  <div className="text-caption text-[#404040]">best streak</div>
+                  <div className="text-caption text-[#404040]">{t('dashboard.best')}</div>
                 </div>
               </div>
             </div>
@@ -385,7 +387,7 @@ export default function DashboardPage() {
                 <div className="w-6 h-6 bg-red-600/10 rounded-lg flex items-center justify-center">
                   <IconActivity size={14} className="text-red-400" />
                 </div>
-                <span className="text-caption text-[#737373]">Weekly Activity</span>
+                <span className="text-caption text-[#737373]">{t('dashboard.weekly_activity')}</span>
               </div>
               <div className="space-y-1">
                 {/* Day labels header */}
@@ -425,16 +427,16 @@ export default function DashboardPage() {
         {/* Tabs */}
         <div className="flex gap-1 bg-[#141414] border border-[#262626] p-1 rounded-xl mb-6">
           {[
-            { id: 'saved', label: 'Saved', shortLabel: 'Saved', Icon: IconBookmark },
-            { id: 'chats', label: 'Chat History', shortLabel: 'Chats', Icon: IconChat },
-            { id: 'messages', label: `Messages${unreadCount > 0 ? ` (${unreadCount})` : ''}`, shortLabel: unreadCount > 0 ? `Msgs (${unreadCount})` : 'Msgs', Icon: IconMail },
-            { id: 'activity', label: 'Activity', shortLabel: 'Activity', Icon: IconActivity },
-          ].map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
+            { id: 'saved', label: t('dashboard.tab_saved'), shortLabel: t('dashboard.tab_saved'), Icon: IconBookmark },
+            { id: 'chats', label: t('dashboard.tab_chats'), shortLabel: t('dashboard.chats'), Icon: IconChat },
+            { id: 'messages', label: `${t('dashboard.tab_messages')}${unreadCount > 0 ? ` (${unreadCount})` : ''}`, shortLabel: unreadCount > 0 ? `Msgs (${unreadCount})` : 'Msgs', Icon: IconMail },
+            { id: 'activity', label: t('dashboard.tab_activity'), shortLabel: t('dashboard.tab_activity'), Icon: IconActivity },
+          ].map(tabItem => (
+            <button key={tabItem.id} onClick={() => setTab(tabItem.id)}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 sm:px-3 rounded-lg text-caption sm:text-body font-medium transition-all whitespace-nowrap ${
-                tab === t.id ? 'bg-[#262626] text-white' : 'text-[#737373] hover:text-white'
+                tab === tabItem.id ? 'bg-[#262626] text-white' : 'text-[#737373] hover:text-white'
               }`}>
-              <t.Icon size={14} /> <span className="hidden sm:inline">{t.label}</span><span className="sm:hidden">{t.shortLabel}</span>
+              <tabItem.Icon size={14} /> <span className="hidden sm:inline">{tabItem.label}</span><span className="sm:hidden">{tabItem.shortLabel}</span>
             </button>
           ))}
         </div>
@@ -442,7 +444,7 @@ export default function DashboardPage() {
         {/* Saved */}
         {tab === 'saved' && (
           saves.length === 0 ? (
-            <Empty icon={<IconBookmark size={20} className="text-[#2e2e2e]" />} title="No saved opportunities" desc="Explore an opportunity and click Save to bookmark it here." action={{ label: 'Start exploring', href: '/home' }} router={router} />
+            <Empty icon={<IconBookmark size={20} className="text-[#2e2e2e]" />} title={t('dashboard.empty_saved')} desc="Explore an opportunity and click Save to bookmark it here." action={{ label: 'Start exploring', href: '/home' }} router={router} />
           ) : (
             <div className="space-y-2">
               {saves.map(save => (
@@ -468,7 +470,7 @@ export default function DashboardPage() {
         {/* Chats */}
         {tab === 'chats' && (
           chats.length === 0 ? (
-            <Empty icon={<IconChat size={20} className="text-[#2e2e2e]" />} title="No chat history" desc="Chat sessions are saved when you're signed in." action={{ label: 'Start a chat', href: '/chat' }} router={router} />
+            <Empty icon={<IconChat size={20} className="text-[#2e2e2e]" />} title={t('dashboard.empty_chats')} desc="Chat sessions are saved when you're signed in." action={{ label: 'Start a chat', href: '/chat' }} router={router} />
           ) : (
             <div className="space-y-2">
               {chats.map(chat => {
@@ -492,7 +494,7 @@ export default function DashboardPage() {
         {/* Messages */}
         {tab === 'messages' && (
           messages.length === 0 ? (
-            <Empty icon={<IconMail size={20} className="text-[#2e2e2e]" />} title="No messages yet" desc="Contact form submissions will appear here." action={{ label: 'View contact page', href: '/contact' }} router={router} />
+            <Empty icon={<IconMail size={20} className="text-[#2e2e2e]" />} title={t('dashboard.empty_messages')} desc="Contact form submissions will appear here." action={{ label: 'View contact page', href: '/contact' }} router={router} />
           ) : (
             <div className="space-y-2">
               {messages.map(msg => (
@@ -501,7 +503,7 @@ export default function DashboardPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         {!msg.read && <span className="w-1.5 h-1.5 bg-red-500 rounded-full shrink-0" />}
-                        <span className="text-body text-white font-medium truncate">{msg.name || 'Anonymous'}</span>
+                        <span className="text-body text-white font-medium truncate">{msg.name || t('dashboard.anonymous')}</span>
                         <span className="text-caption text-[#404040] shrink-0">{new Date(msg.created_at).toLocaleDateString()}</span>
                       </div>
                       <a href={`mailto:${msg.email}`} className="text-caption text-red-400 hover:text-red-300 transition-colors">{msg.email}</a>
@@ -517,7 +519,7 @@ export default function DashboardPage() {
                         }}
                         className="text-caption text-[#737373] hover:text-white border border-[#262626] hover:border-[#3a3a3a] px-2.5 py-1 rounded-lg transition-all"
                       >
-                        {expandedMsg === msg.id ? 'Hide' : 'View'}
+                        {expandedMsg === msg.id ? t('dashboard.hide') : t('dashboard.view')}
                       </button>
                       <button onClick={() => deleteMessage(msg.id)} className="text-[#404040] hover:text-red-500 transition-colors p-1">
                         <IconTrash size={14} />
@@ -547,15 +549,15 @@ export default function DashboardPage() {
               <div className="skeleton border border-[#262626] rounded-xl p-5 h-48" />
             </div>
           ) : totalSessions === 0 ? (
-            <Empty icon={<IconActivity size={20} className="text-[#2e2e2e]" />} title="No activity yet" desc="Use StudyDesk, DevTools, or Chat while signed in to see your stats here." action={{ label: 'Try StudyDesk', href: '/study' }} router={router} />
+            <Empty icon={<IconActivity size={20} className="text-[#2e2e2e]" />} title={t('dashboard.empty_activity')} desc="Use StudyDesk, DevTools, or Chat while signed in to see your stats here." action={{ label: 'Try StudyDesk', href: '/study' }} router={router} />
           ) : (
             <div className="space-y-4">
               {/* Range selector */}
               <div className="flex gap-1 bg-[#141414] border border-[#262626] p-1 rounded-lg">
                 {[
-                  { id: 'week', label: 'This week' },
-                  { id: 'month', label: 'This month' },
-                  { id: 'all', label: 'All time' },
+                  { id: 'week', label: t('dashboard.this_week') },
+                  { id: 'month', label: t('dashboard.this_month') },
+                  { id: 'all', label: t('dashboard.all_time') },
                 ].map(r => (
                   <button key={r.id} onClick={() => setActivityRange(r.id)}
                     className={`flex-1 py-1.5 px-3 rounded-md text-caption font-medium transition-all ${
@@ -573,7 +575,7 @@ export default function DashboardPage() {
                     <div className="w-6 h-6 bg-red-600/10 rounded-lg flex items-center justify-center">
                       <IconClock size={14} className="text-red-400" />
                     </div>
-                    <span className="text-caption text-[#737373]">Time spent</span>
+                    <span className="text-caption text-[#737373]">{t('dashboard.time_spent')}</span>
                   </div>
                   <div className="font-bold text-headline tracking-tight">{formatDuration(totalTimeMs)}</div>
                 </div>
@@ -582,7 +584,7 @@ export default function DashboardPage() {
                     <div className="w-6 h-6 bg-red-600/10 rounded-lg flex items-center justify-center">
                       <IconActivity size={14} className="text-red-400" />
                     </div>
-                    <span className="text-caption text-[#737373]">Sessions</span>
+                    <span className="text-caption text-[#737373]">{t('dashboard.sessions')}</span>
                   </div>
                   <div className="font-bold text-headline tracking-tight">{totalSessions}</div>
                 </div>
@@ -591,7 +593,7 @@ export default function DashboardPage() {
                     <div className="w-6 h-6 bg-red-600/10 rounded-lg flex items-center justify-center">
                       <IconBook size={14} className="text-red-400" />
                     </div>
-                    <span className="text-caption text-[#737373]">Subjects</span>
+                    <span className="text-caption text-[#737373]">{t('dashboard.subjects')}</span>
                   </div>
                   <div className="font-bold text-headline tracking-tight">{Object.keys(subjectBreakdown).length}</div>
                 </div>
@@ -602,7 +604,7 @@ export default function DashboardPage() {
                 {/* Category breakdown */}
                 {Object.keys(categoryBreakdown).length > 0 && (
                   <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
-                    <h3 className="font-semibold text-body mb-4">Tool categories</h3>
+                    <h3 className="font-semibold text-body mb-4">{t('dashboard.tool_categories')}</h3>
                     <div className="space-y-3">
                       {Object.entries(categoryBreakdown)
                         .sort((a, b) => b[1].timeMs - a[1].timeMs)
@@ -628,7 +630,7 @@ export default function DashboardPage() {
                 {/* Subject breakdown */}
                 {topSubjects.length > 0 && (
                   <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
-                    <h3 className="font-semibold text-body mb-4">Subjects</h3>
+                    <h3 className="font-semibold text-body mb-4">{t('dashboard.subjects')}</h3>
                     <div className="flex flex-wrap gap-2">
                       {topSubjects.map(([subject, count]) => (
                         <span key={subject} className="text-caption text-[#d4d4d4] bg-[#1a1a1a] border border-[#262626] px-3 py-1.5 rounded-full font-medium">
@@ -643,7 +645,7 @@ export default function DashboardPage() {
               {/* Recent sessions */}
               {activitySessions.length > 0 && (
                 <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
-                  <h3 className="font-semibold text-body mb-4">Recent sessions</h3>
+                  <h3 className="font-semibold text-body mb-4">{t('dashboard.recent_sessions')}</h3>
                   <div className="space-y-2">
                     {activitySessions.slice(0, 15).map(s => {
                       const duration = s.duration_ms || (s.ended_at && s.started_at ? new Date(s.ended_at) - new Date(s.started_at) : null)
