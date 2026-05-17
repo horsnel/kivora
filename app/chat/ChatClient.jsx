@@ -1098,7 +1098,7 @@ export default function ChatClient() {
                         onClick={() => { setFocusDropdownOpen(!focusDropdownOpen); setProTypeDropdownOpen(false); setModelChipDropdownOpen(false) }}
                         title="Focus mode"
                       >
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
                         <span>{focusMode}</span>
                       </button>
 
@@ -1128,7 +1128,7 @@ export default function ChatClient() {
                       onClick={() => fileInputRef.current?.click()}
                       title="Attach file"
                     >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                         <line x1="12" y1="5" x2="12" y2="19"/>
                         <line x1="5" y1="12" x2="19" y2="12"/>
                       </svg>
@@ -1143,12 +1143,12 @@ export default function ChatClient() {
                         title={isListening ? 'Stop listening' : 'Voice input'}
                       >
                         {isListening ? (
-                          <span className="relative flex items-center justify-center" style={{ width: 15, height: 15 }}>
-                            <span className="absolute w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-                            <IconMicrophone size={15} className="relative z-10" />
+                          <span className="relative flex items-center justify-center" style={{ width: 16, height: 16 }}>
+                            <span className="absolute w-3.5 h-3.5 bg-red-500 rounded-full animate-pulse" />
+                            <IconMicrophone size={16} className="relative z-10" />
                           </span>
                         ) : (
-                          <IconMicrophone size={15} />
+                          <IconMicrophone size={16} />
                         )}
                         <span>{isListening ? 'Listening...' : 'Voice'}</span>
                       </button>
@@ -1159,7 +1159,7 @@ export default function ChatClient() {
                         disabled
                         style={{ opacity: 0.4, cursor: 'not-allowed' }}
                       >
-                        <IconMicrophone size={15} />
+                        <IconMicrophone size={16} />
                         <span>Voice</span>
                       </button>
                     )}
@@ -1249,9 +1249,9 @@ export default function ChatClient() {
                       aria-label="Send message"
                     >
                       {loading ? (
-                        <IconSpinner size={14} />
+                        <IconSpinner size={16} />
                       ) : (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                       )}
                     </button>
                   </div>
@@ -1372,13 +1372,13 @@ export default function ChatClient() {
           width: 100%;
           background-color: #202222;
           border: 1px solid #2f3232;
-          border-radius: 16px;
-          padding: 10px 12px 6px 12px;
+          border-radius: 20px;
+          padding: 16px 16px 10px 16px;
           display: flex;
           flex-direction: column;
           transition: border-color 0.2s ease, box-shadow 0.2s ease;
           animation: expandBar 0.25s ease-out;
-          overflow: hidden;
+          overflow: visible;
         }
         @keyframes expandBar {
           from {
@@ -1404,13 +1404,14 @@ export default function ChatClient() {
           outline: none !important;
           box-shadow: none !important;
           color: #e3e3e3;
-          font-size: 15px;
-          line-height: 1.5;
+          font-size: 16px;
+          line-height: 1.6;
           resize: none;
-          max-height: 200px;
+          max-height: 240px;
+          min-height: 56px;
           font-family: inherit;
-          padding: 0;
-          margin-bottom: 8px;
+          padding: 4px 2px;
+          margin-bottom: 12px;
         }
         .chat-textarea-expanded:focus {
           border: none !important;
@@ -1426,12 +1427,18 @@ export default function ChatClient() {
           display: flex;
           justify-content: space-between;
           align-items: center;
+          gap: 6px;
+          min-height: 38px;
         }
         .chat-toolbar-left, .chat-toolbar-right {
           display: flex;
           align-items: center;
-          gap: 2px;
+          gap: 4px;
           flex-shrink: 0;
+        }
+        .chat-toolbar-left {
+          flex-wrap: wrap;
+          gap: 3px;
         }
 
         .chat-toolbar-btn {
@@ -1441,15 +1448,16 @@ export default function ChatClient() {
           color: #8a8f8f;
           display: flex;
           align-items: center;
-          gap: 4px;
-          padding: 4px 8px;
+          gap: 5px;
+          padding: 6px 12px;
           border-radius: 9999px;
           cursor: pointer;
-          font-size: 12px;
+          font-size: 13px;
           font-weight: 500;
           transition: background 0.2s, color 0.2s;
           white-space: nowrap;
           flex-shrink: 0;
+          min-height: 32px;
         }
         .chat-toolbar-btn:hover {
           background-color: #2d3030;
@@ -1472,16 +1480,17 @@ export default function ChatClient() {
           color: #8a8f8f;
           display: flex;
           align-items: center;
-          gap: 3px;
-          padding: 4px 8px;
+          gap: 4px;
+          padding: 6px 12px;
           border-radius: 9999px;
           cursor: pointer;
-          font-size: 11px;
+          font-size: 12px;
           font-weight: 500;
           transition: background 0.2s, color 0.2s;
           font-family: inherit;
           white-space: nowrap;
           flex-shrink: 0;
+          min-height: 32px;
         }
         .chat-model-chip:hover {
           background-color: #3a3d3d;
@@ -1606,20 +1615,20 @@ export default function ChatClient() {
         .chat-pro-toggle {
           display: flex;
           align-items: center;
-          gap: 4px;
-          padding-right: 2px;
+          gap: 6px;
+          padding: 4px 8px 4px 0;
           flex-shrink: 0;
         }
         .chat-pro-label {
-          font-size: 12px;
+          font-size: 13px;
           font-weight: 600;
           color: #8a8f8f;
         }
         .chat-switch {
           position: relative;
           display: inline-block;
-          width: 34px;
-          height: 20px;
+          width: 38px;
+          height: 22px;
         }
         .chat-switch input {
           opacity: 0;
@@ -1640,8 +1649,8 @@ export default function ChatClient() {
         .chat-slider:before {
           position: absolute;
           content: "";
-          height: 14px;
-          width: 14px;
+          height: 16px;
+          width: 16px;
           left: 3px;
           bottom: 3px;
           background-color: #8a8f8f;
@@ -1652,7 +1661,7 @@ export default function ChatClient() {
           background-color: #1d9bf0;
         }
         .chat-switch input:checked + .chat-slider:before {
-          transform: translateX(14px);
+          transform: translateX(16px);
           background-color: white;
         }
 
@@ -1717,13 +1726,14 @@ export default function ChatClient() {
           color: #8a8f8f;
           border: none;
           outline: none;
-          width: 32px;
-          height: 32px;
+          width: 38px;
+          height: 38px;
           border-radius: 50%;
           display: flex;
           justify-content: center;
           align-items: center;
           cursor: pointer;
+          flex-shrink: 0;
           transition: background-color 0.2s, color 0.2s, transform 0.15s;
         }
         .chat-submit-btn:disabled {
