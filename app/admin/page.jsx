@@ -38,12 +38,13 @@ export default function AdminPage() {
   useEffect(() => { checkAuth() }, [])
 
   async function checkAuth() {
-    const { data: { user } } = await supabasePublic.auth.getUser()
-    if (!user) { router.push('/auth'); return }
-    setUser(user)
-
-    // Fetch admin data
     try {
+      if (!supabasePublic) { setForbidden(true); setLoading(false); return }
+      const { data: { user } } = await supabasePublic.auth.getUser()
+      if (!user) { router.push('/auth'); return }
+      setUser(user)
+
+      // Fetch admin data
       const res = await fetch('/api/admin', {
         headers: { 'x-user-id': user.id },
       })

@@ -486,3 +486,13 @@ export function IconMapPin({ size = 16, className = '' }) {
     </svg>
   )
 }
+
+export function IconLink({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M6.5 9.5l3-3" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <path d="M8.5 11.5l-1 1a2.5 2.5 0 01-3.54-3.54l1-1" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <path d="M7.5 4.5l1-1a2.5 2.5 0 013.54 3.54l-1 1" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+    </svg>
+  )
+}

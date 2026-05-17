@@ -28,24 +28,31 @@ export default function ProfilePage() {
   }, [toast])
 
   async function checkAuth() {
-    const { data: { user } } = await supabasePublic.auth.getUser()
-    if (!user) { router.push('/auth'); return }
-    setUser(user)
+    try {
+      if (!supabasePublic) { router.push('/auth'); return }
+      const { data: { user } } = await supabasePublic.auth.getUser()
+      if (!user) { router.push('/auth'); return }
+      setUser(user)
 
-    const { data: profile } = await supabasePublic
-      .from('profiles')
-      .select('display_name, bio, location, website, avatar_url')
-      .eq('id', user.id)
-      .single()
+      const { data: profile } = await supabasePublic
+        .from('profiles')
+        .select('display_name, bio, location, website, avatar_url')
+        .eq('id', user.id)
+        .single()
 
-    if (profile) {
-      setForm({
-        display_name: profile.display_name || '',
-        bio: profile.bio || '',
-        location: profile.location || '',
-        website: profile.website || '',
-        avatar_url: profile.avatar_url || '',
-      })
+      if (profile) {
+        setForm({
+          display_name: profile.display_name || '',
+          bio: profile.bio || '',
+          location: profile.location || '',
+          website: profile.website || '',
+          avatar_url: profile.avatar_url || '',
+        })
+      }
+    } catch (err) {
+      console.error('[profile] auth error:', err)
+      router.push('/auth')
+      return
     }
     setLoading(false)
   }
