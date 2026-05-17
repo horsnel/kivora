@@ -433,11 +433,56 @@ export function IconHome({ size = 16, className = '' }) {
   )
 }
 
+export function IconPaperclip({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M12.5 7.5l-5 5a3 3 0 01-4.24-4.24l5-5a2 2 0 012.83 2.83l-5 5a1 1 0 01-1.42-1.42l4.6-4.58" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function IconDownload({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M8 2v8M4.5 7L8 10.5 11.5 7" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M2 12v1.5a1 1 0 001 1h10a1 1 0 001-1V12" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function IconLock({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <rect x="3.5" y="7" width="9" height="6.5" rx="1.5" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M5.5 7V5a2.5 2.5 0 015 0v2" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <circle cx="8" cy="10" r=".75" fill="currentColor"/>
+    </svg>
+  )
+}
+
+export function IconFile({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+      <path d="M9 2v4h4" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 export function IconMail({ size = 16, className = '' }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
       <rect x="1.5" y="3" width="13" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.25"/>
       <path d="M1.5 5l6.5 4L14.5 5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function IconMapPin({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M8 14s5-4.5 5-8A5 5 0 003 6c0 3.5 5 8 5 8z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+      <circle cx="8" cy="6" r="2" stroke="currentColor" strokeWidth="1.25"/>
     </svg>
   )
 }

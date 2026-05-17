@@ -128,6 +128,30 @@ What trips people up with this.
 ## Related Commands
 2–3 related git commands that are useful to know alongside this.`,
 
+  regex_tester: (p) => `Analyze this regular expression and explain it thoroughly:
+
+Pattern: ${p.regexPattern}
+Flags: ${p.regexFlags}
+Test string: ${(p.regexTestString || '').slice(0, 3000)}
+
+## Pattern Breakdown
+Explain each part of this regex character by character or group by group.
+
+## What It Matches
+Describe in plain English what strings this pattern matches.
+
+## Flags
+Explain what each flag does and why it matters for this pattern.
+
+## Edge Cases
+Common strings that might unexpectedly match or fail to match.
+
+## Performance Notes
+Any catastrophic backtracking risks or performance concerns with this pattern.
+
+## Alternative Patterns
+If there are simpler or more robust ways to match the same thing, suggest them.`,
+
   // ── DATA TOOLS ────────────────────────────────────────────────────
 
   json_formatter: (p) => `Analyze and format this JSON:
@@ -244,6 +268,42 @@ Flag any variables that look like they should have (or shouldn't have) NEXT_PUBL
 
 ## Recommendations
 Best practices for this specific environment setup.`,
+
+  jwt_decoder: (p) => `Analyze this JWT token and explain its claims:
+
+${(p.jwtToken || '').slice(0, 4000)}
+
+## Token Structure
+Identify the algorithm, type, and key header fields.
+
+## Claims Breakdown
+Explain each claim in the payload — what it means, whether the value is typical, and any concerns.
+
+## Expiration Status
+Is this token expired? When does/did it expire? Is the expiry reasonable for this type of token?
+
+## Security Observations
+Any security concerns: weak algorithm, missing claims, unusual values, potential misuse.
+
+## Recommendations
+Best practices for this token type and any improvements to suggest.`,
+
+  base64: (p) => `${p.base64Mode === 'encode' ? 'Encode' : 'Decode'} this ${p.base64Mode === 'encode' ? 'text' : 'Base64 string'} and explain the result:
+
+Input:
+${(p.base64Input || '').slice(0, 6000)}
+
+## Result
+The ${p.base64Mode === 'encode' ? 'Base64 encoded' : 'decoded'} output.
+
+## How Base64 Works
+Brief explanation of Base64 encoding/decoding.
+
+## Observations
+${p.base64Mode === 'decode' ? 'What does the decoded content appear to be? Is it JSON, a URL, a token, binary data? Any patterns or security concerns?' : 'How much larger is the encoded output vs the input? Any characters that might cause issues in URLs?'}
+
+## URL-Safe Variant
+If this were URL-safe Base64, what would change?`,
 
   // ── CONTENT TOOLS ─────────────────────────────────────────────────
 

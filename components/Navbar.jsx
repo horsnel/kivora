@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { IconMenu, IconClose, IconDashboard, IconUser, IconLogout, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconWrite, IconHome } from '@/components/Icons'
 import { supabasePublic } from '@/lib/supabase'
 import { useCurrency } from '@/components/CurrencyToggle'
+import { useTranslation } from '@/components/LanguageProvider'
 
 const NAV_LINKS = [
   { label: 'Home',         href: '/welcome',    Icon: IconHome },
@@ -12,12 +13,14 @@ const NAV_LINKS = [
   { label: 'Chat',         href: '/chat',       Icon: IconChat },
   { label: 'StudyDesk',    href: '/study',      Icon: IconBook },
   { label: 'Dev Tools',    href: '/devtools',   Icon: IconCode },
+  { label: 'Community',    href: '/community',  Icon: IconChat },
   { label: 'Opportunities', href: '/opportunities', Icon: IconTrending },
 ]
 
 const NAV_SECONDARY = [
   { label: 'About',   href: '/about',   Icon: IconGlobe },
   { label: 'Blog',    href: '/blog',    Icon: IconWrite },
+  { label: 'Admin',   href: '/admin',   Icon: IconDashboard },
 ]
 
 // Pages that manage their own layout — no shared sidebar
@@ -269,6 +272,11 @@ function SidebarContent({ user, pathname, signOut, onClose }) {
         </div>
       </div>
 
+      {/* ── Language switcher ── */}
+      <div className="px-2.5 pb-1.5 shrink-0">
+        <InlineLanguageSwitcher />
+      </div>
+
       {/* ── Auth section — pinned to bottom ── */}
       <div className="p-2.5 border-t border-[#181818] space-y-1 shrink-0">
         <Link
@@ -283,6 +291,21 @@ function SidebarContent({ user, pathname, signOut, onClose }) {
           <IconDashboard size={14} />
           Dashboard
         </Link>
+
+        {user && (
+          <Link
+            href="/profile"
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-caption transition-colors font-medium ${
+              isActive('/profile')
+                ? 'bg-[#1a1a1a] text-white'
+                : 'text-[#525252] hover:text-white hover:bg-[#141414]'
+            }`}
+            onClick={onClose}
+          >
+            <IconUser size={14} />
+            Profile
+          </Link>
+        )}
 
         {user ? (
           <div className="space-y-1">
@@ -349,6 +372,58 @@ function InlineCurrencyToggle({ open, setOpen, dropdownRef }) {
                   <span className="text-[#404040]">{c.symbol}</span>
                 </div>
                 {currency.code === c.code && <IconCheck size={12} className="text-red-400" />}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Language switcher for the sidebar */
+function InlineLanguageSwitcher() {
+  const { lang, setLang, languages } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const dropdownRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  const currentLang = languages.find(l => l.code === lang) || languages[0]
+
+  return (
+    <div ref={dropdownRef} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-caption text-[#525252] hover:text-white hover:bg-[#141414] transition-colors font-medium"
+      >
+        <IconGlobe size={14} className="shrink-0" />
+        <span>{currentLang.nativeLabel}</span>
+        <IconChevronDown size={12} className={`ml-auto transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute bottom-full left-0 mb-1 w-full bg-[#141414] border border-[#262626] rounded-xl overflow-hidden shadow-2xl animate-scale-in z-50">
+          <div className="py-1">
+            {languages.map(l => (
+              <button
+                key={l.code}
+                onClick={() => { setLang(l.code); setOpen(false) }}
+                className={`w-full flex items-center justify-between px-3 py-2 text-caption hover:bg-[#1a1a1a] transition-colors ${
+                  lang === l.code ? 'text-red-400' : 'text-[#737373] hover:text-white'
+                }`}
+              >
+                <span>{l.nativeLabel}</span>
+                {lang === l.code && <IconCheck size={12} className="text-red-400" />}
               </button>
             ))}
           </div>

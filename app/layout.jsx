@@ -3,6 +3,7 @@ import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import PageContent from '@/components/PageContent'
 import { CurrencyProvider } from '@/components/CurrencyToggle'
+import { LanguageProvider } from '@/components/LanguageProvider'
 
 export const metadata = {
   title: {
@@ -43,16 +44,18 @@ export default function RootLayout({ children }) {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body className="grain bg-[#0a0a0a] text-white antialiased">
-        <CurrencyProvider>
-          {/* App shell: full viewport, sidebar + content side by side */}
-          <div className="h-dvh flex overflow-hidden">
-            <Navbar />
-            <PageContent>
-              {children}
-              <Footer />
-            </PageContent>
-          </div>
-        </CurrencyProvider>
+        <LanguageProvider>
+          <CurrencyProvider>
+            {/* App shell: full viewport, sidebar + content side by side */}
+            <div className="h-dvh flex overflow-hidden">
+              <Navbar />
+              <PageContent>
+                {children}
+                <Footer />
+              </PageContent>
+            </div>
+          </CurrencyProvider>
+        </LanguageProvider>
         <script dangerouslySetInnerHTML={{ __html: `
           if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {

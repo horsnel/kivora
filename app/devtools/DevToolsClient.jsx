@@ -45,6 +45,7 @@ const CATEGORIES = [
       { id: 'sql_builder',    label: 'SQL Builder',       Icon: (p) => <IconDatabase {...p} />,  desc: 'Plain English to SQL query' },
       { id: 'terminal',       label: 'Terminal Helper',   Icon: (p) => <I.Terminal {...p} />,    desc: 'Explain or generate shell commands' },
       { id: 'git_helper',     label: 'Git Helper',        Icon: (p) => <I.Hash {...p} />,        desc: 'Explain git commands and workflows' },
+      { id: 'regex_tester',  label: 'Regex Tester',      Icon: (p) => <IconSearch {...p} />,    desc: 'Live regex testing with match highlighting' },
     ]
   },
   {
@@ -57,6 +58,8 @@ const CATEGORIES = [
       { id: 'data_to_schema', label: 'Schema Generator',  Icon: (p) => <IconDatabase {...p} />,  desc: 'Generate database schema from description' },
       { id: 'api_analyzer',   label: 'API Analyzer',      Icon: (p) => <I.Api {...p} />,         desc: 'Debug and improve API requests' },
       { id: 'env_checker',    label: 'Env File Auditor',  Icon: (p) => <I.Shield {...p} />,      desc: 'Audit .env files for security issues' },
+      { id: 'jwt_decoder',   label: 'JWT Decoder',       Icon: (p) => <I.Shield {...p} />,      desc: 'Decode and inspect JWT tokens' },
+      { id: 'base64',        label: 'Base64 Encoder/Decoder', Icon: (p) => <I.Braces {...p} />,  desc: 'Quick encode and decode utility' },
     ]
   },
   {
@@ -123,6 +126,10 @@ export default function DevToolsClient() {
     jobTitle: '', jobResponsibilities: '', jobRequirements: '',
     sopProcess: '', sopRole: '',
     coldTarget: '', coldProduct: '', coldObservation: '',
+    // new tools
+    jwtToken: '',
+    base64Input: '', base64Mode: 'encode',
+    regexPattern: '', regexFlags: 'g', regexTestString: '',
   })
   const [validationError, setValidationError] = useState('')
   const { startSession, endSession, markCopied } = useSessionTracker()
@@ -138,7 +145,7 @@ export default function DevToolsClient() {
     if (validationError) setValidationError('')
   }
 
-  // Validation for all 20 tools
+  // Validation for all 23 tools
   function validate() {
     const checks = {
       code_explainer:  { field: form.code, label: 'Code is required to explain' },
@@ -147,11 +154,14 @@ export default function DevToolsClient() {
       sql_builder:     { field: form.sqlDesc, label: 'Describe the query you need' },
       terminal:        { field: form.terminalCmd, label: 'Enter a command or task' },
       git_helper:      { field: form.gitCmd, label: 'Enter a git question or task' },
+      regex_tester:    { field: form.regexPattern, label: 'Enter a regex pattern to test' },
       json_formatter:  { field: form.json, label: 'Paste JSON to format' },
       csv_analyser:    { field: form.csvData, label: 'Paste CSV data to analyse' },
       data_to_schema:  { field: form.schemaDesc, label: 'Describe your data model' },
       api_analyzer:    { field: form.endpoint, label: 'Enter an endpoint URL' },
       env_checker:     { field: form.envContent, label: 'Paste your .env file' },
+      jwt_decoder:     { field: form.jwtToken, label: 'Paste a JWT token to decode' },
+      base64:          { field: form.base64Input, label: 'Enter text to encode or decode' },
       readme:          { field: form.info, label: 'Describe your project first' },
       email_writer:    { field: form.emailContext, label: 'Describe what the email should say' },
       text_improver:   { field: form.textInput, label: 'Paste the text to improve' },
@@ -180,11 +190,14 @@ export default function DevToolsClient() {
       sql_builder:     { summary: form.sqlDesc, subject: form.dialect },
       terminal:        { summary: form.terminalCmd, subject: form.terminalContext },
       git_helper:      { summary: form.gitCmd, subject: null },
+      regex_tester:    { summary: form.regexPattern, subject: form.regexFlags },
       json_formatter:  { summary: form.json, subject: null },
       csv_analyser:    { summary: form.csvData, subject: null },
       data_to_schema:  { summary: form.schemaDesc, subject: null },
       api_analyzer:    { summary: form.endpoint, subject: form.method },
       env_checker:     { summary: form.envContent, subject: null },
+      jwt_decoder:     { summary: form.jwtToken, subject: null },
+      base64:          { summary: form.base64Input, subject: form.base64Mode },
       readme:          { summary: form.info, subject: null },
       email_writer:    { summary: form.emailContext, subject: form.emailTone },
       text_improver:   { summary: form.textInput, subject: form.textGoal },
@@ -244,6 +257,76 @@ export default function DevToolsClient() {
   const ta    = `${inp} resize-none leading-relaxed`
   const tamono= `${inp} resize-none leading-relaxed font-mono`
 
+  // ── Live computations for new tools ──────────────────────────────
+  function buildHighlightedParts(text, pattern, flags) {
+    if (!pattern || !text) return [{ text, match: false }]
+    try {
+      const re = new RegExp(pattern, flags.includes('g') ? flags : flags + 'g')
+      const parts = []
+      let lastIndex = 0
+      let m
+      while ((m = re.exec(text)) !== null) {
+        if (m[0].length === 0) { re.lastIndex++; continue }
+        if (m.index > lastIndex) parts.push({ text: text.slice(lastIndex, m.index), match: false })
+        parts.push({ text: m[0], match: true })
+        lastIndex = m.index + m[0].length
+      }
+      if (lastIndex < text.length) parts.push({ text: text.slice(lastIndex), match: false })
+      return parts.length ? parts : [{ text, match: false }]
+    } catch {
+      return [{ text, match: false }]
+    }
+  }
+
+  const jwtDecoded = (() => {
+    if (active !== 'jwt_decoder' || !form.jwtToken.trim()) return null
+    try {
+      const parts = form.jwtToken.trim().split('.')
+      if (parts.length !== 3) return { error: 'Invalid JWT — must have 3 parts separated by dots' }
+      const decode = (s) => { let b = s.replace(/-/g, '+').replace(/_/g, '/'); while (b.length % 4) b += '='; return atob(b) }
+      const header = JSON.parse(decode(parts[0]))
+      const payload = JSON.parse(decode(parts[1]))
+      const now = Math.floor(Date.now() / 1000)
+      return {
+        header,
+        payload,
+        expDate: payload.exp ? new Date(payload.exp * 1000).toLocaleString() : null,
+        expired: payload.exp ? now > payload.exp : null,
+        iatDate: payload.iat ? new Date(payload.iat * 1000).toLocaleString() : null,
+        nbfDate: payload.nbf ? new Date(payload.nbf * 1000).toLocaleString() : null,
+      }
+    } catch {
+      return { error: "Could not decode — ensure it's a valid JWT" }
+    }
+  })()
+
+  const regexMatches = (() => {
+    if (active !== 'regex_tester' || !form.regexPattern || !form.regexTestString) return null
+    try {
+      const flags = form.regexFlags.includes('g') ? form.regexFlags : form.regexFlags + 'g'
+      const re = new RegExp(form.regexPattern, flags)
+      const matches = []
+      let match
+      while ((match = re.exec(form.regexTestString)) !== null) {
+        matches.push({ value: match[0], index: match.index, groups: match.slice(1) })
+        if (match[0].length === 0) { re.lastIndex++; break }
+      }
+      return matches
+    } catch {
+      return null
+    }
+  })()
+
+  const base64Result = (() => {
+    if (active !== 'base64' || !form.base64Input.trim()) return null
+    try {
+      if (form.base64Mode === 'encode') return btoa(unescape(encodeURIComponent(form.base64Input)))
+      else return decodeURIComponent(escape(atob(form.base64Input.trim())))
+    } catch {
+      return '__ERROR__'
+    }
+  })()
+
   return (
     <main className="min-h-screen bg-[#0a0a0a]">
       <div className="max-w-7xl mx-auto px-4 py-10">
@@ -254,7 +337,7 @@ export default function DevToolsClient() {
             Dev <span className="text-red-500">Tools</span>
           </h1>
           <p className="text-[#737373] text-sm">
-            20 AI-powered tools for developers, writers, and builders. Free. No account needed.
+            23 AI-powered tools for developers, writers, and builders. Free. No account needed.
           </p>
         </div>
 
@@ -374,6 +457,21 @@ export default function DevToolsClient() {
                 </div>
               )}
 
+              {active === 'regex_tester' && <>
+                <div>
+                  <label className="text-xs text-[#737373] block mb-1.5">Regex pattern</label>
+                  <input className={mono} placeholder="e.g. \b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b" value={form.regexPattern} onChange={e => set('regexPattern', e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-xs text-[#737373] block mb-1.5">Flags</label>
+                  <Select value={form.regexFlags} onChange={v => set('regexFlags', v)} options={['g','gi','gm','gs','gim','gims','i','im','m','s'].map(f => ({ value: f, label: f }))} />
+                </div>
+                <div>
+                  <label className="text-xs text-[#737373] block mb-1.5">Test string</label>
+                  <textarea className={`${ta} h-32`} placeholder="Enter text to test against the pattern..." value={form.regexTestString} onChange={e => set('regexTestString', e.target.value)} />
+                </div>
+              </>}
+
               {/* ─── DATA TOOLS ─────────────────── */}
 
               {active === 'json_formatter' && (
@@ -426,6 +524,24 @@ export default function DevToolsClient() {
                   <textarea className={`${tamono} h-52`} placeholder={"DATABASE_URL=...\nJWT_SECRET=...\nNEXT_PUBLIC_API_URL=..."} value={form.envContent} onChange={e => set('envContent', e.target.value)} />
                 </div>
               )}
+
+              {active === 'jwt_decoder' && (
+                <div>
+                  <label className="text-xs text-[#737373] block mb-1.5">Paste your JWT token</label>
+                  <textarea className={`${tamono} h-52`} placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c" value={form.jwtToken} onChange={e => set('jwtToken', e.target.value)} />
+                </div>
+              )}
+
+              {active === 'base64' && <>
+                <div>
+                  <label className="text-xs text-[#737373] block mb-1.5">Mode</label>
+                  <Select value={form.base64Mode} onChange={v => set('base64Mode', v)} options={[{ value: 'encode', label: 'Encode' }, { value: 'decode', label: 'Decode' }]} />
+                </div>
+                <div>
+                  <label className="text-xs text-[#737373] block mb-1.5">{form.base64Mode === 'encode' ? 'Text to encode' : 'Base64 string to decode'}</label>
+                  <textarea className={`${tamono} h-40`} placeholder={form.base64Mode === 'encode' ? 'Enter text to encode...' : 'Enter Base64 string to decode...'} value={form.base64Input} onChange={e => set('base64Input', e.target.value)} />
+                </div>
+              </>}
 
               {/* ─── CONTENT TOOLS ─────────────────── */}
 
@@ -550,6 +666,102 @@ export default function DevToolsClient() {
               className="mt-5 w-full bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white py-3 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 press">
               {loading ? <><IconSpinner size={14} /> Running...</> : `Run ${currentTool.label} `}
             </button>
+
+            {/* ── Live display: JWT Decoder ─────────────── */}
+            {active === 'jwt_decoder' && form.jwtToken.trim() && (
+              <div className="mt-4 space-y-3">
+                <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider">Decoded Token</h3>
+                {jwtDecoded?.error ? (
+                  <div className="bg-red-950/20 border border-red-900/30 rounded-lg px-3 py-2 text-xs text-red-400">{jwtDecoded.error}</div>
+                ) : jwtDecoded ? (
+                  <>
+                    <div>
+                      <span className="text-xs text-[#737373]">Header</span>
+                      <pre className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-3 text-xs font-mono text-emerald-400 overflow-auto max-h-28 mt-1">{JSON.stringify(jwtDecoded.header, null, 2)}</pre>
+                    </div>
+                    <div>
+                      <span className="text-xs text-[#737373]">Payload</span>
+                      <pre className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-3 text-xs font-mono text-sky-400 overflow-auto max-h-36 mt-1">{JSON.stringify(jwtDecoded.payload, null, 2)}</pre>
+                    </div>
+                    <div className="flex flex-wrap gap-3 text-xs">
+                      {jwtDecoded.expDate && (
+                        <div className="flex items-center gap-1.5">
+                          <span className={`w-1.5 h-1.5 rounded-full ${jwtDecoded.expired ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                          <span className="text-[#737373]">{jwtDecoded.expired ? 'Expired' : 'Valid'}</span>
+                          <span className="text-[#525252]">{jwtDecoded.expDate}</span>
+                        </div>
+                      )}
+                      {jwtDecoded.iatDate && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                          <span className="text-[#737373]">Issued</span>
+                          <span className="text-[#525252]">{jwtDecoded.iatDate}</span>
+                        </div>
+                      )}
+                      {jwtDecoded.nbfDate && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                          <span className="text-[#737373]">Not Before</span>
+                          <span className="text-[#525252]">{jwtDecoded.nbfDate}</span>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            )}
+
+            {/* ── Live display: Base64 ──────────────────── */}
+            {active === 'base64' && form.base64Input.trim() && (
+              <div className="mt-4 space-y-3">
+                <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider">{form.base64Mode === 'encode' ? 'Encoded' : 'Decoded'} Result</h3>
+                {base64Result === '__ERROR__' ? (
+                  <div className="bg-red-950/20 border border-red-900/30 rounded-lg px-3 py-2 text-xs text-red-400">Invalid input for {form.base64Mode} operation</div>
+                ) : base64Result ? (
+                  <pre className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-3 text-xs font-mono text-emerald-400 overflow-auto max-h-32 whitespace-pre-wrap break-all">{base64Result}</pre>
+                ) : null}
+              </div>
+            )}
+
+            {/* ── Live display: Regex Tester ────────────── */}
+            {active === 'regex_tester' && form.regexPattern && form.regexTestString && (
+              <div className="mt-4 space-y-3">
+                <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider">Matches</h3>
+                {regexMatches === null ? (
+                  <div className="bg-red-950/20 border border-red-900/30 rounded-lg px-3 py-2 text-xs text-red-400">Invalid regex pattern</div>
+                ) : (
+                  <>
+                    <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-3 text-sm overflow-auto max-h-36 whitespace-pre-wrap font-mono">
+                      {buildHighlightedParts(form.regexTestString, form.regexPattern, form.regexFlags).map((part, i) =>
+                        part.match
+                          ? <mark key={i} className="bg-yellow-500/30 text-yellow-300 rounded px-0.5">{part.text}</mark>
+                          : <span key={i}>{part.text}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-[#737373]">
+                      <span>{regexMatches.length} match{regexMatches.length !== 1 ? 'es' : ''}</span>
+                      {regexMatches.some(m => m.groups.length > 0) && (
+                        <span>{regexMatches.reduce((acc, m) => acc + m.groups.length, 0)} captured group{regexMatches.reduce((acc, m) => acc + m.groups.length, 0) !== 1 ? 's' : ''}</span>
+                      )}
+                    </div>
+                    {regexMatches.length > 0 && (
+                      <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                        {regexMatches.map((m, i) => (
+                          <div key={i} className="flex items-center gap-2 text-xs">
+                            <span className="text-[#525252] w-5 text-right">{i + 1}</span>
+                            <span className="text-yellow-300 font-mono">&quot;{m.value}&quot;</span>
+                            <span className="text-[#525252]">at {m.index}</span>
+                            {m.groups.filter(g => g != null).length > 0 && (
+                              <span className="text-[#737373]">[{m.groups.filter(g => g != null).map(g => `"${g}"`).join(', ')}]</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* ── Output Panel ─────────────────────────────────── */}
@@ -584,7 +796,7 @@ export default function DevToolsClient() {
 
         {/* All tools quick reference */}
         <div className="mt-10 border-t border-[#141414] pt-10">
-          <h2 className="font-semibold text-base tracking-tight mb-6">All 20 tools</h2>
+          <h2 className="font-semibold text-base tracking-tight mb-6">All 23 tools</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {CATEGORIES.map(cat => (
               <div key={cat.id} className="bg-[#141414] rounded-xl p-4">

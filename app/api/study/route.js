@@ -70,7 +70,73 @@ Output: ...
 \`\`\`
 
 ## Explanation
-[Why this solution works, time/space complexity if relevant]`
+[Why this solution works, time/space complexity if relevant]`,
+
+  flashcard: ({ subject, notes, count }) =>
+    `You are a flashcard creation assistant. Generate ${count} flashcards about the following topic in ${subject}.
+
+Topic/Notes: ${notes}
+
+Format each flashcard EXACTLY like this:
+
+### Card 1
+**Front:** [Question or concept — clear and concise]
+**Back:** [Answer or explanation — thorough but focused]
+
+### Card 2
+**Front:** [Question or concept]
+**Back:** [Answer or explanation]
+
+(Continue for all ${count} cards)
+
+After all cards, include:
+
+## Review Tips
+- Spaced repetition advice for studying these cards effectively
+- How to schedule reviews (e.g., Day 1, Day 3, Day 7, Day 14)
+- Tips for active recall vs passive recognition
+- Which cards might need more frequent review
+
+Use markdown formatting. Make fronts clear and concise. Make backs thorough but focused.`,
+
+  quiz: ({ subject, topic, difficulty, count }) =>
+    `You are a quiz generation assistant. Create a ${difficulty} difficulty quiz with ${count} multiple choice questions about "${topic}" in ${subject}.
+
+Format each question EXACTLY as follows — do NOT deviate from this format:
+
+Q1: [Question text]
+A) [Option A]
+B) [Option B]
+C) [Option C]
+D) [Option D]
+Answer: [A/B/C/D]
+Explanation: [Why the correct answer is correct, briefly]
+
+Q2: [Question text]
+A) [Option A]
+B) [Option B]
+C) [Option C]
+D) [Option D]
+Answer: [A/B/C/D]
+Explanation: [Why the correct answer is correct, briefly]
+
+(Continue for all ${count} questions)
+
+At the end, include:
+
+## Answer Key
+1. [A/B/C/D]
+2. [A/B/C/D]
+...
+${count}. [A/B/C/D]
+
+Rules:
+- Each question must have exactly 4 options (A, B, C, D)
+- Only ONE correct answer per question
+- Make distractors plausible but clearly wrong
+- Questions should be clear and unambiguous
+- Match the ${difficulty} difficulty level appropriately
+- Do NOT use markdown bold/italic in the question format — keep it plain text`
 }
 
 export async function POST(req) {

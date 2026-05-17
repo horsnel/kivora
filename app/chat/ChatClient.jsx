@@ -1,11 +1,25 @@
 'use client'
 import Link from 'next/link'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconPlus, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconTool, IconGlobe, IconSearch } from '@/components/Icons'
+import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconPlus, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
+
+const MODELS = [
+  { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', tag: 'Default · Fastest', short: '3.3 70B' },
+  { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B', tag: 'Quick responses', short: '3.1 8B' },
+  { id: 'llama3-70b-8192', name: 'Llama 3 70B', tag: 'Detailed', short: '3 70B' },
+  { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', tag: 'Long context', short: 'Mixtral' },
+  { id: 'gemma2-9b-it', name: 'Gemma 2 9B', tag: 'Efficient', short: 'Gemma 2' },
+]
+
+const DEFAULT_MODEL = 'llama-3.3-70b-versatile'
+
+const ALLOWED_TEXT_EXTENSIONS = ['.txt', '.md', '.json', '.csv', '.js', '.py', '.ts', '.jsx', '.tsx', '.css', '.html', '.sql']
+const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp']
+const MAX_FILE_SIZE = 100 * 1024 // 100KB
 
 const STARTERS = [
   { text: 'How do I start a WhatsApp bot business?', icon: IconChat },
@@ -51,9 +65,25 @@ export default function ChatClient() {
   const [user, setUser] = useState(null)
   const [chatHistory, setChatHistory] = useState([])
   const [webSearch, setWebSearch] = useState(false)
+
+  // Feature #54: Multi-Model Support
+  const [model, setModel] = useState(DEFAULT_MODEL)
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false)
+
+  // Feature #6: File Upload
+  const [attachedFile, setAttachedFile] = useState(null)
+  const [attachedContent, setAttachedContent] = useState('')
+  const [attachedIsImage, setAttachedIsImage] = useState(false)
+  const fileInputRef = useRef(null)
+
+  // Feature #2: Chat Export
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false)
+
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
   const historyRef = useRef(null)
+  const modelDropdownRef = useRef(null)
+  const exportDropdownRef = useRef(null)
   const pathname = usePathname()
   const { startSession, endSession, markFollowUp } = useSessionTracker()
   const studySessionRef = useRef(null)
@@ -113,6 +143,30 @@ export default function ChatClient() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [historyOpen])
 
+  // Close model dropdown on click outside
+  useEffect(() => {
+    if (!modelDropdownOpen) return
+    function handleClick(e) {
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target)) {
+        setModelDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [modelDropdownOpen])
+
+  // Close export dropdown on click outside
+  useEffect(() => {
+    if (!exportDropdownOpen) return
+    function handleClick(e) {
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(e.target)) {
+        setExportDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [exportDropdownOpen])
+
   function autoResize(el) {
     el.style.height = 'auto'
     el.style.height = Math.min(el.scrollHeight, 180) + 'px'
@@ -127,6 +181,9 @@ export default function ChatClient() {
     setInput('')
     setSessionId(crypto.randomUUID())
     firstMessageSent.current = false
+    setAttachedFile(null)
+    setAttachedContent('')
+    setAttachedIsImage(false)
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
   }
 
@@ -139,28 +196,157 @@ export default function ChatClient() {
     setMessages(session.messages || [])
     firstMessageSent.current = true
     setHistoryOpen(false)
+    setAttachedFile(null)
+    setAttachedContent('')
+    setAttachedIsImage(false)
+  }
+
+  // ── Feature #6: File Upload Handler ──
+  function handleFileSelect(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const ext = '.' + file.name.split('.').pop().toLowerCase()
+    const isImage = ALLOWED_IMAGE_EXTENSIONS.includes(ext)
+    const isText = ALLOWED_TEXT_EXTENSIONS.includes(ext)
+
+    if (!isImage && !isText) {
+      alert('Unsupported file type. Supported: ' + [...ALLOWED_TEXT_EXTENSIONS, ...ALLOWED_IMAGE_EXTENSIONS].join(', '))
+      e.target.value = ''
+      return
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      alert('File too large. Maximum size is 100KB.')
+      e.target.value = ''
+      return
+    }
+
+    if (isImage) {
+      // Read as base64 for vision model
+      const reader = new FileReader()
+      reader.onload = () => {
+        setAttachedFile(file.name)
+        setAttachedContent(reader.result) // data:image/...;base64,...
+        setAttachedIsImage(true)
+      }
+      reader.readAsDataURL(file)
+    } else {
+      // Read as text
+      const reader = new FileReader()
+      reader.onload = () => {
+        setAttachedFile(file.name)
+        setAttachedContent(reader.result)
+        setAttachedIsImage(false)
+      }
+      reader.readAsText(file)
+    }
+    e.target.value = ''
+  }
+
+  function removeAttachment() {
+    setAttachedFile(null)
+    setAttachedContent('')
+    setAttachedIsImage(false)
+  }
+
+  // ── Feature #2: Chat Export ──
+  function exportChat(format) {
+    if (messages.length === 0) return
+    setExportDropdownOpen(false)
+
+    const now = new Date()
+    const dateStr = now.toISOString().split('T')[0]
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const currentModel = MODELS.find(m => m.id === model)
+
+    let content = ''
+
+    if (format === 'md') {
+      content = `# Kivora AI Chat Export\n\n`
+      content += `**Date:** ${dateStr} ${timeStr}\n`
+      content += `**Model:** ${currentModel?.name || model}\n\n`
+      content += `---\n\n`
+      messages.forEach(msg => {
+        if (msg.role === 'user') {
+          content += `### 👤 User\n\n${msg.content}\n\n`
+        } else {
+          content += `### 🤖 Assistant\n\n${msg.content}\n\n`
+        }
+      })
+    } else {
+      content = `Kivora AI Chat Export\n`
+      content += `Date: ${dateStr} ${timeStr}\n`
+      content += `Model: ${currentModel?.name || model}\n`
+      content += `${'='.repeat(50)}\n\n`
+      messages.forEach(msg => {
+        if (msg.role === 'user') {
+          content += `[User]\n${msg.content}\n\n`
+        } else {
+          content += `[Assistant]\n${msg.content}\n\n`
+        }
+      })
+    }
+
+    const blob = new Blob([content], { type: format === 'md' ? 'text/markdown' : 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `kivora-chat-${dateStr}.${format}`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   async function send() {
     const q = input.trim()
-    if (!q || loading) return
-    const userMsg = { role: 'user', content: q }
+    if ((!q && !attachedFile) || loading) return
+
+    // Build the message content with file attachment if present
+    let messageContent = q
+    if (attachedFile && attachedContent) {
+      if (attachedIsImage) {
+        // For images: [Image: filename]\n<base64 data>
+        messageContent = `[Image: ${attachedFile}]\n${attachedContent}`
+        if (q) messageContent += '\n' + q
+      } else {
+        // For text files: [File: filename]\n<file content>\n\n<user message>
+        messageContent = `[File: ${attachedFile}]\n${attachedContent}`
+        if (q) messageContent += '\n\n' + q
+      }
+    }
+
+    const userMsg = { role: 'user', content: messageContent }
     const newMessages = [...messages, userMsg]
     setMessages(newMessages)
     setInput('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
     setLoading(true)
+
+    // Clear attachment after sending
+    const wasImage = attachedIsImage
+    setAttachedFile(null)
+    setAttachedContent('')
+    setAttachedIsImage(false)
+
     if (!firstMessageSent.current) {
       firstMessageSent.current = true
       studySessionRef.current = await startSession('chat', null, q.slice(0, 200))
     } else if (studySessionRef.current) {
       markFollowUp(studySessionRef.current)
     }
+
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, sessionId, userId: user?.id || null })
+        body: JSON.stringify({
+          messages: newMessages,
+          sessionId,
+          userId: user?.id || null,
+          model: wasImage ? undefined : model // Vision model is auto-selected by API
+        })
       })
       const data = await res.json()
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply || data.error || 'Something went wrong.' }])
@@ -184,7 +370,9 @@ export default function ChatClient() {
     return first?.content?.slice(0, 40) || 'New chat'
   }
 
-  const hasInput = input.trim().length > 0
+  const hasInput = input.trim().length > 0 || attachedFile
+
+  const currentModel = MODELS.find(m => m.id === model) || MODELS[0]
 
   return (
     <main className="h-full flex bg-[#0a0a0a]">
@@ -266,19 +454,108 @@ export default function ChatClient() {
               <div className="w-6 h-6 bg-red-600 rounded-md flex items-center justify-center shrink-0">
                 <IconChat size={12} className="text-white" />
               </div>
-              <div>
-                <h1 className="font-semibold text-caption leading-none">Kivora AI</h1>
-                <p className="text-[10px] text-[#525252] mt-0.5">Powered by Groq · Free</p>
+              <div className="flex items-center gap-2">
+                <div>
+                  <h1 className="font-semibold text-caption leading-none">Kivora AI</h1>
+                  <p className="text-[10px] text-[#525252] mt-0.5">Powered by Groq · Free</p>
+                </div>
+
+                {/* ── Feature #54: Model Selector ── */}
+                <div className="relative" ref={modelDropdownRef}>
+                  <button
+                    onClick={() => {
+                      if (user) setModelDropdownOpen(!modelDropdownOpen)
+                    }}
+                    className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1 text-[11px] text-[#737373] hover:text-[#a3a3a3] hover:border-[#3a3a3a] transition-all"
+                    title={user ? `Model: ${currentModel.name}` : 'Sign in for more models'}
+                  >
+                    <span>{currentModel.short}</span>
+                    {user ? (
+                      <IconChevronDown size={10} />
+                    ) : (
+                      <IconLock size={10} className="text-[#525252]" />
+                    )}
+                  </button>
+
+                  {modelDropdownOpen && user && (
+                    <div className="absolute top-full left-0 mt-1.5 w-56 bg-[#141414] border border-[#262626] rounded-xl shadow-2xl z-50 py-1 animate-scale-in overflow-hidden">
+                      {MODELS.map(m => (
+                        <button
+                          key={m.id}
+                          onClick={() => {
+                            setModel(m.id)
+                            setModelDropdownOpen(false)
+                          }}
+                          className={`w-full text-left px-3 py-2.5 flex items-center justify-between transition-colors ${
+                            m.id === model
+                              ? 'bg-[#1a1a1a] text-white'
+                              : 'text-[#a3a3a3] hover:bg-[#1a1a1a] hover:text-white'
+                          }`}
+                        >
+                          <div>
+                            <div className="text-body-sm font-medium">{m.name}</div>
+                            <div className="text-[11px] text-[#525252]">{m.tag}</div>
+                          </div>
+                          {m.id === model && (
+                            <IconCheck size={14} className="text-red-500 shrink-0" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Tooltip for anonymous users */}
+                  {!user && (
+                    <div className="absolute top-full left-0 mt-1.5 w-44 bg-[#1a1a1a] border border-[#262626] rounded-lg px-3 py-2 text-[11px] text-[#737373] shadow-lg z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity hidden">
+                      Sign in for more models
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-          <button
-            onClick={clearChat}
-            className="w-8 h-8 flex items-center justify-center text-[#525252] hover:text-white hover:bg-[#141414] rounded-lg transition-colors"
-            aria-label="New chat"
-          >
-            <IconPlus size={14} />
-          </button>
+
+          <div className="flex items-center gap-1">
+            {/* ── Feature #2: Export Button ── */}
+            <div className="relative" ref={exportDropdownRef}>
+              <button
+                onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
+                className="w-8 h-8 flex items-center justify-center text-[#525252] hover:text-white hover:bg-[#141414] rounded-lg transition-colors"
+                aria-label="Export chat"
+                title="Export chat"
+              >
+                <IconDownload size={14} />
+              </button>
+
+              {exportDropdownOpen && (
+                <div className="absolute top-full right-0 mt-1.5 w-48 bg-[#141414] border border-[#262626] rounded-xl shadow-2xl z-50 py-1 animate-scale-in overflow-hidden">
+                  <button
+                    onClick={() => exportChat('md')}
+                    className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 text-body-sm text-[#a3a3a3] hover:bg-[#1a1a1a] hover:text-white transition-colors"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M3 2h10v12H3z"/><path d="M5 5h6M5 8h4M5 11h6"/></svg>
+                    Export as Markdown
+                  </button>
+                  <button
+                    onClick={() => exportChat('txt')}
+                    className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 text-body-sm text-[#a3a3a3] hover:bg-[#1a1a1a] hover:text-white transition-colors"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M9 2v4h4"/></svg>
+                    Export as Text
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={clearChat}
+              className="w-8 h-8 flex items-center justify-center text-[#525252] hover:text-white hover:bg-[#141414] rounded-lg transition-colors"
+              aria-label="New chat"
+              title="New chat"
+            >
+              <IconPlus size={14} />
+            </button>
+          </div>
         </div>
 
         {/* Messages area */}
@@ -308,31 +585,72 @@ export default function ChatClient() {
               </div>
             )}
 
-            {messages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`group ${msg.role === 'user' ? 'max-w-[80%]' : 'w-full'}`}>
-                  <div className={`rounded-xl px-4 py-3 text-body leading-relaxed ${
-                    msg.role === 'user'
-                      ? 'bg-red-600 text-white rounded-tr-sm'
-                      : 'bg-[#141414] border border-white/[0.06] text-[#d4d4d4] rounded-tl-sm'
-                  }`}>
-                    {msg.role === 'assistant'
-                      ? <MarkdownRenderer content={msg.content} />
-                      : <span>{msg.content}</span>
-                    }
+            {messages.map((msg, i) => {
+              // For display: strip [File: ...] prefix but keep text, show [Image: ...] as label
+              let displayContent = msg.content
+              let hasFileAttachment = false
+              let hasImageAttachment = false
+              let attachmentName = ''
+
+              if (msg.role === 'user') {
+                const fileMatch = msg.content.match(/^\[File: (.+?)\]\n/)
+                if (fileMatch) {
+                  hasFileAttachment = true
+                  attachmentName = fileMatch[1]
+                  displayContent = msg.content.replace(/^\[File: .+?\]\n/, '').replace(/^\n+/, '')
+                }
+                const imageMatch = msg.content.match(/^\[Image: (.+?)\]/)
+                if (imageMatch) {
+                  hasImageAttachment = true
+                  attachmentName = imageMatch[1]
+                  displayContent = msg.content.replace(/^\[Image: .+?\]\n?/, '').replace(/^data:image\/[\s\S]+$/, '').trim()
+                  if (!displayContent) displayContent = '📷 Attached image'
+                }
+              }
+
+              return (
+                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`group ${msg.role === 'user' ? 'max-w-[80%]' : 'w-full'}`}>
+                    {/* File/Image attachment indicator */}
+                    {hasFileAttachment && (
+                      <div className="flex items-center gap-1.5 mb-1.5 justify-end">
+                        <div className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1 text-[11px] text-[#737373]">
+                          <IconFile size={10} />
+                          <span>{attachmentName}</span>
+                        </div>
+                      </div>
+                    )}
+                    {hasImageAttachment && (
+                      <div className="flex items-center gap-1.5 mb-1.5 justify-end">
+                        <div className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1 text-[11px] text-[#737373]">
+                          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1.5"/><path d="M2 11l3.5-3.5 2.5 2.5 2-2L14 11"/></svg>
+                          <span>{attachmentName}</span>
+                        </div>
+                      </div>
+                    )}
+                    <div className={`rounded-xl px-4 py-3 text-body leading-relaxed ${
+                      msg.role === 'user'
+                        ? 'bg-red-600 text-white rounded-tr-sm'
+                        : 'bg-[#141414] border border-white/[0.06] text-[#d4d4d4] rounded-tl-sm'
+                    }`}>
+                      {msg.role === 'assistant'
+                        ? <MarkdownRenderer content={msg.content} />
+                        : <span>{displayContent}</span>
+                      }
+                    </div>
+                    {msg.role === 'assistant' && (
+                      <button
+                        onClick={() => copy(msg.content, i)}
+                        className="opacity-0 group-hover:opacity-100 mt-1.5 flex items-center gap-1 text-caption text-muted2 hover:text-muted transition-all"
+                      >
+                        {copiedIndex === i ? <IconCheck size={12} /> : <IconCopy size={12} />}
+                        {copiedIndex === i ? 'Copied' : 'Copy'}
+                      </button>
+                    )}
                   </div>
-                  {msg.role === 'assistant' && (
-                    <button
-                      onClick={() => copy(msg.content, i)}
-                      className="opacity-0 group-hover:opacity-100 mt-1.5 flex items-center gap-1 text-caption text-muted2 hover:text-muted transition-all"
-                    >
-                      {copiedIndex === i ? <IconCheck size={12} /> : <IconCopy size={12} />}
-                      {copiedIndex === i ? 'Copied' : 'Copy'}
-                    </button>
-                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
 
             {loading && (
               <div className="flex justify-start">
@@ -352,6 +670,36 @@ export default function ChatClient() {
         {/* ── Perplexity-style input bar ────────────────────── */}
         <div className="shrink-0 px-4 pb-4 pt-2">
           <div className="max-w-3xl mx-auto">
+            {/* File attachment chip */}
+            {attachedFile && (
+              <div className="mb-2 flex items-center justify-end">
+                <div className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#262626] rounded-lg px-3 py-1.5 text-[12px] text-[#a3a3a3]">
+                  {attachedIsImage ? (
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1.5"/><path d="M2 11l3.5-3.5 2.5 2.5 2-2L14 11"/></svg>
+                  ) : (
+                    <IconFile size={12} />
+                  )}
+                  <span className="max-w-[120px] truncate">{attachedFile}</span>
+                  <button
+                    onClick={removeAttachment}
+                    className="ml-0.5 text-[#525252] hover:text-white transition-colors"
+                    aria-label="Remove attachment"
+                  >
+                    <IconClose size={10} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={[...ALLOWED_TEXT_EXTENSIONS, ...ALLOWED_IMAGE_EXTENSIONS].join(',')}
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+
             {/* Chat container — Perplexity style */}
             <div className="chat-container-perplexity">
               <textarea
@@ -367,6 +715,16 @@ export default function ChatClient() {
               <div className="chat-toolbar-perplexity">
                 {/* Left actions */}
                 <div className="chat-toolbar-left">
+                  {/* Feature #6: File Attachment button */}
+                  <button
+                    className="chat-toolbar-btn"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Attach file"
+                  >
+                    <IconPaperclip size={15} />
+                    <span>Attach</span>
+                  </button>
+
                   {/* Web Search toggle */}
                   <button
                     className={`chat-toolbar-btn ${webSearch ? 'chat-toolbar-btn-active' : ''}`}
