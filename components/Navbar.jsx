@@ -175,7 +175,6 @@ export default function Navbar() {
 function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen, currencyDropdownRef }) {
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || ''
   const initials = displayName.slice(0, 2).toUpperCase()
-  const showCurrency = pathname === '/' || pathname.startsWith('/dashboard')
 
   function isActive(href) {
     if (href === '/') return pathname === '/'
@@ -234,13 +233,11 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
 
       {/* ── Language switcher + Currency toggle ── */}
       <div className="px-2.5 pb-1.5 shrink-0 space-y-0.5">
-        {showCurrency && (
-          <InlineCurrencyToggle
-            open={currencyOpen}
-            setOpen={setCurrencyOpen}
-            dropdownRef={currencyDropdownRef}
-          />
-        )}
+        <InlineCurrencyToggle
+          open={currencyOpen}
+          setOpen={setCurrencyOpen}
+          dropdownRef={currencyDropdownRef}
+        />
         <InlineLanguageSwitcher />
       </div>
 
