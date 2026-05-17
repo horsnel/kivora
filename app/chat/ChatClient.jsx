@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState, useRef, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconPlus, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconTool } from '@/components/Icons'
+import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconPlus, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconTool, IconGlobe, IconSearch } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
@@ -50,6 +50,7 @@ export default function ChatClient() {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [user, setUser] = useState(null)
   const [chatHistory, setChatHistory] = useState([])
+  const [webSearch, setWebSearch] = useState(false)
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
   const historyRef = useRef(null)
@@ -183,6 +184,8 @@ export default function ChatClient() {
     return first?.content?.slice(0, 40) || 'New chat'
   }
 
+  const hasInput = input.trim().length > 0
+
   return (
     <main className="h-full flex bg-[#0a0a0a]">
       {/* Chat history panel — second sidebar, only on desktop or when toggled on mobile */}
@@ -249,6 +252,7 @@ export default function ChatClient() {
 
       {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Top bar */}
         <div className="border-b border-[#141414] px-4 py-2.5 shrink-0 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <button
@@ -277,6 +281,7 @@ export default function ChatClient() {
           </button>
         </div>
 
+        {/* Messages area */}
         <div className="flex-1 overflow-y-auto overscroll-behavior-contain">
           <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
             {messages.length === 0 && (
@@ -344,30 +349,168 @@ export default function ChatClient() {
           </div>
         </div>
 
-        <div className="border-t border-[#141414] px-4 py-4 shrink-0">
+        {/* ── Perplexity-style input bar ────────────────────── */}
+        <div className="shrink-0 px-4 pb-4 pt-2">
           <div className="max-w-3xl mx-auto">
-            <div className="flex gap-2 items-end">
+            {/* Chat container — Perplexity style */}
+            <div className="chat-container-perplexity">
               <textarea
                 ref={textareaRef}
                 rows={1}
-                className="flex-1 bg-[#141414] border border-[#262626] focus:border-red-500/60 focus:shadow-[0_0_0_3px_rgba(220,38,38,0.1),0_0_24px_rgba(220,38,38,0.06)] rounded-xl px-4 py-3.5 text-body text-white placeholder-muted2 resize-none leading-relaxed transition-all duration-200 outline-none overflow-hidden scrollbar-none"
+                className="chat-textarea-perplexity scrollbar-none"
                 placeholder="Ask anything..."
                 value={input}
                 onChange={e => { setInput(e.target.value); autoResize(e.target) }}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
               />
-              <button
-                onClick={send}
-                disabled={loading || !input.trim()}
-                className="bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white w-11 h-11 rounded-xl flex items-center justify-center transition-colors shrink-0 press"
-              >
-                {loading ? <IconSpinner size={14} /> : <IconSend size={14} />}
-              </button>
+
+              <div className="chat-toolbar-perplexity">
+                {/* Left actions */}
+                <div className="chat-toolbar-left">
+                  {/* Web Search toggle */}
+                  <button
+                    className={`chat-toolbar-btn ${webSearch ? 'chat-toolbar-btn-active' : ''}`}
+                    onClick={() => setWebSearch(!webSearch)}
+                    title="Search the web"
+                  >
+                    <IconGlobe size={15} />
+                    <span>Search</span>
+                  </button>
+
+                  {/* Focus mode */}
+                  <button
+                    className="chat-toolbar-btn"
+                    title="Focus mode"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                    <span>Focus</span>
+                  </button>
+                </div>
+
+                {/* Right actions */}
+                <div className="chat-toolbar-right">
+                  {/* Submit button — circle, lights up when text is entered */}
+                  <button
+                    onClick={send}
+                    disabled={loading || !hasInput}
+                    className={`chat-submit-btn ${hasInput ? 'chat-submit-btn-active' : ''}`}
+                    aria-label="Send message"
+                  >
+                    {loading ? (
+                      <IconSpinner size={14} />
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
-            <p className="text-caption text-[#2e2e2e] text-center mt-2.5">AI can make mistakes. Verify important information.</p>
+
+            <p className="text-[11px] text-[#2e2e2e] text-center mt-2.5">AI can make mistakes. Verify important information.</p>
           </div>
         </div>
       </div>
+
+      {/* ── Perplexity-style chat bar CSS ── */}
+      <style jsx>{`
+        .chat-container-perplexity {
+          width: 100%;
+          background-color: #202222;
+          border: 1px solid #2f3232;
+          border-radius: 16px;
+          padding: 12px 16px 8px 16px;
+          display: flex;
+          flex-direction: column;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .chat-container-perplexity:focus-within {
+          border-color: #4c4f4f;
+          box-shadow: 0 0 0 3px rgba(255,255,255,0.03);
+        }
+        .chat-textarea-perplexity {
+          width: 100%;
+          background: transparent;
+          border: none;
+          outline: none;
+          color: #e3e3e3;
+          font-size: 16px;
+          line-height: 1.5;
+          resize: none;
+          max-height: 200px;
+          font-family: inherit;
+          padding: 0;
+          margin-bottom: 12px;
+        }
+        .chat-textarea-perplexity::placeholder {
+          color: #8a8f8f;
+        }
+        .chat-toolbar-perplexity {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .chat-toolbar-left, .chat-toolbar-right {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .chat-toolbar-btn {
+          background: transparent;
+          border: none;
+          outline: none;
+          color: #8a8f8f;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          padding: 5px 10px;
+          border-radius: 9999px;
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 500;
+          transition: background 0.2s, color 0.2s;
+        }
+        .chat-toolbar-btn:hover {
+          background-color: #2d3030;
+          color: #e3e3e3;
+        }
+        .chat-toolbar-btn-active {
+          background-color: rgba(220, 38, 38, 0.12);
+          color: #ef4444;
+        }
+        .chat-toolbar-btn-active:hover {
+          background-color: rgba(220, 38, 38, 0.18);
+          color: #f87171;
+        }
+        .chat-submit-btn {
+          background-color: #2f3232;
+          color: #8a8f8f;
+          border: none;
+          outline: none;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          cursor: pointer;
+          transition: background-color 0.2s, color 0.2s, transform 0.15s;
+        }
+        .chat-submit-btn:disabled {
+          cursor: not-allowed;
+          opacity: 0.6;
+        }
+        .chat-submit-btn-active {
+          background-color: #e3e3e3;
+          color: #191a1a;
+        }
+        .chat-submit-btn-active:hover {
+          background-color: #ffffff;
+          transform: scale(1.05);
+        }
+        .chat-submit-btn-active:active {
+          transform: scale(0.95);
+        }
+      `}</style>
     </main>
   )
 }
