@@ -1751,6 +1751,76 @@ export default function ChatClient() {
         .chat-submit-btn-active:active {
           transform: scale(0.95);
         }
+
+        /* ═══════════════════════════════════════
+           MOBILE RESPONSIVE — Fit toolbar on small screens
+           ═══════════════════════════════════════ */
+        @media (max-width: 640px) {
+          .chat-toolbar-expanded {
+            gap: 2px;
+            min-height: 34px;
+          }
+          .chat-toolbar-left {
+            gap: 1px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+          }
+          .chat-toolbar-left::-webkit-scrollbar {
+            display: none;
+          }
+          .chat-toolbar-right {
+            gap: 3px;
+          }
+          .chat-toolbar-btn {
+            padding: 4px 7px;
+            font-size: 11px;
+            gap: 3px;
+            min-height: 28px;
+          }
+          .chat-toolbar-btn svg {
+            width: 13px;
+            height: 13px;
+          }
+          .chat-model-chip {
+            padding: 4px 7px;
+            font-size: 10px;
+            gap: 2px;
+            min-height: 28px;
+          }
+          .chat-pro-toggle {
+            gap: 3px;
+            padding: 2px 4px 2px 0;
+          }
+          .chat-pro-label {
+            font-size: 11px;
+          }
+          .chat-switch {
+            width: 32px;
+            height: 18px;
+          }
+          .chat-slider:before {
+            height: 12px;
+            width: 12px;
+          }
+          .chat-switch input:checked + .chat-slider:before {
+            transform: translateX(14px);
+          }
+          .chat-submit-btn {
+            width: 32px;
+            height: 32px;
+          }
+          .chat-container-expanded {
+            padding: 12px 10px 8px 10px;
+            border-radius: 16px;
+          }
+          .chat-textarea-expanded {
+            font-size: 15px;
+            min-height: 48px;
+            margin-bottom: 8px;
+          }
+        }
       `}</style>
     </main>
   )
