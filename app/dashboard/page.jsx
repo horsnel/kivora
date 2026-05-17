@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabasePublic } from '@/lib/supabase'
-import { IconBookmark, IconChat, IconTrash, IconLogout, IconArrowRight, IconUser, IconMail, IconClock, IconCode, IconBook, IconFlame } from '@/components/Icons'
+import { IconBookmark, IconChat, IconTrash, IconArrowRight, IconUser, IconMail, IconClock, IconCode, IconBook, IconFlame } from '@/components/Icons'
 
 function IconActivity({ size = 16, className = '' }) {
   return (
@@ -230,8 +230,6 @@ export default function DashboardPage() {
     if (tab === 'activity' && user) loadActivity()
   }, [tab, activityRange, user])
 
-  async function signOut() { await supabasePublic.auth.signOut(); router.push('/auth') }
-
   async function deleteSave(id) {
     await supabasePublic.from('saved_results').delete().eq('id', id)
     setSaves(p => p.filter(s => s.id !== id))
@@ -334,8 +332,8 @@ export default function DashboardPage() {
               <p className="text-[#737373] text-caption">{user?.email}</p>
             </div>
           </div>
-          <button onClick={signOut} className="flex items-center gap-1.5 text-caption text-[#737373] hover:text-white border border-[#262626] hover:border-[#3a3a3a] px-3 py-1.5 rounded-lg transition-all">
-            <IconLogout size={14} /> Sign out
+          <button onClick={() => router.push('/profile')} className="flex items-center gap-1.5 text-caption text-[#737373] hover:text-white border border-[#262626] hover:border-[#3a3a3a] px-3 py-1.5 rounded-lg transition-all">
+            <IconUser size={14} /> Profile
           </button>
         </div>
 

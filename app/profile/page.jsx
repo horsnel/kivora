@@ -186,6 +186,9 @@ export default function ProfilePage() {
             <h1 className="font-semibold text-headline tracking-tight">Profile</h1>
             <p className="text-[#737373] text-caption">Manage your account details</p>
           </div>
+          <button onClick={signOutAll} className="ml-auto flex items-center gap-1.5 text-caption text-[#737373] hover:text-white border border-[#262626] hover:border-[#3a3a3a] px-3 py-1.5 rounded-lg transition-all">
+            <IconLogout size={14} /> Sign out
+          </button>
         </div>
 
         {/* Toast */}

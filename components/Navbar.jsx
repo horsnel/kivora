@@ -1,8 +1,8 @@
 'use client'
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
-import { IconMenu, IconClose, IconDashboard, IconUser, IconLogout, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconWrite, IconHome } from '@/components/Icons'
+import { usePathname } from 'next/navigation'
+import { IconMenu, IconClose, IconDashboard, IconUser, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconWrite, IconHome } from '@/components/Icons'
 import { supabasePublic } from '@/lib/supabase'
 import { useCurrency } from '@/components/CurrencyToggle'
 import { useTranslation } from '@/components/LanguageProvider'
@@ -80,14 +80,6 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [mobileOpen])
 
-  const router = useRouter()
-
-  async function signOut() {
-    if (!supabasePublic) return
-    await supabasePublic.auth.signOut()
-    router.push('/auth')
-  }
-
   // Auth pages manage their own layout — render nothing
   if (hideSidebar) return null
 
@@ -163,7 +155,7 @@ export default function Navbar() {
             mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
-          <SidebarContent user={user} pathname={pathname} signOut={signOut} onClose={() => setMobileOpen(false)} />
+          <SidebarContent user={user} pathname={pathname} onClose={() => setMobileOpen(false)} />
         </aside>
       </>
     )
@@ -183,7 +175,7 @@ export default function Navbar() {
           mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        <SidebarContent user={user} pathname={pathname} signOut={signOut} onClose={() => setMobileOpen(false)} />
+        <SidebarContent user={user} pathname={pathname} onClose={() => setMobileOpen(false)} />
       </aside>
 
       {/* Mobile hamburger — top-left, only on small screens */}
@@ -199,7 +191,7 @@ export default function Navbar() {
 }
 
 /** Shared sidebar content — used by both the main sidebar and the mobile overlay on minimal pages */
-function SidebarContent({ user, pathname, signOut, onClose }) {
+function SidebarContent({ user, pathname, onClose }) {
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || ''
   const initials = displayName.slice(0, 2).toUpperCase()
 
@@ -292,40 +284,24 @@ function SidebarContent({ user, pathname, signOut, onClose }) {
           Dashboard
         </Link>
 
-        {user && (
+        {user ? (
           <Link
             href="/profile"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors font-medium ${
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
               isActive('/profile')
-                ? 'bg-[#1a1a1a] text-white'
-                : 'text-[#737373] hover:text-white hover:bg-[#141414]'
+                ? 'bg-[#1a1a1a]'
+                : 'hover:bg-[#141414]'
             }`}
             onClick={onClose}
           >
-            <IconUser size={14} />
-            Profile
-          </Link>
-        )}
-
-        {user ? (
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 px-3 py-2">
-              <div className="w-6 h-6 bg-[#dc2626] rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0">
-                {initials}
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm text-white font-medium truncate">{displayName}</p>
-                <p className="text-[10px] text-[#737373] truncate">{user.email}</p>
-              </div>
+            <div className="w-6 h-6 bg-[#dc2626] rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0">
+              {initials}
             </div>
-            <button
-              onClick={signOut}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-[#737373] hover:text-red-400 hover:bg-[#141414] transition-colors font-medium"
-            >
-              <IconLogout size={14} />
-              Sign out
-            </button>
-          </div>
+            <div className="min-w-0">
+              <p className="text-sm text-white font-medium truncate">{displayName}</p>
+              <p className="text-[10px] text-[#737373] truncate">{user.email}</p>
+            </div>
+          </Link>
         ) : (
           <Link
             href="/auth"
