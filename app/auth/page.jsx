@@ -114,14 +114,14 @@ function AuthForm() {
         <>
         {/* Logo + Back to home on same line */}
         <div className="flex items-center justify-between mb-8">
-          <Link href="/welcome" className="inline-flex items-center gap-2">
+          <Link href="/" className="inline-flex items-center gap-2">
             <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center">
               <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white"/></svg>
             </div>
             <span className="font-bold text-base">Ki<span className="text-red-500">vora</span></span>
           </Link>
           {mode === 'signin' && (
-            <Link href="/welcome" className="text-[#737373] hover:text-white text-xs transition-colors">
+            <Link href="/" className="text-[#737373] hover:text-white text-xs transition-colors">
               Back to home
             </Link>
           )}
@@ -207,7 +207,7 @@ function AuthForm() {
         </div>
         <p className="text-center text-xs text-[#2e2e2e] mt-4">
           All tools work without an account.{' '}
-          <Link href="/" className="text-[#404040] hover:text-white transition-colors">Skip</Link>
+          <Link href="/home" className="text-[#404040] hover:text-white transition-colors">Skip</Link>
         </p>
         </>
         )}

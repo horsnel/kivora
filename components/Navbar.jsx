@@ -8,8 +8,8 @@ import { useCurrency } from '@/components/CurrencyToggle'
 import { useTranslation } from '@/components/LanguageProvider'
 
 const NAV_LINKS = [
-  { label: 'Home',         href: '/welcome',    Icon: IconHome },
-  { label: 'Explore',      href: '/',           Icon: IconSearch },
+  { label: 'Home',         href: '/',           Icon: IconHome },
+  { label: 'Explore',      href: '/home',       Icon: IconSearch },
   { label: 'Chat',         href: '/chat',       Icon: IconChat },
   { label: 'StudyDesk',    href: '/study',      Icon: IconBook },
   { label: 'Dev Tools',    href: '/devtools',   Icon: IconCode },
@@ -20,10 +20,10 @@ const NAV_LINKS = [
 // About, Blog, Admin links removed from sidebar — About & Blog are in the footer, Admin is via O.L.H.M.E.S in footer
 
 // Pages that manage their own layout — no shared sidebar
-const NO_SIDEBAR = ['/auth']
+const NO_SIDEBAR = ['/auth', '/']
 
 // Pages where the sidebar is hidden (full-width landing pages)
-const MINIMAL_ROUTES = ['/welcome', '/onboarding']
+const MINIMAL_ROUTES = ['/onboarding']
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -34,7 +34,7 @@ export default function Navbar() {
   const sidebarRef = useRef(null)
 
   const isMinimal = MINIMAL_ROUTES.some(r => pathname.startsWith(r))
-  const hideSidebar = NO_SIDEBAR.some(p => pathname.startsWith(p))
+  const hideSidebar = pathname === '/' || pathname.startsWith('/auth')
 
   // Auth state
   useEffect(() => {
@@ -86,7 +86,7 @@ export default function Navbar() {
         {/* Fixed top navigation bar */}
         <nav className="fixed top-0 left-0 right-0 z-30 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-[#141414]/60">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 h-12 sm:h-14 flex items-center justify-between">
-            <Link href="/welcome" className="flex items-center gap-2.5">
+            <Link href="/" className="flex items-center gap-2.5">
               <div className="w-7 h-7 bg-[#dc2626] rounded-lg flex items-center justify-center">
                 <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
                   <path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white" />
@@ -178,7 +178,6 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
 
   function isActive(href) {
     if (href === '/') return pathname === '/'
-    if (href === '/welcome') return pathname === '/welcome'
     return pathname.startsWith(href)
   }
 
@@ -194,7 +193,7 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
       {/* ── Logo + close ── */}
       <div className="px-3 pt-3 pb-2 shrink-0">
         <div className="flex items-center justify-between mb-3">
-          <Link href="/welcome" className="flex items-center gap-2.5" onClick={onClose}>
+          <Link href="/" className="flex items-center gap-2.5" onClick={onClose}>
             <div className="w-7 h-7 bg-[#dc2626] rounded-lg flex items-center justify-center">
               <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
                 <path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white" />

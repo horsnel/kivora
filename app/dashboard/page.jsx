@@ -442,7 +442,7 @@ export default function DashboardPage() {
         {/* Saved */}
         {tab === 'saved' && (
           saves.length === 0 ? (
-            <Empty icon={<IconBookmark size={20} className="text-[#2e2e2e]" />} title="No saved opportunities" desc="Explore an opportunity and click Save to bookmark it here." action={{ label: 'Start exploring', href: '/' }} router={router} />
+            <Empty icon={<IconBookmark size={20} className="text-[#2e2e2e]" />} title="No saved opportunities" desc="Explore an opportunity and click Save to bookmark it here." action={{ label: 'Start exploring', href: '/home' }} router={router} />
           ) : (
             <div className="space-y-2">
               {saves.map(save => (

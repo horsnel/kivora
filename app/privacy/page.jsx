@@ -90,7 +90,7 @@ export default function PrivacyPage() {
         <div className="mt-12 pt-8 border-t border-[#141414] flex gap-4 text-xs text-[#737373]">
           <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
           <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
-          <Link href="/" className="hover:text-white transition-colors">Back to app</Link>
+          <Link href="/home" className="hover:text-white transition-colors">Back to app</Link>
         </div>
       </div>
     </main>

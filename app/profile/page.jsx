@@ -131,7 +131,7 @@ export default function ProfilePage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to delete account')
       await supabasePublic.auth.signOut()
-      router.push('/welcome')
+      router.push('/')
     } catch (err) {
       setToast({ type: 'error', message: err.message || 'Failed to delete account' })
       setShowDeleteDialog(false)

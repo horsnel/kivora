@@ -1,278 +1,306 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useCurrency } from '@/components/CurrencyToggle'
+import { useState, useEffect } from 'react'
 import {
-  IconMoney, IconRobot, IconVideo, IconShop, IconWrite, IconCode,
-  IconChat, IconSearch, IconFlame, IconTrending, IconArrowRight,
-  IconLightning, IconTool, IconSpinner, IconGlobe, IconEye
+  IconMoney, IconCode, IconChat, IconBook, IconGlobe, IconArrowRight,
+  IconCheck, IconTrending, IconLightning, IconSearch, IconTool
 } from '@/components/Icons'
 
-const PILLS = [
-  { label: 'Make Money',         Icon: IconMoney,  query: 'make money with AI automation 2024' },
-  { label: 'AI Business',        Icon: IconRobot,  query: 'start an AI-powered business from scratch' },
-  { label: 'YouTube Automation', Icon: IconVideo,  query: 'faceless YouTube channel automation with AI' },
-  { label: 'E-Commerce',         Icon: IconShop,   query: 'dropshipping store that runs itself with AI' },
-  { label: 'Content Agency',     Icon: IconWrite,  query: 'AI content agency build and run' },
-  { label: 'Dev Tools',          Icon: IconCode,   href: '/devtools' },
-  { label: 'Ask Anything',       Icon: IconChat,   href: '/chat' },
+const FEATURES = [
+  {
+    Icon: IconSearch,
+    title: 'Opportunity Engine',
+    desc: 'Type any idea — get a 5-layer guide with real costs, failure analysis, tool stack, and step-by-step action plan.',
+  },
+  {
+    Icon: IconChat,
+    title: 'AI Chat',
+    desc: 'Ask anything about building a business, automating work, or learning a skill. Powered by Groq. Always free.',
+  },
+  {
+    Icon: IconBook,
+    title: 'StudyDesk',
+    desc: 'Homework helper, essay outliner, research summarizer, citation generator, and coding practice — all in one.',
+  },
+  {
+    Icon: IconCode,
+    title: 'Dev Tools',
+    desc: 'Code explainer, regex generator, JSON formatter, README builder, SQL writer, and API analyzer.',
+  },
+  {
+    Icon: IconGlobe,
+    title: 'Built for the world',
+    desc: 'Auto-detects your country. Shows prices in your currency. Recommends tools that work without a VPN.',
+  },
+  {
+    Icon: IconMoney,
+    title: 'Honest income guides',
+    desc: 'Real monthly costs, real failure reasons, real tool stacks. No hype. No upsells. Just signal.',
+  },
 ]
 
-const SUGGESTIONS = [
-  'How to build a WhatsApp bot business',
-  'Faceless YouTube empire with ElevenLabs',
-  'Sell automation workflows on Gumroad',
-  'Build a micro-SaaS in a weekend',
-  'AI content agency for 20 clients',
-  'Affiliate blog with Claude writing',
+const STATS = [
+  { value: '6', label: 'Free tools' },
+  { value: '400+', label: 'Opportunity guides' },
+  { value: '11', label: 'Currencies supported' },
+  { value: '$0', label: 'Forever free' },
 ]
 
-export default function HomePage() {
+const TESTIMONIALS = [
+  { quote: 'Found a WhatsApp bot opportunity I\'d never considered. Had clients within 3 weeks.', name: 'Emeka O.', location: 'Lagos, Nigeria' },
+  { quote: 'The dev tools alone are worth bookmarking. Code explainer saved me hours.', name: 'Priya S.', location: 'Bangalore, India' },
+  { quote: 'Finally a platform that doesn\'t pretend everyone earns in dollars and has a US card.', name: 'Kwame A.', location: 'Accra, Ghana' },
+]
+
+export default function WelcomePage() {
   const router = useRouter()
-  const { format } = useCurrency()
   const [query, setQuery] = useState('')
-  const [trending, setTrending] = useState([])
-  const [cards, setCards] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [stats, setStats] = useState({ total: 0, views: 0 })
-  const [suggestionIndex, setSuggestionIndex] = useState(0)
-  const [displayText, setDisplayText] = useState('')
-  const [dataLoading, setDataLoading] = useState(true)
-  const inputRef = useRef(null)
-
-  useEffect(() => { loadData() }, [])
+  const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
-    const suggestion = SUGGESTIONS[suggestionIndex]
-    let i = 0
-    setDisplayText('')
-    const interval = setInterval(() => {
-      if (i <= suggestion.length) { setDisplayText(suggestion.slice(0, i)); i++ }
-      else { clearInterval(interval); setTimeout(() => setSuggestionIndex(p => (p + 1) % SUGGESTIONS.length), 2500) }
-    }, 42)
-    return () => clearInterval(interval)
-  }, [suggestionIndex])
+    const fn = () => setScrolled(window.scrollY > 40)
+    window.addEventListener('scroll', fn)
+    return () => window.removeEventListener('scroll', fn)
+  }, [])
 
-  async function loadData() {
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/explore_cache?select=slug,query,result,views&order=views.desc&limit=12`,
-        { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}` } }
-      )
-      const data = await res.json()
-      if (Array.isArray(data) && data.length > 0) {
-        setTrending(data.slice(0, 5))
-        setCards(data.slice(0, 6))
-        setStats({ total: data.length, views: data.reduce((s, d) => s + (d.views || 0), 0) })
-      }
-    } catch (_) {}
-    setDataLoading(false)
-  }
-
-  async function handleSearch(searchQuery) {
-    const q = (searchQuery || query).trim()
-    if (!q || loading) return
-    setLoading(true)
-    try {
-      const res = await fetch('/api/explore', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q })
-      })
-      const data = await res.json()
-      if (data.slug) router.push(`/explore/${data.slug}`)
-    } catch (_) {}
-    setLoading(false)
+  function handleSearch() {
+    if (query.trim()) router.push(`/home?q=${encodeURIComponent(query.trim())}`)
+    else router.push('/home')
   }
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a]">
-      <section className="relative max-w-5xl mx-auto px-4 sm:px-6 pt-16 sm:pt-20 pb-12 sm:pb-16 text-center">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[320px] sm:w-[480px] h-64 bg-red-600/[0.04] rounded-full blur-3xl pointer-events-none" />
-        <div className="relative">
-          <div className="inline-flex items-center gap-2 bg-[#141414] border border-[#262626] rounded-full px-3 sm:px-4 py-1.5 mb-4 sm:mb-6 animate-fade-up">
+    <div className="min-h-screen bg-[#0a0a0a] text-white">
+
+      {/* ── Hero ───────────────────────────────────── */}
+      <section className="relative min-h-[85vh] sm:min-h-screen flex flex-col items-center justify-center px-5 sm:px-6 text-center">
+        {/* background glow */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] sm:w-[600px] h-[300px] sm:h-[400px] bg-red-600/5 rounded-full blur-[120px]" />
+          <div className="absolute bottom-0 left-0 w-48 sm:w-64 h-48 sm:h-64 bg-red-600/3 rounded-full blur-[80px]" />
+        </div>
+
+        <div className="relative max-w-4xl mx-auto w-full">
+          {/* badge */}
+          <div className="inline-flex items-center gap-2 bg-[#141414] border border-[#262626] rounded-full px-3 sm:px-4 py-1.5 mb-6 sm:mb-8 animate-fade-up">
             <span className="w-1.5 h-1.5 bg-red-500 rounded-full pulse-dot" />
-            <span className="text-caption font-medium">Free for everyone · No signup required</span>
+            <span className="text-[11px] sm:text-xs text-[#737373] font-medium">Free for everyone · No credit card required</span>
           </div>
 
-          <h1 className="text-display-xl sm:text-[40px] md:text-[56px] font-semibold mb-3 sm:mb-4 leading-[1.1] sm:leading-[1.08] tracking-tight animate-fade-up animate-fade-up-1">
-            Your unfair advantage
-            <br /><span className="text-red-500">starts here.</span>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-semibold leading-[1.08] sm:leading-[1.05] tracking-tight mb-5 sm:mb-6 animate-fade-up animate-fade-up-1">
+            Intelligence for<br />
+            <span className="text-red-500">builders everywhere.</span>
           </h1>
 
-          <p className="text-muted text-body mb-6 sm:mb-10 max-w-xl mx-auto animate-fade-up animate-fade-up-2 leading-relaxed">
-            Tools, opportunities, and honest guides for builders everywhere.
+          <p className="text-[#737373] text-base sm:text-lg md:text-xl mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed animate-fade-up animate-fade-up-2 px-2 sm:px-0">
+            Opportunities, tools, and honest guides for anyone building something real
+            with AI — Africa, the diaspora, and the world.
           </p>
 
-          {/* Search row — larger, more prominent */}
-          <div className="flex flex-col sm:flex-row gap-2 animate-fade-up animate-fade-up-3">
-            <div className="relative flex-1">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted2 pointer-events-none">
-                <IconSearch size={14} />
-              </div>
-              <input
-                ref={inputRef}
-                className="w-full bg-[#141414] border border-[#262626] rounded-xl pl-10 pr-10 py-4 text-body text-white placeholder-muted2 transition-all focus:border-red-500/60 focus:shadow-[0_0_0_3px_rgba(220,38,38,0.1),0_0_24px_rgba(220,38,38,0.06)]"
-                placeholder={displayText || 'What do you want to build or earn?'}
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSearch()}
-              />
-              {query && (
-                <button onClick={() => setQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted2 hover:text-white transition-colors">
-                  <svg width={12} height={12} viewBox="0 0 12 12" fill="none"><path d="M2 2l8 8M10 2L2 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                </button>
-              )}
-            </div>
-            <button
-              onClick={() => handleSearch()}
-              disabled={loading || !query.trim()}
-              className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white px-6 py-4 rounded-xl font-semibold text-body transition-colors flex items-center justify-center gap-2 press"
+          {/* CTA group */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center animate-fade-up animate-fade-up-3">
+            <Link
+              href="/auth?mode=signup"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3.5 rounded-xl font-semibold text-sm transition-colors press"
             >
-              {loading ? <IconSpinner size={14} /> : <IconArrowRight size={14} />}
-              {loading ? 'Thinking' : 'Explore'}
-            </button>
+              Get started free <IconArrowRight size={14} />
+            </Link>
+            <Link
+              href="/home"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#141414] border border-[#262626] hover:border-[#3a3a3a] text-white px-6 py-3.5 rounded-xl font-medium text-sm transition-colors"
+            >
+              <IconSearch size={14} /> Explore opportunities
+            </Link>
           </div>
 
-          <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2 mt-3 animate-fade-up animate-fade-up-4">
-            {PILLS.map(({ label, Icon, query: q, href }) => (
-              <button
-                key={label}
-                onClick={() => href ? router.push(href) : handleSearch(q)}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-[#141414] border border-[#262626] hover:border-[#3a3a3a] hover:text-white text-muted rounded-full text-caption transition-all"
-              >
-                <Icon size={12} />
-                {label}
-              </button>
+          <p className="text-[11px] sm:text-xs text-[#404040] mt-4 animate-fade-up animate-fade-up-4">
+            No signup needed to use the tools · Account only to save results
+          </p>
+        </div>
+      </section>
+
+      {/* ── Stats ──────────────────────────────────── */}
+      <section className="border-y border-[#141414] py-8 sm:py-10">
+        <div className="max-w-4xl mx-auto px-5 sm:px-6 grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 text-center">
+          {STATS.map(s => (
+            <div key={s.label}>
+              <div className="text-2xl sm:text-3xl font-bold tracking-tight text-white mb-1">{s.value}</div>
+              <div className="text-[11px] sm:text-xs text-[#737373]">{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Features ───────────────────────────────── */}
+      <section className="max-w-5xl mx-auto px-5 sm:px-6 py-14 sm:py-20">
+        <div className="text-center mb-10 sm:mb-12">
+          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mb-3">Everything you need to build</h2>
+          <p className="text-[#737373] text-sm sm:text-base max-w-xl mx-auto">Six tools. One platform. All free. No account required to start.</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {FEATURES.map(({ Icon, title, desc }) => (
+            <div key={title} className="bg-[#141414] rounded-xl p-5 sm:p-6 transition-colors group">
+              <div className="w-9 h-9 bg-[#1a1a1a] rounded-xl flex items-center justify-center mb-4 group-hover:bg-red-950/20 transition-colors">
+                <Icon size={16} className="text-[#737373] group-hover:text-red-400 transition-colors" />
+              </div>
+              <h3 className="font-semibold text-sm mb-2 tracking-tight">{title}</h3>
+              <p className="text-[#737373] text-xs leading-relaxed">{desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── How it works ───────────────────────────── */}
+      <section className="bg-[#0d0d0d] border-y border-[#141414] py-14 sm:py-20">
+        <div className="max-w-3xl mx-auto px-5 sm:px-6">
+          <div className="text-center mb-10 sm:mb-12">
+            <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mb-3">How it works</h2>
+            <p className="text-[#737373] text-sm sm:text-base">Three steps from idea to action plan</p>
+          </div>
+          <div className="space-y-3 sm:space-y-4">
+            {[
+              { n: '01', title: 'Type your idea', desc: 'Enter any business idea, automation concept, or income opportunity into the search bar. No login, no form, just type.' },
+              { n: '02', title: 'Get a 5-layer guide', desc: 'Kivora generates an honest breakdown: opportunity overview, real monthly costs, why most people fail, the best free tool stack, and a day-by-day action plan.' },
+              { n: '03', title: 'Start building', desc: 'Click "Start This" to track your journey, save the guide to your dashboard, or share it with someone who needs it.' },
+            ].map(step => (
+              <div key={step.n} className="flex gap-4 sm:gap-5 bg-[#141414] rounded-xl p-5 sm:p-6">
+                <span className="text-red-500 font-mono text-sm font-bold shrink-0 mt-0.5 w-6">{step.n}</span>
+                <div>
+                  <h3 className="font-semibold text-sm mb-1.5 tracking-tight">{step.title}</h3>
+                  <p className="text-[#737373] text-sm leading-relaxed">{step.desc}</p>
+                </div>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {dataLoading ? (
-        <>
-          <section className="max-w-5xl mx-auto px-4 sm:px-6 pb-8 sm:pb-12">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="skeleton w-3 h-3 rounded-sm" />
-              <div className="skeleton w-24 h-3 rounded" />
-            </div>
-            <div className="space-y-1.5">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="skeleton border border-[#262626] rounded-xl px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="skeleton w-4 h-3 rounded" />
-                    <div className="skeleton flex-1 h-3 rounded" style={{ maxWidth: `${60 + i * 8}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-          <section className="max-w-5xl mx-auto px-4 sm:px-6 pb-12 sm:pb-16">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="skeleton w-3 h-3 rounded-sm" />
-                <div className="skeleton w-28 h-3 rounded" />
+      {/* ── What makes it different ─────────────────── */}
+      <section className="max-w-4xl mx-auto px-5 sm:px-6 py-14 sm:py-20">
+        <div className="text-center mb-10 sm:mb-12">
+          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mb-3">Why Kivora is different</h2>
+          <p className="text-[#737373] text-sm sm:text-base max-w-xl mx-auto">Most AI tools are built for people who already have everything. We built this for everyone else.</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[
+            { title: 'Real costs, not dreams', desc: 'Every guide shows the actual monthly cost to run the business — not just the free trial.' },
+            { title: 'Honest failure analysis', desc: 'We tell you exactly why most people quit this opportunity. Most sites don\'t.' },
+            { title: 'Works anywhere stack', desc: 'Every tool recommendation shows if it works without a VPN and accepts local payment methods.' },
+            { title: 'Your currency', desc: 'Auto-detects your country and shows prices in NGN, KES, GHS, GBP, EUR, and 7 more.' },
+            { title: 'No paywalls', desc: 'Every tool on this platform is free. Forever. No credit card. No trial period.' },
+            { title: 'Gets smarter over time', desc: 'Every guide you generate feeds our wiki. The platform learns and improves with every use.' },
+          ].map(item => (
+            <div key={item.title} className="flex gap-3 bg-[#141414] rounded-xl p-4 sm:p-5">
+              <div className="w-5 h-5 bg-red-950/40 border border-red-900/30 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                <IconCheck size={10} className="text-red-400" />
               </div>
-              <div className="skeleton w-16 h-3 rounded" />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="skeleton border border-[#262626] rounded-xl p-5 h-32" />
-              ))}
-            </div>
-          </section>
-        </>
-      ) : (
-        <>
-          {trending.length > 0 && (
-            <section className="max-w-5xl mx-auto px-4 sm:px-6 pb-8 sm:pb-12">
-              <div className="flex items-center gap-2 mb-3">
-                <IconFlame size={14} className="text-red-500" />
-                <span className="text-caption font-semibold text-muted uppercase tracking-widest">Trending today</span>
+              <div>
+                <h4 className="font-semibold text-sm mb-1 tracking-tight">{item.title}</h4>
+                <p className="text-[#737373] text-xs leading-relaxed">{item.desc}</p>
               </div>
-              <div className="space-y-1.5">
-                {trending.map((item, i) => (
-                  <button
-                    key={item.slug}
-                    onClick={() => router.push(`/explore/${item.slug}`)}
-                    className="w-full flex items-center justify-between bg-[#141414] border border-white/[0.06] hover:border-white/[0.1] hover:bg-[#161616] rounded-xl px-4 sm:px-5 py-3.5 transition-all text-left group"
-                  >
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                      <span className="text-[#2a2a2a] font-mono text-caption w-5 shrink-0">{String(i + 1).padStart(2, '0')}</span>
-                      <span className="text-body text-muted group-hover:text-white transition-colors truncate">{item.query}</span>
-                    </div>
-                    <div className="flex items-center gap-1 ml-2 sm:ml-3 shrink-0 text-muted2">
-                      <IconEye size={12} />
-                      <span className="text-caption font-mono">{(item.views || 0).toLocaleString()}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
+            </div>
+          ))}
+        </div>
+      </section>
 
-          {cards.length > 0 && (
-            <section className="max-w-5xl mx-auto px-4 sm:px-6 pb-12 sm:pb-16">
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <div className="flex items-center gap-2">
-                  <IconTrending size={14} className="text-muted2" />
-                  <span className="text-caption font-semibold text-muted uppercase tracking-widest">Recent Results</span>
+      {/* ── Testimonials ───────────────────────────── */}
+      <section className="bg-[#0d0d0d] border-y border-[#141414] py-14 sm:py-20">
+        <div className="max-w-4xl mx-auto px-5 sm:px-6">
+          <div className="text-center mb-10 sm:mb-12">
+            <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mb-3">From builders like you</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+            {TESTIMONIALS.map(t => (
+              <div key={t.name} className="bg-[#141414] rounded-xl p-5 sm:p-6">
+                <div className="flex gap-0.5 mb-4">
+                  {[...Array(5)].map((_, i) => (
+                    <svg key={i} width="12" height="12" viewBox="0 0 12 12" fill="#dc2626"><path d="M6 1l1.4 2.8L10.5 4l-2.2 2.2.5 3.1L6 7.9 3.2 9.3l.5-3.1L1.5 4l3.1-.2z"/></svg>
+                  ))}
                 </div>
-                <button onClick={() => router.push('/opportunities')} className="text-caption text-red-500 hover:text-red-400 transition-colors flex items-center gap-1">
-                  View all <IconArrowRight size={12} />
-                </button>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {cards.map(card => (
-                  <button
-                    key={card.slug}
-                    onClick={() => router.push(`/explore/${card.slug}`)}
-                    className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 text-left transition-all group hover:-translate-y-0.5 hover:border-white/[0.1] hover:bg-[#161616]"
-                  >
-                    <h3 className="font-semibold text-body mb-3 group-hover:text-red-400 transition-colors line-clamp-2 leading-snug tracking-tight">
-                      {card.result?.title || card.query}
-                    </h3>
-                    {card.result && (
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-1.5 text-slate-400 text-body font-medium">
-                          <IconMoney size={14} />
-                          {format(card.result.income_min || 0)}–{format(card.result.income_max || 0)}
-                          <span className="text-muted2 text-caption font-normal">/{card.result.income_period || 'mo'}</span>
-                        </div>
-                        <div className="flex items-center gap-3 text-caption text-muted2">
-                          <span className="flex items-center gap-1"><IconLightning size={12} />{card.result.start_days}d</span>
-                          <span className="flex items-center gap-1"><IconTool size={12} />{format(card.result.monthly_cost || 0)}/mo</span>
-                        </div>
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {cards.length === 0 && (
-            <section className="max-w-5xl mx-auto px-4 sm:px-6 pb-12 sm:pb-16 text-center">
-              <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-8 sm:p-12">
-                <div className="w-10 h-10 bg-[#1a1a1a] rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <IconSearch size={20} className="text-muted2" />
+                <p className="text-[#d4d4d4] text-sm leading-relaxed mb-5">"{t.quote}"</p>
+                <div>
+                  <div className="font-semibold text-sm">{t.name}</div>
+                  <div className="text-xs text-[#737373]">{t.location}</div>
                 </div>
-                <h3 className="font-semibold text-headline-sm mb-2 tracking-tight">Be the first to explore</h3>
-                <p className="text-muted text-body">Search for any business idea above.</p>
               </div>
-            </section>
-          )}
-        </>
-      )}
+            ))}
+          </div>
+        </div>
+      </section>
 
-      <div className="border-t border-[#141414] py-4 sm:py-5 text-center">
-        <p className="text-caption text-muted2 flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap">
-          {stats.views > 0 && <><span className="text-muted font-mono">{stats.views.toLocaleString()}</span> explored <span className="text-[#262626]">·</span> <span className="text-muted font-mono">{stats.total}</span> cached <span className="text-[#262626]">·</span></>}
-          <span className="text-muted">free forever</span>
-          <span className="text-[#262626]">·</span>
-          <span className="flex items-center gap-1"><IconGlobe size={12} /> built for the world</span>
+      {/* ── CTA ────────────────────────────────────── */}
+      <section className="max-w-3xl mx-auto px-5 sm:px-6 py-16 sm:py-24 text-center">
+        <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight mb-4">
+          Your next move<br />starts with a search.
+        </h2>
+        <p className="text-[#737373] text-base sm:text-lg mb-8 sm:mb-10 max-w-xl mx-auto">
+          No signup. No credit card. Just type what you want to build and see what's possible.
         </p>
-      </div>
-    </main>
+        <div className="flex flex-col sm:flex-row gap-2 max-w-lg mx-auto mb-4">
+          <input
+            className="flex-1 bg-[#141414] border border-[#262626] rounded-xl px-4 py-3.5 text-sm text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors"
+            placeholder="e.g. Build a chatbot business in Nigeria..."
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSearch()}
+          />
+          <button onClick={handleSearch} className="bg-red-600 hover:bg-red-700 text-white px-5 py-3.5 rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2 press whitespace-nowrap">
+            Explore <IconArrowRight size={13} />
+          </button>
+        </div>
+        <p className="text-xs text-[#404040]">
+          Or{' '}
+          <Link href="/auth?mode=signup" className="text-red-500 hover:text-red-400 transition-colors">
+            create a free account
+          </Link>
+          {' '}to save your results
+        </p>
+      </section>
+
+      {/* ── Footer ─────────────────────────────────── */}
+      <footer className="border-t border-[#141414] py-10 sm:py-12">
+        <div className="max-w-5xl mx-auto px-5 sm:px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 mb-8 sm:mb-10">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 bg-red-600 rounded-md flex items-center justify-center">
+                  <svg width="10" height="10" viewBox="0 0 14 14" fill="none"><path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white"/></svg>
+                </div>
+                <span className="font-bold text-sm">Ki<span className="text-red-500">vora</span></span>
+              </div>
+              <p className="text-xs text-[#737373] leading-relaxed">Intelligence for builders everywhere.</p>
+            </div>
+            <div>
+              <h4 className="font-semibold text-xs uppercase tracking-widest text-[#737373] mb-4">Platform</h4>
+              <ul className="space-y-2.5">
+                {[['Explore', '/'], ['Chat', '/chat'], ['StudyDesk', '/study'], ['Dev Tools', '/devtools'], ['Opportunities', '/opportunities']].map(([l, h]) => (
+                  <li key={l}><Link href={h} className="text-xs text-[#737373] hover:text-white transition-colors">{l}</Link></li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold text-xs uppercase tracking-widest text-[#737373] mb-4">Company</h4>
+              <ul className="space-y-2.5">
+                {[['About', '/about'], ['Blog', '/blog'], ['Contact', '/contact']].map(([l, h]) => (
+                  <li key={l}><Link href={h} className="text-xs text-[#737373] hover:text-white transition-colors">{l}</Link></li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold text-xs uppercase tracking-widest text-[#737373] mb-4">Legal</h4>
+              <ul className="space-y-2.5">
+                {[['Privacy Policy', '/privacy'], ['Terms of Service', '/terms']].map(([l, h]) => (
+                  <li key={l}><Link href={h} className="text-xs text-[#737373] hover:text-white transition-colors">{l}</Link></li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          <div className="border-t border-[#141414] pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-[#404040]">&copy; {new Date().getFullYear()} Kivora. All rights reserved.</p>
+            <p className="text-xs text-[#404040]">product of <span className="font-black text-[#737373]">O.L.H.M.E.S</span></p>
+          </div>
+        </div>
+      </footer>
+    </div>
   )
 }

@@ -3,16 +3,16 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 // Pages that manage their own layout — no shared footer
-const NO_FOOTER = ['/chat', '/auth', '/onboarding', '/welcome']
+const NO_FOOTER = ['/chat', '/auth', '/onboarding', '/']
 
 export default function Footer() {
   const pathname = usePathname()
-  if (NO_FOOTER.some(p => pathname.startsWith(p))) return null
+  if (pathname === '/' || ['/chat', '/auth', '/onboarding'].some(p => pathname.startsWith(p))) return null
 
   return (
     <footer className="border-t border-[#141414] mt-12 sm:mt-16 py-6 sm:py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-        <Link href="/welcome" className="flex items-center gap-2 group">
+        <Link href="/" className="flex items-center gap-2 group">
           <div className="w-5 h-5 bg-red-600 rounded-md flex items-center justify-center">
             <svg width="8" height="8" viewBox="0 0 14 14" fill="none">
               <path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white" />
@@ -25,7 +25,7 @@ export default function Footer() {
 
         <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-caption text-[#737373]">
           {[
-            ['Explore',       '/'],
+            ['Explore',       '/home'],
             ['Chat',          '/chat'],
             ['StudyDesk',     '/study'],
             ['Dev Tools',     '/devtools'],

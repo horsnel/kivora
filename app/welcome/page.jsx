@@ -65,8 +65,8 @@ export default function WelcomePage() {
   }, [])
 
   function handleSearch() {
-    if (query.trim()) router.push(`/?q=${encodeURIComponent(query.trim())}`)
-    else router.push('/')
+    if (query.trim()) router.push(`/home?q=${encodeURIComponent(query.trim())}`)
+    else router.push('/home')
   }
 
   return (
@@ -106,7 +106,7 @@ export default function WelcomePage() {
               Get started free <IconArrowRight size={14} />
             </Link>
             <Link
-              href="/"
+              href="/home"
               className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#141414] border border-[#262626] hover:border-[#3a3a3a] text-white px-6 py-3.5 rounded-xl font-medium text-sm transition-colors"
             >
               <IconSearch size={14} /> Explore opportunities
