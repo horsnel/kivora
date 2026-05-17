@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
-import { IconMenu, IconClose, IconDashboard, IconUser, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconWrite, IconHome } from '@/components/Icons'
+import { IconMenu, IconClose, IconDashboard, IconUser, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconHome } from '@/components/Icons'
 import { supabasePublic } from '@/lib/supabase'
 import { useCurrency } from '@/components/CurrencyToggle'
 import { useTranslation } from '@/components/LanguageProvider'
@@ -17,11 +17,7 @@ const NAV_LINKS = [
   { label: 'Opportunities', href: '/opportunities', Icon: IconTrending },
 ]
 
-const NAV_SECONDARY = [
-  { label: 'About',   href: '/about',   Icon: IconGlobe },
-  { label: 'Blog',    href: '/blog',    Icon: IconWrite },
-  { label: 'Admin',   href: '/admin',   Icon: IconDashboard },
-]
+// About, Blog, Admin links removed from sidebar — About & Blog are in the footer, Admin is via O.L.H.M.E.S in footer
 
 // Pages that manage their own layout — no shared sidebar
 const NO_SIDEBAR = ['/auth']
@@ -117,21 +113,6 @@ export default function Navbar() {
                   {label}
                 </Link>
               ))}
-              <div className="w-px h-4 bg-[#262626] mx-1" />
-              <InlineCurrencyToggle
-                open={currencyOpen}
-                setOpen={setCurrencyOpen}
-                dropdownRef={currencyDropdownRef}
-              />
-            </div>
-
-            {/* Mobile: currency only */}
-            <div className="flex items-center gap-2 md:hidden">
-              <InlineCurrencyToggle
-                open={currencyOpen}
-                setOpen={setCurrencyOpen}
-                dropdownRef={currencyDropdownRef}
-              />
             </div>
           </div>
         </nav>
@@ -155,7 +136,7 @@ export default function Navbar() {
             mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
-          <SidebarContent user={user} pathname={pathname} onClose={() => setMobileOpen(false)} />
+          <SidebarContent user={user} pathname={pathname} onClose={() => setMobileOpen(false)} currencyOpen={currencyOpen} setCurrencyOpen={setCurrencyOpen} currencyDropdownRef={currencyDropdownRef} />
         </aside>
       </>
     )
@@ -175,7 +156,7 @@ export default function Navbar() {
           mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        <SidebarContent user={user} pathname={pathname} onClose={() => setMobileOpen(false)} />
+        <SidebarContent user={user} pathname={pathname} onClose={() => setMobileOpen(false)} currencyOpen={currencyOpen} setCurrencyOpen={setCurrencyOpen} currencyDropdownRef={currencyDropdownRef} />
       </aside>
 
       {/* Mobile hamburger — top-left, only on small screens */}
@@ -191,9 +172,10 @@ export default function Navbar() {
 }
 
 /** Shared sidebar content — used by both the main sidebar and the mobile overlay on minimal pages */
-function SidebarContent({ user, pathname, onClose }) {
+function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen, currencyDropdownRef }) {
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || ''
   const initials = displayName.slice(0, 2).toUpperCase()
+  const showCurrency = pathname === '/' || pathname.startsWith('/dashboard')
 
   function isActive(href) {
     if (href === '/') return pathname === '/'
@@ -247,25 +229,18 @@ function SidebarContent({ user, pathname, onClose }) {
             </Link>
           ))}
 
-          {/* Divider */}
-          <div className="h-px bg-[#1a1a1a] my-2" />
-
-          {NAV_SECONDARY.map(({ label, href, Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className={linkClass(href)}
-              onClick={onClose}
-            >
-              <Icon size={14} className="shrink-0" />
-              {label}
-            </Link>
-          ))}
         </div>
       </div>
 
-      {/* ── Language switcher ── */}
-      <div className="px-2.5 pb-1.5 shrink-0">
+      {/* ── Language switcher + Currency toggle ── */}
+      <div className="px-2.5 pb-1.5 shrink-0 space-y-0.5">
+        {showCurrency && (
+          <InlineCurrencyToggle
+            open={currencyOpen}
+            setOpen={setCurrencyOpen}
+            dropdownRef={currencyDropdownRef}
+          />
+        )}
         <InlineLanguageSwitcher />
       </div>
 
@@ -317,7 +292,7 @@ function SidebarContent({ user, pathname, onClose }) {
   )
 }
 
-/** Inline currency toggle used on the minimal navbar for /welcome */
+/** Inline currency toggle used in the sidebar */
 function InlineCurrencyToggle({ open, setOpen, dropdownRef }) {
   const { currency, selectCurrency, currencies } = useCurrency()
 
@@ -325,15 +300,15 @@ function InlineCurrencyToggle({ open, setOpen, dropdownRef }) {
     <div ref={dropdownRef} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 sm:gap-1.5 bg-[#141414]/60 border border-[#262626] hover:border-[#3a3a3a] px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-sm text-[#737373] hover:text-white transition-all font-mono"
+        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-[#737373] hover:text-white hover:bg-[#141414] transition-colors font-medium"
       >
         <span className="font-sans text-sm font-medium">{currency.symbol}</span>
         <span>{currency.code}</span>
-        <IconChevronDown size={12} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+        <IconChevronDown size={12} className={`ml-auto transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 w-44 bg-[#141414] border border-[#262626] rounded-xl overflow-hidden shadow-2xl animate-scale-in z-50">
+        <div className="absolute bottom-full left-0 mb-1 w-full bg-[#141414] border border-[#262626] rounded-xl overflow-hidden shadow-2xl animate-scale-in z-50">
           <div className="py-1">
             {currencies.map(c => (
               <button

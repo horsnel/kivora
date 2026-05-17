@@ -43,7 +43,7 @@ export default function Footer() {
         </div>
 
         <p className="text-caption text-[#2e2e2e] whitespace-nowrap">
-          © {new Date().getFullYear()} Kivora · product of <span className="font-black text-[#404040]">O.L.H.M.E.S</span>
+          © {new Date().getFullYear()} Kivora · product of <Link href="/admin" className="font-black text-[#404040] hover:text-[#737373] transition-colors">O.L.H.M.E.S</Link>
         </p>
       </div>
     </footer>

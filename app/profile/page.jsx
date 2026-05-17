@@ -186,9 +186,6 @@ export default function ProfilePage() {
             <h1 className="font-semibold text-headline tracking-tight">Profile</h1>
             <p className="text-[#737373] text-caption">Manage your account details</p>
           </div>
-          <button onClick={signOutAll} className="ml-auto flex items-center gap-1.5 text-caption text-[#737373] hover:text-white border border-[#262626] hover:border-[#3a3a3a] px-3 py-1.5 rounded-lg transition-all">
-            <IconLogout size={14} /> Sign out
-          </button>
         </div>
 
         {/* Toast */}
@@ -349,6 +346,25 @@ export default function ProfilePage() {
                 </button>
                 <p className="text-[10px] text-[#404040] mt-2 text-center">This will invalidate all active sessions across all devices</p>
               </div>
+            </div>
+
+            {/* Sign Out */}
+            <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mt-6">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-7 h-7 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
+                  <IconLogout size={14} className="text-[#737373]" />
+                </div>
+                <h2 className="font-semibold text-sm">Sign Out</h2>
+              </div>
+              <p className="text-xs text-[#737373] mb-4">
+                Sign out of your account on this device. You can always sign back in later.
+              </p>
+              <button
+                onClick={signOutAll}
+                className="w-full bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-[#a3a3a3] hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+              >
+                <IconLogout size={14} /> Sign out
+              </button>
             </div>
 
             {/* Danger Zone */}
