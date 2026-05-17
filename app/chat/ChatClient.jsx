@@ -430,8 +430,9 @@ export default function ChatClient() {
         .chat-textarea-perplexity {
           width: 100%;
           background: transparent;
-          border: none;
-          outline: none;
+          border: none !important;
+          outline: none !important;
+          box-shadow: none !important;
           color: #e3e3e3;
           font-size: 16px;
           line-height: 1.5;
@@ -440,6 +441,12 @@ export default function ChatClient() {
           font-family: inherit;
           padding: 0;
           margin-bottom: 12px;
+        }
+        .chat-textarea-perplexity:focus {
+          border: none !important;
+          outline: none !important;
+          box-shadow: none !important;
+          border-color: transparent !important;
         }
         .chat-textarea-perplexity::placeholder {
           color: #8a8f8f;
