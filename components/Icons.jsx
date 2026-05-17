@@ -424,6 +424,15 @@ export function IconStack({ size = 16, className = '' }) {
   )
 }
 
+export function IconHome({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M3 8l5-5 5 5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M4 7v5.5a.5.5 0 00.5.5H7V10h2v3h2.5a.5.5 0 00.5-.5V7" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 export function IconMail({ size = 16, className = '' }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>

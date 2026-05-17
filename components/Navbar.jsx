@@ -2,15 +2,16 @@
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { IconMenu, IconClose, IconDashboard, IconUser, IconLogout, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconWrite } from '@/components/Icons'
+import { IconMenu, IconClose, IconDashboard, IconUser, IconLogout, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconWrite, IconHome } from '@/components/Icons'
 import { supabasePublic } from '@/lib/supabase'
 import { useCurrency } from '@/components/CurrencyToggle'
 
 const NAV_LINKS = [
-  { label: 'Explore',       href: '/',          Icon: IconSearch },
-  { label: 'Chat',          href: '/chat',      Icon: IconChat },
-  { label: 'StudyDesk',     href: '/study',     Icon: IconBook },
-  { label: 'Dev Tools',     href: '/devtools',  Icon: IconCode },
+  { label: 'Home',         href: '/welcome',    Icon: IconHome },
+  { label: 'Explore',      href: '/',           Icon: IconSearch },
+  { label: 'Chat',         href: '/chat',       Icon: IconChat },
+  { label: 'StudyDesk',    href: '/study',      Icon: IconBook },
+  { label: 'Dev Tools',    href: '/devtools',   Icon: IconCode },
   { label: 'Opportunities', href: '/opportunities', Icon: IconTrending },
 ]
 
@@ -87,12 +88,13 @@ export default function Navbar() {
   // Auth pages manage their own layout — render nothing
   if (hideSidebar) return null
 
-  // Minimal pages (welcome, onboarding) — no sidebar, just a top bar
+  // Minimal pages (welcome, onboarding) — fixed top bar so it doesn't conflict with the row flex parent
   if (isMinimal) {
     return (
       <>
-        <nav className="relative bg-transparent">
-          <div className="max-w-6xl mx-auto px-3 sm:px-4 h-12 sm:h-14 flex items-center justify-between">
+        {/* Fixed top navigation bar */}
+        <nav className="fixed top-0 left-0 right-0 z-30 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-[#141414]/60">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 h-12 sm:h-14 flex items-center justify-between">
             <Link href="/welcome" className="flex items-center gap-2">
               <div className="w-7 h-7 bg-red-600 rounded-lg flex items-center justify-center">
                 <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
@@ -103,21 +105,50 @@ export default function Navbar() {
                 Ki<span className="text-red-500">vora</span>
               </span>
             </Link>
-            <InlineCurrencyToggle
-              open={currencyOpen}
-              setOpen={setCurrencyOpen}
-              dropdownRef={currencyDropdownRef}
-            />
+
+            {/* Desktop nav links */}
+            <div className="hidden md:flex items-center gap-1">
+              {NAV_LINKS.map(({ label, href, Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-caption font-medium transition-colors ${
+                    (href === '/' ? pathname === '/' : pathname.startsWith(href))
+                      ? 'bg-[#1a1a1a] text-white'
+                      : 'text-[#737373] hover:text-white hover:bg-[#141414]'
+                  }`}
+                >
+                  <Icon size={13} />
+                  {label}
+                </Link>
+              ))}
+              <div className="w-px h-4 bg-[#262626] mx-1" />
+              <InlineCurrencyToggle
+                open={currencyOpen}
+                setOpen={setCurrencyOpen}
+                dropdownRef={currencyDropdownRef}
+              />
+            </div>
+
+            {/* Mobile: currency + hamburger */}
+            <div className="flex items-center gap-2 md:hidden">
+              <InlineCurrencyToggle
+                open={currencyOpen}
+                setOpen={setCurrencyOpen}
+                dropdownRef={currencyDropdownRef}
+              />
+              <button
+                className="w-9 h-9 flex items-center justify-center bg-[#141414] border border-[#262626] rounded-lg text-[#737373] hover:text-white transition-colors"
+                onClick={() => setMobileOpen(true)}
+                aria-label="Open menu"
+              >
+                <IconMenu size={14} />
+              </button>
+            </div>
           </div>
         </nav>
-        {/* Mobile hamburger — visible on minimal pages for navigation */}
-        <button
-          className="fixed top-3 right-3 md:hidden z-50 w-9 h-9 flex items-center justify-center bg-[#141414] border border-[#262626] rounded-lg text-[#737373] hover:text-white transition-colors"
-          onClick={() => setMobileOpen(true)}
-          aria-label="Open menu"
-        >
-          <IconMenu size={14} />
-        </button>
+
+        {/* Mobile sidebar overlay */}
         {mobileOpen && (
           <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setMobileOpen(false)} />
         )}
@@ -169,6 +200,7 @@ function SidebarContent({ user, pathname, signOut, onClose }) {
 
   function isActive(href) {
     if (href === '/') return pathname === '/'
+    if (href === '/welcome') return pathname === '/welcome'
     return pathname.startsWith(href)
   }
 
@@ -184,7 +216,7 @@ function SidebarContent({ user, pathname, signOut, onClose }) {
       {/* ── Logo + close ── */}
       <div className="px-3 pt-3 pb-2 shrink-0">
         <div className="flex items-center justify-between mb-3">
-          <Link href="/" className="flex items-center gap-2" onClick={onClose}>
+          <Link href="/welcome" className="flex items-center gap-2" onClick={onClose}>
             <div className="w-6 h-6 bg-red-600 rounded-md flex items-center justify-center">
               <svg width="9" height="9" viewBox="0 0 14 14" fill="none">
                 <path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white" />

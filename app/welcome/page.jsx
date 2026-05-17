@@ -70,29 +70,29 @@ export default function WelcomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white overflow-x-hidden">
+    <div className="min-h-screen bg-[#0a0a0a] text-white">
 
       {/* ── Hero ───────────────────────────────────── */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center px-4 text-center">
+      <section className="relative min-h-[85vh] sm:min-h-screen flex flex-col items-center justify-center px-5 sm:px-6 text-center">
         {/* background glow */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-red-600/5 rounded-full blur-[120px]" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-red-600/3 rounded-full blur-[80px]" />
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] sm:w-[600px] h-[300px] sm:h-[400px] bg-red-600/5 rounded-full blur-[120px]" />
+          <div className="absolute bottom-0 left-0 w-48 sm:w-64 h-48 sm:h-64 bg-red-600/3 rounded-full blur-[80px]" />
         </div>
 
-        <div className="relative max-w-4xl mx-auto">
+        <div className="relative max-w-4xl mx-auto w-full">
           {/* badge */}
-          <div className="inline-flex items-center gap-2 bg-[#141414] border border-[#262626] rounded-full px-4 py-1.5 mb-8 animate-fade-up">
+          <div className="inline-flex items-center gap-2 bg-[#141414] border border-[#262626] rounded-full px-3 sm:px-4 py-1.5 mb-6 sm:mb-8 animate-fade-up">
             <span className="w-1.5 h-1.5 bg-red-500 rounded-full pulse-dot" />
-            <span className="text-xs text-[#737373] font-medium">Free for everyone · No credit card required</span>
+            <span className="text-[11px] sm:text-xs text-[#737373] font-medium">Free for everyone · No credit card required</span>
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-semibold leading-[1.05] tracking-tight mb-6 animate-fade-up animate-fade-up-1">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-semibold leading-[1.08] sm:leading-[1.05] tracking-tight mb-5 sm:mb-6 animate-fade-up animate-fade-up-1">
             Intelligence for<br />
             <span className="text-red-500">builders everywhere.</span>
           </h1>
 
-          <p className="text-[#737373] text-lg md:text-xl mb-10 max-w-2xl mx-auto leading-relaxed animate-fade-up animate-fade-up-2">
+          <p className="text-[#737373] text-base sm:text-lg md:text-xl mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed animate-fade-up animate-fade-up-2 px-2 sm:px-0">
             Opportunities, tools, and honest guides for anyone building something real
             with AI — Africa, the diaspora, and the world.
           </p>
@@ -101,47 +101,45 @@ export default function WelcomePage() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-center animate-fade-up animate-fade-up-3">
             <Link
               href="/auth?mode=signup"
-              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3.5 rounded-xl font-semibold text-sm transition-colors press"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3.5 rounded-xl font-semibold text-sm transition-colors press"
             >
               Get started free <IconArrowRight size={14} />
             </Link>
             <Link
               href="/"
-              className="flex items-center gap-2 bg-[#141414] border border-[#262626] hover:border-[#3a3a3a] text-white px-6 py-3.5 rounded-xl font-medium text-sm transition-colors"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#141414] border border-[#262626] hover:border-[#3a3a3a] text-white px-6 py-3.5 rounded-xl font-medium text-sm transition-colors"
             >
               <IconSearch size={14} /> Explore opportunities
             </Link>
           </div>
 
-          <p className="text-xs text-[#404040] mt-4 animate-fade-up animate-fade-up-4">
+          <p className="text-[11px] sm:text-xs text-[#404040] mt-4 animate-fade-up animate-fade-up-4">
             No signup needed to use the tools · Account only to save results
           </p>
         </div>
-
-
       </section>
 
       {/* ── Stats ──────────────────────────────────── */}
-      <section className="border-y border-[#141414] py-10">
-        <div className="max-w-4xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+      <section className="border-y border-[#141414] py-8 sm:py-10">
+        <div className="max-w-4xl mx-auto px-5 sm:px-6 grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 text-center">
           {STATS.map(s => (
             <div key={s.label}>
-              <div className="text-3xl font-bold tracking-tight text-white mb-1">{s.value}</div>
-              <div className="text-xs text-[#737373]">{s.label}</div>
+              <div className="text-2xl sm:text-3xl font-bold tracking-tight text-white mb-1">{s.value}</div>
+              <div className="text-[11px] sm:text-xs text-[#737373]">{s.label}</div>
             </div>
           ))}
         </div>
       </section>
 
       {/* ── Features ───────────────────────────────── */}
-      <section className="max-w-5xl mx-auto px-4 py-20">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-semibold tracking-tight mb-3">Everything you need to build</h2>
-          <p className="text-[#737373] max-w-xl mx-auto">Six tools. One platform. All free. No account required to start.</p>
+      <section className="max-w-5xl mx-auto px-5 sm:px-6 py-14 sm:py-20">
+        <div className="text-center mb-10 sm:mb-12">
+          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mb-3">Everything you need to build</h2>
+          <p className="text-[#737373] text-sm sm:text-base max-w-xl mx-auto">Six tools. One platform. All free. No account required to start.</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {FEATURES.map(({ Icon, title, desc }) => (
-            <div key={title} className="bg-[#141414] rounded-xl p-6 transition-colors group">
+            <div key={title} className="bg-[#141414] rounded-xl p-5 sm:p-6 transition-colors group">
               <div className="w-9 h-9 bg-[#1a1a1a] rounded-xl flex items-center justify-center mb-4 group-hover:bg-red-950/20 transition-colors">
                 <Icon size={16} className="text-[#737373] group-hover:text-red-400 transition-colors" />
               </div>
@@ -153,19 +151,19 @@ export default function WelcomePage() {
       </section>
 
       {/* ── How it works ───────────────────────────── */}
-      <section className="bg-[#0d0d0d] border-y border-[#141414] py-20">
-        <div className="max-w-3xl mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-semibold tracking-tight mb-3">How it works</h2>
-            <p className="text-[#737373]">Three steps from idea to action plan</p>
+      <section className="bg-[#0d0d0d] border-y border-[#141414] py-14 sm:py-20">
+        <div className="max-w-3xl mx-auto px-5 sm:px-6">
+          <div className="text-center mb-10 sm:mb-12">
+            <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mb-3">How it works</h2>
+            <p className="text-[#737373] text-sm sm:text-base">Three steps from idea to action plan</p>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {[
               { n: '01', title: 'Type your idea', desc: 'Enter any business idea, automation concept, or income opportunity into the search bar. No login, no form, just type.' },
               { n: '02', title: 'Get a 5-layer guide', desc: 'Kivora generates an honest breakdown: opportunity overview, real monthly costs, why most people fail, the best free tool stack, and a day-by-day action plan.' },
               { n: '03', title: 'Start building', desc: 'Click "Start This" to track your journey, save the guide to your dashboard, or share it with someone who needs it.' },
             ].map(step => (
-              <div key={step.n} className="flex gap-5 bg-[#141414] rounded-xl p-6">
+              <div key={step.n} className="flex gap-4 sm:gap-5 bg-[#141414] rounded-xl p-5 sm:p-6">
                 <span className="text-red-500 font-mono text-sm font-bold shrink-0 mt-0.5 w-6">{step.n}</span>
                 <div>
                   <h3 className="font-semibold text-sm mb-1.5 tracking-tight">{step.title}</h3>
@@ -178,12 +176,12 @@ export default function WelcomePage() {
       </section>
 
       {/* ── What makes it different ─────────────────── */}
-      <section className="max-w-4xl mx-auto px-4 py-20">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-semibold tracking-tight mb-3">Why Kivora is different</h2>
-          <p className="text-[#737373] max-w-xl mx-auto">Most AI tools are built for people who already have everything. We built this for everyone else.</p>
+      <section className="max-w-4xl mx-auto px-5 sm:px-6 py-14 sm:py-20">
+        <div className="text-center mb-10 sm:mb-12">
+          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mb-3">Why Kivora is different</h2>
+          <p className="text-[#737373] text-sm sm:text-base max-w-xl mx-auto">Most AI tools are built for people who already have everything. We built this for everyone else.</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
             { title: 'Real costs, not dreams', desc: 'Every guide shows the actual monthly cost to run the business — not just the free trial.' },
             { title: 'Honest failure analysis', desc: 'We tell you exactly why most people quit this opportunity. Most sites don\'t.' },
@@ -192,7 +190,7 @@ export default function WelcomePage() {
             { title: 'No paywalls', desc: 'Every tool on this platform is free. Forever. No credit card. No trial period.' },
             { title: 'Gets smarter over time', desc: 'Every guide you generate feeds our wiki. The platform learns and improves with every use.' },
           ].map(item => (
-            <div key={item.title} className="flex gap-3 bg-[#141414] rounded-xl p-5">
+            <div key={item.title} className="flex gap-3 bg-[#141414] rounded-xl p-4 sm:p-5">
               <div className="w-5 h-5 bg-red-950/40 border border-red-900/30 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                 <IconCheck size={10} className="text-red-400" />
               </div>
@@ -206,14 +204,14 @@ export default function WelcomePage() {
       </section>
 
       {/* ── Testimonials ───────────────────────────── */}
-      <section className="bg-[#0d0d0d] border-y border-[#141414] py-20">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-semibold tracking-tight mb-3">From builders like you</h2>
+      <section className="bg-[#0d0d0d] border-y border-[#141414] py-14 sm:py-20">
+        <div className="max-w-4xl mx-auto px-5 sm:px-6">
+          <div className="text-center mb-10 sm:mb-12">
+            <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mb-3">From builders like you</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
             {TESTIMONIALS.map(t => (
-              <div key={t.name} className="bg-[#141414] rounded-xl p-6">
+              <div key={t.name} className="bg-[#141414] rounded-xl p-5 sm:p-6">
                 <div className="flex gap-0.5 mb-4">
                   {[...Array(5)].map((_, i) => (
                     <svg key={i} width="12" height="12" viewBox="0 0 12 12" fill="#dc2626"><path d="M6 1l1.4 2.8L10.5 4l-2.2 2.2.5 3.1L6 7.9 3.2 9.3l.5-3.1L1.5 4l3.1-.2z"/></svg>
@@ -231,14 +229,14 @@ export default function WelcomePage() {
       </section>
 
       {/* ── CTA ────────────────────────────────────── */}
-      <section className="max-w-3xl mx-auto px-4 py-24 text-center">
-        <h2 className="text-4xl md:text-5xl font-semibold tracking-tight mb-4">
+      <section className="max-w-3xl mx-auto px-5 sm:px-6 py-16 sm:py-24 text-center">
+        <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight mb-4">
           Your next move<br />starts with a search.
         </h2>
-        <p className="text-[#737373] text-lg mb-10 max-w-xl mx-auto">
+        <p className="text-[#737373] text-base sm:text-lg mb-8 sm:mb-10 max-w-xl mx-auto">
           No signup. No credit card. Just type what you want to build and see what's possible.
         </p>
-        <div className="flex gap-2 max-w-lg mx-auto mb-4">
+        <div className="flex flex-col sm:flex-row gap-2 max-w-lg mx-auto mb-4">
           <input
             className="flex-1 bg-[#141414] border border-[#262626] rounded-xl px-4 py-3.5 text-sm text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors"
             placeholder="e.g. Build a chatbot business in Nigeria..."
@@ -246,7 +244,7 @@ export default function WelcomePage() {
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
           />
-          <button onClick={handleSearch} className="bg-red-600 hover:bg-red-700 text-white px-5 py-3.5 rounded-xl font-semibold text-sm transition-colors flex items-center gap-2 press whitespace-nowrap">
+          <button onClick={handleSearch} className="bg-red-600 hover:bg-red-700 text-white px-5 py-3.5 rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2 press whitespace-nowrap">
             Explore <IconArrowRight size={13} />
           </button>
         </div>
@@ -260,9 +258,9 @@ export default function WelcomePage() {
       </section>
 
       {/* ── Footer ─────────────────────────────────── */}
-      <footer className="border-t border-[#141414] py-12">
-        <div className="max-w-5xl mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
+      <footer className="border-t border-[#141414] py-10 sm:py-12">
+        <div className="max-w-5xl mx-auto px-5 sm:px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 mb-8 sm:mb-10">
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-6 h-6 bg-red-600 rounded-md flex items-center justify-center">
@@ -297,8 +295,8 @@ export default function WelcomePage() {
               </ul>
             </div>
           </div>
-          <div className="border-t border-[#141414] pt-6 flex flex-col md:flex-row items-center justify-between gap-3">
-            <p className="text-xs text-[#404040]">© {new Date().getFullYear()} Kivora. All rights reserved.</p>
+          <div className="border-t border-[#141414] pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-[#404040]">&copy; {new Date().getFullYear()} Kivora. All rights reserved.</p>
             <p className="text-xs text-[#404040]">product of <span className="font-black text-[#737373]">O.L.H.M.E.S</span></p>
           </div>
         </div>
