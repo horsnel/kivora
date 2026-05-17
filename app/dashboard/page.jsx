@@ -1,8 +1,8 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabasePublic } from '@/lib/supabase'
-import { IconBookmark, IconChat, IconTrash, IconLogout, IconArrowRight, IconUser, IconMail, IconClock, IconCode, IconBook } from '@/components/Icons'
+import { IconBookmark, IconChat, IconTrash, IconLogout, IconArrowRight, IconUser, IconMail, IconClock, IconCode, IconBook, IconFlame } from '@/components/Icons'
 
 function IconActivity({ size = 16, className = '' }) {
   return (
@@ -20,6 +20,7 @@ const TOOL_LABELS = {
   study_research: 'Research Summarizer',
   study_citation: 'Citation Generator',
   study_coding: 'Coding Practice',
+  study_notes: 'Study Notes Generator',
   devtools_code_explainer: 'Code Explainer',
   devtools_regex: 'Regex Generator',
   devtools_json_formatter: 'JSON Formatter',
@@ -35,6 +36,7 @@ const TOOL_CATEGORIES = {
   study_research: 'StudyDesk',
   study_citation: 'StudyDesk',
   study_coding: 'StudyDesk',
+  study_notes: 'StudyDesk',
   devtools_code_explainer: 'DevTools',
   devtools_regex: 'DevTools',
   devtools_json_formatter: 'DevTools',
@@ -64,6 +66,98 @@ function formatDurationShort(ms) {
   return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`
 }
 
+/** Compute streak info from session data */
+function computeStreak(sessions) {
+  if (!sessions || sessions.length === 0) return { current: 0, best: 0 }
+
+  // Group sessions by date string (YYYY-MM-DD)
+  const daySet = new Set()
+  sessions.forEach(s => {
+    if (s.created_at) {
+      const d = new Date(s.created_at)
+      daySet.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)
+    }
+  })
+
+  const days = [...daySet].sort().reverse() // most recent first
+  if (days.length === 0) return { current: 0, best: 0 }
+
+  // Current streak: count consecutive days from today backwards
+  const today = new Date()
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth()+1).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`
+
+  let currentStreak = 0
+  // Start from today or yesterday (to handle mid-day)
+  let checkDate = daySet.has(todayStr) ? today : daySet.has(yesterdayStr) ? yesterday : null
+  if (checkDate) {
+    while (true) {
+      const ds = `${checkDate.getFullYear()}-${String(checkDate.getMonth()+1).padStart(2,'0')}-${String(checkDate.getDate()).padStart(2,'0')}`
+      if (daySet.has(ds)) {
+        currentStreak++
+        checkDate.setDate(checkDate.getDate() - 1)
+      } else {
+        break
+      }
+    }
+  }
+
+  // Best streak: find longest consecutive run in all days
+  const sortedDays = [...daySet].sort()
+  let bestStreak = 1
+  let runStreak = 1
+  for (let i = 1; i < sortedDays.length; i++) {
+    const prev = new Date(sortedDays[i-1])
+    const curr = new Date(sortedDays[i])
+    const diff = Math.round((curr - prev) / (1000 * 60 * 60 * 24))
+    if (diff === 1) {
+      runStreak++
+      bestStreak = Math.max(bestStreak, runStreak)
+    } else {
+      runStreak = 1
+    }
+  }
+  if (sortedDays.length === 0) bestStreak = 0
+
+  return { current: currentStreak, best: Math.max(bestStreak, currentStreak) }
+}
+
+/** Build weekly heatmap data (last 4 weeks) */
+function buildWeeklyHeatmap(sessions) {
+  // 7 columns (Mon-Sun), 4 rows (weeks)
+  const heatmap = Array.from({ length: 4 }, () => Array.from({ length: 7 }, () => 0))
+
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const dayOfWeek = today.getDay() // 0=Sun, 1=Mon...
+  const adjustedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1 // 0=Mon, 6=Sun
+
+  // Count sessions per day for last 28 days
+  const dayCounts = {}
+  sessions.forEach(s => {
+    if (s.created_at) {
+      const d = new Date(s.created_at)
+      const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+      dayCounts[ds] = (dayCounts[ds] || 0) + 1
+    }
+  })
+
+  // Fill in the 4x7 grid
+  for (let w = 3; w >= 0; w--) {
+    for (let d = 0; d < 7; d++) {
+      const daysAgo = (3 - w) * 7 + (adjustedDay - d)
+      const cellDate = new Date(today)
+      cellDate.setDate(cellDate.getDate() - daysAgo)
+      const ds = `${cellDate.getFullYear()}-${String(cellDate.getMonth()+1).padStart(2,'0')}-${String(cellDate.getDate()).padStart(2,'0')}`
+      heatmap[w][d] = dayCounts[ds] || 0
+    }
+  }
+
+  return heatmap
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const [user, setUser] = useState(null)
@@ -75,6 +169,7 @@ export default function DashboardPage() {
   const [expandedMsg, setExpandedMsg] = useState(null)
   const [activityData, setActivityData] = useState(null)
   const [activityRange, setActivityRange] = useState('week')
+  const [allTimeSessions, setAllTimeSessions] = useState([])
 
   useEffect(() => { checkAuth() }, [])
 
@@ -85,7 +180,7 @@ export default function DashboardPage() {
     // Check if user has completed onboarding — redirect if not
     const { data: profile } = await supabasePublic.from('profiles').select('onboarding_done').eq('id', user.id).single()
     if (!profile?.onboarding_done) { router.push('/onboarding'); return }
-    await Promise.all([loadSaves(user.id), loadChats(user.id), loadMessages(user.id)])
+    await Promise.all([loadSaves(user.id), loadChats(user.id), loadMessages(user.id), loadAllTimeSessions(user.id)])
     setLoading(false)
   }
 
@@ -105,6 +200,16 @@ export default function DashboardPage() {
       if (res.ok) {
         const data = await res.json()
         setMessages(data.submissions || [])
+      }
+    } catch {}
+  }
+
+  async function loadAllTimeSessions(userId) {
+    try {
+      const res = await fetch(`/api/study-sessions?user_id=${userId}&range=all`)
+      if (res.ok) {
+        const data = await res.json()
+        setAllTimeSessions(data.sessions || [])
       }
     } catch {}
   }
@@ -144,6 +249,16 @@ export default function DashboardPage() {
   }
 
   const unreadCount = messages.filter(m => !m.read).length
+
+  // Streak calculation from all-time sessions
+  const streakInfo = useMemo(() => computeStreak(allTimeSessions), [allTimeSessions])
+
+  // Weekly heatmap from all-time sessions
+  const heatmapData = useMemo(() => buildWeeklyHeatmap(allTimeSessions), [allTimeSessions])
+  const heatmapMax = useMemo(() => {
+    const max = Math.max(...heatmapData.flat(), 1)
+    return max
+  }, [heatmapData])
 
   if (loading) return (
     <div className="min-h-screen bg-[#0a0a0a]">
@@ -195,6 +310,16 @@ export default function DashboardPage() {
   // Top subjects sorted by count
   const topSubjects = Object.entries(subjectBreakdown).sort((a, b) => b[1] - a[1]).slice(0, 8)
 
+  // Heatmap color for a cell value
+  function heatmapColor(count) {
+    if (count === 0) return 'bg-[#1a1a1a]'
+    const ratio = count / heatmapMax
+    if (ratio < 0.25) return 'bg-red-900/40'
+    if (ratio < 0.5) return 'bg-red-700/50'
+    if (ratio < 0.75) return 'bg-red-600/60'
+    return 'bg-red-500/80'
+  }
+
   return (
     <main className="min-h-screen bg-[#0a0a0a]">
       <div className="max-w-5xl mx-auto px-4 py-10">
@@ -215,19 +340,89 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-7">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-7">
           {[
+            { label: 'Streak', value: streakInfo.current > 0 ? `${streakInfo.current}d` : '0d', icon: streakInfo.current > 0 ? '🔥' : null },
             { label: 'Saved', value: saves.length },
             { label: 'Chats', value: chats.length },
             { label: 'Messages', value: messages.length },
             { label: 'Member since', value: user?.created_at ? new Date(user.created_at).toLocaleDateString('en', { month: 'short', year: 'numeric' }) : '—' },
           ].map(s => (
             <div key={s.label} className="bg-[#141414] border border-white/[0.06] rounded-xl px-4 py-3 text-center">
-              <div className="font-bold text-headline tracking-tight">{s.value}</div>
+              <div className="font-bold text-headline tracking-tight">{s.icon ? `${s.icon} ` : ''}{s.value}</div>
               <div className="text-caption text-[#737373] mt-0.5">{s.label}</div>
             </div>
           ))}
         </div>
+
+        {/* Streak & Weekly Activity */}
+        {allTimeSessions.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-7">
+            {/* Streak card */}
+            <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 bg-red-600/10 rounded-lg flex items-center justify-center">
+                  <IconFlame size={14} className="text-red-400" />
+                </div>
+                <span className="text-caption text-[#737373]">Study Streak</span>
+              </div>
+              <div className="flex items-end gap-4">
+                <div>
+                  <div className="font-bold text-2xl tracking-tight">
+                    {streakInfo.current > 0 && <span className="mr-1">🔥</span>}
+                    {streakInfo.current}
+                  </div>
+                  <div className="text-caption text-[#737373]">day{streakInfo.current !== 1 ? 's' : ''} current</div>
+                </div>
+                <div className="border-l border-[#262626] pl-4">
+                  <div className="font-bold text-lg text-[#737373] tracking-tight">{streakInfo.best}</div>
+                  <div className="text-caption text-[#404040]">best streak</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Weekly Activity Heatmap */}
+            <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 bg-red-600/10 rounded-lg flex items-center justify-center">
+                  <IconActivity size={14} className="text-red-400" />
+                </div>
+                <span className="text-caption text-[#737373]">Weekly Activity</span>
+              </div>
+              <div className="space-y-1">
+                {/* Day labels header */}
+                <div className="grid grid-cols-7 gap-1 mb-1">
+                  {['M','T','W','T','F','S','S'].map((d, i) => (
+                    <div key={i} className="text-[9px] text-[#404040] text-center font-medium">{d}</div>
+                  ))}
+                </div>
+                {/* Heatmap rows (week 0 = oldest, week 3 = current) */}
+                {heatmapData.map((week, wi) => (
+                  <div key={wi} className="grid grid-cols-7 gap-1">
+                    {week.map((count, di) => (
+                      <div
+                        key={di}
+                        className={`aspect-square rounded-sm ${heatmapColor(count)} transition-colors`}
+                        title={count > 0 ? `${count} session${count !== 1 ? 's' : ''}` : 'No activity'}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-[9px] text-[#404040]">Less</span>
+                <div className="flex gap-0.5">
+                  <div className="w-2.5 h-2.5 rounded-sm bg-[#1a1a1a]" />
+                  <div className="w-2.5 h-2.5 rounded-sm bg-red-900/40" />
+                  <div className="w-2.5 h-2.5 rounded-sm bg-red-700/50" />
+                  <div className="w-2.5 h-2.5 rounded-sm bg-red-600/60" />
+                  <div className="w-2.5 h-2.5 rounded-sm bg-red-500/80" />
+                </div>
+                <span className="text-[9px] text-[#404040]">More</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-1 bg-[#141414] border border-[#262626] p-1 rounded-xl mb-6">

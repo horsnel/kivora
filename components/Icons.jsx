@@ -487,6 +487,39 @@ export function IconMapPin({ size = 16, className = '' }) {
   )
 }
 
+export function IconMicrophone({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <rect x="6" y="1.5" width="4" height="7" rx="2" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M3.5 7A4.5 4.5 0 008 11.5 4.5 4.5 0 0012.5 7" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <path d="M8 11.5V14M5.5 14h5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function IconSpeaker({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M2.5 5.5H5l3.5-3v11L5 10.5H2.5a1 1 0 01-1-1v-3a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+      <path d="M11 5.5a3.5 3.5 0 010 5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <path d="M12.5 3.5a6 6 0 010 9" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function IconSliders({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M2 4h3M7 4h7" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <circle cx="5.5" cy="4" r="1.5" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M2 8h7M11 8h3" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <circle cx="9.5" cy="8" r="1.5" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M2 12h5M9 12h5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <circle cx="7.5" cy="12" r="1.5" stroke="currentColor" strokeWidth="1.25"/>
+    </svg>
+  )
+}
+
 export function IconLink({ size = 16, className = '' }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>

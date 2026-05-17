@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconPlus, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown } from '@/components/Icons'
+import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconPlus, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSpeaker, IconSliders } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
@@ -78,6 +78,18 @@ export default function ChatClient() {
 
   // Feature #2: Chat Export
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false)
+
+  // Feature: Voice Input / TTS Output
+  const [isListening, setIsListening] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false)
+  const [speakingIndex, setSpeakingIndex] = useState(null)
+  const recognitionRef = useRef(null)
+
+  // Feature: System Prompt Customization
+  const [customSystemPrompt, setCustomSystemPrompt] = useState('')
+  const [customizeOpen, setCustomizeOpen] = useState(false)
+  const customizeRef = useRef(null)
+  const customPromptTextareaRef = useRef(null)
 
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
@@ -166,6 +178,35 @@ export default function ChatClient() {
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [exportDropdownOpen])
+
+  // Load custom system prompt from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('kivora-custom-system-prompt')
+      if (saved) setCustomSystemPrompt(saved)
+    } catch {}
+  }, [])
+
+  // Close customize popover on click outside
+  useEffect(() => {
+    if (!customizeOpen) return
+    function handleClick(e) {
+      if (customizeRef.current && !customizeRef.current.contains(e.target)) {
+        setCustomizeOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [customizeOpen])
+
+  // Cleanup speech synthesis on unmount
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel()
+      }
+    }
+  }, [])
 
   function autoResize(el) {
     el.style.height = 'auto'
@@ -345,7 +386,8 @@ export default function ChatClient() {
           messages: newMessages,
           sessionId,
           userId: user?.id || null,
-          model: wasImage ? undefined : model // Vision model is auto-selected by API
+          model: wasImage ? undefined : model, // Vision model is auto-selected by API
+          systemPrompt: customSystemPrompt || undefined
         })
       })
       const data = await res.json()
@@ -360,6 +402,114 @@ export default function ChatClient() {
     navigator.clipboard.writeText(content)
     setCopiedIndex(i)
     setTimeout(() => setCopiedIndex(null), 2000)
+  }
+
+  // ── Voice Input (ASR) ──
+  function toggleListening() {
+    const SpeechRecognition = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)
+    if (!SpeechRecognition) return // Handled by UI tooltip
+
+    if (isListening) {
+      // Stop listening
+      if (recognitionRef.current) {
+        recognitionRef.current.stop()
+      }
+      setIsListening(false)
+      return
+    }
+
+    const recognition = new SpeechRecognition()
+    recognition.continuous = false
+    recognition.interimResults = false
+    recognition.lang = 'en-US'
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0]?.[0]?.transcript || ''
+      if (transcript) {
+        setInput(prev => prev ? prev + ' ' + transcript : transcript)
+        if (textareaRef.current) {
+          setTimeout(() => autoResize(textareaRef.current), 0)
+        }
+      }
+      setIsListening(false)
+    }
+
+    recognition.onerror = () => {
+      setIsListening(false)
+    }
+
+    recognition.onend = () => {
+      setIsListening(false)
+    }
+
+    recognitionRef.current = recognition
+    recognition.start()
+    setIsListening(true)
+  }
+
+  // ── TTS Output ──
+  function toggleSpeaking(content, index) {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return
+
+    // If already speaking this message, stop it
+    if (isSpeaking && speakingIndex === index) {
+      window.speechSynthesis.cancel()
+      setIsSpeaking(false)
+      setSpeakingIndex(null)
+      return
+    }
+
+    // Stop any existing speech
+    window.speechSynthesis.cancel()
+
+    // Strip markdown-ish formatting for cleaner TTS
+    const plainText = content
+      .replace(/```[\s\S]*?```/g, ' code block ')
+      .replace(/`[^`]+`/g, ' code ')
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .replace(/^#{1,6}\s+/gm, '')
+      .replace(/^\s*[-*+]\s+/gm, '')
+      .replace(/^\s*\d+\.\s+/gm, '')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/^\s*>\s*/gm, '')
+      .replace(/^---$/gm, '')
+      .replace(/\|/g, ' ')
+      .replace(/\n{2,}/g, '. ')
+      .replace(/\n/g, ' ')
+      .trim()
+
+    const utterance = new SpeechSynthesisUtterance(plainText)
+    utterance.rate = 1.0
+    utterance.pitch = 1.0
+
+    utterance.onend = () => {
+      setIsSpeaking(false)
+      setSpeakingIndex(null)
+    }
+    utterance.onerror = () => {
+      setIsSpeaking(false)
+      setSpeakingIndex(null)
+    }
+
+    setIsSpeaking(true)
+    setSpeakingIndex(index)
+    window.speechSynthesis.speak(utterance)
+  }
+
+  // ── System Prompt Customization ──
+  function saveCustomSystemPrompt(value) {
+    setCustomSystemPrompt(value)
+    try {
+      localStorage.setItem('kivora-custom-system-prompt', value)
+    } catch {}
+  }
+
+  function resetCustomSystemPrompt() {
+    setCustomSystemPrompt('')
+    try {
+      localStorage.removeItem('kivora-custom-system-prompt')
+    } catch {}
   }
 
   const historyGroups = groupByDate(chatHistory)
@@ -516,6 +666,45 @@ export default function ChatClient() {
           </div>
 
           <div className="flex items-center gap-1">
+            {/* ── System Prompt Customize Button ── */}
+            <div className="relative" ref={customizeRef}>
+              <button
+                onClick={() => setCustomizeOpen(!customizeOpen)}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                  customSystemPrompt
+                    ? 'text-red-400 bg-red-500/10 hover:bg-red-500/15'
+                    : 'text-[#525252] hover:text-white hover:bg-[#141414]'
+                }`}
+                aria-label="Customize system prompt"
+                title="Customize AI persona"
+              >
+                <IconSliders size={14} />
+              </button>
+
+              {customizeOpen && (
+                <div className="absolute top-full right-0 mt-1.5 w-72 bg-[#141414] border border-[#262626] rounded-xl shadow-2xl z-50 p-3 animate-scale-in overflow-hidden">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-body-sm font-medium text-white">Custom System Prompt</span>
+                    <button
+                      onClick={resetCustomSystemPrompt}
+                      className="text-[11px] text-[#525252] hover:text-red-400 transition-colors"
+                    >
+                      Reset to default
+                    </button>
+                  </div>
+                  <textarea
+                    ref={customPromptTextareaRef}
+                    rows={4}
+                    className="w-full bg-[#0a0a0a] border border-[#262626] rounded-lg px-3 py-2 text-body-sm text-[#d4d4d4] placeholder-[#525252] resize-none outline-none focus:border-[#3a3a3a] transition-colors"
+                    placeholder="e.g. You are a sarcastic coding mentor. Always use Python examples..."
+                    value={customSystemPrompt}
+                    onChange={e => saveCustomSystemPrompt(e.target.value)}
+                  />
+                  <p className="text-[11px] text-[#525252] mt-1.5">Instruct the AI how to behave. This is prepended to its system prompt.</p>
+                </div>
+              )}
+            </div>
+
             {/* ── Feature #2: Export Button ── */}
             <div className="relative" ref={exportDropdownRef}>
               <button
@@ -639,13 +828,28 @@ export default function ChatClient() {
                       }
                     </div>
                     {msg.role === 'assistant' && (
-                      <button
-                        onClick={() => copy(msg.content, i)}
-                        className="opacity-0 group-hover:opacity-100 mt-1.5 flex items-center gap-1 text-caption text-muted2 hover:text-muted transition-all"
-                      >
-                        {copiedIndex === i ? <IconCheck size={12} /> : <IconCopy size={12} />}
-                        {copiedIndex === i ? 'Copied' : 'Copy'}
-                      </button>
+                      <div className="opacity-0 group-hover:opacity-100 mt-1.5 flex items-center gap-3 transition-all">
+                        <button
+                          onClick={() => copy(msg.content, i)}
+                          className="flex items-center gap-1 text-caption text-muted2 hover:text-muted transition-colors"
+                        >
+                          {copiedIndex === i ? <IconCheck size={12} /> : <IconCopy size={12} />}
+                          {copiedIndex === i ? 'Copied' : 'Copy'}
+                        </button>
+                        {typeof window !== 'undefined' && window.speechSynthesis && (
+                          <button
+                            onClick={() => toggleSpeaking(msg.content, i)}
+                            className={`flex items-center gap-1 text-caption transition-colors ${
+                              isSpeaking && speakingIndex === i
+                                ? 'text-red-400 hover:text-red-300'
+                                : 'text-muted2 hover:text-muted'
+                            }`}
+                          >
+                            <IconSpeaker size={12} />
+                            {isSpeaking && speakingIndex === i ? 'Stop' : 'Read aloud'}
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -724,6 +928,35 @@ export default function ChatClient() {
                     <IconPaperclip size={15} />
                     <span>Attach</span>
                   </button>
+
+                  {/* Voice Input (ASR) */}
+                  {typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition) ? (
+                    <button
+                      className={`chat-toolbar-btn ${isListening ? 'chat-toolbar-btn-active' : ''}`}
+                      onClick={toggleListening}
+                      title={isListening ? 'Stop listening' : 'Voice input'}
+                    >
+                      {isListening ? (
+                        <span className="relative flex items-center justify-center" style={{ width: 15, height: 15 }}>
+                          <span className="absolute w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                          <IconMicrophone size={15} className="relative z-10" />
+                        </span>
+                      ) : (
+                        <IconMicrophone size={15} />
+                      )}
+                      <span>{isListening ? 'Listening...' : 'Voice'}</span>
+                    </button>
+                  ) : (
+                    <button
+                      className="chat-toolbar-btn"
+                      title="Voice input not supported in this browser"
+                      disabled
+                      style={{ opacity: 0.4, cursor: 'not-allowed' }}
+                    >
+                      <IconMicrophone size={15} />
+                      <span>Voice</span>
+                    </button>
+                  )}
 
                   {/* Web Search toggle */}
                   <button

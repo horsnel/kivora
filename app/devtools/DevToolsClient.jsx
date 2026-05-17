@@ -30,6 +30,7 @@ const I = {
   Compress:  (p) => <Ico size={p.size} className={p.className} path="M5 9H2v5h5v-3M9 2h5v5h-3M5 5L2 2M14 14l-3-3" />,
   Clock:     (p) => <Ico size={p.size} className={p.className} path="M8 2a6 6 0 100 12A6 6 0 008 2zM8 5v3l2 2" />,
   Mail:      (p) => <Ico size={p.size} className={p.className} path="M2 4h12v8H2zM2 4l6 5 6-5" />,
+  Calc:     (p) => <Ico size={p.size} className={p.className} path="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zM6 2v12M2 7h12M2 10h12M9 7v3M9 10v3" />,
 }
 
 // ── Tool definitions by category ─────────────────────────────────────
@@ -46,6 +47,7 @@ const CATEGORIES = [
       { id: 'terminal',       label: 'Terminal Helper',   Icon: (p) => <I.Terminal {...p} />,    desc: 'Explain or generate shell commands' },
       { id: 'git_helper',     label: 'Git Helper',        Icon: (p) => <I.Hash {...p} />,        desc: 'Explain git commands and workflows' },
       { id: 'regex_tester',  label: 'Regex Tester',      Icon: (p) => <IconSearch {...p} />,    desc: 'Live regex testing with match highlighting' },
+      { id: 'diff_checker',  label: 'Diff Checker',      Icon: (p) => <I.Diff {...p} />,        desc: 'Side-by-side text comparison with diff highlighting' },
     ]
   },
   {
@@ -60,6 +62,7 @@ const CATEGORIES = [
       { id: 'env_checker',    label: 'Env File Auditor',  Icon: (p) => <I.Shield {...p} />,      desc: 'Audit .env files for security issues' },
       { id: 'jwt_decoder',   label: 'JWT Decoder',       Icon: (p) => <I.Shield {...p} />,      desc: 'Decode and inspect JWT tokens' },
       { id: 'base64',        label: 'Base64 Encoder/Decoder', Icon: (p) => <I.Braces {...p} />,  desc: 'Quick encode and decode utility' },
+      { id: 'api_tester',    label: 'API Tester',        Icon: (p) => <I.Api {...p} />,         desc: 'Send HTTP requests and inspect responses' },
     ]
   },
   {
@@ -85,6 +88,14 @@ const CATEGORIES = [
       { id: 'cold_email',     label: 'Cold Email',        Icon: (p) => <I.Mail {...p} />,        desc: 'Write cold outreach that gets replies' },
     ]
   },
+  {
+    id: 'education',
+    label: 'Education',
+    color: '#06b6d4',
+    tools: [
+      { id: 'math_solver',    label: 'Math Solver',       Icon: (p) => <I.Calc {...p} />,        desc: 'LaTeX equations with step-by-step AI solutions' },
+    ]
+  },
 ]
 
 const ALL_TOOLS = CATEGORIES.flatMap(c => c.tools.map(t => ({ ...t, category: c.id })))
@@ -101,6 +112,8 @@ export default function DevToolsClient() {
   const [result, setResult]         = useState('')
   const [loading, setLoading]       = useState(false)
   const [copied, setCopied]         = useState(false)
+  const [diffResult, setDiffResult] = useState(null)
+  const [apiTestResult, setApiTestResult] = useState(null)
   const [form, setForm] = useState({
     // code tools
     code: '', language: 'JavaScript',
@@ -130,6 +143,12 @@ export default function DevToolsClient() {
     jwtToken: '',
     base64Input: '', base64Mode: 'encode',
     regexPattern: '', regexFlags: 'g', regexTestString: '',
+    // diff checker
+    diffOriginal: '', diffModified: '',
+    // api tester
+    apiTesterUrl: '', apiTesterMethod: 'GET', apiTesterHeaders: '', apiTesterBody: '',
+    // math solver
+    mathEquation: '', mathContext: '',
   })
   const [validationError, setValidationError] = useState('')
   const { startSession, endSession, markCopied } = useSessionTracker()
@@ -171,6 +190,9 @@ export default function DevToolsClient() {
       job_desc:        { field: form.jobTitle, label: 'Enter the job title' },
       sop_writer:      { field: form.sopProcess, label: 'Describe the process to document' },
       cold_email:      { field: form.coldTarget, label: 'Describe who you\'re emailing' },
+      diff_checker:    { field: form.diffOriginal, label: 'Enter original text to compare' },
+      api_tester:      { field: form.apiTesterUrl, label: 'Enter a URL to test' },
+      math_solver:     { field: form.mathEquation, label: 'Enter a math equation to solve' },
     }
     const check = checks[active]
     if (check && !check.field?.trim()) {
@@ -207,6 +229,9 @@ export default function DevToolsClient() {
       job_desc:        { summary: form.jobTitle, subject: null },
       sop_writer:      { summary: form.sopProcess, subject: null },
       cold_email:      { summary: form.coldTarget, subject: null },
+      diff_checker:    { summary: form.diffOriginal, subject: null },
+      api_tester:      { summary: form.apiTesterUrl, subject: form.apiTesterMethod },
+      math_solver:     { summary: form.mathEquation, subject: null },
     }
     const meta = map[active] || {}
     return {
@@ -215,14 +240,90 @@ export default function DevToolsClient() {
     }
   }
 
+  // ── Line-by-line diff algorithm ──────────────────────────────────
+  function computeDiff(original, modified) {
+    const origLines = original.split('\n')
+    const modLines = modified.split('\n')
+    // Build LCS-based diff using simple DP
+    const m = origLines.length, n = modLines.length
+    const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0))
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        dp[i][j] = origLines[i - 1] === modLines[j - 1]
+          ? dp[i - 1][j - 1] + 1
+          : Math.max(dp[i - 1][j], dp[i][j - 1])
+      }
+    }
+    // Backtrack to produce diff lines
+    const result = []
+    let i = m, j = n
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && origLines[i - 1] === modLines[j - 1]) {
+        result.unshift({ type: 'unchanged', line: origLines[i - 1] })
+        i--; j--
+      } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+        result.unshift({ type: 'added', line: modLines[j - 1] })
+        j--
+      } else {
+        result.unshift({ type: 'removed', line: origLines[i - 1] })
+        i--
+      }
+    }
+    return result
+  }
+
   async function run() {
     if (!validate()) return
     // End previous session if exists
     if (sessionRef.current) { endSession(sessionRef.current); sessionRef.current = null }
-    setLoading(true); setResult('')
+    setLoading(true); setResult(''); setDiffResult(null); setApiTestResult(null)
     // Start new session (silently fails for anonymous)
     const { inputSummary, subject } = getSessionMeta()
     sessionRef.current = await startSession(`devtools_${active}`, subject, inputSummary)
+
+    // ── Client-side: Diff Checker ──────────────────────────────
+    if (active === 'diff_checker') {
+      const diff = computeDiff(form.diffOriginal, form.diffModified)
+      setDiffResult(diff)
+      setLoading(false)
+      return
+    }
+
+    // ── Client-side: API Tester ────────────────────────────────
+    if (active === 'api_tester') {
+      const start = performance.now()
+      try {
+        let parsedHeaders = {}
+        if (form.apiTesterHeaders.trim()) {
+          try { parsedHeaders = JSON.parse(form.apiTesterHeaders) }
+          catch { setApiTestResult({ error: 'Invalid headers JSON' }); setLoading(false); return }
+        }
+        const fetchOpts = { method: form.apiTesterMethod, headers: parsedHeaders }
+        if (!['GET', 'HEAD'].includes(form.apiTesterMethod) && form.apiTesterBody.trim()) {
+          fetchOpts.body = form.apiTesterBody
+          if (!parsedHeaders['Content-Type'] && !parsedHeaders['content-type']) {
+            parsedHeaders['Content-Type'] = 'application/json'
+            fetchOpts.headers = parsedHeaders
+          }
+        }
+        const res = await fetch(form.apiTesterUrl, fetchOpts)
+        const elapsed = Math.round(performance.now() - start)
+        const resHeaders = {}
+        res.headers.forEach((v, k) => { resHeaders[k] = v })
+        let resBody = ''
+        try { resBody = await res.text() } catch { resBody = '[Could not read response body]' }
+        let bodyFormatted = resBody
+        let isJson = false
+        try { bodyFormatted = JSON.stringify(JSON.parse(resBody), null, 2); isJson = true } catch {}
+        setApiTestResult({ status: res.status, statusText: res.statusText, time: elapsed, headers: resHeaders, body: bodyFormatted, isJson })
+      } catch (err) {
+        setApiTestResult({ error: err.message || 'Request failed (possible CORS issue)' })
+      }
+      setLoading(false)
+      return
+    }
+
+    // ── Server-side: AI tools ──────────────────────────────────
     try {
       const res = await fetch('/api/devtools', {
         method: 'POST',
@@ -246,6 +347,8 @@ export default function DevToolsClient() {
     setActive(toolId)
     setActiveCat(catId)
     setResult('')
+    setDiffResult(null)
+    setApiTestResult(null)
     setValidationError('')
   }
 
@@ -337,7 +440,7 @@ export default function DevToolsClient() {
             Dev <span className="text-red-500">Tools</span>
           </h1>
           <p className="text-[#737373] text-sm">
-            23 AI-powered tools for developers, writers, and builders. Free. No account needed.
+            26 AI-powered tools for developers, writers, and builders. Free. No account needed.
           </p>
         </div>
 
@@ -472,6 +575,17 @@ export default function DevToolsClient() {
                 </div>
               </>}
 
+              {active === 'diff_checker' && <>
+                <div>
+                  <label className="text-xs text-[#737373] block mb-1.5">Original text</label>
+                  <textarea className={`${tamono} h-36`} placeholder="Paste the original text here..." value={form.diffOriginal} onChange={e => set('diffOriginal', e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-xs text-[#737373] block mb-1.5">Modified text</label>
+                  <textarea className={`${tamono} h-36`} placeholder="Paste the modified text here..." value={form.diffModified} onChange={e => set('diffModified', e.target.value)} />
+                </div>
+              </>}
+
               {/* ─── DATA TOOLS ─────────────────── */}
 
               {active === 'json_formatter' && (
@@ -540,6 +654,25 @@ export default function DevToolsClient() {
                 <div>
                   <label className="text-xs text-[#737373] block mb-1.5">{form.base64Mode === 'encode' ? 'Text to encode' : 'Base64 string to decode'}</label>
                   <textarea className={`${tamono} h-40`} placeholder={form.base64Mode === 'encode' ? 'Enter text to encode...' : 'Enter Base64 string to decode...'} value={form.base64Input} onChange={e => set('base64Input', e.target.value)} />
+                </div>
+              </>}
+
+              {active === 'api_tester' && <>
+                <div>
+                  <label className="text-xs text-[#737373] block mb-1.5">URL</label>
+                  <input className={mono} placeholder="https://api.example.com/v1/users" value={form.apiTesterUrl} onChange={e => set('apiTesterUrl', e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-xs text-[#737373] block mb-1.5">Method</label>
+                  <Select value={form.apiTesterMethod} onChange={v => set('apiTesterMethod', v)} options={HTTP_METHODS.map(m => ({ value: m, label: m }))} />
+                </div>
+                <div>
+                  <label className="text-xs text-[#737373] block mb-1.5">Headers (JSON)</label>
+                  <textarea className={`${tamono} h-14`} placeholder='{"Authorization": "Bearer token"}' value={form.apiTesterHeaders} onChange={e => set('apiTesterHeaders', e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-xs text-[#737373] block mb-1.5">Body (JSON)</label>
+                  <textarea className={`${tamono} h-14`} placeholder='{"email": "user@example.com"}' value={form.apiTesterBody} onChange={e => set('apiTesterBody', e.target.value)} />
                 </div>
               </>}
 
@@ -655,6 +788,19 @@ export default function DevToolsClient() {
                 <div>
                   <label className="text-xs text-[#737373] block mb-1.5">One specific observation about their business (optional but powerful)</label>
                   <textarea className={`${ta} h-20`} placeholder="e.g. I noticed on their Google listing that customers complained about slow WhatsApp response times..." value={form.coldObservation} onChange={e => set('coldObservation', e.target.value)} />
+                </div>
+              </>}
+
+              {/* ─── EDUCATION TOOLS ─────────────────── */}
+
+              {active === 'math_solver' && <>
+                <div>
+                  <label className="text-xs text-[#737373] block mb-1.5">Equation</label>
+                  <textarea className={`${tamono} h-28`} placeholder="e.g. Solve x² + 5x + 6 = 0" value={form.mathEquation} onChange={e => set('mathEquation', e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-xs text-[#737373] block mb-1.5">Context (optional)</label>
+                  <input className={inp} placeholder="e.g. Find all real roots" value={form.mathContext} onChange={e => set('mathContext', e.target.value)} />
                 </div>
               </>}
 
@@ -779,6 +925,64 @@ export default function DevToolsClient() {
 
             {result
               ? <MarkdownRenderer content={result} className="flex-1 overflow-auto overscroll-behavior-contain" />
+              : diffResult
+              ? (
+                <div className="flex-1 overflow-auto">
+                  <div className="space-y-0.5 font-mono text-xs">
+                    {diffResult.map((line, i) => (
+                      <div key={i} className={`px-3 py-0.5 ${
+                        line.type === 'added'
+                          ? 'bg-emerald-950/30 text-emerald-400'
+                          : line.type === 'removed'
+                          ? 'bg-red-950/30 text-red-400'
+                          : 'text-[#525252]'
+                      }`}>
+                        <span className="inline-block w-5 text-right mr-2 select-none opacity-50">
+                          {line.type === 'added' ? '+' : line.type === 'removed' ? '−' : ' '}
+                        </span>
+                        {line.line || ' '}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-4 mt-3 text-xs text-[#737373]">
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Added ({diffResult.filter(l => l.type === 'added').length})</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500" /> Removed ({diffResult.filter(l => l.type === 'removed').length})</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#525252]" /> Unchanged ({diffResult.filter(l => l.type === 'unchanged').length})</span>
+                  </div>
+                </div>
+              )
+              : apiTestResult
+              ? (
+                <div className="flex-1 overflow-auto space-y-4">
+                  {apiTestResult.error ? (
+                    <div className="bg-red-950/20 border border-red-900/30 rounded-lg px-3 py-2 text-xs text-red-400">{apiTestResult.error}</div>
+                  ) : (
+                    <>
+                      {/* Status + Time */}
+                      <div className="flex items-center gap-3">
+                        <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                          apiTestResult.status < 300 ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/40'
+                          : apiTestResult.status < 400 ? 'bg-amber-950/40 text-amber-400 border border-amber-900/40'
+                          : 'bg-red-950/40 text-red-400 border border-red-900/40'
+                        }`}>
+                          {apiTestResult.status} {apiTestResult.statusText}
+                        </span>
+                        <span className="text-xs text-[#737373]">{apiTestResult.time}ms</span>
+                      </div>
+                      {/* Headers */}
+                      <div>
+                        <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider mb-1.5">Headers</h3>
+                        <pre className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-3 text-xs font-mono text-sky-400 overflow-auto max-h-28">{Object.entries(apiTestResult.headers).map(([k, v]) => `${k}: ${v}`).join('\n')}</pre>
+                      </div>
+                      {/* Body */}
+                      <div>
+                        <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider mb-1.5">Body</h3>
+                        <pre className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-3 text-xs font-mono text-emerald-400 overflow-auto max-h-64 whitespace-pre-wrap break-all">{apiTestResult.body}</pre>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )
               : (
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center">
@@ -796,7 +1000,7 @@ export default function DevToolsClient() {
 
         {/* All tools quick reference */}
         <div className="mt-10 border-t border-[#141414] pt-10">
-          <h2 className="font-semibold text-base tracking-tight mb-6">All 23 tools</h2>
+          <h2 className="font-semibold text-base tracking-tight mb-6">All 26 tools</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {CATEGORIES.map(cat => (
               <div key={cat.id} className="bg-[#141414] rounded-xl p-4">

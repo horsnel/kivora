@@ -527,7 +527,32 @@ End with the smallest possible ask — not a 30-minute call.]
 The reasoning behind each email's approach.
 
 ## Personalisation Variables
-What to research per prospect to make email 1 feel genuinely personal.`
+What to research per prospect to make email 1 feel genuinely personal.`,
+
+  // ── EDUCATION TOOLS ────────────────────────────────────────────────
+
+  math_solver: (p) => `You are an expert math tutor. Solve this equation step by step, showing every step clearly.
+
+Equation: ${p.mathEquation}
+${p.mathContext ? `Additional context: ${p.mathContext}` : ''}
+
+## Step-by-Step Solution
+Show every step of the solution process. For each step:
+- State what you're doing and why
+- Show the mathematical operation clearly
+- Use proper mathematical notation (LaTeX where helpful)
+
+## Final Answer
+State the final answer clearly, boxed or highlighted.
+
+## Verification
+Verify the answer by substituting back into the original equation.
+
+## Key Concepts
+Explain the key mathematical concepts used in this solution. What type of equation is this? What methods apply?
+
+## Common Mistakes
+2-3 common mistakes students make with this type of problem and how to avoid them.`
 }
 
 export async function POST(req) {

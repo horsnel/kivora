@@ -49,6 +49,17 @@ function IconTimer({ size = 16, className = '' }) {
   )
 }
 
+function IconNotes({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+      <path d="M3 5.5h10" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M5.5 2v12" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M7.5 8h3M7.5 10.5h2" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
 /* ─── Constants ────────────────────────────────────────────────── */
 
 const TOOLS = [
@@ -59,6 +70,7 @@ const TOOLS = [
   { id: 'coding',    label: 'Coding Practice',      Icon: IconCode,       desc: 'Practice problems with hints' },
   { id: 'flashcard', label: 'Flashcard Generator',  Icon: IconFlashcard,  desc: 'Auto-generate flashcards with spaced repetition' },
   { id: 'quiz',      label: 'Quiz Mode',            Icon: IconQuiz,       desc: 'AI-generated quizzes with scoring' },
+  { id: 'notes',     label: 'Study Notes Generator',Icon: IconNotes,      desc: 'Compile topics into organized study notes' },
   { id: 'pomodoro',  label: 'Pomodoro Timer',       Icon: IconTimer,      desc: 'Built-in focus timer for study sessions' },
 ]
 
@@ -70,6 +82,7 @@ const CODE_LEVELS = ['Beginner','Intermediate','Advanced']
 const FLASHCARD_COUNTS = ['5','10','15','20']
 const QUIZ_DIFFICULTIES = ['Easy','Medium','Hard']
 const QUIZ_COUNTS = ['5','10','15']
+const NOTE_STYLES = ['Cornell Notes', 'Outline', 'Mind Map Text', 'Summary']
 const POMODORO_MODES = [
   { value: 'pomodoro', label: 'Pomodoro (25 min)' },
   { value: 'short', label: 'Short Break (5 min)' },
@@ -153,6 +166,7 @@ export default function StudyClient() {
     text:'', source:'', style:'APA', language:'Python', codeLevel:'Intermediate',
     flashcardSubject: 'Mathematics', flashcardNotes: '', flashcardCount: '10',
     quizSubject: 'Mathematics', quizTopic: '', quizDifficulty: 'Medium', quizCount: '5',
+    notesSubject: 'Mathematics', notesTopics: '', notesStyle: 'Cornell Notes',
     pomodoroMinutes: 25, pomodoroMode: 'pomodoro',
   })
   const [validationError, setValidationError] = useState('')
@@ -221,6 +235,7 @@ export default function StudyClient() {
       coding:    { skip: true },
       flashcard: { field: form.flashcardNotes, label: 'Enter topic or notes for flashcards' },
       quiz:      { field: form.quizTopic, label: 'Enter a quiz topic' },
+      notes:     { field: form.notesTopics, label: 'Enter topics or key concepts for notes' },
       pomodoro:  { skip: true },
     }
     const check = checks[active]
@@ -238,13 +253,14 @@ export default function StudyClient() {
     if (sessionRef.current) { endSession(sessionRef.current); sessionRef.current = null }
     setLoading(true); setResult('')
     if (active === 'quiz') { setQuizQuestions([]); setQuizAnswers({}); setQuizChecked(false) }
-    const inputSummary = form.question || form.topic || form.text?.slice(0,100) || form.source?.slice(0,100) || form.language || form.flashcardNotes?.slice(0,100) || form.quizTopic || null
+    const inputSummary = form.question || form.topic || form.text?.slice(0,100) || form.source?.slice(0,100) || form.language || form.flashcardNotes?.slice(0,100) || form.quizTopic || form.notesTopics?.slice(0,100) || null
     const subject = active === 'homework' ? form.subject
       : active === 'essay' ? form.level
       : active === 'coding' ? form.language
       : active === 'citation' ? form.style
       : active === 'flashcard' ? form.flashcardSubject
       : active === 'quiz' ? form.quizSubject
+      : active === 'notes' ? form.notesSubject
       : null
     sessionRef.current = await startSession(`study_${active}`, subject, inputSummary)
     try {
@@ -256,6 +272,7 @@ export default function StudyClient() {
         coding:    { language: form.language, level: form.codeLevel },
         flashcard: { subject: form.flashcardSubject, notes: form.flashcardNotes, count: form.flashcardCount },
         quiz:      { subject: form.quizSubject, topic: form.quizTopic, difficulty: form.quizDifficulty, count: form.quizCount },
+        notes:     { subject: form.notesSubject, topics: form.notesTopics, style: form.notesStyle },
       }
       const res = await fetch('/api/study', {
         method: 'POST',
@@ -314,7 +331,7 @@ export default function StudyClient() {
       <div className="max-w-4xl mx-auto px-4 py-10">
         <div className="mb-8 animate-fade-up">
           <h1 className="text-3xl font-semibold mb-2 tracking-tight">Study<span className="text-red-500">Desk</span></h1>
-          <p className="text-[#737373] text-sm">8 AI-powered tools for students, researchers, and professors. Free, no account needed.</p>
+          <p className="text-[#737373] text-sm">9 AI-powered tools for students, researchers, and professors. Free, no account needed.</p>
         </div>
 
         {/* Tool tabs */}
@@ -399,6 +416,15 @@ export default function StudyClient() {
                   <Select value={form.quizDifficulty} onChange={v => set('quizDifficulty', v)} options={QUIZ_DIFFICULTIES.map(d => ({ value: d, label: d }))} /></div>
                 <div><label className="text-xs text-[#737373] block mb-1.5">Number of Questions</label>
                   <Select value={form.quizCount} onChange={v => set('quizCount', v)} options={QUIZ_COUNTS.map(c => ({ value: c, label: c }))} /></div>
+              </>}
+
+              {active === 'notes' && <>
+                <div><label className="text-xs text-[#737373] block mb-1.5">Subject</label>
+                  <Select value={form.notesSubject} onChange={v => set('notesSubject', v)} options={SUBJECTS.map(s => ({ value: s, label: s }))} /></div>
+                <div><label className="text-xs text-[#737373] block mb-1.5">Topics / Key Concepts</label>
+                  <textarea className={`${textareaClass} h-28`} placeholder="Enter topics or key concepts to compile into notes..." value={form.notesTopics} onChange={e => set('notesTopics', e.target.value)} /></div>
+                <div><label className="text-xs text-[#737373] block mb-1.5">Note Style</label>
+                  <Select value={form.notesStyle} onChange={v => set('notesStyle', v)} options={NOTE_STYLES.map(s => ({ value: s, label: s }))} /></div>
               </>}
 
               {active === 'pomodoro' && <>

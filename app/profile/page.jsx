@@ -2,13 +2,53 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabasePublic } from '@/lib/supabase'
-import { IconUser, IconCheck, IconSpinner, IconGlobe, IconMapPin, IconLink } from '@/components/Icons'
+import { IconUser, IconCheck, IconSpinner, IconGlobe, IconMapPin, IconLink, IconWarning, IconLogout } from '@/components/Icons'
+
+function IconShield({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M8 1.5L2.5 4v4c0 3.5 2.5 6 5.5 7 3-1 5.5-3.5 5.5-7V4L8 1.5z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+      <path d="M6 8l1.5 1.5L10 6" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+function IconMonitor({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <rect x="2" y="2.5" width="12" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M5.5 13h5M8 10.5V13" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+function parseUserAgent(ua) {
+  if (!ua) return { browser: 'Unknown', os: 'Unknown' }
+  let browser = 'Unknown'
+  let os = 'Unknown'
+
+  if (ua.includes('Firefox/')) browser = 'Firefox'
+  else if (ua.includes('Edg/')) browser = 'Edge'
+  else if (ua.includes('Chrome/')) browser = 'Chrome'
+  else if (ua.includes('Safari/') && !ua.includes('Chrome')) browser = 'Safari'
+
+  if (ua.includes('Windows')) os = 'Windows'
+  else if (ua.includes('Mac OS')) os = 'macOS'
+  else if (ua.includes('Linux')) os = 'Linux'
+  else if (ua.includes('Android')) os = 'Android'
+  else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS'
+
+  return { browser, os }
+}
 
 export default function ProfilePage() {
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [toast, setToast] = useState(null) // { type: 'success'|'error', message: string }
   const [form, setForm] = useState({
     display_name: '',
@@ -79,10 +119,43 @@ export default function ProfilePage() {
     setSaving(false)
   }
 
+  async function deleteAccount() {
+    if (deleteConfirm !== 'DELETE') return
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/profile/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to delete account')
+      await supabasePublic.auth.signOut()
+      router.push('/welcome')
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Failed to delete account' })
+      setShowDeleteDialog(false)
+      setDeleteConfirm('')
+    }
+    setDeleting(false)
+  }
+
+  async function signOutAll() {
+    try {
+      await supabasePublic.auth.signOut()
+      router.push('/auth')
+    } catch (err) {
+      setToast({ type: 'error', message: 'Failed to sign out' })
+    }
+  }
+
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
   const displayName = form.display_name || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || ''
   const initials = displayName.slice(0, 2).toUpperCase()
+
+  const { browser, os } = parseUserAgent(typeof navigator !== 'undefined' ? navigator.userAgent : '')
+  const lastSignIn = user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Unknown'
 
   const inputClass = "w-full bg-[#0a0a0a] border border-[#262626] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors"
 
@@ -235,6 +308,100 @@ export default function ProfilePage() {
               >
                 {saving ? <><IconSpinner size={14} /> Saving...</> : 'Save changes'}
               </button>
+            </div>
+
+            {/* Session Management */}
+            <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mt-6">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-7 h-7 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
+                  <IconMonitor size={14} className="text-[#737373]" />
+                </div>
+                <h2 className="font-semibold text-sm">Sessions</h2>
+              </div>
+
+              <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-emerald-950/30 rounded-lg flex items-center justify-center">
+                      <IconMonitor size={14} className="text-emerald-400" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-white font-medium">Current session</div>
+                      <div className="text-xs text-[#737373]">{browser} on {os}</div>
+                    </div>
+                  </div>
+                  <span className="text-xs text-emerald-400 bg-emerald-950/30 border border-emerald-900/40 px-2 py-0.5 rounded-full">Active</span>
+                </div>
+                <div className="flex items-center gap-4 text-xs text-[#525252]">
+                  <span>Last active: {lastSignIn}</span>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <button
+                  onClick={signOutAll}
+                  className="w-full bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-[#a3a3a3] hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+                >
+                  <IconLogout size={14} /> Sign out of all devices
+                </button>
+                <p className="text-[10px] text-[#404040] mt-2 text-center">This will invalidate all active sessions across all devices</p>
+              </div>
+            </div>
+
+            {/* Danger Zone */}
+            <div className="bg-[#141414] border border-red-900/30 rounded-xl p-6 mt-6">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-7 h-7 bg-red-950/30 rounded-lg flex items-center justify-center">
+                  <IconWarning size={14} className="text-red-400" />
+                </div>
+                <h2 className="font-semibold text-sm text-red-400">Danger Zone</h2>
+              </div>
+
+              {!showDeleteDialog ? (
+                <>
+                  <p className="text-xs text-[#737373] mb-4">
+                    Once you delete your account, there is no going back. All your data — profile, saved results, chat history, and study sessions — will be permanently removed.
+                  </p>
+                  <button
+                    onClick={() => setShowDeleteDialog(true)}
+                    className="w-full bg-red-950/30 border border-red-900/40 hover:bg-red-950/50 text-red-400 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                  >
+                    Delete Account
+                  </button>
+                </>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-red-950/20 border border-red-900/30 rounded-xl p-4">
+                    <p className="text-sm text-red-300 mb-3 font-medium">Are you absolutely sure?</p>
+                    <p className="text-xs text-[#737373] mb-3">
+                      This action cannot be undone. Type <span className="text-red-400 font-mono font-bold">DELETE</span> to confirm.
+                    </p>
+                    <input
+                      type="text"
+                      className="w-full bg-[#0a0a0a] border border-red-900/40 rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors"
+                      placeholder='Type "DELETE" to confirm'
+                      value={deleteConfirm}
+                      onChange={e => setDeleteConfirm(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => { setShowDeleteDialog(false); setDeleteConfirm('') }}
+                      className="flex-1 bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-[#a3a3a3] hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={deleteAccount}
+                      disabled={deleteConfirm !== 'DELETE' || deleting}
+                      className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-30 disabled:cursor-not-allowed text-white py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+                    >
+                      {deleting ? <><IconSpinner size={14} /> Deleting...</> : 'Delete my account'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

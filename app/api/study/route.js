@@ -136,7 +136,69 @@ Rules:
 - Make distractors plausible but clearly wrong
 - Questions should be clear and unambiguous
 - Match the ${difficulty} difficulty level appropriately
-- Do NOT use markdown bold/italic in the question format — keep it plain text`
+- Do NOT use markdown bold/italic in the question format — keep it plain text`,
+
+  notes: ({ subject, topics, style }) => {
+    const styleInstructions = {
+      'Cornell Notes': `Use the Cornell Notes format:
+- Divide each section into: **Cue/Question** (left column), **Notes** (right column), **Summary** (bottom)
+- Format as markdown tables or clearly separated sections
+- Include a "Cues/Questions" column with key prompts
+- Include a "Notes" column with detailed information
+- End each major section with a brief summary`,
+      'Outline': `Use a hierarchical outline format:
+- Use markdown headings (##, ###) for main topics and subtopics
+- Use bullet points for details under each subtopic
+- Use numbered lists for sequential information
+- Indent properly to show hierarchy`,
+      'Mind Map Text': `Use a text-based mind map format:
+- Start with the central topic
+- Use indented bullet points to show branches
+- Use → or ► to indicate connections
+- Group related concepts together
+- Keep branches concise but meaningful`,
+      'Summary': `Use a concise summary format:
+- Start with a brief overview paragraph
+- Follow with key points as bullet lists
+- Include important definitions and formulas
+- End with connections between topics`,
+    }
+
+    return `You are a study notes generation assistant. Create comprehensive, well-organized study notes for the following topics in ${subject}.
+
+Topics/Key Concepts: ${topics}
+Note Style: ${style}
+
+${styleInstructions[style] || styleInstructions['Outline']}
+
+Structure your notes with:
+
+## Overview
+A brief introduction to the topic(s) and why they matter.
+
+## Key Concepts
+Organized sections for each major concept, including:
+- Clear definitions
+- Important formulas, equations, or facts (where applicable)
+- Examples to illustrate each concept
+- Common misconceptions or pitfalls
+
+## Connections
+How the topics relate to each other and to broader ${subject} concepts.
+
+## Review Questions
+5-8 questions to test understanding of the material. Include brief answers.
+
+## Quick Reference
+A condensed cheat-sheet style summary of the most important points, formulas, and definitions.
+
+Rules:
+- Be thorough but concise — every sentence should add value
+- Use markdown formatting for clarity (headings, bold, lists, code blocks for formulas)
+- Include real, accurate examples (not generic placeholders)
+- Make the notes suitable for exam preparation
+- Prioritize clarity and accuracy over length`
+  }
 }
 
 export async function POST(req) {

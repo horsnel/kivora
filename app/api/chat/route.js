@@ -16,7 +16,7 @@ export async function POST(req) {
     if (!admin || !groq) {
       return Response.json({ error: 'Service not configured' }, { status: 503 })
     }
-    const { messages, sessionId, userId, model: requestedModel } = await req.json()
+    const { messages, sessionId, userId, model: requestedModel, systemPrompt } = await req.json()
     if (!messages?.length) {
       return Response.json({ error: 'messages required' }, { status: 400 })
     }
@@ -73,7 +73,7 @@ export async function POST(req) {
       apiMessages = [
         {
           role: 'system',
-          content: `You are Kivora's AI assistant — direct, practical, globally minded.
+          content: `${systemPrompt ? `Additional instructions from the user: ${systemPrompt}\n\n` : ''}You are Kivora's AI assistant — direct, practical, globally minded.
 You help builders, developers, students, and entrepreneurs worldwide.
 Core focus areas: AI tools, business automation, making money online, coding, learning, research.
 You're aware that many users are in Africa or the global diaspora — be sensitive to cost, tool availability, and local context.
@@ -96,7 +96,7 @@ Use markdown formatting for clarity.`
       apiMessages = [
         {
           role: 'system',
-          content: `You are Kivora's AI assistant — direct, practical, globally minded.
+          content: `${systemPrompt ? `Additional instructions from the user: ${systemPrompt}\n\n` : ''}You are Kivora's AI assistant — direct, practical, globally minded.
 You help builders, developers, students, and entrepreneurs worldwide.
 Core focus areas: AI tools, business automation, making money online, coding, learning, research.
 You're aware that many users are in Africa or the global diaspora — be sensitive to cost, tool availability, and local context.
