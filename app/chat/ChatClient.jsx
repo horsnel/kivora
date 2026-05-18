@@ -886,11 +886,12 @@ export default function ChatClient() {
           </div>
           <button
             onClick={clearChat}
-            className="w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] rounded-lg transition-colors"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-[#737373] hover:text-[#e2e2e2] hover:bg-white/[0.07] hover:border-white/[0.1] transition-all duration-200 ease-out"
             aria-label={t('chat.new')}
             title={t('chat.new')}
           >
-            <IconPlus size={16} />
+            <IconPlus size={14} />
+            <span className="text-[13px] font-medium">{t('chat.new')}</span>
           </button>
         </div>
 
@@ -899,9 +900,6 @@ export default function ChatClient() {
           <div className="max-w-[720px] mx-auto px-[min(5vw,48px)] py-8 space-y-6">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-end min-h-[65vh] pb-4">
-                <h2 className="text-[36px] sm:text-[40px] font-semibold tracking-tight text-[#e2e2e2] mb-4">
-                  {t('chat.empty.title')}
-                </h2>
                 <div className="flex flex-col gap-5 w-full max-w-md mx-auto mb-4">
                   {STARTERS.map(({ labelKey, icon: Icon }) => (
                     <button
