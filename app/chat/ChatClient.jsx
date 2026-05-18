@@ -873,15 +873,29 @@ export default function ChatClient() {
       {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <div className="shrink-0 flex items-center gap-3 px-[min(5vw,48px)] py-3">
+        <div className="shrink-0 flex items-center justify-between px-[min(5vw,48px)] py-3">
+          <div className="flex items-center gap-3">
+            <button
+              className="lg:hidden w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors -ml-1"
+              onClick={() => setHistoryOpen(true)}
+              aria-label={t('chat.history')}
+            >
+              <IconMenu size={16} />
+            </button>
+            <h1 className="font-medium text-[15px] text-[#e2e2e2] tracking-tight">{t('chat.title')}</h1>
+          </div>
           <button
-            className="lg:hidden w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors -ml-1"
-            onClick={() => setHistoryOpen(true)}
-            aria-label={t('chat.history')}
+            onClick={clearChat}
+            className="flex items-center justify-center w-8 h-8 rounded-full text-[#525252] hover:text-[#e2e2e2] hover:bg-white/[0.04] transition-all duration-200"
+            aria-label={t('chat.new')}
+            title={t('chat.new')}
           >
-            <IconMenu size={16} />
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 3a1 1 0 011-1h7a1 1 0 011 1v4.5a1 1 0 01-1 1H5l-2 2V8.5H3a1 1 0 01-1-1V3z"/>
+              <path d="M11 7h2a1 1 0 011 1v3.5a1 1 0 01-1 1h-.5v1.5L11 12.5"/>
+              <path d="M5 5h3"/>
+            </svg>
           </button>
-          <h1 className="font-medium text-[15px] text-[#e2e2e2] tracking-tight">{t('chat.title')}</h1>
         </div>
 
         {/* Messages area */}
@@ -889,7 +903,7 @@ export default function ChatClient() {
           <div className="max-w-[720px] mx-auto px-[min(5vw,48px)] py-8 space-y-6">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-end min-h-[65vh] pb-4">
-                <div className="flex flex-col gap-5 w-full max-w-md mx-auto mb-4">
+                <div className="flex flex-col gap-7 w-full max-w-md mx-auto mb-4">
                   {STARTERS.map(({ labelKey, icon: Icon }) => (
                     <button
                       key={labelKey}
