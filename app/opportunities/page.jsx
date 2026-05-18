@@ -58,7 +58,7 @@ function IconAddStep({ size = 16, className = '' }) {
 
 export default function OpportunitiesPage() {
   const router = useRouter()
-  const { format } = useCurrency()
+  const { format, currency, convert } = useCurrency()
   const { t } = useTranslation()
   const [opps, setOpps] = useState([])
   const [filtered, setFiltered] = useState([])
@@ -156,6 +156,15 @@ export default function OpportunitiesPage() {
     '12 months': { min: Math.round(calcMin * multiplier * 12), max: Math.round(calcMax * multiplier * 12) },
   }
   const maxProjection = projections['12 months'].max || 1
+
+  // Compact format for projection cards — abbreviates large numbers
+  function formatCompact(usd) {
+    const val = convert(usd)
+    if (val >= 1_000_000) return `${currency.symbol}${(val / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
+    if (val >= 100_000) return `${currency.symbol}${(val / 1_000).toFixed(0)}K`
+    if (val >= 10_000) return `${currency.symbol}${(val / 1_000).toFixed(1).replace(/\.0$/, '')}K`
+    return `${currency.symbol}${val.toLocaleString()}`
+  }
 
   function fillCalcFromOpp(opp) {
     if (opp.result) {
@@ -297,8 +306,8 @@ export default function OpportunitiesPage() {
                       <div className="w-full bg-red-500/70 rounded-sm relative" style={{ height: `${barMinHeight}%` }} />
                     </div>
                   </div>
-                  <p className="text-body text-white font-semibold">{format(min)}</p>
-                  <p className="text-caption text-muted2">to {format(max)}</p>
+                  <p className="text-body text-white font-semibold">{formatCompact(min)}</p>
+                  <p className="text-caption"><span className="text-muted2">to </span><span className="text-white font-semibold">{formatCompact(max)}</span></p>
                 </div>
               )
             })}
