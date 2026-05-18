@@ -99,7 +99,7 @@ export default function HomePage() {
 
           <h1 className="text-display-xl sm:text-[40px] md:text-[56px] font-semibold mb-3 sm:mb-4 leading-[1.1] sm:leading-[1.08] tracking-tight animate-fade-up animate-fade-up-1">
             {t('home.title1')}
-            <br /><span className="bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] bg-clip-text text-transparent">{t('home.title2')}</span>
+            <br /><span className="text-red-500">{t('home.title2')}</span>
           </h1>
 
           <p className="text-muted text-body mb-6 sm:mb-10 max-w-xl mx-auto animate-fade-up animate-fade-up-2 leading-relaxed">

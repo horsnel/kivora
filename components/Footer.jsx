@@ -35,7 +35,7 @@ export default function Footer() {
             </svg>
           </div>
           <span className="font-bold text-caption group-hover:text-white transition-colors">
-            Ki<span className="bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] bg-clip-text text-transparent">vora</span>
+            Ki<span className="text-red-500">vora</span>
           </span>
         </Link>
 

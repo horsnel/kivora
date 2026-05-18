@@ -732,7 +732,7 @@ export default function ChatClient() {
                 </svg>
               </div>
               <span className="font-bold text-[15px] tracking-tight">
-                Ki<span className="bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] bg-clip-text text-transparent">vora</span>
+                Ki<span className="text-red-500">vora</span>
               </span>
             </Link>
             <button

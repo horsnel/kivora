@@ -13,7 +13,7 @@ export default function NotFound() {
           <div className="w-7 h-7 bg-red-600 rounded-lg flex items-center justify-center">
             <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white"/></svg>
           </div>
-          <span className="font-bold text-base">Ki<span className="bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] bg-clip-text text-transparent">vora</span></span>
+          <span className="font-bold text-base">Ki<span className="text-red-500">vora</span></span>
         </div>
 
         {/* 404 */}
