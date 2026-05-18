@@ -253,7 +253,7 @@ export default function DiscoverPage() {
       <section className="max-w-4xl mx-auto px-4 pt-6 pb-2 animate-fade-up">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div>
-            <h1 className="text-display tracking-tight">
+            <h1 className="text-display font-semibold mb-2 tracking-tight">
               {getGreeting()}, <span className="text-red-500">{displayName}</span>
             </h1>
             <p className="text-[#737373] text-sm mt-0.5">{t('discover.greeting.subtitle')}</p>
