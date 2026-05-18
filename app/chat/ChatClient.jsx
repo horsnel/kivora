@@ -29,45 +29,38 @@ const STARTERS = [
   { labelKey: 'chat.starter.learn', icon: IconBulb },
 ]
 
-// Morphing brand mark shapes — all use viewBox="0 0 32 32"
-// Shape 0 (tent) is the resting/brand form; shape 1 (chat bubble) is the settle-on-input form
+// Morphing brand mark shapes — stroke-based, matching platform icon language (1.25 stroke, round caps)
+// All use viewBox="0 0 32 32" with stroke="currentColor"
+// Shape 0 (chat bubble) is the resting form — same icon as the sidebar nav link for the AI chat page
 const MORPH_SHAPES = [
-  // 0: Tent — Kivora brand mark
-  <g key="tent">
-    <path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95" />
-    <path d="M16 4L26 24L16 18Z" fill="white" opacity="0.55" />
-    <rect x="6" y="26" width="20" height="3" rx="1.5" fill="white" opacity="0.3" />
+  // 0: Chat bubble — the sidebar nav icon for AI chat (resting form)
+  <g key="chat" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" fill="none">
+    <path d="M4 6a2 2 0 012-2h20a2 2 0 012 2v14a2 2 0 01-2 2h-10l-6 6v-6H6a2 2 0 01-2-2V6z" />
+    <path d="M10 12h12M10 17h6" />
   </g>,
-  // 1: Chat bubble
-  <g key="bubble">
-    <path d="M7 7a2 2 0 012-2h14a2 2 0 012 2v11a2 2 0 01-2 2h-7l-5 4v-4H9a2 2 0 01-2-2V7z" fill="white" opacity="0.85" />
-    <circle cx="12" cy="12.5" r="1.5" fill="white" opacity="0.5" />
-    <circle cx="16" cy="12.5" r="1.5" fill="white" opacity="0.5" />
-    <circle cx="20" cy="12.5" r="1.5" fill="white" opacity="0.5" />
+  // 1: Lightning bolt — speed / automation
+  <g key="bolt" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" fill="none">
+    <path d="M18 4L8 18h6l-2 10 10-14h-6l2-10z" />
   </g>,
-  // 2: Lightning bolt
-  <g key="bolt">
-    <path d="M19 3L9 17h5l-1 12 9-14h-5l2-12z" fill="white" opacity="0.9" />
+  // 2: Stacked blocks — building / SaaS
+  <g key="blocks" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" fill="none">
+    <rect x="6" y="4" width="8" height="8" rx="2" />
+    <rect x="18" y="4" width="8" height="8" rx="2" />
+    <rect x="6" y="16" width="20" height="8" rx="2" />
   </g>,
-  // 3: Stacked blocks (building/SaaS)
-  <g key="blocks">
-    <rect x="7" y="5" width="8" height="8" rx="2" fill="white" opacity="0.9" />
-    <rect x="17" y="5" width="8" height="8" rx="2" fill="white" opacity="0.6" />
-    <rect x="7" y="15" width="18" height="8" rx="2" fill="white" opacity="0.4" />
+  // 3: Neural node — AI intelligence
+  <g key="node" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" fill="none">
+    <circle cx="16" cy="8" r="3.5" />
+    <circle cx="7" cy="24" r="3" />
+    <circle cx="25" cy="24" r="3" />
+    <line x1="16" y1="11.5" x2="7" y2="21" />
+    <line x1="16" y1="11.5" x2="25" y2="21" />
+    <line x1="7" y1="24" x2="25" y2="24" />
   </g>,
-  // 4: Neural node (AI)
-  <g key="node">
-    <circle cx="16" cy="9" r="3.5" fill="white" opacity="0.9" />
-    <circle cx="7" cy="23" r="3" fill="white" opacity="0.55" />
-    <circle cx="25" cy="23" r="3" fill="white" opacity="0.55" />
-    <line x1="16" y1="12.5" x2="7" y2="20" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.4" />
-    <line x1="16" y1="12.5" x2="25" y2="20" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.4" />
-    <line x1="7" y1="23" x2="25" y2="23" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.25" />
-  </g>,
-  // 5: Upward arrow (growth/earning)
-  <g key="arrow">
-    <path d="M16 5L8 15h5v10h6V15h5L16 5z" fill="white" opacity="0.85" />
-    <rect x="7" y="27" width="18" height="2.5" rx="1.25" fill="white" opacity="0.3" />
+  // 4: Growth arrow — earning / upward
+  <g key="growth" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" fill="none">
+    <path d="M16 5L7 16h5v8h8v-8h5L16 5z" />
+    <path d="M7 28h18" />
   </g>,
 ]
 
@@ -158,7 +151,7 @@ export default function ChatClient() {
   const [convSearch, setConvSearch] = useState('')
 
   // Morphing brand mark state
-  const [morphIndex, setMorphIndex] = useState(0) // 0 = tent (resting), 1 = chat bubble (typing settle)
+  const [morphIndex, setMorphIndex] = useState(0) // 0 = chat bubble (resting), settles on typing
   const [morphActive, setMorphActive] = useState(true)
 
   // Chat sidebar settings panel
@@ -334,15 +327,15 @@ export default function ChatClient() {
     return () => clearTimeout(timer)
   }, [morphIndex, morphActive, messages.length])
 
-  // Settle to chat bubble when user is typing; return to tent when idle
+  // Settle to chat bubble (shape 0) when user is typing; resume morphing when idle
   useEffect(() => {
     const isActive = barExpanded || input.trim().length > 0
     if (isActive) {
       setMorphActive(false)
-      setMorphIndex(1) // Chat bubble — "you're about to chat"
+      setMorphIndex(0) // Chat bubble — the page's identity icon
     } else {
       setMorphActive(true)
-      setMorphIndex(0) // Tent — brand resting form
+      setMorphIndex(0) // Stay on chat bubble; morphing will cycle from here
     }
   }, [barExpanded, input])
 
@@ -969,13 +962,13 @@ export default function ChatClient() {
           <div className="max-w-[720px] mx-auto px-[min(5vw,48px)] py-8 space-y-6">
             {messages.length === 0 && (
               <div className="flex flex-col items-center min-h-[65vh]">
-                {/* Morphing brand mark — fills the upper void */}
+                {/* Morphing brand mark — the chat page's nav icon, ghosted and alive in the upper void */}
                 <div className="flex-1 flex items-center justify-center">
                   <div className={`morph-logo-container ${!morphActive ? 'morph-logo-settled' : ''}`}>
-                    <div className="w-[88px] h-[88px] sm:w-[104px] sm:h-[104px] bg-[#dc2626] rounded-2xl flex items-center justify-center relative overflow-hidden">
+                    <div className="relative w-[80px] h-[80px] sm:w-[96px] sm:h-[96px]">
                       {MORPH_SHAPES.map((shape, i) => (
                         <div key={i} className={`morph-shape ${i === morphIndex ? 'morph-shape-active' : ''}`}>
-                          <svg width="44" height="44" viewBox="0 0 32 32" fill="none" className="sm:w-[52px] sm:h-[52px]">
+                          <svg width="64" height="64" viewBox="0 0 32 32" fill="none" className="sm:w-[80px] sm:h-[80px] text-[#525252]">
                             {shape}
                           </svg>
                         </div>
@@ -1943,11 +1936,11 @@ export default function ChatClient() {
         }
         .morph-logo-settled {
           animation: none;
-          opacity: 0.04;
+          opacity: 0.5;
         }
         @keyframes morphBreathe {
-          0%, 100% { transform: scale(1); opacity: 0.08; }
-          50% { transform: scale(1.05); opacity: 0.14; }
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.06); opacity: 1; }
         }
         .morph-shape {
           position: absolute;
