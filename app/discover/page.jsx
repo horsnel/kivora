@@ -42,7 +42,7 @@ const GOAL_TEMPLATES = [
 
 // ── Swipe filter options ──
 const FIELD_FILTERS = ['all', 'tech', 'business', 'creative', 'education', 'finance']
-const TYPE_FILTERS = ['all', 'scholarship', 'internship', 'fellowship', 'job', 'side_hustle']
+const TYPE_FILTERS = ['scholarship', 'internship', 'fellowship', 'job', 'side_hustle']
 
 export default function DiscoverPage() {
   const router = useRouter()
@@ -588,9 +588,9 @@ export default function DiscoverPage() {
         <div className="space-y-2 mb-4">
           <div className="flex flex-wrap gap-1.5">
             {FIELD_FILTERS.map(f => (
-              <button key={f} onClick={() => { setFieldFilter(f); setSwipeIndex(0) }}
+              <button key={f} onClick={() => { setFieldFilter(f); if (f === 'all') setTypeFilter('all'); setSwipeIndex(0) }}
                 className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-all ${
-                  fieldFilter === f ? 'bg-red-600 text-white' : 'bg-[#141414] text-[#737373] hover:text-white hover:bg-[#1a1a1a]'
+                  fieldFilter === f && (f !== 'all' || typeFilter === 'all') ? 'bg-red-600 text-white' : 'bg-[#141414] text-[#737373] hover:text-white hover:bg-[#1a1a1a]'
                 }`}>
                 {t(`discover.filter.${f}`)}
               </button>
