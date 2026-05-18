@@ -85,6 +85,8 @@
   "chat.history": "Historia ya mazungumzo",
   "chat.history.empty": "Hakuna mazungumzo bado",
   "chat.history.signin": "Ingia kuokoa mazungumzo",
+  "chat.search_conversations": "Tafuta mazungumzo",
+  "chat.no_results": "Hakuna mazungumzo yaliyopatikana",
   "chat.new": "Mazungumzo mapya",
   "chat.placeholder": "Uliza chochote...",
   "chat.read_aloud": "Soma kwa sauti",

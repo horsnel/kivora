@@ -122,6 +122,9 @@ export default function ChatClient() {
   const [proTypeDropdownOpen, setProTypeDropdownOpen] = useState(false)
   const [modelChipDropdownOpen, setModelChipDropdownOpen] = useState(false)
 
+  // Chat sidebar search
+  const [convSearch, setConvSearch] = useState('')
+
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
   const collapsedInputRef = useRef(null)
@@ -506,6 +509,18 @@ export default function ChatClient() {
   }
 
   // ── Voice Input (ASR) ──
+  const [micPermModal, setMicPermModal] = useState(false)
+
+  async function checkMicPermission() {
+    try {
+      const result = await navigator.permissions.query({ name: 'microphone' })
+      return result.state // 'granted', 'denied', or 'prompt'
+    } catch {
+      // permissions.query not supported in some browsers — return null so we fall through to getUserMedia
+      return null
+    }
+  }
+
   async function toggleListening(e) {
     // Do NOT call e.preventDefault() — it blocks the browser's permission popup
     // by cancelling the "user gesture" that the browser requires.
@@ -526,25 +541,38 @@ export default function ChatClient() {
       return
     }
 
-    // Explicitly request microphone permission via getUserMedia first.
-    // This guarantees the browser shows the permission popup.
-    // SpeechRecognition.start() alone often fails to trigger the popup.
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      // Release the stream immediately — we only needed the permission grant
-      stream.getTracks().forEach(track => track.stop())
-    } catch (err) {
-      setIsListening(false)
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        showVoiceToast('error', t('chat.voice_permission_denied') || 'Microphone access denied. Please allow microphone permissions in your browser settings.')
-      } else if (err.name === 'NotFoundError') {
-        showVoiceToast('error', t('chat.voice_no_mic') || 'No microphone found. Please connect a microphone.')
-      } else {
-        showVoiceToast('error', t('chat.voice_error') || 'Voice input error. Please try again.')
-      }
+    // Step 1: Check if permission is already permanently denied.
+    // If so, getUserMedia will silently reject without showing a popup,
+    // so we must show a modal with manual reset instructions instead.
+    const permState = await checkMicPermission()
+    if (permState === 'denied') {
+      setMicPermModal(true)
       return
     }
 
+    // Step 2: If permission is 'prompt' (never asked) or 'granted', proceed.
+    // For 'prompt': getUserMedia will trigger the browser's permission popup.
+    // For 'granted': getUserMedia will succeed immediately.
+    // If permissions.query is unsupported (permState === null), try getUserMedia anyway.
+    if (permState === 'prompt' || permState === null) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        // Release the stream immediately — we only needed the permission grant
+        stream.getTracks().forEach(track => track.stop())
+      } catch (err) {
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          // User just clicked "Block" on the popup, or it was auto-denied
+          setMicPermModal(true)
+        } else if (err.name === 'NotFoundError') {
+          showVoiceToast('error', t('chat.voice_no_mic') || 'No microphone found. Please connect a microphone.')
+        } else {
+          showVoiceToast('error', t('chat.voice_error') || 'Voice input error. Please try again.')
+        }
+        return
+      }
+    }
+
+    // Step 3: Permission is granted — start SpeechRecognition
     const recognition = new SpeechRecognition()
     recognition.continuous = true
     recognition.interimResults = true
@@ -571,7 +599,7 @@ export default function ChatClient() {
     recognition.onerror = (event) => {
       setIsListening(false)
       if (event.error === 'not-allowed') {
-        showVoiceToast('error', t('chat.voice_permission_denied') || 'Microphone access denied. Please allow microphone permissions in your browser settings.')
+        setMicPermModal(true)
       } else if (event.error === 'no-speech') {
         showVoiceToast('info', t('chat.voice_no_speech') || 'No speech detected. Please try again.')
       } else if (event.error === 'audio-capture') {
@@ -663,6 +691,14 @@ export default function ChatClient() {
 
   const historyGroups = groupByDate(chatHistory)
 
+  // Filter history by search query
+  const filteredHistory = convSearch.trim()
+    ? groupByDate(chatHistory.filter(s => {
+        const title = chatTitle(s)
+        return title.toLowerCase().includes(convSearch.toLowerCase())
+      }))
+    : historyGroups
+
   function chatTitle(session) {
     const msgs = session.messages || []
     const first = msgs.find(m => m.role === 'user')
@@ -675,7 +711,7 @@ export default function ChatClient() {
 
   return (
     <main className="h-full flex bg-[#0a0a0a]">
-      {/* Chat history panel — second sidebar, only on desktop or when toggled on mobile */}
+      {/* ── Chat Sidebar ── */}
       {historyOpen && (
         <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setHistoryOpen(false)} />
       )}
@@ -685,9 +721,19 @@ export default function ChatClient() {
           historyOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
+        {/* ── Logo + close ── */}
         <div className="px-3 pt-3 pb-2 shrink-0">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-caption text-[#525252] uppercase tracking-wider font-medium">{t('chat.history')}</span>
+          <div className="flex items-center justify-between mb-3">
+            <Link href="/discover" className="flex items-center gap-2.5" onClick={() => setHistoryOpen(false)}>
+              <div className="w-7 h-7 bg-[#dc2626] rounded-lg flex items-center justify-center">
+                <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
+                  <path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white" />
+                </svg>
+              </div>
+              <span className="font-bold text-[15px] tracking-tight">
+                Ki<span className="text-red-500">vora</span>
+              </span>
+            </Link>
             <button
               className="lg:hidden w-7 h-7 flex items-center justify-center text-[#525252] hover:text-white transition-colors"
               onClick={() => setHistoryOpen(false)}
@@ -697,10 +743,46 @@ export default function ChatClient() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto overscroll-behavior-contain px-2.5 min-h-0">
-          {user && chatHistory.length > 0 ? (
+        {/* ── Explore link ── */}
+        <div className="px-2.5 shrink-0">
+          <Link
+            href="/home"
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              false
+                ? 'bg-[#1a1a1a] text-white'
+                : 'text-[#737373] hover:text-white hover:bg-[#141414]'
+            }`}
+            onClick={() => setHistoryOpen(false)}
+          >
+            <IconSearch size={14} className="shrink-0" />
+            {t('nav.explore') || 'Explore'}
+          </Link>
+        </div>
+
+        {/* ── Spacer ── */}
+        <div className="h-3 shrink-0" />
+
+        {/* ── Search conversations ── */}
+        <div className="px-3 shrink-0">
+          <div className="relative">
+            <IconSearch size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#525252] pointer-events-none" />
+            <input
+              type="text"
+              placeholder={t('chat.search_conversations') || 'Search conversations'}
+              value={convSearch}
+              onChange={e => setConvSearch(e.target.value)}
+              className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg pl-8 pr-3 py-1.5 text-[12px] text-[#d4d4d4] placeholder-[#525252] outline-none focus:border-[#3a3a3a] transition-colors"
+              autoComplete="off"
+              spellCheck="false"
+            />
+          </div>
+        </div>
+
+        {/* ── Conversation list ── */}
+        <div className="flex-1 overflow-y-auto overscroll-behavior-contain px-2.5 min-h-0 mt-2">
+          {user && filteredHistory.length > 0 ? (
             <div className="space-y-3">
-              {historyGroups.map(group => (
+              {filteredHistory.map(group => (
                 <div key={group.labelKey}>
                   <p className="text-caption text-muted2 px-1 mb-1 uppercase tracking-wider font-medium">{t(group.labelKey)}</p>
                   <div className="space-y-0.5">
@@ -722,17 +804,42 @@ export default function ChatClient() {
               ))}
             </div>
           ) : user ? (
-            <p className="text-caption text-[#2e2e2e] px-1 pt-2">{t('chat.history.empty')}</p>
+            <p className="text-caption text-[#2e2e2e] px-1 pt-2">{convSearch.trim() ? (t('chat.no_results') || 'No conversations found') : (t('chat.history.empty') || 'No conversations yet')}</p>
           ) : (
             <div className="px-1 pt-2">
               <Link
                 href="/auth"
                 className="flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-caption py-2 rounded-lg transition-colors font-semibold w-full"
+                onClick={() => setHistoryOpen(false)}
               >
                 <IconUser size={12} />
                 {t('chat.history.signin')}
               </Link>
             </div>
+          )}
+        </div>
+
+        {/* ── Profile avatar only — pinned to bottom ── */}
+        <div className="p-2.5 border-t border-[#181818] shrink-0">
+          {user ? (
+            <Link
+              href="/profile"
+              className="flex items-center justify-center transition-colors rounded-lg hover:bg-[#141414] py-1.5"
+              onClick={() => setHistoryOpen(false)}
+            >
+              <div className="w-7 h-7 bg-[#dc2626] rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                {(user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || '').slice(0, 2).toUpperCase()}
+              </div>
+            </Link>
+          ) : (
+            <Link
+              href="/auth"
+              className="flex items-center justify-center gap-1.5 bg-[#dc2626] hover:bg-red-700 text-white text-sm py-2 rounded-lg transition-colors font-semibold"
+              onClick={() => setHistoryOpen(false)}
+            >
+              <IconUser size={12} />
+              {t('nav.signin') || 'Sign in'}
+            </Link>
           )}
         </div>
       </aside>
@@ -1263,6 +1370,59 @@ export default function ChatClient() {
           </div>
         </div>
       </div>
+
+      {/* ── Microphone Permission Modal ── */}
+      {micPermModal && (
+        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4" onClick={() => setMicPermModal(false)}>
+          <div
+            className="bg-[#141414] border border-[#262626] rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scale-in"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-500/10 rounded-xl flex items-center justify-center shrink-0">
+                <IconMicrophone size={20} className="text-red-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-white text-[15px]">Microphone Access Required</h3>
+                <p className="text-[12px] text-[#737373]">Permission was previously denied</p>
+              </div>
+            </div>
+
+            <p className="text-[13px] text-[#a3a3a3] mb-4 leading-relaxed">
+              Your browser blocked microphone access for this site. You need to manually reset the permission to use voice input.
+            </p>
+
+            <div className="bg-[#0a0a0a] border border-[#1f1f1f] rounded-xl p-4 mb-5">
+              <p className="text-[11px] text-[#525252] uppercase tracking-wider font-medium mb-3">How to fix it</p>
+              <div className="space-y-3 text-[13px] text-[#a3a3a3]">
+                <div className="flex gap-3">
+                  <span className="w-5 h-5 bg-[#1a1a1a] rounded-full flex items-center justify-center text-[11px] font-semibold text-white shrink-0">1</span>
+                  <span>Click the <strong className="text-white">lock icon</strong> (or site settings) in your browser address bar</span>
+                </div>
+                <div className="flex gap-3">
+                  <span className="w-5 h-5 bg-[#1a1a1a] rounded-full flex items-center justify-center text-[11px] font-semibold text-white shrink-0">2</span>
+                  <span>Find <strong className="text-white">Microphone</strong> in the permissions list</span>
+                </div>
+                <div className="flex gap-3">
+                  <span className="w-5 h-5 bg-[#1a1a1a] rounded-full flex items-center justify-center text-[11px] font-semibold text-white shrink-0">3</span>
+                  <span>Change it from <strong className="text-red-400">Block</strong> to <strong className="text-green-400">Allow</strong></span>
+                </div>
+                <div className="flex gap-3">
+                  <span className="w-5 h-5 bg-[#1a1a1a] rounded-full flex items-center justify-center text-[11px] font-semibold text-white shrink-0">4</span>
+                  <span>Click <strong className="text-white">Reload</strong> or refresh the page, then try again</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setMicPermModal(false)}
+              className="w-full bg-[#1a1a1a] hover:bg-[#222222] text-white text-[13px] font-medium py-2.5 rounded-xl transition-colors"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Perplexity-style chat bar CSS ── */}
       <style jsx>{`

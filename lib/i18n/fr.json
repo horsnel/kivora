@@ -85,6 +85,8 @@
   "chat.history": "Historique de chat",
   "chat.history.empty": "Aucune conversation",
   "chat.history.signin": "Connectez-vous pour sauvegarder",
+  "chat.search_conversations": "Rechercher des conversations",
+  "chat.no_results": "Aucune conversation trouvée",
   "chat.new": "Nouveau chat",
   "chat.placeholder": "Posez n'importe quoi...",
   "chat.read_aloud": "Lire à voix haute",

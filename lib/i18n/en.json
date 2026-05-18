@@ -85,6 +85,8 @@
   "chat.history": "Chat history",
   "chat.history.empty": "No conversations yet",
   "chat.history.signin": "Sign in to save chats",
+  "chat.search_conversations": "Search conversations",
+  "chat.no_results": "No conversations found",
   "chat.new": "New chat",
   "chat.placeholder": "Ask anything...",
   "chat.read_aloud": "Read aloud",
