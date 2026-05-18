@@ -1036,9 +1036,7 @@ export default function ChatClient() {
                       </div>
                     )}
                     {msg.role === 'assistant' ? (
-                      <div className="leading-[1.65] chat-msg-text px-1">
-                        <MarkdownRenderer content={msg.content} />
-                      </div>
+                      <MarkdownRenderer content={msg.content} />
                     ) : (
                       <div className="rounded-2xl px-5 py-3.5 bg-white/[0.04] text-[#e2e2e2] border border-white/[0.06] rounded-tr-sm leading-[1.65]">
                         <span>{displayContent}</span>

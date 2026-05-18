@@ -259,17 +259,8 @@ input, textarea, select {
 .prose-kivora table tr:last-child td:first-child { border-bottom-left-radius: 11px; }
 .prose-kivora table tr:last-child td:last-child  { border-bottom-right-radius: 11px; }
 
-/* ── Chat assistant message: code blocks & tables break out of text padding ── */
-.chat-msg-text {
-  padding-left: 4px;
-  padding-right: 4px;
-}
-.chat-msg-text .prose-kivora > div[class*="my-4"],
-.chat-msg-text .prose-kivora > div[class*="rounded-xl"] {
-  margin-left: -4px;
-  margin-right: -4px;
-}
-.chat-msg-text .prose-kivora table {
-  margin-left: -4px;
-  margin-right: -4px;
+/* ── Assistant messages: no card wrapper — text flows free ── */
+.prose-kivora {
+  background: transparent;
+  border: none;
 }
