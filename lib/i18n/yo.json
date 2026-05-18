@@ -327,8 +327,6 @@
   "devtools.terminal.desc": "Salaye tabi ṣẹda awọn aṣẹ shell",
   "devtools.text_improver": "Oluyipada Ọrọ",
   "devtools.text_improver.desc": "Tun kọ ọrọ fun idiyele ati aṣa",
-  "devtools.title1": "Erọ",
-  "devtools.title2": "Onise",
   "devtools.translator": "Oluyi Ede",
   "devtools.translator.desc": "Yi ọrọ si eyikeyi ede",
   "devtools.validation.api_analyzer": "Tẹ URL ipari sii",
@@ -574,8 +572,7 @@
   "opportunities.start_time": "Akoko Ibere",
   "opportunities.steps_completed": "awọn igbesẹ ti parí",
   "opportunities.tags": "Awọn aami",
-  "opportunities.title": "Ibanirore",
-  "opportunities.title_highlight": "Ina",
+  "opportunities.title": "IbaniroreIna",
   "profile.active": "Nṣiṣẹ",
   "profile.avatar": "URL Avatar",
   "profile.bio": "Iroyin ara ẹni",
@@ -660,7 +657,7 @@
   "study.research.desc": "Fi iwe kọja, gba awọn aaye pataki",
   "study.subtitle": "Awọn irinṣẹ AI 8 fun awọn ẹlẹkọẹkọ, awọn oniwadii, ati awọn olukọ. Ofiife, ko si akanti nlo.",
   "study.timer": "Awari",
-  "study.title": "Ile-Ekọ",
+  "study.title": "IleEko",
   "study.validation.citation": "Te alaye orisun fun asọye naa",
   "study.validation.essay": "Te koko-ite ẹkọ",
   "study.validation.flashcard": "Te koko tabi noti fun awọn kaadi",
@@ -729,5 +726,9 @@
   "welcome.why.card6.desc": "Itọnisọna kọọkan ti o ṣẹda n fun wiki wa ni agbara. Jukwaa naa n kọ ẹkọ ati ni ilọsiwaju pẹlu lilo kọọkan.",
   "welcome.why.card6.title": "Ni ọye diẹ sii nigba gbogbo",
   "welcome.why.subtitle": "Ọpọlọpọ awọn irinṣẹ AI ti a ṣe fun awọn ti o ti ni gbogbo nkan. A ṣe eyi fun gbogbo eniyan miiran.",
-  "welcome.why.title": "Kini idi ti Kivora yatọ"
+  "welcome.why.title": "Kini idi ti Kivora yatọ",
+  "devtools.title": "EroAwonise",
+  "devtools.split": 3,
+  "opportunities.split": 9,
+  "study.split": 3
 }

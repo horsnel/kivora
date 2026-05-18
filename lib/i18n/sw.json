@@ -327,8 +327,6 @@
   "devtools.terminal.desc": "Eleza au unda amri za shell",
   "devtools.text_improver": "Mboreshaji wa Maandishi",
   "devtools.text_improver.desc": "Andika tena maandishi yoyote kwa uwazi na mtindo",
-  "devtools.title1": "Zana",
-  "devtools.title2": "Dev",
   "devtools.translator": "Mfasiri",
   "devtools.translator.desc": "Tafsiri maandishi kwa lugha yoyote",
   "devtools.validation.api_analyzer": "Ingiza URL ya mwisho",
@@ -574,8 +572,7 @@
   "opportunities.start_time": "Wakati wa Kuanza",
   "opportunities.steps_completed": "hatua zilikamilika",
   "opportunities.tags": "Lebo",
-  "opportunities.title": "Fursa",
-  "opportunities.title_highlight": "Kiini",
+  "opportunities.title": "FursaKiini",
   "profile.active": "Kinaendelea",
   "profile.avatar": "URL ya Avatar",
   "profile.bio": "Wasifu wa kibinafsi",
@@ -660,7 +657,7 @@
   "study.research.desc": "Bandika karatasi, pata pointi muhimu",
   "study.subtitle": "Zana 8 za AI kwa wanafunzi, watafiti na maprofesa. Bure, hakuna akaunti.",
   "study.timer": "Kipima muda",
-  "study.title": "Deski ya Kusoma",
+  "study.title": "DeskiKusoma",
   "study.validation.citation": "Ingiza taarifa ya chanzo cha wanukuu",
   "study.validation.essay": "Ingiza mada ya insha",
   "study.validation.flashcard": "Ingiza mada au noti za kadi",
@@ -729,5 +726,9 @@
   "welcome.why.card6.desc": "Kila mwongozo unaotengeneza hulisha wiki yetu. Jukwaa linajifunza na kuboreshwa kila unapotumia.",
   "welcome.why.card6.title": "Inazidi kuwa na akili",
   "welcome.why.subtitle": "Zana nyingi za AI zimeundwa kwa watu wanaokwisha kuwa na kila kitu. Sisi tumeijenga kwa wengine wote.",
-  "welcome.why.title": "Kwa nini Kivora ni tofauti"
+  "welcome.why.title": "Kwa nini Kivora ni tofauti",
+  "devtools.title": "ZanaDev",
+  "devtools.split": 4,
+  "opportunities.split": 5,
+  "study.split": 5
 }

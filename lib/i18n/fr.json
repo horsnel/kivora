@@ -327,8 +327,6 @@
   "devtools.terminal.desc": "Expliquez ou générez des commandes shell",
   "devtools.text_improver": "Améliorateur de texte",
   "devtools.text_improver.desc": "Réécrivez tout texte pour la clarté et le ton",
-  "devtools.title1": "Outils",
-  "devtools.title2": "Dev",
   "devtools.translator": "Traducteur",
   "devtools.translator.desc": "Traduisez du texte dans n'importe quelle langue",
   "devtools.validation.api_analyzer": "Entrez l'URL de l'endpoint",
@@ -574,8 +572,7 @@
   "opportunities.start_time": "Délai de démarrage",
   "opportunities.steps_completed": "étapes complétées",
   "opportunities.tags": "Tags",
-  "opportunities.title": "Opportunité",
-  "opportunities.title_highlight": "Moteur",
+  "opportunities.title": "OpportuniteMoteur",
   "profile.active": "Active",
   "profile.avatar": "URL de l'avatar",
   "profile.bio": "Biographie",
@@ -660,7 +657,7 @@
   "study.research.desc": "Collez un article, obtenez les points clés",
   "study.subtitle": "8 outils propulsés par l'IA pour les étudiants, chercheurs et professeurs. Gratuit, sans compte.",
   "study.timer": "Minuteur",
-  "study.title": "Bureau d'étude",
+  "study.title": "BureauEtude",
   "study.validation.citation": "Entrez les informations source pour la citation",
   "study.validation.essay": "Entrez un sujet d'essai",
   "study.validation.flashcard": "Entrez un sujet ou des notes pour les flashcards",
@@ -729,5 +726,9 @@
   "welcome.why.card6.desc": "Chaque guide que vous générez alimente notre wiki. La plateforme apprend et s'améliore à chaque utilisation.",
   "welcome.why.card6.title": "S'améliore avec le temps",
   "welcome.why.subtitle": "La plupart des outils IA sont conçus pour ceux qui ont déjà tout. Nous l'avons construit pour tous les autres.",
-  "welcome.why.title": "Pourquoi Kivora est différent"
+  "welcome.why.title": "Pourquoi Kivora est différent",
+  "devtools.title": "OutilsDev",
+  "devtools.split": 6,
+  "opportunities.split": 11,
+  "study.split": 6
 }

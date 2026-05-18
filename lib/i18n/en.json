@@ -327,8 +327,6 @@
   "devtools.terminal.desc": "Explain or generate shell commands",
   "devtools.text_improver": "Text Improver",
   "devtools.text_improver.desc": "Rewrite any text for clarity and tone",
-  "devtools.title1": "Dev",
-  "devtools.title2": "Tools",
   "devtools.translator": "Translator",
   "devtools.translator.desc": "Translate text to any language",
   "devtools.validation.api_analyzer": "Enter an endpoint URL",
@@ -574,8 +572,7 @@
   "opportunities.start_time": "Start Time",
   "opportunities.steps_completed": "steps completed",
   "opportunities.tags": "Tags",
-  "opportunities.title": "Opportunity",
-  "opportunities.title_highlight": "Engine",
+  "opportunities.title": "OpportunityEngine",
   "profile.active": "Active",
   "profile.avatar": "Avatar URL",
   "profile.bio": "Bio",
@@ -729,5 +726,9 @@
   "welcome.why.card6.desc": "Every guide you generate feeds our wiki. The platform learns and improves with every use.",
   "welcome.why.card6.title": "Gets smarter over time",
   "welcome.why.subtitle": "Most AI tools are built for people who already have everything. We built this for everyone else.",
-  "welcome.why.title": "Why Kivora is different"
+  "welcome.why.title": "Why Kivora is different",
+  "devtools.title": "DevTools",
+  "devtools.split": 3,
+  "opportunities.split": 11,
+  "study.split": 5
 }

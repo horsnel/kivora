@@ -439,7 +439,7 @@ export default function DevToolsClient() {
         {/* Header */}
         <div className="mb-6 animate-fade-up">
           <h1 className="text-display font-semibold mb-2 tracking-tight">
-            {t('devtools.title1')} <span className="text-red-500">{t('devtools.title2')}</span>
+            {t('devtools.title').slice(0, parseInt(t('devtools.split')))}<span className="text-red-500">{t('devtools.title').slice(parseInt(t('devtools.split')))}</span>
           </h1>
           <p className="text-[#737373] text-sm mt-0.5">
             {t('devtools.subtitle')}
