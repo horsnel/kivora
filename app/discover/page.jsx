@@ -275,15 +275,20 @@ export default function DiscoverPage() {
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-red-500/20 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-red-500/10 to-transparent" />
 
-          {/* Slide content with crossfade */}
-          <div className="relative p-8 sm:p-10 flex items-start gap-5" style={{ minHeight: 280 }}>
-            <div className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0 bg-red-500/10 border border-red-500/20">
-              <IconLightning size={22} className="text-red-400" />
+          {/* Header — icon + label pinned top-left */}
+          <div className="relative px-8 sm:px-10 pt-6 sm:pt-7 flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 bg-red-500/10 border border-red-500/20">
+              <svg width={14} height={14} viewBox="0 0 16 16" fill="none" className="text-red-400">
+                <path d="M6 5.5C6 4.12 7.12 3 8 3s2 1.12 2 2.5c0 1.2-.88 1.75-1.5 2.15-.3.19-.5.52-.5.85v.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+                <circle cx="8" cy="11.5" r="1" fill="currentColor"/>
+              </svg>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-red-400/80 font-semibold mb-3">{t('discover.didyouknow')}</p>
-              <p key={factIndex} className="text-base sm:text-lg text-[#d4d4d4] leading-relaxed" style={{ animation: 'fadeIn 0.6s ease forwards' }}>{FACTS[factIndex]}</p>
-            </div>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-red-400/80 font-semibold">{t('discover.didyouknow')}</p>
+          </div>
+
+          {/* Fact text — centered vertically in remaining space */}
+          <div className="relative px-8 sm:px-10 flex items-center" style={{ minHeight: 190 }}>
+            <p key={factIndex} className="text-base sm:text-lg text-[#d4d4d4] leading-relaxed max-w-2xl" style={{ animation: 'fadeIn 0.6s ease forwards' }}>{FACTS[factIndex]}</p>
           </div>
 
           {/* Navigation — sleek arrows + minimal dots */}
