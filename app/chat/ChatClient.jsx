@@ -1928,11 +1928,11 @@ export default function ChatClient() {
         }
 
         /* ═══════════════════════════════════════
-           MORPHING BRAND MARK
+           MORPHING BRAND MARK — Pencil Sketch Style
            ═══════════════════════════════════════ */
         .morph-logo-container {
           animation: morphBreathe 6s ease-in-out infinite;
-          transition: opacity 0.8s ease;
+          transition: opacity 0.6s ease;
         }
         .morph-logo-settled {
           animation: none;
@@ -1942,21 +1942,94 @@ export default function ChatClient() {
           0%, 100% { transform: scale(1); opacity: 1; }
           50% { transform: scale(1.06); opacity: 1; }
         }
+
+        /* Shape containers */
         .morph-shape {
           position: absolute;
           inset: 0;
           display: flex;
           align-items: center;
           justify-content: center;
-          transition: opacity 1.2s cubic-bezier(0.34, 1.56, 0.64, 1),
-                      transform 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
           opacity: 0;
-          transform: scale(0.8) rotate(8deg);
           pointer-events: none;
+          transition: opacity 0.5s ease;
         }
         .morph-shape-active {
           opacity: 1;
-          transform: scale(1) rotate(0deg);
+          animation: sketchWobble 1.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        /* Wobble: subtle hand-drawn shake as the pencil draws */
+        @keyframes sketchWobble {
+          0%   { transform: scale(0.92) rotate(-3deg); opacity: 0; }
+          8%   { opacity: 1; }
+          15%  { transform: scale(1.02) rotate(1.5deg); }
+          25%  { transform: scale(0.98) rotate(-0.8deg); }
+          40%  { transform: scale(1.01) rotate(0.4deg); }
+          60%  { transform: scale(0.995) rotate(-0.15deg); }
+          80%  { transform: scale(1.002) rotate(0.05deg); }
+          100% { transform: scale(1) rotate(0deg); }
+        }
+
+        /* ── Pencil stroke-draw on all SVG elements ── */
+        /* Hidden by default — full dashoffset hides the stroke */
+        .morph-shape :global(path),
+        .morph-shape :global(rect),
+        .morph-shape :global(circle),
+        .morph-shape :global(line) {
+          stroke-dasharray: 200;
+          stroke-dashoffset: 200;
+          transition: none;
+        }
+
+        /* When active — pencil draws each stroke in with staggered delays */
+        .morph-shape-active :global(path) {
+          animation: pencilStroke 1.4s ease-out forwards;
+        }
+        .morph-shape-active :global(path:nth-child(1)) {
+          animation-delay: 0s;
+        }
+        .morph-shape-active :global(path:nth-child(2)) {
+          animation-delay: 0.3s;
+        }
+        .morph-shape-active :global(path:nth-child(3)) {
+          animation-delay: 0.55s;
+        }
+
+        .morph-shape-active :global(rect) {
+          animation: pencilStroke 1s ease-out forwards;
+        }
+        .morph-shape-active :global(rect:nth-child(1)) {
+          animation-delay: 0s;
+        }
+        .morph-shape-active :global(rect:nth-child(2)) {
+          animation-delay: 0.25s;
+        }
+        .morph-shape-active :global(rect:nth-child(3)) {
+          animation-delay: 0.5s;
+        }
+
+        .morph-shape-active :global(circle) {
+          animation: pencilStroke 0.8s ease-out forwards;
+        }
+        .morph-shape-active :global(circle:nth-child(1)) {
+          animation-delay: 0s;
+        }
+        .morph-shape-active :global(circle:nth-child(2)) {
+          animation-delay: 0.3s;
+        }
+        .morph-shape-active :global(circle:nth-child(3)) {
+          animation-delay: 0.55s;
+        }
+
+        .morph-shape-active :global(line) {
+          animation: pencilStroke 0.7s ease-out forwards;
+          animation-delay: 0.6s;
+        }
+
+        /* The actual stroke-drawing keyframe */
+        @keyframes pencilStroke {
+          0%   { stroke-dashoffset: 200; }
+          100% { stroke-dashoffset: 0; }
         }
 
         /* ═══════════════════════════════════════
