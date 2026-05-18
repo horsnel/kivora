@@ -255,7 +255,7 @@ export default function HomePage() {
 
           {cards.length === 0 && (
             <section className="max-w-5xl mx-auto px-4 sm:px-6 pb-12 sm:pb-16 text-center">
-              <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-8 sm:p-12">
+              <div className="bg-[#141414] rounded-xl p-8 sm:p-12">
                 <div className="w-10 h-10 bg-[#1a1a1a] rounded-xl flex items-center justify-center mx-auto mb-4">
                   <IconSearch size={20} className="text-muted2" />
                 </div>

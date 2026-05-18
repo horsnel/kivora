@@ -224,7 +224,7 @@ export default function OpportunitiesPage() {
         </div>
 
         {/* Generate new */}
-        <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mb-7">
+        <div className="bg-[#141414] rounded-xl p-6 mb-7">
           <p className="text-caption text-muted font-medium mb-3 flex items-center gap-1.5"><IconPlus size={12} /> {t('opportunities.generate_new')}</p>
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -246,7 +246,7 @@ export default function OpportunitiesPage() {
         </div>
 
         {/* ── Feature 1: Income Calculator ── */}
-        <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mb-7">
+        <div className="bg-[#141414] rounded-xl p-6 mb-7">
           <p className="text-caption text-muted font-medium mb-4 flex items-center gap-1.5"><IconCalc size={12} /> {t('opportunities.income_calc')}</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
@@ -355,8 +355,8 @@ export default function OpportunitiesPage() {
               const isComparing = compareSlugs.includes(opp.slug)
               return (
                 <div key={opp.slug}
-                  className={`bg-[#141414] border rounded-xl p-6 text-left transition-all group hover:-translate-y-0.5 hover:bg-[#161616] relative ${
-                    isComparing ? 'border-red-500/50' : 'border-white/[0.06] hover:border-white/[0.1]'
+                  className={`bg-[#141414] rounded-xl p-6 text-left transition-all group hover:-translate-y-0.5 hover:bg-[#161616] relative ${
+                    isComparing ? 'border border-red-500/50' : ''
                   }`}>
                   {/* Card main area - clickable */}
                   <button onClick={() => router.push(`/explore/${opp.slug}`)} className="w-full text-left">
@@ -419,7 +419,7 @@ export default function OpportunitiesPage() {
           </div>
         ) : (
           <div className="text-center py-16">
-            <div className="w-10 h-10 bg-[#141414] border border-white/[0.06] rounded-xl flex items-center justify-center mx-auto mb-3">
+            <div className="w-10 h-10 bg-[#141414] rounded-xl flex items-center justify-center mx-auto mb-3">
               <IconSearch size={20} className="text-[#2e2e2e]" />
             </div>
             <h3 className="font-semibold mb-1.5 tracking-tight text-[#737373]">{t('opportunities.no_results')}</h3>
