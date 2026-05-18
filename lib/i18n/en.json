@@ -737,5 +737,6 @@
   "devtools.title": "DevTools",
   "devtools.split": 3,
   "opportunities.split": 11,
-  "study.split": 5
+  "study.split": 5,
+  "chat.starter.learn": "Learn a skill"
 }

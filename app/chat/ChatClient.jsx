@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconPlus, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings } from '@/components/Icons'
+import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
@@ -26,7 +26,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const STARTERS = [
   { labelKey: 'chat.starter.build', icon: IconChat },
   { labelKey: 'chat.starter.earn', icon: IconMoney },
-  { labelKey: 'chat.starter.automate', icon: IconLightning },
+  { labelKey: 'chat.starter.learn', icon: IconLightning },
 ]
 
 const FOCUS_MODES = [
@@ -873,29 +873,15 @@ export default function ChatClient() {
       {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <div className="shrink-0 flex items-center justify-between px-[min(5vw,48px)] py-3">
-          <div className="flex items-center gap-3">
-            <button
-              className="lg:hidden w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors -ml-1"
-              onClick={() => setHistoryOpen(true)}
-              aria-label={t('chat.history')}
-            >
-              <IconMenu size={16} />
-            </button>
-            <h1 className="font-medium text-[15px] text-[#e2e2e2] tracking-tight">{t('chat.title')}</h1>
-          </div>
+        <div className="shrink-0 flex items-center gap-3 px-[min(5vw,48px)] py-3">
           <button
-            onClick={clearChat}
-            className="flex items-center justify-center w-9 h-9 rounded-full bg-white/[0.04] border border-white/[0.06] text-[#737373] hover:text-[#e2e2e2] hover:bg-white/[0.07] hover:border-white/[0.1] transition-all duration-200 ease-out"
-            aria-label={t('chat.new')}
-            title={t('chat.new')}
+            className="lg:hidden w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors -ml-1"
+            onClick={() => setHistoryOpen(true)}
+            aria-label={t('chat.history')}
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M2 3.5a1 1 0 011-1h7a1 1 0 011 1v4.5a1 1 0 01-1 1H6.5L4 11V9H3a1 1 0 01-1-1V3.5z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
-              <path d="M11 6h2.5a1 1 0 011 1v3.5a1 1 0 01-1 1H12v1.5L10 11.5h-1" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
-              <path d="M5.5 5.5h2" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
-            </svg>
+            <IconMenu size={16} />
           </button>
+          <h1 className="font-medium text-[15px] text-[#e2e2e2] tracking-tight">{t('chat.title')}</h1>
         </div>
 
         {/* Messages area */}
@@ -1294,7 +1280,7 @@ export default function ChatClient() {
               </div>
             )}
 
-            <p className="text-[11px] text-[#2e2e2e] text-center mt-3">{t('chat.disclaimer')}</p>
+
           </div>
         </div>
       </div>

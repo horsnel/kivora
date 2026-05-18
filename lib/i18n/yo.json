@@ -737,5 +737,6 @@
   "opportunities.split": 9,
   "study.split": 3,
   "chat.starter.build": "Build a SaaS",
-  "chat.starter.earn": "Earn with AI"
+  "chat.starter.earn": "Earn with AI",
+  "chat.starter.learn": "Learn a skill"
 }
