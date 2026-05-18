@@ -434,14 +434,14 @@ export default function DevToolsClient() {
 
   return (
     <main className="min-h-screen bg-[#0a0a0a]">
-      <div className="max-w-7xl mx-auto px-4 py-10">
+      <div className="max-w-4xl mx-auto px-4 pt-6 pb-10">
 
         {/* Header */}
-        <div className="mb-8 animate-fade-up">
-          <h1 className="text-3xl font-semibold mb-1.5 tracking-tight">
+        <div className="mb-6 animate-fade-up">
+          <h1 className="text-display font-semibold mb-2 tracking-tight">
             {t('devtools.title1')} <span className="text-red-500">{t('devtools.title2')}</span>
           </h1>
-          <p className="text-[#737373] text-sm">
+          <p className="text-[#737373] text-sm mt-0.5">
             {t('devtools.subtitle')}
           </p>
         </div>

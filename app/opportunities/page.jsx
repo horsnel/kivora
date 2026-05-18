@@ -217,10 +217,10 @@ export default function OpportunitiesPage() {
 
   return (
     <main className="min-h-screen bg-[#0a0a0a]">
-      <div className="max-w-6xl mx-auto px-4 py-10">
-        <div className="mb-8 animate-fade-up">
+      <div className="max-w-4xl mx-auto px-4 pt-6 pb-10">
+        <div className="mb-6 animate-fade-up">
           <h1 className="text-display font-semibold mb-2 tracking-tight">{t('opportunities.title')} <span className="text-red-500">{t('opportunities.title_highlight')}</span></h1>
-          <p className="text-muted text-body">{t('opportunities.browse', { count: opps.length })}</p>
+          <p className="text-[#737373] text-sm mt-0.5">{t('opportunities.browse', { count: opps.length })}</p>
         </div>
 
         {/* Generate new */}
