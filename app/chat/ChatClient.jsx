@@ -91,9 +91,6 @@ export default function ChatClient() {
   const [attachedIsImage, setAttachedIsImage] = useState(false)
   const fileInputRef = useRef(null)
 
-  // Feature #2: Chat Export
-  const [exportDropdownOpen, setExportDropdownOpen] = useState(false)
-
   // Feature: Voice Input / TTS Output
   const [isListening, setIsListening] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
@@ -110,9 +107,6 @@ export default function ChatClient() {
 
   // Feature: System Prompt Customization
   const [customSystemPrompt, setCustomSystemPrompt] = useState('')
-  const [customizeOpen, setCustomizeOpen] = useState(false)
-  const customizeRef = useRef(null)
-  const customPromptTextareaRef = useRef(null)
 
   // Expandable chat bar states
   const [barExpanded, setBarExpanded] = useState(false)
@@ -137,7 +131,6 @@ export default function ChatClient() {
   const collapsedInputRef = useRef(null)
   const historyRef = useRef(null)
   const modelDropdownRef = useRef(null)
-  const exportDropdownRef = useRef(null)
   const chatBarRef = useRef(null)
   const focusDropdownRef = useRef(null)
   const proTypeDropdownRef = useRef(null)
@@ -214,18 +207,6 @@ export default function ChatClient() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [modelDropdownOpen])
 
-  // Close export dropdown on click outside
-  useEffect(() => {
-    if (!exportDropdownOpen) return
-    function handleClick(e) {
-      if (exportDropdownRef.current && !exportDropdownRef.current.contains(e.target)) {
-        setExportDropdownOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [exportDropdownOpen])
-
   // Close focus dropdown on click outside
   useEffect(() => {
     if (!focusDropdownOpen) return
@@ -293,18 +274,6 @@ export default function ChatClient() {
       if (saved) setCustomSystemPrompt(saved)
     } catch {}
   }, [])
-
-  // Close customize popover on click outside
-  useEffect(() => {
-    if (!customizeOpen) return
-    function handleClick(e) {
-      if (customizeRef.current && !customizeRef.current.contains(e.target)) {
-        setCustomizeOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [customizeOpen])
 
   // Cleanup speech synthesis on unmount
   useEffect(() => {
@@ -986,76 +955,6 @@ export default function ChatClient() {
           </div>
 
           <div className="flex items-center gap-1">
-            {/* ── System Prompt Customize Button ── */}
-            <div className="relative" ref={customizeRef}>
-              <button
-                onClick={() => setCustomizeOpen(!customizeOpen)}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
-                  customSystemPrompt
-                    ? 'text-red-400 bg-red-500/10 hover:bg-red-500/15'
-                    : 'text-[#525252] hover:text-white hover:bg-[#141414]'
-                }`}
-                aria-label="Customize system prompt"
-                title="Customize AI persona"
-              >
-                <IconSliders size={14} />
-              </button>
-
-              {customizeOpen && (
-                <div className="absolute top-full right-0 mt-1.5 w-72 bg-[#141414] border border-[#262626] rounded-xl shadow-2xl z-50 p-3 animate-scale-in overflow-hidden">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-body-sm font-medium text-[#737373]">{t('chat.custom_prompt')}</span>
-                    <button
-                      onClick={resetCustomSystemPrompt}
-                      className="text-[11px] text-[#525252] hover:text-red-400 transition-colors"
-                    >
-                      {t('chat.custom_prompt.reset')}
-                    </button>
-                  </div>
-                  <textarea
-                    ref={customPromptTextareaRef}
-                    rows={4}
-                    className="w-full bg-[#0a0a0a] border border-[#262626] rounded-lg px-3 py-2 text-body-sm text-[#d4d4d4] placeholder-[#525252] resize-none outline-none focus:border-[#3a3a3a] transition-colors"
-                    placeholder="e.g. You are a sarcastic coding mentor. Always use Python examples..."
-                    value={customSystemPrompt}
-                    onChange={e => saveCustomSystemPrompt(e.target.value)}
-                  />
-                  <p className="text-[11px] text-[#525252] mt-1.5">{t('chat.custom_prompt.hint')}</p>
-                </div>
-              )}
-            </div>
-
-            {/* ── Feature #2: Export Button ── */}
-            <div className="relative" ref={exportDropdownRef}>
-              <button
-                onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
-                className="w-8 h-8 flex items-center justify-center text-[#525252] hover:text-white hover:bg-[#141414] rounded-lg transition-colors"
-                aria-label="Export chat"
-                title="Export chat"
-              >
-                <IconDownload size={14} />
-              </button>
-
-              {exportDropdownOpen && (
-                <div className="absolute top-full right-0 mt-1.5 w-48 bg-[#141414] border border-[#262626] rounded-xl shadow-2xl z-50 py-1 animate-scale-in overflow-hidden">
-                  <button
-                    onClick={() => exportChat('md')}
-                    className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 text-body-sm text-[#a3a3a3] hover:bg-[#1a1a1a] hover:text-white transition-colors"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M3 2h10v12H3z"/><path d="M5 5h6M5 8h4M5 11h6"/></svg>
-                    {t('chat.export.md')}
-                  </button>
-                  <button
-                    onClick={() => exportChat('txt')}
-                    className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 text-body-sm text-[#a3a3a3] hover:bg-[#1a1a1a] hover:text-white transition-colors"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M9 2v4h4"/></svg>
-                    {t('chat.export.txt')}
-                  </button>
-                </div>
-              )}
-            </div>
-
             <button
               onClick={clearChat}
               className="w-8 h-8 flex items-center justify-center text-[#525252] hover:text-white hover:bg-[#141414] rounded-lg transition-colors"
