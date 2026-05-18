@@ -26,7 +26,49 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const STARTERS = [
   { labelKey: 'chat.starter.build', icon: IconChat },
   { labelKey: 'chat.starter.earn', icon: IconMoney },
-  { labelKey: 'chat.starter.learn', icon: IconBook },
+  { labelKey: 'chat.starter.learn', icon: IconBulb },
+]
+
+// Morphing brand mark shapes — all use viewBox="0 0 32 32"
+// Shape 0 (tent) is the resting/brand form; shape 1 (chat bubble) is the settle-on-input form
+const MORPH_SHAPES = [
+  // 0: Tent — Kivora brand mark
+  <g key="tent">
+    <path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95" />
+    <path d="M16 4L26 24L16 18Z" fill="white" opacity="0.55" />
+    <rect x="6" y="26" width="20" height="3" rx="1.5" fill="white" opacity="0.3" />
+  </g>,
+  // 1: Chat bubble
+  <g key="bubble">
+    <path d="M7 7a2 2 0 012-2h14a2 2 0 012 2v11a2 2 0 01-2 2h-7l-5 4v-4H9a2 2 0 01-2-2V7z" fill="white" opacity="0.85" />
+    <circle cx="12" cy="12.5" r="1.5" fill="white" opacity="0.5" />
+    <circle cx="16" cy="12.5" r="1.5" fill="white" opacity="0.5" />
+    <circle cx="20" cy="12.5" r="1.5" fill="white" opacity="0.5" />
+  </g>,
+  // 2: Lightning bolt
+  <g key="bolt">
+    <path d="M19 3L9 17h5l-1 12 9-14h-5l2-12z" fill="white" opacity="0.9" />
+  </g>,
+  // 3: Stacked blocks (building/SaaS)
+  <g key="blocks">
+    <rect x="7" y="5" width="8" height="8" rx="2" fill="white" opacity="0.9" />
+    <rect x="17" y="5" width="8" height="8" rx="2" fill="white" opacity="0.6" />
+    <rect x="7" y="15" width="18" height="8" rx="2" fill="white" opacity="0.4" />
+  </g>,
+  // 4: Neural node (AI)
+  <g key="node">
+    <circle cx="16" cy="9" r="3.5" fill="white" opacity="0.9" />
+    <circle cx="7" cy="23" r="3" fill="white" opacity="0.55" />
+    <circle cx="25" cy="23" r="3" fill="white" opacity="0.55" />
+    <line x1="16" y1="12.5" x2="7" y2="20" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.4" />
+    <line x1="16" y1="12.5" x2="25" y2="20" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.4" />
+    <line x1="7" y1="23" x2="25" y2="23" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.25" />
+  </g>,
+  // 5: Upward arrow (growth/earning)
+  <g key="arrow">
+    <path d="M16 5L8 15h5v10h6V15h5L16 5z" fill="white" opacity="0.85" />
+    <rect x="7" y="27" width="18" height="2.5" rx="1.25" fill="white" opacity="0.3" />
+  </g>,
 ]
 
 const FOCUS_MODES = [
@@ -114,6 +156,10 @@ export default function ChatClient() {
 
   // Chat sidebar search
   const [convSearch, setConvSearch] = useState('')
+
+  // Morphing brand mark state
+  const [morphIndex, setMorphIndex] = useState(0) // 0 = tent (resting), 1 = chat bubble (typing settle)
+  const [morphActive, setMorphActive] = useState(true)
 
   // Chat sidebar settings panel
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -276,6 +322,29 @@ export default function ChatClient() {
       if (voiceToastTimer.current) clearTimeout(voiceToastTimer.current)
     }
   }, [])
+
+  // ── Morphing brand mark timer ──
+  // Random 3–7s intervals between shape transitions
+  useEffect(() => {
+    if (!morphActive || messages.length > 0) return
+    const delay = 3000 + Math.random() * 4000
+    const timer = setTimeout(() => {
+      setMorphIndex(prev => (prev + 1) % MORPH_SHAPES.length)
+    }, delay)
+    return () => clearTimeout(timer)
+  }, [morphIndex, morphActive, messages.length])
+
+  // Settle to chat bubble when user is typing; return to tent when idle
+  useEffect(() => {
+    const isActive = barExpanded || input.trim().length > 0
+    if (isActive) {
+      setMorphActive(false)
+      setMorphIndex(1) // Chat bubble — "you're about to chat"
+    } else {
+      setMorphActive(true)
+      setMorphIndex(0) // Tent — brand resting form
+    }
+  }, [barExpanded, input])
 
   function autoResize(el) {
     el.style.height = 'auto'
@@ -899,8 +968,23 @@ export default function ChatClient() {
         <div className="flex-1 overflow-y-auto overscroll-behavior-contain">
           <div className="max-w-[720px] mx-auto px-[min(5vw,48px)] py-8 space-y-6">
             {messages.length === 0 && (
-              <div className="flex flex-col items-center justify-end min-h-[65vh] pb-4">
-                <div className="flex flex-col gap-7 w-full max-w-md mx-auto mb-4">
+              <div className="flex flex-col items-center min-h-[65vh]">
+                {/* Morphing brand mark — fills the upper void */}
+                <div className="flex-1 flex items-center justify-center">
+                  <div className={`morph-logo-container ${!morphActive ? 'morph-logo-settled' : ''}`}>
+                    <div className="w-[88px] h-[88px] sm:w-[104px] sm:h-[104px] bg-[#dc2626] rounded-2xl flex items-center justify-center relative overflow-hidden">
+                      {MORPH_SHAPES.map((shape, i) => (
+                        <div key={i} className={`morph-shape ${i === morphIndex ? 'morph-shape-active' : ''}`}>
+                          <svg width="44" height="44" viewBox="0 0 32 32" fill="none" className="sm:w-[52px] sm:h-[52px]">
+                            {shape}
+                          </svg>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                {/* Suggestion rows */}
+                <div className="flex flex-col gap-7 w-full max-w-md mx-auto mb-4 pb-4">
                   {STARTERS.map(({ labelKey, icon: Icon }) => (
                     <button
                       key={labelKey}
@@ -1848,6 +1932,38 @@ export default function ChatClient() {
         }
         .chat-submit-btn-active:active {
           transform: scale(0.95);
+        }
+
+        /* ═══════════════════════════════════════
+           MORPHING BRAND MARK
+           ═══════════════════════════════════════ */
+        .morph-logo-container {
+          animation: morphBreathe 6s ease-in-out infinite;
+          transition: opacity 0.8s ease;
+        }
+        .morph-logo-settled {
+          animation: none;
+          opacity: 0.04;
+        }
+        @keyframes morphBreathe {
+          0%, 100% { transform: scale(1); opacity: 0.08; }
+          50% { transform: scale(1.05); opacity: 0.14; }
+        }
+        .morph-shape {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: opacity 1.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+                      transform 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+          opacity: 0;
+          transform: scale(0.8) rotate(8deg);
+          pointer-events: none;
+        }
+        .morph-shape-active {
+          opacity: 1;
+          transform: scale(1) rotate(0deg);
         }
 
         /* ═══════════════════════════════════════
