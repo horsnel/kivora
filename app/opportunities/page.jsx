@@ -294,7 +294,7 @@ export default function OpportunitiesPage() {
               const barHeight = Math.max(4, (max / maxProjection) * 100)
               const barMinHeight = Math.max(2, (min / maxProjection) * 100)
               return (
-                <div key={label} className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-4 text-center">
+                <div key={label} className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-4 text-center overflow-hidden">
                   <p className="text-caption text-muted2 mb-2">{label}</p>
                   <div className="flex items-end justify-center gap-1.5 h-20 mb-3">
                     <div className="flex flex-col items-center gap-0.5 w-8">
@@ -306,8 +306,8 @@ export default function OpportunitiesPage() {
                       <div className="w-full bg-red-500/70 rounded-sm relative" style={{ height: `${barMinHeight}%` }} />
                     </div>
                   </div>
-                  <p className="text-body text-muted2 font-semibold">{formatCompact(min)}</p>
-                  <p className="text-caption text-muted2">to {formatCompact(max)}</p>
+                  <p className="text-body text-muted2 font-semibold truncate">{formatCompact(min)}</p>
+                  <p className="text-caption text-muted2 truncate">to {formatCompact(max)}</p>
                 </div>
               )
             })}

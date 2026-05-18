@@ -264,39 +264,58 @@ export default function DiscoverPage() {
           </div>
         </div>
 
-        {/* Did You Know? — Bigger card with overlays */}
-        <div className="relative rounded-xl overflow-hidden border border-[#262626] bg-[#141414]" style={{ minHeight: 180 }}>
-          {/* Subtle red gradient background for depth */}
-          <div className="absolute inset-0 bg-[linear-gradient(160deg,#1a0a0a,#1f0e0e_40%,#0f0505)]" />
-          {/* Bottom gradient overlay — ensures text readability */}
-          <div className="absolute bottom-0 left-0 right-0 h-[65%] bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
-          {/* Content */}
-          <div className="relative p-6 sm:p-8 flex items-start gap-4 group">
-            <div className="w-10 h-10 bg-[#1a1a1a] rounded-lg flex items-center justify-center shrink-0">
+        {/* Did You Know? — Cinematic carousel */}
+        <div className="relative rounded-2xl overflow-hidden group" style={{ minHeight: 200 }}>
+          {/* Atmospheric background layers */}
+          <div className="absolute inset-0 bg-[#0c0c0c]" />
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(220,38,38,0.08)_0%,transparent_50%,rgba(220,38,38,0.04)_100%)]" />
+          {/* Cinematic bottom fade for text readability */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_top,#0c0c0c_0%,#0c0c0ced_20%,#0c0c0c66_50%,transparent_100%)]" />
+          {/* Subtle horizontal panel lines */}
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-red-500/20 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-red-500/10 to-transparent" />
+
+          {/* Slide content with crossfade */}
+          <div className="relative p-6 sm:p-8 flex items-start gap-4" style={{ minHeight: 200 }}>
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-red-500/10 border border-red-500/20">
               <IconLightning size={18} className="text-red-400" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] uppercase tracking-widest text-red-400 font-semibold mb-2">{t('discover.didyouknow')}</p>
-              <p className="text-[15px] sm:text-base text-[#d4d4d4] leading-relaxed transition-all duration-500">{FACTS[factIndex]}</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-red-400/80 font-semibold mb-3">{t('discover.didyouknow')}</p>
+              <p key={factIndex} className="text-[15px] sm:text-base text-[#d4d4d4] leading-relaxed" style={{ animation: 'fadeIn 0.6s ease forwards' }}>{FACTS[factIndex]}</p>
             </div>
+          </div>
+
+          {/* Navigation — sleek arrows + minimal dots */}
+          <div className="absolute inset-y-0 left-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             <button
-              onClick={() => setFactIndex(prev => (prev + 1) % FACTS.length)}
-              className="text-[#737373] hover:text-white transition-colors shrink-0 mt-1"
-              title={t('discover.next_fact')}
+              onClick={() => setFactIndex(prev => (prev - 1 + FACTS.length) % FACTS.length)}
+              className="ml-2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-white/[0.06] flex items-center justify-center text-[#737373] hover:text-white hover:bg-black/60 hover:border-white/10 transition-all duration-300"
+              style={{ boxShadow: '0 0 12px rgba(0,0,0,0.5)' }}
             >
-              <IconArrowRight size={16} />
+              <svg width={14} height={14} viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
           </div>
-          {/* Navigation dots */}
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center justify-center gap-1.5 z-10">
+          <div className="absolute inset-y-0 right-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <button
+              onClick={() => setFactIndex(prev => (prev + 1) % FACTS.length)}
+              className="mr-2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-white/[0.06] flex items-center justify-center text-[#737373] hover:text-white hover:bg-black/60 hover:border-white/10 transition-all duration-300"
+              style={{ boxShadow: '0 0 12px rgba(0,0,0,0.5)' }}
+            >
+              <svg width={14} height={14} viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
+          </div>
+
+          {/* Minimal pagination dots */}
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center justify-center gap-1 z-10">
             {FACTS.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setFactIndex(i)}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
+                className={`h-1 rounded-full transition-all duration-500 ${
                   i === factIndex
-                    ? 'w-5 bg-red-500'
-                    : 'w-1.5 bg-white/30 hover:bg-white/50'
+                    ? 'w-6 bg-red-500 shadow-[0_0_6px_rgba(220,38,38,0.4)]'
+                    : 'w-1 bg-white/20 hover:bg-white/40'
                 }`}
               />
             ))}
