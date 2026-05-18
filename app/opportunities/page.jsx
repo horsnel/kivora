@@ -254,7 +254,7 @@ export default function OpportunitiesPage() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-caption text-muted2">{t('opportunities.min_income')}</span>
-                <span className="text-caption text-white font-mono">{format(calcMin)}</span>
+                <span className="text-caption text-muted2 font-mono">{format(calcMin)}</span>
               </div>
               <input type="range" min={0} max={20000} step={50} value={calcMin}
                 onChange={e => setCalcMin(Number(e.target.value))}
@@ -266,7 +266,7 @@ export default function OpportunitiesPage() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-caption text-muted2">{t('opportunities.max_income')}</span>
-                <span className="text-caption text-white font-mono">{format(calcMax)}</span>
+                <span className="text-caption text-muted2 font-mono">{format(calcMax)}</span>
               </div>
               <input type="range" min={0} max={50000} step={100} value={calcMax}
                 onChange={e => setCalcMax(Number(e.target.value))}
@@ -306,8 +306,8 @@ export default function OpportunitiesPage() {
                       <div className="w-full bg-red-500/70 rounded-sm relative" style={{ height: `${barMinHeight}%` }} />
                     </div>
                   </div>
-                  <p className="text-body text-white font-semibold">{formatCompact(min)}</p>
-                  <p className="text-caption"><span className="text-muted2">to </span><span className="text-white font-semibold">{formatCompact(max)}</span></p>
+                  <p className="text-body text-muted2 font-semibold">{formatCompact(min)}</p>
+                  <p className="text-caption text-muted2">to {formatCompact(max)}</p>
                 </div>
               )
             })}

@@ -491,7 +491,7 @@ export default function DevToolsClient() {
                 <currentTool.Icon size={15} className="text-[#737373]" />
               </div>
               <div>
-                <h2 className="font-semibold text-sm tracking-tight">{t(currentTool.labelKey)}</h2>
+                <h2 className="font-semibold text-sm tracking-tight text-[#737373]">{t(currentTool.labelKey)}</h2>
                 <p className="text-xs text-[#737373]">{t(currentTool.descKey)}</p>
               </div>
             </div>
@@ -915,7 +915,7 @@ export default function DevToolsClient() {
           {/* ── Output Panel ─────────────────────────────────── */}
           <div className="bg-[#141414] rounded-xl p-6 flex flex-col min-h-[560px]">
             <div className="flex items-center justify-between mb-4 shrink-0">
-              <h2 className="font-semibold text-sm">{t('devtools.output')}</h2>
+              <h2 className="font-semibold text-sm text-[#737373]">{t('devtools.output')}</h2>
               {result && (
                 <button onClick={copy} className="flex items-center gap-1.5 text-xs text-[#737373] hover:text-white transition-colors">
                   {copied
@@ -1008,7 +1008,7 @@ export default function DevToolsClient() {
               <div key={cat.id} className="bg-[#141414] rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-2 h-5 rounded-full" style={{ background: cat.color }} />
-                  <h3 className="font-semibold text-sm">{t(cat.labelKey)}</h3>
+                  <h3 className="font-semibold text-sm text-[#737373]">{t(cat.labelKey)}</h3>
                 </div>
                 <ul className="space-y-1.5">
                   {cat.tools.map(tool => (

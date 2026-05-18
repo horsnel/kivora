@@ -361,7 +361,7 @@ export default function StudyClient() {
             <div className="flex items-center gap-2 mb-5">
               <meta.Icon size={15} className="text-[#737373]" />
               <div>
-                <h2 className="font-semibold text-sm">{t(meta.labelKey)}</h2>
+                <h2 className="font-semibold text-sm text-[#737373]">{t(meta.labelKey)}</h2>
                 <p className="text-xs text-[#737373]">{t(meta.descKey)}</p>
               </div>
             </div>
@@ -464,7 +464,7 @@ export default function StudyClient() {
           {/* Output */}
           <div className="bg-[#141414] rounded-xl p-6 flex flex-col min-h-[400px]">
             <div className="flex items-center justify-between mb-4 shrink-0">
-              <h2 className="font-semibold text-sm">
+              <h2 className="font-semibold text-sm text-[#737373]">
                 {active === 'pomodoro' ? t('study.timer') : active === 'quiz' && quizQuestions.length > 0 ? 'Quiz' : t('study.output')}
               </h2>
               {result && active !== 'pomodoro' && !(active === 'quiz' && quizQuestions.length > 0) && (
