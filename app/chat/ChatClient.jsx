@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconPlus, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSpeaker, IconSliders, IconSettings } from '@/components/Icons'
+import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconPlus, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
@@ -91,10 +91,8 @@ export default function ChatClient() {
   const [attachedIsImage, setAttachedIsImage] = useState(false)
   const fileInputRef = useRef(null)
 
-  // Feature: Voice Input / TTS Output
+  // Feature: Voice Input
   const [isListening, setIsListening] = useState(false)
-  const [isSpeaking, setIsSpeaking] = useState(false)
-  const [speakingIndex, setSpeakingIndex] = useState(null)
   const [voiceToast, setVoiceToast] = useState(null) // { type: 'error'|'info', message: string }
   const voiceToastTimer = useRef(null)
   const recognitionRef = useRef(null)
@@ -275,12 +273,9 @@ export default function ChatClient() {
     } catch {}
   }, [])
 
-  // Cleanup speech synthesis on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel()
-      }
       if (voiceToastTimer.current) clearTimeout(voiceToastTimer.current)
     }
   }, [])
@@ -598,56 +593,6 @@ export default function ChatClient() {
       setIsListening(false)
       showVoiceToast('error', t('chat.voice_error') || 'Voice input error. Please try again.')
     }
-  }
-
-  // ── TTS Output ──
-  function toggleSpeaking(content, index) {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return
-
-    // If already speaking this message, stop it
-    if (isSpeaking && speakingIndex === index) {
-      window.speechSynthesis.cancel()
-      setIsSpeaking(false)
-      setSpeakingIndex(null)
-      return
-    }
-
-    // Stop any existing speech
-    window.speechSynthesis.cancel()
-
-    // Strip markdown-ish formatting for cleaner TTS
-    const plainText = content
-      .replace(/```[\s\S]*?```/g, ' code block ')
-      .replace(/`[^`]+`/g, ' code ')
-      .replace(/\*\*([^*]+)\*\*/g, '$1')
-      .replace(/\*([^*]+)\*/g, '$1')
-      .replace(/^#{1,6}\s+/gm, '')
-      .replace(/^\s*[-*+]\s+/gm, '')
-      .replace(/^\s*\d+\.\s+/gm, '')
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      .replace(/^\s*>\s*/gm, '')
-      .replace(/^---$/gm, '')
-      .replace(/\|/g, ' ')
-      .replace(/\n{2,}/g, '. ')
-      .replace(/\n/g, ' ')
-      .trim()
-
-    const utterance = new SpeechSynthesisUtterance(plainText)
-    utterance.rate = 1.0
-    utterance.pitch = 1.0
-
-    utterance.onend = () => {
-      setIsSpeaking(false)
-      setSpeakingIndex(null)
-    }
-    utterance.onerror = () => {
-      setIsSpeaking(false)
-      setSpeakingIndex(null)
-    }
-
-    setIsSpeaking(true)
-    setSpeakingIndex(index)
-    window.speechSynthesis.speak(utterance)
   }
 
   // ── System Prompt Customization ──
@@ -1055,19 +1000,6 @@ export default function ChatClient() {
                           {copiedIndex === i ? <IconCheck size={12} /> : <IconCopy size={12} />}
                           {copiedIndex === i ? t('common.copied') : t('common.copy')}
                         </button>
-                        {typeof window !== 'undefined' && window.speechSynthesis && (
-                          <button
-                            onClick={() => toggleSpeaking(msg.content, i)}
-                            className={`flex items-center gap-1 text-caption transition-colors ${
-                              isSpeaking && speakingIndex === i
-                                ? 'text-red-400 hover:text-red-300'
-                                : 'text-muted2 hover:text-muted'
-                            }`}
-                          >
-                            <IconSpeaker size={12} />
-                            {isSpeaking && speakingIndex === i ? t('chat.stop') : t('chat.read_aloud')}
-                          </button>
-                        )}
                       </div>
                     )}
                   </div>
