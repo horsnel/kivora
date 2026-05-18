@@ -387,7 +387,7 @@ export default function DevToolsClient() {
     if (active !== 'jwt_decoder' || !form.jwtToken.trim()) return null
     try {
       const parts = form.jwtToken.trim().split('.')
-      if (parts.length !== 3) return { error: 'Invalid JWT — must have 3 parts separated by dots' }
+      if (parts.length !== 3) return { error: 'Invalid JWT: must have 3 parts separated by dots' }
       const decode = (s) => { let b = s.replace(/-/g, '+').replace(/_/g, '/'); while (b.length % 4) b += '='; return atob(b) }
       const header = JSON.parse(decode(parts[0]))
       const payload = JSON.parse(decode(parts[1]))
@@ -401,7 +401,7 @@ export default function DevToolsClient() {
         nbfDate: payload.nbf ? new Date(payload.nbf * 1000).toLocaleString() : null,
       }
     } catch {
-      return { error: "Could not decode — ensure it's a valid JWT" }
+      return { error: "Could not decode: ensure it's a valid JWT" }
     }
   })()
 
@@ -740,7 +740,7 @@ export default function DevToolsClient() {
               {active === 'pitch_writer' && <>
                 <div>
                   <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.pitch_product')}</label>
-                  <textarea className={`${ta} h-24`} placeholder="What you're pitching — the product, service, or idea. What it does, who it's for." value={form.pitchProduct} onChange={e => set('pitchProduct', e.target.value)} />
+                  <textarea className={`${ta} h-24`} placeholder="What you're pitching: the product, service, or idea. What it does, who it's for." value={form.pitchProduct} onChange={e => set('pitchProduct', e.target.value)} />
                 </div>
                 <div>
                   <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.pitch_audience')}</label>

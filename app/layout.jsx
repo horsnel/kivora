@@ -7,20 +7,20 @@ import { LanguageProvider } from '@/components/LanguageProvider'
 
 export const metadata = {
   title: {
-    default: 'Kivora — Intelligence for builders everywhere',
-    template: '%s — Kivora',
+    default: 'Kivora | Intelligence for builders everywhere',
+    template: '%s | Kivora',
   },
-  description: 'Tools, opportunities, and honest guides for builders worldwide. AI chat, dev tools, study desk, and income opportunities — all free.',
+  description: 'Tools, opportunities, and honest guides for builders worldwide. AI chat, dev tools, study desk, and income opportunities, all free.',
   keywords: 'AI tools, make money online, automation, dev tools, study help, opportunities, Africa, global',
   openGraph: {
-    title: 'Kivora — Intelligence for builders everywhere',
+    title: 'Kivora | Intelligence for builders everywhere',
     description: 'Tools, opportunities, and honest guides for builders worldwide.',
     type: 'website',
     siteName: 'Kivora',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Kivora — Intelligence for builders everywhere',
+    title: 'Kivora | Intelligence for builders everywhere',
     description: 'Tools, opportunities, and honest guides for builders worldwide.',
   },
   robots: {

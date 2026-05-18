@@ -346,7 +346,7 @@ export default function DashboardPage() {
             { label: t('dashboard.saved'), value: saves.length },
             { label: t('dashboard.chats'), value: chats.length },
             { label: t('dashboard.messages'), value: messages.length },
-            { label: t('dashboard.member_since'), value: user?.created_at ? new Date(user.created_at).toLocaleDateString('en', { month: 'short', year: 'numeric' }) : '—' },
+            { label: t('dashboard.member_since'), value: user?.created_at ? new Date(user.created_at).toLocaleDateString('en', { month: 'short', year: 'numeric' }) : '–' },
           ].map(s => (
             <div key={s.label} className="bg-[#141414] border border-white/[0.06] rounded-xl px-4 py-3 text-center">
               <div className="font-bold text-headline tracking-tight">{s.icon ? `${s.icon} ` : ''}{s.value}</div>

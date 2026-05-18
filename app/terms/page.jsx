@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 export const metadata = {
-  title: 'Terms of Service — Kivora',
+  title: 'Terms of Service | Kivora',
   description: 'The terms and conditions for using Kivora.',
 }
 

@@ -9,7 +9,7 @@ const BLOG_URL = 'https://blog.kivora.com'
 const POSTS = [
   {
     title: 'How to Build a WhatsApp Bot Business in 3 Days',
-    excerpt: 'A step-by-step guide to creating and selling WhatsApp automation bots for African SMEs — with real cost breakdowns and client acquisition strategies.',
+    excerpt: 'A step-by-step guide to creating and selling WhatsApp automation bots for African SMEs, with real cost breakdowns and client acquisition strategies.',
     category: 'Make Money',
     date: 'Apr 18, 2026',
     slug: 'whatsapp-bot-business-guide',
@@ -29,7 +29,7 @@ const POSTS = [
   },
   {
     title: 'Why Most AI Automation Businesses Fail in Month 3',
-    excerpt: 'Honest analysis of the patterns we see in businesses that start strong and collapse — and what you can do differently from day one.',
+    excerpt: 'Honest analysis of the patterns we see in businesses that start strong and collapse, and what you can do differently from day one.',
     category: 'Automation',
     date: 'Apr 12, 2026',
     slug: 'ai-automation-failure-analysis',
@@ -39,7 +39,7 @@ const POSTS = [
   },
   {
     title: '5 Free Dev Tools That Replace Paid SaaS Products',
-    excerpt: 'From code explainers to SQL builders — these free AI-powered developer tools do what paid products charge monthly for. Here is the full breakdown.',
+    excerpt: 'From code explainers to SQL builders, these free AI-powered developer tools do what paid products charge monthly for. Here is the full breakdown.',
     category: 'Dev Tools',
     date: 'Apr 8, 2026',
     slug: 'free-dev-tools-replace-saas',
@@ -57,7 +57,7 @@ const POSTS = [
   },
   {
     title: 'AI Study Tools That Actually Help You Learn Faster',
-    excerpt: 'Not just flashcards. These AI-powered study tools help with research, essay outlines, citation generation, and coding practice — all free.',
+    excerpt: 'Not just flashcards. These AI-powered study tools help with research, essay outlines, citation generation, and coding practice, all free.',
     category: 'Study & Learn',
     date: 'Apr 2, 2026',
     slug: 'ai-study-tools-learn-faster',
@@ -66,7 +66,7 @@ const POSTS = [
   },
   {
     title: 'The Side Hustle Blueprint: From Zero to $500/Month With AI',
-    excerpt: 'A realistic, no-hype plan for building a side income using AI tools — including exactly which tools to use, how to find clients, and how long it takes.',
+    excerpt: 'A realistic, no-hype plan for building a side income using AI tools, including exactly which tools to use, how to find clients, and how long it takes.',
     category: 'Make Money',
     date: 'Mar 28, 2026',
     slug: 'side-hustle-blueprint-500-month',
@@ -106,7 +106,7 @@ export default function BlogPage() {
         <div className="bg-[#141414] border border-[#262626] rounded-xl px-5 py-4 mb-10 flex items-center justify-between gap-4">
           <div>
             <p className="text-sm font-medium mb-0.5">Full blog on Kivora</p>
-            <p className="text-xs text-[#737373]">Our full editorial archive lives on the Kivora blog — hundreds of articles, guides, and analyses.</p>
+            <p className="text-xs text-[#737373]">Our full editorial archive lives on the Kivora blog, hundreds of articles, guides, and analyses.</p>
           </div>
           <a
             href={BLOG_URL}

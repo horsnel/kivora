@@ -133,7 +133,7 @@ export default function AdminPage() {
                   <m.Icon size={14} className="text-red-400" />
                 </div>
               </div>
-              <div className="font-bold text-headline tracking-tight">{m.value?.toLocaleString() ?? '—'}</div>
+              <div className="font-bold text-headline tracking-tight">{m.value?.toLocaleString() ?? '–'}</div>
               <div className="text-caption text-[#737373] mt-0.5">{m.label}</div>
             </div>
           ))}

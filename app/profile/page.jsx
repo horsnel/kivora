@@ -381,7 +381,7 @@ export default function ProfilePage() {
               {!showDeleteDialog ? (
                 <>
                   <p className="text-xs text-[#737373] mb-4">
-                    Once you delete your account, there is no going back. All your data — profile, saved results, chat history, and study sessions — will be permanently removed.
+                    Once you delete your account, there is no going back. All your data, including profile, saved results, chat history, and study sessions, will be permanently removed.
                   </p>
                   <button
                     onClick={() => setShowDeleteDialog(true)}

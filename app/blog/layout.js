@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Blog — Kivora',
+  title: 'Blog | Kivora',
   description: 'Guides, insights, and deep dives on AI, automation, and building in the modern world.',
 }
 

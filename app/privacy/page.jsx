@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 export const metadata = {
-  title: 'Privacy Policy — Kivora',
+  title: 'Privacy Policy | Kivora',
   description: 'How Kivora collects, uses, and protects your information.',
 }
 
@@ -25,7 +25,7 @@ export default function PrivacyPage() {
 
           <Section title="2. Information We Collect">
             <p><strong className="text-white">Information you provide:</strong> When you create an account, we collect your email address and optionally your full name and onboarding preferences (your goal, experience level, location, and interests).</p>
-            <p><strong className="text-white">Usage data:</strong> We collect information about how you use the platform — which tools you use, what queries you search, and which pages you visit. This data is used to improve the platform and personalize your experience.</p>
+            <p><strong className="text-white">Usage data:</strong> We collect information about how you use the platform, including which tools you use, what queries you search, and which pages you visit. This data is used to improve the platform and personalize your experience.</p>
             <p><strong className="text-white">Automatically collected data:</strong> We collect your approximate location based on IP address to suggest your local currency. We do not store your precise location.</p>
             <p><strong className="text-white">Chat and saved content:</strong> If you are logged in, your chat sessions and saved opportunity results are stored in our database so you can access them across devices.</p>
           </Section>
@@ -46,17 +46,17 @@ export default function PrivacyPage() {
           <Section title="4. Third-Party Services">
             <p>Kivora uses the following third-party services to operate:</p>
             <ul className="list-disc list-inside space-y-1.5">
-              <li><strong className="text-white">Supabase</strong> — database and authentication provider</li>
-              <li><strong className="text-white">Groq</strong> — AI inference provider that processes your queries</li>
-              <li><strong className="text-white">Cloudflare</strong> — hosting, CDN, and DDoS protection</li>
-              <li><strong className="text-white">ipapi.co</strong> — IP-based country detection (no stored data)</li>
-              <li><strong className="text-white">ExchangeRate-API</strong> — currency conversion rates</li>
+              <li><strong className="text-white">Supabase</strong>: database and authentication provider</li>
+              <li><strong className="text-white">Groq</strong>: AI inference provider that processes your queries</li>
+              <li><strong className="text-white">Cloudflare</strong>: hosting, CDN, and DDoS protection</li>
+              <li><strong className="text-white">ipapi.co</strong>: IP-based country detection (no stored data)</li>
+              <li><strong className="text-white">ExchangeRate-API</strong>: currency conversion rates</li>
             </ul>
             <p>Each of these services has their own privacy policies. We encourage you to review them. We use only the data necessary to operate the platform and do not share excess data with providers.</p>
           </Section>
 
           <Section title="5. Data Storage and Security">
-            <p>Your data is stored in Supabase (PostgreSQL) with row-level security enabled. This means users can only access their own data — not other users' data.</p>
+            <p>Your data is stored in Supabase (PostgreSQL) with row-level security enabled. This means users can only access their own data, not other users' data.</p>
             <p>We use HTTPS for all data in transit. Passwords are hashed by Supabase Auth and are never stored in plain text.</p>
             <p>We do not store payment information. Kivora is free and does not process payments.</p>
           </Section>

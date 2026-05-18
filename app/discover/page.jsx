@@ -15,20 +15,20 @@ import {
 // ── "Did You Know?" fact library ──
 const FACTS = [
   'The Gates Millennium Scholarship has funded over 20,000 scholars since 1999, covering full graduate and undergraduate costs.',
-  'Most internship applications close 3–4 months before the start date — start searching in October for summer roles.',
+  'Most internship applications close 3–4 months before the start date, start searching in October for summer roles.',
   'Over 60% of freelance developers found their first client through personal networks, not job boards.',
   'The average Fulbright Scholar receives $35,000+ in funding for a year of research or study abroad.',
   'Remote work listings have increased by 350% since 2020, with tech and marketing leading the way.',
   'Chevening Scholarships fund over 1,500 leaders from 160 countries each year for UK-based master\'s degrees.',
-  'Only 12% of scholarship applicants follow up after submitting — doing so can double your chances.',
+  'Only 12% of scholarship applicants follow up after submitting, doing so can double your chances.',
   'The top 5% of Etsy sellers earn over $50,000/year from digital products alone.',
   'FreeCodeCamp certifications are recognized by employers at Google, Apple, and Microsoft for entry-level roles.',
-  'DAAD scholarships fund over 100,000 international students annually for study in Germany — many programs are in English.',
+  'DAAD scholarships fund over 100,000 international students annually for study in Germany, many programs are in English.',
   'Building a portfolio with 3 strong projects is more impactful than a resume with 10 shallow ones.',
-  'The Rhodes Scholarship covers all expenses for 2–3 years of study at Oxford — and accepts applicants under 24 from 60+ countries.',
+  'The Rhodes Scholarship covers all expenses for 2–3 years of study at Oxford, and accepts applicants under 24 from 60+ countries.',
   'Side projects that solve a real problem are 4x more likely to get you hired than traditional applications.',
   'Most Y Combinator startups are founded by people who met in university or at previous jobs.',
-  'GitHub Sponsors and Open Collective let you earn from open-source work — some developers make $5,000+/month.',
+  'GitHub Sponsors and Open Collective let you earn from open-source work, some developers make $5,000+/month.',
 ]
 
 // ── Goal templates ──

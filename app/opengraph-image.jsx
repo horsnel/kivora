@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og'
 
 export const runtime = 'edge'
-export const alt = 'Kivora — Intelligence for builders everywhere'
+export const alt = 'Kivora | Intelligence for builders everywhere'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
@@ -45,7 +45,7 @@ export default async function Image() {
 
         {/* Subtitle */}
         <span style={{ fontSize: '18px', color: '#404040', marginTop: '16px' }}>
-          AI tools · Opportunities · Honest guides — all free
+          AI tools · Opportunities · Honest guides, all free
         </span>
       </div>
     ),
