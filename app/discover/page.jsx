@@ -41,8 +41,8 @@ const GOAL_TEMPLATES = [
 ]
 
 // ── Swipe filter options ──
-const FIELD_FILTERS = ['All', 'Tech', 'Business', 'Creative', 'Education', 'Finance']
-const TYPE_FILTERS = ['All', 'Scholarship', 'Internship', 'Fellowship', 'Job', 'Side Hustle']
+const FIELD_FILTERS = ['all', 'tech', 'business', 'creative', 'education', 'finance']
+const TYPE_FILTERS = ['all', 'scholarship', 'internship', 'fellowship', 'job', 'side_hustle']
 
 export default function DiscoverPage() {
   const router = useRouter()
@@ -72,8 +72,8 @@ export default function DiscoverPage() {
   const [swipeDirection, setSwipeDirection] = useState(null)
   const [savedOpps, setSavedOpps] = useState([])
   const [skippedOpps, setSkippedOpps] = useState([])
-  const [fieldFilter, setFieldFilter] = useState('All')
-  const [typeFilter, setTypeFilter] = useState('All')
+  const [fieldFilter, setFieldFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState('all')
 
   // ── Auth ──
   useEffect(() => {
@@ -121,7 +121,7 @@ export default function DiscoverPage() {
     return t('discover.greeting.evening')
   }
 
-  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Builder'
+  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || t('discover.builder')
 
   async function loadOpportunities() {
     try {
@@ -187,18 +187,18 @@ export default function DiscoverPage() {
   // ── Swipe helpers ──
   const filteredSwipeOpps = opportunities.filter(opp => {
     if (skippedOpps.includes(opp.slug)) return false
-    if (fieldFilter !== 'All') {
-      const tags = (opp.result?.tags || []).map(t => t.toLowerCase())
+    if (fieldFilter !== 'all') {
+      const tags = (opp.result?.tags || []).map(tg => tg.toLowerCase())
       const cat = (opp.category || '').toLowerCase()
       const q = (opp.query || '').toLowerCase()
       const fl = fieldFilter.toLowerCase()
-      if (!tags.some(t => t.includes(fl)) && !cat.includes(fl) && !q.includes(fl)) return false
+      if (!tags.some(tg => tg.includes(fl)) && !cat.includes(fl) && !q.includes(fl)) return false
     }
-    if (typeFilter !== 'All') {
+    if (typeFilter !== 'all') {
       const q = (opp.query || '').toLowerCase()
-      const tags = (opp.result?.tags || []).map(t => t.toLowerCase())
+      const tags = (opp.result?.tags || []).map(tg => tg.toLowerCase())
       const tl = typeFilter.toLowerCase()
-      if (!q.includes(tl) && !tags.some(t => t.includes(tl))) return false
+      if (!q.includes(tl) && !tags.some(tg => tg.includes(tl))) return false
     }
     return true
   })
@@ -276,7 +276,7 @@ export default function DiscoverPage() {
           <button
             onClick={() => setFactIndex(prev => (prev + 1) % FACTS.length)}
             className="text-[#737373] hover:text-white transition-colors shrink-0 mt-1"
-            title="Next fact"
+            title={t('discover.next_fact')}
           >
             <IconArrowRight size={14} />
           </button>
@@ -571,17 +571,17 @@ export default function DiscoverPage() {
                 className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-all ${
                   fieldFilter === f ? 'bg-red-600 text-white' : 'bg-[#141414] text-[#737373] hover:text-white hover:bg-[#1a1a1a]'
                 }`}>
-                {f}
+                {t(`discover.filter.${f}`)}
               </button>
             ))}
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {TYPE_FILTERS.map(t => (
-              <button key={t} onClick={() => { setTypeFilter(t); setSwipeIndex(0) }}
+            {TYPE_FILTERS.map(tf => (
+              <button key={tf} onClick={() => { setTypeFilter(tf); setSwipeIndex(0) }}
                 className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-all ${
-                  typeFilter === t ? 'bg-red-600 text-white' : 'bg-[#141414] text-[#737373] hover:text-white hover:bg-[#1a1a1a]'
+                  typeFilter === tf ? 'bg-red-600 text-white' : 'bg-[#141414] text-[#737373] hover:text-white hover:bg-[#1a1a1a]'
                 }`}>
-                {t}
+                {t(`discover.filter.${tf}`)}
               </button>
             ))}
           </div>
