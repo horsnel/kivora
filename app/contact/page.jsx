@@ -125,7 +125,7 @@ export default function ContactPage() {
                 <div className="w-12 h-12 bg-emerald-950/30 border border-emerald-900/40 rounded-full flex items-center justify-center mb-4">
                   <IconCheck size={20} className="text-emerald-400" />
                 </div>
-                <h3 className="font-semibold text-base mb-2">{t('contact.sent')}</h3>
+                <h3 className="font-semibold text-base mb-2 text-[#737373]">{t('contact.sent')}</h3>
                 <p className="text-[#737373] text-sm">{t('contact.sent_desc')}</p>
                 <button onClick={() => { setStatus('idle'); setForm({ name: '', email: '', subject: 'General question', message: '' }) }}
                   className="mt-6 text-xs text-[#737373] hover:text-white transition-colors">

@@ -220,7 +220,7 @@ export default function ProfilePage() {
               >
                 {initials}
               </div>
-              <h3 className="font-semibold text-body-sm mb-1">{displayName || 'Your name'}</h3>
+              <h3 className="font-semibold text-body-sm mb-1 text-[#737373]">{displayName || 'Your name'}</h3>
               <p className="text-[#737373] text-caption truncate">{user?.email}</p>
               <div className="mt-4 pt-4 border-t border-[#1a1a1a]">
                 <label className="text-xs text-[#737373] block mb-1.5 font-medium text-left">{t('profile.avatar')}</label>
@@ -318,7 +318,7 @@ export default function ProfilePage() {
                 <div className="w-7 h-7 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
                   <IconMonitor size={14} className="text-[#737373]" />
                 </div>
-                <h2 className="font-semibold text-sm">{t('profile.sessions')}</h2>
+                <h2 className="font-semibold text-sm text-[#737373]">{t('profile.sessions')}</h2>
               </div>
 
               <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl p-4 space-y-3">
@@ -356,7 +356,7 @@ export default function ProfilePage() {
                 <div className="w-7 h-7 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
                   <IconLogout size={14} className="text-[#737373]" />
                 </div>
-                <h2 className="font-semibold text-sm">{t('profile.sign_out')}</h2>
+                <h2 className="font-semibold text-sm text-[#737373]">{t('profile.sign_out')}</h2>
               </div>
               <p className="text-xs text-[#737373] mb-4">
                 Sign out of your account on this device. You can always sign back in later.

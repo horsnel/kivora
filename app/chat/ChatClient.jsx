@@ -794,7 +794,7 @@ export default function ChatClient() {
                 <div className="w-14 h-14 bg-[#141414] border border-white/[0.06] rounded-2xl flex items-center justify-center mx-auto mb-5">
                   <IconChat size={20} className="text-[#525252]" />
                 </div>
-                <h2 className="font-semibold text-headline mb-2 tracking-tight">{t('chat.empty.title')}</h2>
+                <h2 className="font-semibold text-headline mb-2 tracking-tight text-[#737373]">{t('chat.empty.title')}</h2>
                 <p className="text-muted text-body mb-8 max-w-xs mx-auto leading-relaxed">
                   {t('chat.empty.subtitle')}
                 </p>

@@ -604,7 +604,7 @@ export default function DashboardPage() {
                 {/* Category breakdown */}
                 {Object.keys(categoryBreakdown).length > 0 && (
                   <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
-                    <h3 className="font-semibold text-body mb-4">{t('dashboard.tool_categories')}</h3>
+                    <h3 className="font-semibold text-body mb-4 text-[#737373]">{t('dashboard.tool_categories')}</h3>
                     <div className="space-y-3">
                       {Object.entries(categoryBreakdown)
                         .sort((a, b) => b[1].timeMs - a[1].timeMs)
@@ -630,7 +630,7 @@ export default function DashboardPage() {
                 {/* Subject breakdown */}
                 {topSubjects.length > 0 && (
                   <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
-                    <h3 className="font-semibold text-body mb-4">{t('dashboard.subjects')}</h3>
+                    <h3 className="font-semibold text-body mb-4 text-[#737373]">{t('dashboard.subjects')}</h3>
                     <div className="flex flex-wrap gap-2">
                       {topSubjects.map(([subject, count]) => (
                         <span key={subject} className="text-caption text-[#d4d4d4] bg-[#1a1a1a] border border-[#262626] px-3 py-1.5 rounded-full font-medium">
@@ -645,7 +645,7 @@ export default function DashboardPage() {
               {/* Recent sessions */}
               {activitySessions.length > 0 && (
                 <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
-                  <h3 className="font-semibold text-body mb-4">{t('dashboard.recent_sessions')}</h3>
+                  <h3 className="font-semibold text-body mb-4 text-[#737373]">{t('dashboard.recent_sessions')}</h3>
                   <div className="space-y-2">
                     {activitySessions.slice(0, 15).map(s => {
                       const duration = s.duration_ms || (s.ended_at && s.started_at ? new Date(s.ended_at) - new Date(s.started_at) : null)
@@ -687,7 +687,7 @@ function Empty({ icon, title, desc, action, router }) {
   return (
     <div className="text-center py-16">
       <div className="w-10 h-10 bg-[#141414] rounded-xl flex items-center justify-center mx-auto mb-4">{icon}</div>
-      <h3 className="font-semibold mb-1.5 tracking-tight">{title}</h3>
+      <h3 className="font-semibold mb-1.5 tracking-tight text-[#737373]">{title}</h3>
       <p className="text-[#737373] text-body mb-4">{desc}</p>
       <button onClick={() => router.push(action.href)} className="text-red-500 hover:text-red-400 text-body flex items-center gap-1 mx-auto">
         {action.label} <IconArrowRight size={14} />

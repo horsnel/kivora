@@ -100,7 +100,7 @@ export default function PrivacyPage() {
 function Section({ title, children }) {
   return (
     <div>
-      <h2 className="text-white font-semibold text-base mb-3 tracking-tight">{title}</h2>
+      <h2 className="text-[#737373] font-semibold text-base mb-3 tracking-tight">{title}</h2>
       <div className="space-y-3">{children}</div>
     </div>
   )

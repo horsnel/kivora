@@ -160,7 +160,7 @@ export default function BlogPage() {
                     <span className="text-[10px] font-medium text-red-400 bg-red-950/30 border border-red-900/20 px-2 py-0.5 rounded-full">{post.category}</span>
                     <span className="text-[10px] text-[#404040]">{post.readTime}</span>
                   </div>
-                  <h3 className="font-semibold text-sm leading-snug tracking-tight mb-2 group-hover:text-red-400 transition-colors">{post.title}</h3>
+                  <h3 className="font-semibold text-sm leading-snug tracking-tight mb-2 group-hover:text-red-400 transition-colors text-[#737373]">{post.title}</h3>
                   <p className="text-xs text-[#737373] leading-relaxed line-clamp-2">{post.excerpt}</p>
                   <div className="flex items-center justify-between mt-4">
                     <span className="text-[10px] text-[#404040] font-mono">{post.date}</span>
@@ -199,7 +199,7 @@ export default function BlogPage() {
                     <span className="text-[10px] font-medium text-red-400 bg-red-950/30 border border-red-900/20 px-2 py-0.5 rounded-full">{post.category}</span>
                     <span className="text-[10px] text-[#404040]">{post.readTime}</span>
                   </div>
-                  <h3 className="font-semibold text-sm leading-snug tracking-tight mb-2 group-hover:text-red-400 transition-colors">{post.title}</h3>
+                  <h3 className="font-semibold text-sm leading-snug tracking-tight mb-2 group-hover:text-red-400 transition-colors text-[#737373]">{post.title}</h3>
                   <p className="text-xs text-[#737373] leading-relaxed line-clamp-2">{post.excerpt}</p>
                   <div className="flex items-center justify-between mt-4">
                     <span className="text-[10px] text-[#404040] font-mono">{post.date}</span>
@@ -225,7 +225,7 @@ export default function BlogPage() {
 
         {/* View all CTA */}
         <div className="text-center py-12 bg-[#0d0d0d] rounded-xl">
-          <h3 className="font-semibold text-lg tracking-tight mb-2">More articles on Kivora</h3>
+          <h3 className="font-semibold text-lg tracking-tight mb-2 text-[#737373]">More articles on Kivora</h3>
           <p className="text-[#737373] text-sm mb-6 max-w-md mx-auto">
             Hundreds of articles covering AI tools, automation, business building, and opportunities for builders everywhere.
           </p>

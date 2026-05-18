@@ -320,7 +320,7 @@ export default function DiscoverPage() {
             <div className="w-10 h-10 bg-[#1a1a1a] rounded-xl flex items-center justify-center mx-auto mb-3">
               <IconTarget size={18} className="text-[#737373]" />
             </div>
-            <h3 className="font-semibold text-sm mb-1.5 tracking-tight">{t('discover.goals.empty')}</h3>
+            <h3 className="font-semibold text-sm mb-1.5 tracking-tight text-[#737373]">{t('discover.goals.empty')}</h3>
             <p className="text-[#737373] text-xs mb-4 max-w-xs mx-auto">{t('discover.goals.empty.desc')}</p>
             <button
               onClick={() => setShowGoalModal(true)}
@@ -346,7 +346,7 @@ export default function DiscoverPage() {
                           <IconTarget size={14} className="text-red-400" />
                         </div>
                         <div className="min-w-0">
-                          <h3 className="font-semibold text-sm tracking-tight truncate">{goal.title}</h3>
+                          <h3 className="font-semibold text-sm tracking-tight truncate text-[#737373]">{goal.title}</h3>
                           <p className="text-[10px] text-[#737373]">{t('discover.goals.milestones', { done: completedSteps, total: goal.milestones.length })}</p>
                         </div>
                       </div>
@@ -476,7 +476,7 @@ export default function DiscoverPage() {
           <div className="bg-[#141414] rounded-xl p-5 sm:p-6 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-[60px] pointer-events-none" />
             <div className="relative">
-              <h3 className="font-semibold text-sm sm:text-base tracking-tight leading-snug mb-1.5 max-w-md">
+              <h3 className="font-semibold text-sm sm:text-base tracking-tight leading-snug mb-1.5 max-w-md text-[#737373]">
                 {oppOfDay.result?.title || oppOfDay.query}
               </h3>
               <div className="flex items-center gap-3 text-xs text-[#737373] mb-3">
@@ -528,7 +528,7 @@ export default function DiscoverPage() {
                 onClick={() => router.push(`/explore/${opp.slug}`)}
                 className="bg-[#141414] rounded-xl p-4 text-left transition-all group hover:bg-[#1a1a1a] min-w-[200px] sm:min-w-[220px] snap-start shrink-0"
               >
-                <h4 className="font-semibold text-xs mb-2 group-hover:text-red-400 transition-colors line-clamp-2 leading-snug tracking-tight">
+                <h4 className="font-semibold text-xs mb-2 group-hover:text-red-400 transition-colors line-clamp-2 leading-snug tracking-tight text-[#737373]">
                   {opp.result?.title || opp.query}
                 </h4>
                 {opp.result && (
@@ -597,7 +597,7 @@ export default function DiscoverPage() {
             <div className="w-10 h-10 bg-[#1a1a1a] rounded-xl flex items-center justify-center mx-auto mb-3">
               <IconCheck size={16} className="text-green-400" />
             </div>
-            <h3 className="font-semibold text-sm mb-1.5 tracking-tight">
+            <h3 className="font-semibold text-sm mb-1.5 tracking-tight text-[#737373]">
               {filteredSwipeOpps.length === 0 ? t('discover.swipe.empty') : t('discover.swipe.all_seen')}
             </h3>
             <p className="text-[#737373] text-xs mb-4">
@@ -624,7 +624,7 @@ export default function DiscoverPage() {
                   swipeDirection === 'left' ? '-translate-x-[120%] opacity-0' : ''
                 }`}>
                   <div className="mb-3">
-                    <h3 className="font-semibold text-sm sm:text-base tracking-tight leading-snug mb-1">
+                    <h3 className="font-semibold text-sm sm:text-base tracking-tight leading-snug mb-1 text-[#737373]">
                       {opp.result?.title || opp.query}
                     </h3>
                     <div className="flex items-center gap-2 text-[10px] text-[#737373]">
@@ -691,7 +691,7 @@ export default function DiscoverPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowGoalModal(false)}>
           <div className="bg-[#141414] rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto animate-scale-in" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b border-[#1a1a1a]">
-              <h3 className="font-semibold text-sm tracking-tight">{t('discover.modal.title')}</h3>
+              <h3 className="font-semibold text-sm tracking-tight text-[#737373]">{t('discover.modal.title')}</h3>
               <button onClick={() => setShowGoalModal(false)} className="text-[#737373] hover:text-white transition-colors">
                 <IconClose size={14} />
               </button>
@@ -730,7 +730,7 @@ export default function DiscoverPage() {
                         <TemplateIcon size={14} className="text-[#737373]" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold mb-1">{template.label}</p>
+                        <p className="text-xs font-semibold mb-1 text-[#737373]">{template.label}</p>
                         <div className="flex flex-wrap gap-1">
                           {template.milestones.map((m, i) => (
                             <span key={i} className="text-[9px] text-[#404040] bg-[#141414] px-1.5 py-0.5 rounded">{m}</span>

@@ -328,7 +328,7 @@ function Section({ num, title, children }) {
       <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
         <span className="text-caption font-mono text-[#525252] font-semibold">{num}</span>
         <div className="h-px flex-1 bg-[#1a1a1a]" />
-        <h2 className="font-semibold text-caption sm:text-body tracking-tight whitespace-nowrap">{title}</h2>
+        <h2 className="font-semibold text-caption sm:text-body tracking-tight whitespace-nowrap text-[#737373]">{title}</h2>
         <div className="h-px flex-1 bg-[#1a1a1a]" />
       </div>
       {children}

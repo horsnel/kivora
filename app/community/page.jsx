@@ -223,7 +223,7 @@ export default function CommunityPage() {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-body-sm text-white font-medium leading-snug mb-1.5 line-clamp-1">
+                    <h3 className="text-body-sm text-[#737373] font-medium leading-snug mb-1.5 line-clamp-1">
                       {post.title}
                     </h3>
                     <p className="text-caption text-[#737373] line-clamp-2 leading-relaxed mb-2">
@@ -354,7 +354,7 @@ export default function CommunityPage() {
             {/* Post */}
             <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mb-4">
               <div className="flex items-start justify-between gap-4 mb-4">
-                <h2 className="font-semibold text-headline-sm tracking-tight leading-snug">{selectedPost.title}</h2>
+                <h2 className="font-semibold text-headline-sm tracking-tight leading-snug text-[#737373]">{selectedPost.title}</h2>
                 {user && selectedPost.user_id === user.id && (
                   <button
                     onClick={() => deletePost(selectedPost.id)}

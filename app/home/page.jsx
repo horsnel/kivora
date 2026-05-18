@@ -231,7 +231,7 @@ export default function HomePage() {
                     onClick={() => router.push(`/explore/${card.slug}`)}
                     className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 text-left transition-all group hover:-translate-y-0.5 hover:border-white/[0.1] hover:bg-[#161616]"
                   >
-                    <h3 className="font-semibold text-body mb-3 group-hover:text-red-400 transition-colors line-clamp-2 leading-snug tracking-tight">
+                    <h3 className="font-semibold text-body mb-3 group-hover:text-red-400 transition-colors line-clamp-2 leading-snug tracking-tight text-[#737373]">
                       {card.result?.title || card.query}
                     </h3>
                     {card.result && (
@@ -259,7 +259,7 @@ export default function HomePage() {
                 <div className="w-10 h-10 bg-[#1a1a1a] rounded-xl flex items-center justify-center mx-auto mb-4">
                   <IconSearch size={20} className="text-muted2" />
                 </div>
-                <h3 className="font-semibold text-headline-sm mb-2 tracking-tight">{t('home.empty_title')}</h3>
+                <h3 className="font-semibold text-headline-sm mb-2 tracking-tight text-[#737373]">{t('home.empty_title')}</h3>
                 <p className="text-muted text-body">{t('home.empty_desc')}</p>
               </div>
             </section>

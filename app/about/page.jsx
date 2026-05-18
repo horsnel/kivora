@@ -52,7 +52,7 @@ export default function AboutPage() {
                   <div className="w-7 h-7 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
                     <Icon size={14} className="text-red-400" />
                   </div>
-                  <h3 className="font-semibold text-sm">{title}</h3>
+                  <h3 className="font-semibold text-sm text-[#737373]">{title}</h3>
                 </div>
                 <p className="text-xs text-[#737373] leading-relaxed">{desc}</p>
               </div>
@@ -75,7 +75,7 @@ export default function AboutPage() {
                   <IconCheck size={9} className="text-red-400" />
                 </div>
                 <div>
-                  <div className="font-semibold text-sm mb-1">{title}</div>
+                  <div className="font-semibold text-sm mb-1 text-[#737373]">{title}</div>
                   <div className="text-xs text-[#737373] leading-relaxed">{desc}</div>
                 </div>
               </div>
@@ -85,7 +85,7 @@ export default function AboutPage() {
 
         {/* CTA */}
         <div className="bg-[#141414] rounded-xl p-8 text-center">
-          <h3 className="font-semibold text-xl tracking-tight mb-2">{t('about.cta')}</h3>
+          <h3 className="font-semibold text-xl tracking-tight mb-2 text-[#737373]">{t('about.cta')}</h3>
           <p className="text-[#737373] text-sm mb-6">{t('about.cta_sub')}</p>
           <div className="flex gap-3 justify-center flex-wrap">
             <Link href="/blog" className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors">

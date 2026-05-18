@@ -360,7 +360,7 @@ export default function OpportunitiesPage() {
                   }`}>
                   {/* Card main area - clickable */}
                   <button onClick={() => router.push(`/explore/${opp.slug}`)} className="w-full text-left">
-                    <h3 className="font-semibold text-body mb-3 group-hover:text-red-400 transition-colors line-clamp-2 leading-snug tracking-tight">
+                    <h3 className="font-semibold text-body mb-3 group-hover:text-red-400 transition-colors line-clamp-2 leading-snug tracking-tight text-[#737373]">
                       {opp.result?.title || opp.query}
                     </h3>
                     {opp.result && (
