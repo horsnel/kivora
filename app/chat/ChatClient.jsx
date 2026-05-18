@@ -7,6 +7,7 @@ import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
 import { useTranslation } from '@/components/LanguageProvider'
+import { stripMarkdown } from '@/lib/stripMarkdown'
 
 const MODELS = [
   { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', tag: 'Default · Fastest', short: '3.3 70B' },
@@ -503,7 +504,7 @@ export default function ChatClient() {
   }
 
   function copy(content, i) {
-    navigator.clipboard.writeText(content)
+    navigator.clipboard.writeText(stripMarkdown(content))
     setCopiedIndex(i)
     setTimeout(() => setCopiedIndex(null), 2000)
   }

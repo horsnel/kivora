@@ -5,6 +5,7 @@ import { useSessionTracker } from '@/lib/useSessionTracker'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
 import Select from '@/components/Select'
 import { useTranslation } from '@/components/LanguageProvider'
+import { stripMarkdown } from '@/lib/stripMarkdown'
 
 /* ─── Icon Components ─────────────────────────────────────────── */
 
@@ -292,7 +293,7 @@ export default function StudyClient() {
   }
 
   function copy() {
-    navigator.clipboard.writeText(result)
+    navigator.clipboard.writeText(stripMarkdown(result))
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
     if (sessionRef.current) markCopied(sessionRef.current)

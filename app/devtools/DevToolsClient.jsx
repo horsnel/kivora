@@ -8,6 +8,7 @@ import Select from '@/components/Select'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { useTranslation } from '@/components/LanguageProvider'
+import { stripMarkdown } from '@/lib/stripMarkdown'
 
 // ── Inline SVG icons for tools not in the main library ────────────────
 function Ico({ path, size = 16, className = '' }) {
@@ -339,7 +340,7 @@ export default function DevToolsClient() {
   }
 
   function copy() {
-    navigator.clipboard.writeText(result)
+    navigator.clipboard.writeText(stripMarkdown(result))
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
     if (sessionRef.current) markCopied(sessionRef.current)
