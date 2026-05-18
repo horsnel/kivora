@@ -905,15 +905,15 @@ export default function ChatClient() {
                 <p className="text-[17px] text-[#737373] mb-12">
                   Build, automate, earn — powered by AI
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 w-full max-w-xl mx-auto">
+                <div className="flex flex-col gap-2 w-full max-w-md mx-auto">
                   {STARTERS.map(({ labelKey, icon: Icon }) => (
                     <button
                       key={labelKey}
                       onClick={() => setInput(t(labelKey))}
-                      className="flex items-center gap-4 bg-transparent border border-transparent hover:bg-white/[0.03] hover:border-white/[0.08] hover:-translate-y-0.5 rounded-2xl px-6 py-5 text-[#a3a3a3] hover:text-[#e2e2e2] text-left transition-all duration-200 ease-out leading-snug"
+                      className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] hover:border-white/[0.1] rounded-xl px-4 py-3 text-[#a3a3a3] hover:text-[#e2e2e2] text-left transition-all duration-200 ease-out"
                     >
-                      <Icon size={16} className="text-[#525252] shrink-0" />
-                      <span className="text-[15px] leading-[1.6]">{t(labelKey)}</span>
+                      <Icon size={14} className="text-[#525252] shrink-0" />
+                      <span className="text-[13px] leading-[1.4]">{t(labelKey)}</span>
                     </button>
                   ))}
                 </div>
