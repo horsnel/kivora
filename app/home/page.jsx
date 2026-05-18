@@ -110,11 +110,11 @@ export default function HomePage() {
           <div className="flex flex-col sm:flex-row gap-2 animate-fade-up animate-fade-up-3">
             <div className="relative flex-1">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted2 pointer-events-none">
-                <IconSearch size={14} />
+                <IconSearch size={20} />
               </div>
               <input
                 ref={inputRef}
-                className="w-full bg-[#141414] border border-[#262626] rounded-xl pl-10 pr-10 py-4 text-body text-white placeholder-muted2 transition-all focus:border-red-500/60 focus:shadow-[0_0_0_3px_rgba(220,38,38,0.1),0_0_24px_rgba(220,38,38,0.06)]"
+                className="w-full bg-[#141414] border border-[#262626] rounded-2xl pl-12 pr-12 py-6 sm:py-7 text-lg sm:text-xl text-white placeholder-muted2 transition-all focus:border-red-500/60 focus:shadow-[0_0_0_3px_rgba(220,38,38,0.1),0_0_24px_rgba(220,38,38,0.06)]"
                 placeholder={displayText || t('home.placeholder')}
                 value={query}
                 onChange={e => setQuery(e.target.value)}
@@ -129,9 +129,9 @@ export default function HomePage() {
             <button
               onClick={() => handleSearch()}
               disabled={loading || !query.trim()}
-              className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white px-6 py-4 rounded-xl font-semibold text-body transition-colors flex items-center justify-center gap-2 press"
+              className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white px-8 py-6 sm:py-7 rounded-2xl font-semibold text-lg transition-colors flex items-center justify-center gap-2 press"
             >
-              {loading ? <IconSpinner size={14} /> : <IconArrowRight size={14} />}
+              {loading ? <IconSpinner size={18} /> : <IconArrowRight size={18} />}
               {loading ? t('home.thinking') : t('home.explore')}
             </button>
           </div>

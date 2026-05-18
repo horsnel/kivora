@@ -159,7 +159,7 @@ export default function Navbar() {
 }
 
 /** Nav links using translations */
-function NavLinks({ pathname, onClose, minimal }) {
+function NavLinks({ pathname, onClose, minimal, user }) {
   const { t } = useTranslation()
   const linkClass = (href) => {
     const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
@@ -173,17 +173,21 @@ function NavLinks({ pathname, onClose, minimal }) {
     }`
   }
 
-  return NAV_LINKS.map(({ labelKey, href, Icon }) => (
-    <Link
-      key={href}
-      href={href}
-      className={linkClass(href)}
-      onClick={onClose}
-    >
-      <Icon size={minimal ? 13 : 14} className={minimal ? '' : 'shrink-0'} />
-      {t(labelKey)}
-    </Link>
-  ))
+  return NAV_LINKS.map(({ labelKey, href, Icon }) => {
+    // Community link only visible for logged-in users
+    if (href === '/community' && !user) return null
+    return (
+      <Link
+        key={href}
+        href={href}
+        className={linkClass(href)}
+        onClick={onClose}
+      >
+        <Icon size={minimal ? 13 : 14} className={minimal ? '' : 'shrink-0'} />
+        {t(labelKey)}
+      </Link>
+    )
+  })
 }
 
 /** Shared sidebar content — used by both the main sidebar and the mobile overlay on minimal pages */
@@ -224,7 +228,7 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
       {/* ── Nav links ── */}
       <div className="flex-1 overflow-y-auto overscroll-behavior-contain px-2.5 min-h-0">
         <div className="space-y-0.5">
-          <NavLinks pathname={pathname} onClose={onClose} />
+          <NavLinks pathname={pathname} onClose={onClose} user={user} />
         </div>
       </div>
 
@@ -240,18 +244,20 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
 
       {/* ── Auth section — pinned to bottom ── */}
       <div className="p-2.5 border-t border-[#181818] space-y-1 shrink-0">
-        <Link
-          href="/dashboard"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors font-medium ${
-            isActive('/dashboard')
-              ? 'bg-[#1a1a1a] text-white'
-              : 'text-[#737373] hover:text-white hover:bg-[#141414]'
-          }`}
-          onClick={onClose}
-        >
-          <IconDashboard size={14} />
-          {t('nav.dashboard')}
-        </Link>
+        {user && (
+          <Link
+            href="/dashboard"
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors font-medium ${
+              isActive('/dashboard')
+                ? 'bg-[#1a1a1a] text-white'
+                : 'text-[#737373] hover:text-white hover:bg-[#141414]'
+            }`}
+            onClick={onClose}
+          >
+            <IconDashboard size={14} />
+            {t('nav.dashboard')}
+          </Link>
+        )}
 
         {user ? (
           <Link

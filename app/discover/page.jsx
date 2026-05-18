@@ -253,7 +253,7 @@ export default function DiscoverPage() {
       <section className="max-w-4xl mx-auto px-4 pt-6 pb-2 animate-fade-up">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">
+            <h1 className="text-display tracking-tight">
               {getGreeting()}, <span className="text-red-500">{displayName}</span>
             </h1>
             <p className="text-[#737373] text-sm mt-0.5">{t('discover.greeting.subtitle')}</p>
@@ -264,22 +264,43 @@ export default function DiscoverPage() {
           </div>
         </div>
 
-        {/* Did You Know? — invisible border card */}
-        <div className="bg-[#141414] rounded-xl p-4 flex items-start gap-3 group">
-          <div className="w-8 h-8 bg-[#1a1a1a] rounded-lg flex items-center justify-center shrink-0 mt-0.5">
-            <IconLightning size={14} className="text-red-400" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] uppercase tracking-widest text-red-400 font-semibold mb-1">{t('discover.didyouknow')}</p>
-            <p className="text-sm text-[#d4d4d4] leading-relaxed transition-all duration-300">{FACTS[factIndex]}</p>
-          </div>
-          <button
-            onClick={() => setFactIndex(prev => (prev + 1) % FACTS.length)}
-            className="text-[#737373] hover:text-white transition-colors shrink-0 mt-1"
-            title={t('discover.next_fact')}
+        {/* Did You Know? — Spotlight carousel */}
+        <div className="relative rounded-xl overflow-hidden border border-[#1e2d42] bg-[#111720]" style={{ minHeight: 200 }}>
+          {/* Carousel track */}
+          <div
+            className="flex will-change-transform"
+            style={{ transform: `translateX(-${factIndex * 100}%)`, transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)' }}
           >
-            <IconArrowRight size={14} />
-          </button>
+            {FACTS.map((fact, i) => (
+              <div key={i} className="min-w-full shrink-0 relative">
+                {/* Gradient bg */}
+                <div className="absolute inset-0 bg-[linear-gradient(160deg,#1a0f0f,#2d1010_40%,#1a0808)]" />
+                {/* Bottom gradient overlay */}
+                <div className="absolute bottom-0 left-0 right-0 h-[70%] bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
+                {/* Content */}
+                <div className="relative px-5 pt-5 pb-10">
+                  <span className="inline-block text-[9px] font-bold tracking-[0.1em] uppercase text-amber-500 bg-amber-500/12 border border-amber-500/25 px-2 py-0.5 rounded-[3px] mb-3">
+                    {t('discover.didyouknow')}
+                  </span>
+                  <p className="text-[15px] text-white leading-relaxed font-medium">{fact}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Navigation dots */}
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center justify-center gap-1.5 z-10">
+            {FACTS.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setFactIndex(i)}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  i === factIndex
+                    ? 'w-5 bg-amber-500'
+                    : 'w-1.5 bg-white/40 hover:bg-white/60'
+                }`}
+              />
+            ))}
+          </div>
         </div>
       </section>
 
@@ -302,7 +323,7 @@ export default function DiscoverPage() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <IconTarget size={16} className="text-red-500" />
-            <h2 className="text-base font-semibold tracking-tight">{t('discover.goals.title')}</h2>
+            <h2 className="text-base font-semibold tracking-tight text-[#737373]">{t('discover.goals.title')}</h2>
             {goals.length > 0 && (
               <span className="text-[10px] font-mono text-[#737373] bg-[#141414] px-2 py-0.5 rounded-full">{goals.length}</span>
             )}
