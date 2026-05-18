@@ -1,8 +1,7 @@
 'use client'
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import rehypeHighlight from 'rehype-highlight'
 
 /* ─── Copy Button for Code Blocks ──────────────────────────────── */
 function CopyButton({ text }) {
@@ -16,45 +15,15 @@ function CopyButton({ text }) {
   return (
     <button
       onClick={copy}
-      className="absolute top-2.5 right-2.5 flex items-center gap-1 text-caption text-[#525252] hover:text-[#a3a3a3] bg-[#1a1a1a] hover:bg-[#222] px-2 py-1 rounded-md transition-colors font-mono"
+      className="flex items-center gap-1.5 text-[11px] text-[#525252] hover:text-[#a3a3a3] transition-colors font-mono"
       aria-label="Copy code"
     >
       {copied ? (
-        <><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8.5L6.5 12L13 4"/></svg> Copied</>
+        <><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8.5L6.5 12L13 4"/></svg> Copied</>
       ) : (
-        <><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="4" y="4" width="9" height="9" rx="1.5"/><path d="M3 11.5V3.5C3 2.67 3.67 2 4.5 2H10.5"/></svg> Copy</>
+        <><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="9" height="9" rx="1.5"/><path d="M3 11.5V3.5C3 2.67 3.67 2 4.5 2H10.5"/></svg> Copy</>
       )}
     </button>
-  )
-}
-
-/* ─── Styled Table Wrapper ─────────────────────────────────────── */
-function StyledTable({ children }) {
-  return (
-    <div className="my-3 -mx-1 overflow-x-auto overscroll-behavior-contain">
-      <div className="inline-block min-w-full align-middle">
-        <table className="w-full text-left overflow-hidden">
-          {children}
-        </table>
-      </div>
-    </div>
-  )
-}
-
-/* ─── Callout / Admonition Block ───────────────────────────────── */
-function CalloutBlock({ children, type }) {
-  const config = {
-    note:    { icon: 'ℹ',  bg: 'bg-blue-950/30',  border: 'border-blue-800/40',  text: 'text-blue-300' },
-    tip:     { icon: '💡', bg: 'bg-emerald-950/30', border: 'border-emerald-800/40', text: 'text-emerald-300' },
-    warning: { icon: '⚠',  bg: 'bg-amber-950/30',  border: 'border-amber-800/40',  text: 'text-amber-300' },
-    caution: { icon: '🔴', bg: 'bg-red-950/30',    border: 'border-red-800/40',    text: 'text-red-300' },
-  }
-  const c = config[type] || config.note
-  return (
-    <div className={`${c.bg} border ${c.border} rounded-xl px-4 py-3 my-3 flex gap-3 items-start`}>
-      <span className={`${c.text} text-body mt-0.5 shrink-0`}>{c.icon}</span>
-      <div className="flex-1 min-w-0 text-body text-[#d4d4d4] leading-relaxed">{children}</div>
-    </div>
   )
 }
 
@@ -88,24 +57,23 @@ export default function MarkdownRenderer({ content, className = '' }) {
     <div className={`prose-kivora ${className}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeHighlight]}
         components={{
-          /* ── Headings ──────────────────────────────────── */
-          h1: ({ children }) => <h1 className="text-display font-semibold tracking-tight mt-6 mb-3 text-white">{children}</h1>,
-          h2: ({ children }) => <h2 className="text-headline font-semibold tracking-tight mt-5 mb-2.5 text-white">{children}</h2>,
-          h3: ({ children }) => <h3 className="text-headline font-semibold tracking-tight mt-4 mb-2 text-white">{children}</h3>,
-          h4: ({ children }) => <h4 className="text-headline-sm font-semibold tracking-tight mt-3 mb-1.5 text-white">{children}</h4>,
-          h5: ({ children }) => <h5 className="text-body font-semibold tracking-tight mt-3 mb-1.5 text-white">{children}</h5>,
-          h6: ({ children }) => <h6 className="text-caption font-semibold tracking-tight mt-2 mb-1 text-white uppercase">{children}</h6>,
+          /* ── Headings — generous breathing room ──────── */
+          h1: ({ children }) => <h1 className="text-[20px] font-semibold tracking-tight mt-8 mb-3 text-white">{children}</h1>,
+          h2: ({ children }) => <h2 className="text-[18px] font-semibold tracking-tight mt-8 mb-3 text-white">{children}</h2>,
+          h3: ({ children }) => <h3 className="text-[16px] font-semibold tracking-tight mt-6 mb-2.5 text-white">{children}</h3>,
+          h4: ({ children }) => <h4 className="text-[15px] font-semibold tracking-tight mt-5 mb-2 text-white">{children}</h4>,
+          h5: ({ children }) => <h5 className="text-[14px] font-semibold tracking-tight mt-4 mb-1.5 text-white">{children}</h5>,
+          h6: ({ children }) => <h6 className="text-[12px] font-semibold tracking-tight mt-3 mb-1 text-white uppercase">{children}</h6>,
 
           /* ── Paragraph ─────────────────────────────────── */
-          p: ({ children }) => <p className="text-body leading-relaxed text-[#d4d4d4] mb-3">{children}</p>,
+          p: ({ children }) => <p className="text-[15px] leading-[1.7] text-[#d4d4d4] mb-4">{children}</p>,
 
-          /* ── Lists ─────────────────────────────────────── */
-          ul: ({ children }) => <ul className="list-disc list-outside ml-5 mb-3 space-y-1.5">{children}</ul>,
-          ol: ({ children }) => <ol className="list-decimal list-outside ml-5 mb-3 space-y-1.5">{children}</ol>,
-          li: ({ children, ordered, index }) => (
-            <li className="text-body leading-relaxed text-[#d4d4d4] pl-1">
+          /* ── Lists — distinct items, not compressed ───── */
+          ul: ({ children }) => <ul className="list-disc list-outside ml-5 mb-4">{children}</ul>,
+          ol: ({ children }) => <ol className="list-decimal list-outside ml-5 mb-4">{children}</ol>,
+          li: ({ children }) => (
+            <li className="text-[15px] leading-[1.7] text-[#d4d4d4] pl-1 mb-2">
               {children}
             </li>
           ),
@@ -120,7 +88,7 @@ export default function MarkdownRenderer({ content, className = '' }) {
             />
           ),
 
-          /* ── Blockquote (with callout support) ─────────── */
+          /* ── Blockquote — tip callout with left accent ── */
           blockquote: ({ children }) => {
             // Check if first child is a paragraph starting with [!TYPE]
             const firstChild = children?.[0]
@@ -136,7 +104,6 @@ export default function MarkdownRenderer({ content, className = '' }) {
               const match = text.match(/^\[!(note|tip|warning|caution)\]\s*/i)
               if (match) {
                 calloutType = match[1].toLowerCase()
-                // Remove the [!TYPE] prefix from the text
                 const remaining = text.replace(/^\[!(note|tip|warning|caution)\]\s*/i, '')
                 filteredChildren = [
                   { ...firstChild, props: { ...firstChild.props, children: remaining } },
@@ -145,19 +112,34 @@ export default function MarkdownRenderer({ content, className = '' }) {
               }
             }
 
-            if (calloutType) {
-              return <CalloutBlock type={calloutType}>{filteredChildren}</CalloutBlock>
+            // [!tip] or bare blockquote starting with [tip] — render as callout
+            if (calloutType === 'tip') {
+              return (
+                <div className="border-l-[3px] border-l-[#dc2626] bg-[#dc2626]/[0.06] rounded-r-lg px-4 py-3 my-4">
+                  <div className="flex-1 min-w-0 text-[14px] text-[#d4d4d4] leading-relaxed">{filteredChildren}</div>
+                </div>
+              )
             }
 
+            // Any other callout type — same red accent style
+            if (calloutType) {
+              return (
+                <div className="border-l-[3px] border-l-[#dc2626] bg-[#dc2626]/[0.06] rounded-r-lg px-4 py-3 my-4">
+                  <div className="flex-1 min-w-0 text-[14px] text-[#d4d4d4] leading-relaxed">{filteredChildren}</div>
+                </div>
+              )
+            }
+
+            // Regular blockquote — also gets the left-border callout treatment
             return (
-              <blockquote className="border-l-2 border-[#333] bg-[#111] rounded-r-lg pl-4 pr-3 py-2 my-3 text-body text-[#a3a3a3]">
-                {children}
-              </blockquote>
+              <div className="border-l-[3px] border-l-[#333] bg-white/[0.02] rounded-r-lg px-4 py-3 my-4">
+                <div className="text-[14px] text-[#a3a3a3] leading-relaxed">{children}</div>
+              </div>
             )
           },
 
           /* ── Horizontal Rule ───────────────────────────── */
-          hr: () => <hr className="border-t border-[#222] my-5" />,
+          hr: () => <hr className="border-t border-white/[0.06] my-6" />,
 
           /* ── Links ─────────────────────────────────────── */
           a: ({ href, children }) => (
@@ -167,27 +149,27 @@ export default function MarkdownRenderer({ content, className = '' }) {
           ),
 
           /* ── Text Formatting ───────────────────────────── */
-          strong: ({ children }) => <strong className="font-bold text-white">{children}</strong>,
+          strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
           em: ({ children }) => <em className="italic text-[#e5e5e5]">{children}</em>,
 
-          /* ── Code (inline) ─────────────────────────────── */
+          /* ── Inline Code — monospace pill ──────────────── */
           code: ({ inline, className: codeClassName, children }) => {
             if (inline) {
               return (
-                <code className="bg-[#1a1a1a] text-red-300 px-1.5 py-0.5 rounded-md text-body-sm font-mono">
+                <code className="font-mono bg-white/[0.08] text-[#e2e2e2] px-1.5 py-0.5 rounded-[4px] text-[0.9em]">
                   {children}
                 </code>
               )
             }
-            // Block code is rendered inside <pre> — just render the code element
+            // Block code is rendered inside <pre> — single-color monospace
             return (
-              <code className={`${codeClassName || ''} text-body-sm leading-relaxed`}>
+              <code className={`${codeClassName || ''} font-mono text-[13px] leading-[1.65] text-[#d4d4d4]`}>
                 {children}
               </code>
             )
           },
 
-          /* ── Code Block (pre) with copy + language label ── */
+          /* ── Code Block — ChatGPT-style container ──────── */
           pre: ({ children }) => {
             const codeEl = children?.props?.children
             const codeText = typeof codeEl === 'string'
@@ -199,46 +181,48 @@ export default function MarkdownRenderer({ content, className = '' }) {
             const langLabel = getLangLabel(codeClassName)
 
             return (
-              <div className="relative group my-3 rounded-xl overflow-hidden bg-[#0d0d0d] border border-[#1a1a1a]">
-                {/* Header bar with language label */}
-                {langLabel && (
-                  <div className="flex items-center justify-between px-4 py-1.5 bg-[#141414] border-b border-[#1a1a1a]">
-                    <span className="text-caption font-mono text-[#525252] uppercase tracking-wider">{langLabel}</span>
-                  </div>
-                )}
-                <div className="relative">
-                  <pre className="overflow-x-auto p-4 !bg-transparent !m-0 text-body-sm leading-relaxed">
-                    {children}
-                  </pre>
+              <div className="my-4 rounded-xl overflow-hidden bg-white/[0.03] border border-white/[0.06]">
+                {/* Header bar with language label + copy */}
+                <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06]">
+                  <span className="text-[11px] font-mono text-[#525252] uppercase tracking-wider">{langLabel || 'Code'}</span>
                   <CopyButton text={codeText} />
                 </div>
+                <pre className="overflow-x-auto p-4 m-0 bg-transparent">
+                  {children}
+                </pre>
               </div>
             )
           },
 
-          /* ── Tables (Claude-style, rounded, clean) ─────── */
-          table: ({ children }) => <StyledTable>{children}</StyledTable>,
-          thead: ({ children }) => <thead className="">{children}</thead>,
-          tbody: ({ children }) => <tbody className="">{children}</tbody>,
+          /* ── Tables — hairline horizontal borders only ─── */
+          table: ({ children }) => (
+            <div className="my-4 -mx-1 overflow-x-auto overscroll-behavior-contain">
+              <div className="inline-block min-w-full align-middle">
+                <table className="w-full text-left">{children}</table>
+              </div>
+            </div>
+          ),
+          thead: ({ children }) => <thead>{children}</thead>,
+          tbody: ({ children }) => <tbody>{children}</tbody>,
           tr: ({ children }) => (
-            <tr className="border-b border-[#1a1a1a] last:border-0 hover:bg-[#141414]/50 transition-colors">
+            <tr className="border-b border-white/[0.06] last:border-0">
               {children}
             </tr>
           ),
           th: ({ children }) => (
-            <th className="text-left text-caption font-semibold text-[#737373] px-4 py-2.5 bg-[#111] first:rounded-tl-xl last:rounded-tr-xl">
+            <th className="text-left text-[12px] font-medium text-[#737373] uppercase tracking-wider px-4 py-3 bg-white/[0.03]">
               {children}
             </th>
           ),
           td: ({ children }) => (
-            <td className="text-body text-[#d4d4d4] px-4 py-2.5">
+            <td className="text-[14px] text-[#d4d4d4] px-4 py-3 leading-relaxed">
               {children}
             </td>
           ),
 
           /* ── Images ────────────────────────────────────── */
           img: ({ src, alt }) => (
-            <div className="my-3 rounded-xl overflow-hidden border border-[#1a1a1a]">
+            <div className="my-4 rounded-xl overflow-hidden border border-white/[0.06]">
               <img src={src} alt={alt || ''} className="w-full" loading="lazy" />
             </div>
           ),
