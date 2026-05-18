@@ -20,7 +20,7 @@ const DEFAULT_MODEL = 'llama-3.3-70b-versatile'
 
 const ALLOWED_TEXT_EXTENSIONS = ['.txt', '.md', '.json', '.csv', '.js', '.py', '.ts', '.jsx', '.tsx', '.css', '.html', '.sql']
 const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp']
-const MAX_FILE_SIZE = 100 * 1024 // 100KB
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
 const STARTERS = [
   { labelKey: 'chat.starter.whatsapp', icon: IconChat },
