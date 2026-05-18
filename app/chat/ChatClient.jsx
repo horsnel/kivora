@@ -27,9 +27,6 @@ const STARTERS = [
   { labelKey: 'chat.starter.whatsapp', icon: IconChat },
   { labelKey: 'chat.starter.saas', icon: IconLightning },
   { labelKey: 'chat.starter.automation', icon: IconMoney },
-  { labelKey: 'chat.starter.n8n', icon: IconTool },
-  { labelKey: 'chat.starter.content', icon: IconCode },
-  { labelKey: 'chat.starter.freelancing', icon: IconBulb },
 ]
 
 const FOCUS_MODES = [
@@ -366,8 +363,6 @@ export default function ChatClient() {
   // ── Feature #2: Chat Export ──
   function exportChat(format) {
     if (messages.length === 0) return
-    setExportDropdownOpen(false)
-
     const now = new Date()
     const dateStr = now.toISOString().split('T')[0]
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -878,60 +873,47 @@ export default function ChatClient() {
       {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <div className="border-b border-[#141414] px-4 py-2.5 shrink-0 flex items-center justify-between gap-3">
+        <div className="shrink-0 flex items-center justify-between px-[min(5vw,48px)] py-3">
           <div className="flex items-center gap-3">
             <button
-              className="lg:hidden w-8 h-8 flex items-center justify-center text-[#525252] hover:text-white transition-colors -ml-1"
+              className="lg:hidden w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors -ml-1"
               onClick={() => setHistoryOpen(true)}
               aria-label={t('chat.history')}
             >
-              <IconMenu size={14} />
+              <IconMenu size={16} />
             </button>
-            <div className="flex items-center gap-2.5">
-              <div className="w-6 h-6 bg-red-600 rounded-md flex items-center justify-center shrink-0">
-                <IconChat size={12} className="text-white" />
-              </div>
-              <div className="flex items-center gap-2">
-                <div>
-                  <h1 className="font-semibold text-caption leading-none">{t('chat.title')}</h1>
-                </div>
-              </div>
-            </div>
+            <h1 className="font-medium text-[15px] text-[#e2e2e2] tracking-tight">{t('chat.title')}</h1>
           </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              onClick={clearChat}
-              className="w-8 h-8 flex items-center justify-center text-[#525252] hover:text-white hover:bg-[#141414] rounded-lg transition-colors"
-              aria-label={t('chat.new')}
-              title={t('chat.new')}
-            >
-              <IconPlus size={14} />
-            </button>
-          </div>
+          <button
+            onClick={clearChat}
+            className="w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] rounded-lg transition-colors"
+            aria-label={t('chat.new')}
+            title={t('chat.new')}
+          >
+            <IconPlus size={16} />
+          </button>
         </div>
 
         {/* Messages area */}
         <div className="flex-1 overflow-y-auto overscroll-behavior-contain">
-          <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
+          <div className="max-w-[720px] mx-auto px-[min(5vw,48px)] py-8 space-y-6">
             {messages.length === 0 && (
-              <div className="text-center py-10 sm:py-16">
-                <div className="w-14 h-14 bg-[#141414] border border-white/[0.06] rounded-2xl flex items-center justify-center mx-auto mb-5">
-                  <IconChat size={20} className="text-[#525252]" />
-                </div>
-                <h2 className="font-semibold text-headline mb-2 tracking-tight text-[#737373]">{t('chat.empty.title')}</h2>
-                <p className="text-muted text-body mb-8 max-w-xs mx-auto leading-relaxed">
-                  {t('chat.empty.subtitle')}
+              <div className="flex flex-col items-center justify-center min-h-[70vh] pb-8">
+                <h2 className="text-[36px] sm:text-[40px] font-semibold tracking-tight text-[#e2e2e2] mb-4">
+                  {t('chat.empty.title')}
+                </h2>
+                <p className="text-[17px] text-[#737373] mb-12">
+                  Build, automate, earn — powered by AI
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left max-w-lg mx-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 w-full max-w-xl mx-auto">
                   {STARTERS.map(({ labelKey, icon: Icon }) => (
                     <button
                       key={labelKey}
                       onClick={() => setInput(t(labelKey))}
-                      className="flex items-center gap-3 bg-transparent border border-white/[0.08] hover:border-white/[0.15] hover:bg-[#141414] rounded-xl px-4 py-3.5 text-muted hover:text-white text-left transition-all leading-snug"
+                      className="flex items-center gap-4 bg-transparent border border-transparent hover:bg-white/[0.03] hover:border-white/[0.08] hover:-translate-y-0.5 rounded-2xl px-6 py-5 text-[#a3a3a3] hover:text-[#e2e2e2] text-left transition-all duration-200 ease-out leading-snug"
                     >
-                      <Icon size={14} className="text-[#525252] shrink-0" />
-                      <span className="text-body-sm">{t(labelKey)}</span>
+                      <Icon size={16} className="text-[#525252] shrink-0" />
+                      <span className="text-[15px] leading-[1.6]">{t(labelKey)}</span>
                     </button>
                   ))}
                 </div>
@@ -967,7 +949,7 @@ export default function ChatClient() {
                     {/* File/Image attachment indicator */}
                     {hasFileAttachment && (
                       <div className="flex items-center gap-1.5 mb-1.5 justify-end">
-                        <div className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1 text-[11px] text-[#737373]">
+                        <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-lg px-2.5 py-1 text-[11px] text-[#737373]">
                           <IconFile size={10} />
                           <span>{attachmentName}</span>
                         </div>
@@ -975,16 +957,16 @@ export default function ChatClient() {
                     )}
                     {hasImageAttachment && (
                       <div className="flex items-center gap-1.5 mb-1.5 justify-end">
-                        <div className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1 text-[11px] text-[#737373]">
+                        <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-lg px-2.5 py-1 text-[11px] text-[#737373]">
                           <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1.5"/><path d="M2 11l3.5-3.5 2.5 2.5 2-2L14 11"/></svg>
                           <span>{attachmentName}</span>
                         </div>
                       </div>
                     )}
-                    <div className={`rounded-xl px-4 py-3 text-body leading-relaxed ${
+                    <div className={`rounded-2xl px-5 py-3.5 leading-[1.65] ${
                       msg.role === 'user'
-                        ? 'bg-red-600 text-white rounded-tr-sm'
-                        : 'bg-[#141414] border border-white/[0.06] text-[#d4d4d4] rounded-tl-sm'
+                        ? 'bg-white/[0.04] text-[#e2e2e2] border border-white/[0.06] rounded-tr-sm'
+                        : 'bg-white/[0.02] text-[#e2e2e2] border border-transparent rounded-tl-sm'
                     }`}>
                       {msg.role === 'assistant'
                         ? <MarkdownRenderer content={msg.content} />
@@ -995,7 +977,7 @@ export default function ChatClient() {
                       <div className="opacity-0 group-hover:opacity-100 mt-1.5 flex items-center gap-3 transition-all">
                         <button
                           onClick={() => copy(msg.content, i)}
-                          className="flex items-center gap-1 text-caption text-muted2 hover:text-muted transition-colors"
+                          className="flex items-center gap-1 text-caption text-[#737373] hover:text-[#e2e2e2] transition-colors"
                         >
                           {copiedIndex === i ? <IconCheck size={12} /> : <IconCopy size={12} />}
                           {copiedIndex === i ? t('common.copied') : t('common.copy')}
@@ -1009,10 +991,10 @@ export default function ChatClient() {
 
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-[#141414] border border-white/[0.06] rounded-xl rounded-tl-sm px-4 py-3.5">
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl rounded-tl-sm px-5 py-3.5">
                   <div className="flex gap-1.5 items-center">
                     {[0, 150, 300].map(d => (
-                      <span key={d} className="w-1.5 h-1.5 bg-muted2 rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />
+                      <span key={d} className="w-1.5 h-1.5 bg-[#525252] rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />
                     ))}
                   </div>
                 </div>
@@ -1023,15 +1005,15 @@ export default function ChatClient() {
         </div>
 
         {/* ── Expandable Chat Bar ────────────────────── */}
-        <div className="shrink-0 px-4 pb-4 pt-2" style={{ overflow: 'visible' }}>
-          <div className="max-w-3xl mx-auto" style={{ overflow: 'visible' }}>
+        <div className="shrink-0 px-[min(5vw,48px)] pb-4 pt-2" style={{ overflow: 'visible' }}>
+          <div className="max-w-[720px] mx-auto" style={{ overflow: 'visible' }}>
             {/* Voice toast notification */}
             {voiceToast && (
               <div className={`mb-2 flex items-center justify-center animate-slide-down`}>
                 <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium ${
                   voiceToast.type === 'error'
                     ? 'bg-red-950/60 border border-red-900/40 text-red-400'
-                    : 'bg-[#1a1a1a] border border-[#262626] text-[#a3a3a3]'
+                    : 'bg-white/[0.04] border border-white/[0.06] text-[#a3a3a3]'
                 }`}>
                   {voiceToast.type === 'info' && isListening ? (
                     <span className="relative flex items-center justify-center" style={{ width: 12, height: 12 }}>
@@ -1045,7 +1027,7 @@ export default function ChatClient() {
             {/* File attachment chip */}
             {attachedFile && barExpanded && (
               <div className="mb-2 flex items-center justify-end">
-                <div className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#262626] rounded-lg px-3 py-1.5 text-[12px] text-[#a3a3a3]">
+                <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-1.5 text-[12px] text-[#a3a3a3]">
                   {attachedIsImage ? (
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1.5"/><path d="M2 11l3.5-3.5 2.5 2.5 2-2L14 11"/></svg>
                   ) : (
@@ -1054,7 +1036,7 @@ export default function ChatClient() {
                   <span className="max-w-[120px] truncate">{attachedFile}</span>
                   <button
                     onClick={removeAttachment}
-                    className="ml-0.5 text-[#525252] hover:text-white transition-colors"
+                    className="ml-0.5 text-[#525252] hover:text-[#e2e2e2] transition-colors"
                     aria-label="Remove attachment"
                   >
                     <IconClose size={10} />
@@ -1314,7 +1296,7 @@ export default function ChatClient() {
               </div>
             )}
 
-            <p className="text-[11px] text-[#2e2e2e] text-center mt-2.5">{t('chat.disclaimer')}</p>
+            <p className="text-[11px] text-[#2e2e2e] text-center mt-3">{t('chat.disclaimer')}</p>
           </div>
         </div>
       </div>
@@ -1375,20 +1357,21 @@ export default function ChatClient() {
       {/* ── Perplexity-style chat bar CSS ── */}
       <style jsx>{`
         /* ═══════════════════════════════════════
-           COLLAPSED STATE — Single-row bar
+           COLLAPSED STATE — Floating pill bar
            ═══════════════════════════════════════ */
         .chat-bar-collapsed {
           display: flex;
           align-items: center;
-          background: #202222;
+          background: rgba(255,255,255,0.04);
           border-radius: 28px;
           padding: 8px 12px;
           gap: 8px;
-          border: 1px solid #2f3232;
+          border: 1px solid rgba(255,255,255,0.06);
+          min-height: 56px;
           transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
         .chat-bar-collapsed:focus-within {
-          border-color: #4c4f4f;
+          border-color: rgba(255,255,255,0.12);
           box-shadow: 0 0 0 3px rgba(255,255,255,0.03);
         }
 
@@ -1397,8 +1380,8 @@ export default function ChatClient() {
           height: 36px;
           border-radius: 50%;
           border: none;
-          background: #2d3030;
-          color: #8a8f8f;
+          background: rgba(255,255,255,0.04);
+          color: #525252;
           cursor: pointer;
           display: flex;
           align-items: center;
@@ -1408,8 +1391,8 @@ export default function ChatClient() {
           padding: 0;
         }
         .chat-collapsed-btn-circle:hover {
-          background: #3a3d3d;
-          color: #e3e3e3;
+          background: rgba(255,255,255,0.08);
+          color: #e2e2e2;
         }
         .chat-collapsed-btn-active {
           background-color: rgba(220, 38, 38, 0.15) !important;
@@ -1434,12 +1417,12 @@ export default function ChatClient() {
           box-shadow: none !important;
           background: transparent;
           font-size: 16px;
-          color: #e3e3e3;
+          color: #e2e2e2;
           padding: 0 4px;
           font-family: inherit;
         }
         .chat-collapsed-input::placeholder {
-          color: #8a8f8f;
+          color: #525252;
           opacity: 1;
         }
 
@@ -1448,14 +1431,14 @@ export default function ChatClient() {
           height: 40px;
           border-radius: 50%;
           border: none;
-          background: #dc2626;
-          color: #ffffff;
+          background: rgba(255,255,255,0.06);
+          color: #737373;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
-          transition: background 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
+          transition: background 0.15s ease, transform 0.1s ease, opacity 0.15s ease, color 0.15s ease;
           padding: 0;
         }
         .chat-collapsed-send:disabled {
@@ -1463,10 +1446,11 @@ export default function ChatClient() {
           opacity: 0.5;
         }
         .chat-collapsed-send-active {
-          background: #dc2626;
+          background: #e2e2e2;
+          color: #0a0a0a;
         }
         .chat-collapsed-send-active:hover {
-          background: #b91c1c;
+          background: #ffffff;
           transform: scale(1.05);
         }
         .chat-collapsed-send-active:active {
@@ -1474,12 +1458,12 @@ export default function ChatClient() {
         }
 
         /* ═══════════════════════════════════════
-           EXPANDED STATE — Full Perplexity-style
+           EXPANDED STATE — Floating pill with chips
            ═══════════════════════════════════════ */
         .chat-container-expanded {
           width: 100%;
-          background-color: #202222;
-          border: 1px solid #2f3232;
+          background-color: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.06);
           border-radius: 20px;
           padding: 16px 16px 10px 16px;
           display: flex;
@@ -1501,7 +1485,7 @@ export default function ChatClient() {
           }
         }
         .chat-container-expanded:focus-within {
-          border-color: #4c4f4f;
+          border-color: rgba(255,255,255,0.12);
           box-shadow: 0 0 0 3px rgba(255,255,255,0.03);
         }
 
@@ -1511,7 +1495,7 @@ export default function ChatClient() {
           border: none !important;
           outline: none !important;
           box-shadow: none !important;
-          color: #e3e3e3;
+          color: #e2e2e2;
           font-size: 16px;
           line-height: 1.6;
           resize: none;
@@ -1528,7 +1512,7 @@ export default function ChatClient() {
           border-color: transparent !important;
         }
         .chat-textarea-expanded::placeholder {
-          color: #8a8f8f;
+          color: #525252;
         }
 
         .chat-toolbar-expanded {
@@ -1553,7 +1537,7 @@ export default function ChatClient() {
           background: transparent;
           border: none;
           outline: none;
-          color: #8a8f8f;
+          color: #525252;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1570,8 +1554,8 @@ export default function ChatClient() {
           height: 32px;
         }
         .chat-toolbar-btn:hover {
-          background-color: #2d3030;
-          color: #e3e3e3;
+          background-color: rgba(255,255,255,0.06);
+          color: #e2e2e2;
         }
         .chat-toolbar-btn-active {
           background-color: rgba(220, 38, 38, 0.12) !important;
@@ -1589,9 +1573,9 @@ export default function ChatClient() {
           gap: 5px;
           padding: 4px 10px;
           border-radius: 20px;
-          border: 1px solid #2f3232;
-          background: #2d3030;
-          color: #8a8f8f;
+          border: 1px solid rgba(255,255,255,0.06);
+          background: rgba(255,255,255,0.04);
+          color: #737373;
           cursor: pointer;
           font-size: 12px;
           font-weight: 500;
@@ -1600,9 +1584,9 @@ export default function ChatClient() {
           white-space: nowrap;
         }
         .chat-model-chip:hover {
-          border-color: #4c4f4f;
-          color: #c0c4c4;
-          background: #363939;
+          border-color: rgba(255,255,255,0.12);
+          color: #e2e2e2;
+          background: rgba(255,255,255,0.06);
         }
         .chat-model-chip span {
           line-height: 1;
@@ -1616,8 +1600,8 @@ export default function ChatClient() {
           left: 50%;
           transform: translateX(-50%);
           width: 220px;
-          background: #141414;
-          border: 1px solid #262626;
+          background: #0f0f0f;
+          border: 1px solid rgba(255,255,255,0.06);
           border-radius: 12px;
           box-shadow: 0 8px 32px rgba(0,0,0,0.5);
           z-index: 100;
@@ -1646,21 +1630,21 @@ export default function ChatClient() {
           font-family: inherit;
         }
         .chat-model-option:hover {
-          background: #1a1a1a;
+          background: rgba(255,255,255,0.04);
         }
         .chat-model-option-active {
-          background: #1a1a1a !important;
+          background: rgba(255,255,255,0.04) !important;
         }
         .chat-model-name {
           font-size: 13px;
           font-weight: 500;
-          color: #e3e3e3;
+          color: #e2e2e2;
         }
         .chat-model-option:not(.chat-model-option-active) .chat-model-name {
           color: #a3a3a3;
         }
         .chat-model-option:hover .chat-model-name {
-          color: #ffffff;
+          color: #e2e2e2;
         }
         .chat-model-tag {
           font-size: 11px;
@@ -1675,8 +1659,8 @@ export default function ChatClient() {
           left: 50%;
           transform: translateX(-50%);
           width: 260px;
-          background: #141414;
-          border: 1px solid #262626;
+          background: #0f0f0f;
+          border: 1px solid rgba(255,255,255,0.06);
           border-radius: 12px;
           box-shadow: 0 8px 32px rgba(0,0,0,0.5);
           z-index: 100;
@@ -1697,10 +1681,10 @@ export default function ChatClient() {
           font-family: inherit;
         }
         .chat-focus-option:hover {
-          background: #1a1a1a;
+          background: rgba(255,255,255,0.04);
         }
         .chat-focus-option-active {
-          background: #1a1a1a !important;
+          background: rgba(255,255,255,0.04) !important;
         }
         .chat-focus-icon {
           font-size: 16px;
@@ -1716,13 +1700,13 @@ export default function ChatClient() {
         .chat-focus-label {
           font-size: 13px;
           font-weight: 500;
-          color: #e3e3e3;
+          color: #e2e2e2;
         }
         .chat-focus-option:not(.chat-focus-option-active) .chat-focus-label {
           color: #a3a3a3;
         }
         .chat-focus-option:hover .chat-focus-label {
-          color: #ffffff;
+          color: #e2e2e2;
         }
         .chat-focus-desc {
           font-size: 11px;
@@ -1741,7 +1725,7 @@ export default function ChatClient() {
         .chat-pro-label {
           font-size: 13px;
           font-weight: 600;
-          color: #8a8f8f;
+          color: #525252;
         }
         .chat-switch {
           position: relative;
@@ -1761,7 +1745,7 @@ export default function ChatClient() {
           left: 0;
           right: 0;
           bottom: 0;
-          background-color: #2f3232;
+          background-color: rgba(255,255,255,0.08);
           transition: 0.2s;
           border-radius: 34px;
         }
@@ -1772,7 +1756,7 @@ export default function ChatClient() {
           width: 16px;
           left: 3px;
           bottom: 3px;
-          background-color: #8a8f8f;
+          background-color: #525252;
           transition: 0.2s;
           border-radius: 50%;
         }
@@ -1790,8 +1774,8 @@ export default function ChatClient() {
           bottom: calc(100% + 8px);
           right: 0;
           width: 260px;
-          background: #141414;
-          border: 1px solid #262626;
+          background: #0f0f0f;
+          border: 1px solid rgba(255,255,255,0.06);
           border-radius: 12px;
           box-shadow: 0 8px 32px rgba(0,0,0,0.5);
           z-index: 100;
@@ -1812,10 +1796,10 @@ export default function ChatClient() {
           font-family: inherit;
         }
         .chat-pro-option:hover {
-          background: #1a1a1a;
+          background: rgba(255,255,255,0.04);
         }
         .chat-pro-option-active {
-          background: #1a1a1a !important;
+          background: rgba(255,255,255,0.04) !important;
         }
         .chat-pro-text {
           display: flex;
@@ -1825,13 +1809,13 @@ export default function ChatClient() {
         .chat-pro-option-label {
           font-size: 13px;
           font-weight: 500;
-          color: #e3e3e3;
+          color: #e2e2e2;
         }
         .chat-pro-option:not(.chat-pro-option-active) .chat-pro-option-label {
           color: #a3a3a3;
         }
         .chat-pro-option:hover .chat-pro-option-label {
-          color: #ffffff;
+          color: #e2e2e2;
         }
         .chat-pro-option-desc {
           font-size: 11px;
@@ -1841,8 +1825,8 @@ export default function ChatClient() {
 
         /* ── Submit button ── */
         .chat-submit-btn {
-          background-color: #2f3232;
-          color: #8a8f8f;
+          background-color: rgba(255,255,255,0.06);
+          color: #737373;
           border: none;
           outline: none;
           width: 38px;
@@ -1860,8 +1844,8 @@ export default function ChatClient() {
           opacity: 0.6;
         }
         .chat-submit-btn-active {
-          background-color: #e3e3e3;
-          color: #191a1a;
+          background-color: #e2e2e2;
+          color: #0a0a0a;
         }
         .chat-submit-btn-active:hover {
           background-color: #ffffff;
