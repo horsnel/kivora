@@ -1035,16 +1035,15 @@ export default function ChatClient() {
                         </div>
                       </div>
                     )}
-                    <div className={`rounded-2xl px-5 py-3.5 leading-[1.65] ${
-                      msg.role === 'user'
-                        ? 'bg-white/[0.04] text-[#e2e2e2] border border-white/[0.06] rounded-tr-sm'
-                        : 'bg-white/[0.02] text-[#e2e2e2] border border-transparent rounded-tl-sm'
-                    }`}>
-                      {msg.role === 'assistant'
-                        ? <MarkdownRenderer content={msg.content} />
-                        : <span>{displayContent}</span>
-                      }
-                    </div>
+                    {msg.role === 'assistant' ? (
+                      <div className="leading-[1.65] chat-msg-text px-1">
+                        <MarkdownRenderer content={msg.content} />
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl px-5 py-3.5 bg-white/[0.04] text-[#e2e2e2] border border-white/[0.06] rounded-tr-sm leading-[1.65]">
+                        <span>{displayContent}</span>
+                      </div>
+                    )}
                     {msg.role === 'assistant' && (
                       <div className="opacity-0 group-hover:opacity-100 mt-1.5 flex items-center gap-3 transition-all">
                         <button

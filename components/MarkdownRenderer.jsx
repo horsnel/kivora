@@ -161,15 +161,15 @@ export default function MarkdownRenderer({ content, className = '' }) {
                 </code>
               )
             }
-            // Block code is rendered inside <pre> — single-color monospace
+            // Block code — single-color monospace, no wrapping
             return (
-              <code className={`${codeClassName || ''} font-mono text-[13px] leading-[1.65] text-[#d4d4d4]`}>
+              <code className={`${codeClassName || ''} font-mono text-[13px] leading-[1.65] text-[#d4d4d4] whitespace-pre block min-w-fit`}>
                 {children}
               </code>
             )
           },
 
-          /* ── Code Block — ChatGPT-style container ──────── */
+          /* ── Code Block — ChatGPT/Claude-style container ─── */
           pre: ({ children }) => {
             const codeEl = children?.props?.children
             const codeText = typeof codeEl === 'string'
@@ -181,15 +181,16 @@ export default function MarkdownRenderer({ content, className = '' }) {
             const langLabel = getLangLabel(codeClassName)
 
             return (
-              <div className="my-4 rounded-xl overflow-hidden bg-white/[0.03] border border-white/[0.06]">
+              <div className="my-4 rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
                 {/* Header bar with language label + copy */}
-                <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06]">
+                <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06] bg-white/[0.02]">
                   <span className="text-[11px] font-mono text-[#525252] uppercase tracking-wider">{langLabel || 'Code'}</span>
                   <CopyButton text={codeText} />
                 </div>
-                <pre className="overflow-x-auto p-4 m-0 bg-transparent">
+                {/* Scroll wrapper — div handles overflow, code handles whitespace */}
+                <div className="overflow-x-auto p-4 overscroll-behavior-contain">
                   {children}
-                </pre>
+                </div>
               </div>
             )
           },
