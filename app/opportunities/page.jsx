@@ -224,7 +224,7 @@ export default function OpportunitiesPage() {
         </div>
 
         {/* Generate new */}
-        <div className="bg-[#141414] rounded-xl p-6 mb-7">
+        <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mb-7">
           <p className="text-caption text-muted font-medium mb-3 flex items-center gap-1.5"><IconPlus size={12} /> {t('opportunities.generate_new')}</p>
           <div className="flex gap-2">
             <div className="relative flex-1">
