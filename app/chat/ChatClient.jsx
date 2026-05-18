@@ -726,13 +726,15 @@ export default function ChatClient() {
         <div className="px-3 pt-3 pb-2 shrink-0">
           <div className="flex items-center justify-between mb-3">
             <Link href="/discover" className="flex items-center gap-2.5" onClick={() => setHistoryOpen(false)}>
-              <div className="w-7 h-7 bg-[#dc2626] rounded-lg flex items-center justify-center">
-                <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
-                  <path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white" />
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FF6B6B, #FF8E53)' }}>
+                <svg width="14" height="14" viewBox="0 0 32 32" fill="none">
+                  <path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95" />
+                  <path d="M16 4L26 24L16 18Z" fill="white" opacity="0.55" />
+                  <rect x="6" y="26" width="20" height="3" rx="1.5" fill="white" opacity="0.3" />
                 </svg>
               </div>
               <span className="font-bold text-[15px] tracking-tight">
-                Ki<span className="text-red-500">vora</span>
+                Ki<span style={{ background: 'linear-gradient(135deg, #FF6B6B, #FF8E53)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>vora</span>
               </span>
             </Link>
             <button

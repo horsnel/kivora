@@ -1,4 +1,15 @@
 <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="32" height="32" rx="8" fill="#dc2626"/>
-  <path d="M8 16L14.5 9.5L21 16L14.5 22.5L8 16Z" fill="white"/>
+  <defs>
+    <linearGradient id="logo-bg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FF6B6B"/>
+      <stop offset="100%" stop-color="#FF8E53"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#logo-bg)"/>
+  <!-- Left triangle (upward momentum) -->
+  <path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95"/>
+  <!-- Right triangle (interlocking, depth) -->
+  <path d="M16 4L26 24L16 18Z" fill="white" opacity="0.55"/>
+  <!-- Base accent bar -->
+  <rect x="6" y="26" width="20" height="3" rx="1.5" fill="white" opacity="0.3"/>
 </svg>
