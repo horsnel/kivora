@@ -1,6 +1,8 @@
 export const runtime = 'edge'
 import { getSupabaseAdmin } from '@/lib/supabase'
 
+const ADMIN_PASSWORD = 'Ebuka457'
+
 export async function GET(req) {
   try {
     const admin = getSupabaseAdmin()
@@ -8,21 +10,26 @@ export async function GET(req) {
       return Response.json({ error: 'Server configuration error' }, { status: 500 })
     }
 
-    // Verify admin access — check for user_id header set by the client
-    const userId = req.headers.get('x-user-id')
-    if (!userId) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // Auth: accept admin password OR legacy is_admin profile check
+    const adminKey = req.headers.get('x-admin-key')
 
-    // Check if user is admin
-    const { data: profile, error: profileError } = await admin
-      .from('profiles')
-      .select('is_admin')
-      .eq('id', userId)
-      .single()
+    if (adminKey === ADMIN_PASSWORD) {
+      // Password gate — allowed
+    } else {
+      // Fallback: check user_id + is_admin profile
+      const userId = req.headers.get('x-user-id')
+      if (!userId) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      const { data: profile, error: profileError } = await admin
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', userId)
+        .single()
 
-    if (profileError || !profile?.is_admin) {
-      return Response.json({ error: 'Forbidden — admin access required' }, { status: 403 })
+      if (profileError || !profile?.is_admin) {
+        return Response.json({ error: 'Forbidden — admin access required' }, { status: 403 })
+      }
     }
 
     // Fetch all metrics in parallel

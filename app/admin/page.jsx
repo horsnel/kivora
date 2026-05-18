@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabasePublic } from '@/lib/supabase'
+// Admin page is password-gated — no Supabase auth required
 import { IconDashboard, IconUser, IconChat, IconSearch, IconMail, IconBook, IconSpinner, IconClock } from '@/components/Icons'
 
 function IconShield({ size = 16, className = '' }) {
@@ -32,7 +32,6 @@ const ADMIN_PASSWORD = 'Ebuka457'
 
 export default function AdminPage() {
   const router = useRouter()
-  const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [forbidden, setForbidden] = useState(false)
   const [data, setData] = useState(null)
@@ -106,14 +105,9 @@ export default function AdminPage() {
 
   async function checkAuth() {
     try {
-      if (!supabasePublic) { setForbidden(true); setLoading(false); return }
-      const { data: { user } } = await supabasePublic.auth.getUser()
-      if (!user) { router.push('/auth'); return }
-      setUser(user)
-
-      // Fetch admin data
+      // Fetch admin data using password key (no Supabase auth required)
       const res = await fetch('/api/admin', {
-        headers: { 'x-user-id': user.id },
+        headers: { 'x-admin-key': ADMIN_PASSWORD },
       })
       if (res.status === 403) { setForbidden(true); setLoading(false); return }
       if (!res.ok) throw new Error('Failed to fetch admin data')
