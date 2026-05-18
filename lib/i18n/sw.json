@@ -735,5 +735,7 @@
   "devtools.title": "ZanaDev",
   "devtools.split": 4,
   "opportunities.split": 5,
-  "study.split": 5
+  "study.split": 5,
+  "chat.starter.build": "Build a SaaS",
+  "chat.starter.earn": "Earn with AI"
 }

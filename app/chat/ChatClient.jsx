@@ -24,9 +24,9 @@ const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp']
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
 const STARTERS = [
-  { labelKey: 'chat.starter.whatsapp', icon: IconChat },
-  { labelKey: 'chat.starter.saas', icon: IconLightning },
-  { labelKey: 'chat.starter.automation', icon: IconMoney },
+  { labelKey: 'chat.starter.build', icon: IconChat },
+  { labelKey: 'chat.starter.earn', icon: IconMoney },
+  { labelKey: 'chat.starter.automate', icon: IconLightning },
 ]
 
 const FOCUS_MODES = [
@@ -898,22 +898,19 @@ export default function ChatClient() {
         <div className="flex-1 overflow-y-auto overscroll-behavior-contain">
           <div className="max-w-[720px] mx-auto px-[min(5vw,48px)] py-8 space-y-6">
             {messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center min-h-[70vh] pb-8">
+              <div className="flex flex-col items-center justify-end min-h-[65vh] pb-4">
                 <h2 className="text-[36px] sm:text-[40px] font-semibold tracking-tight text-[#e2e2e2] mb-4">
                   {t('chat.empty.title')}
                 </h2>
-                <p className="text-[17px] text-[#737373] mb-12">
-                  Build, automate, earn — powered by AI
-                </p>
-                <div className="flex flex-col gap-2 w-full max-w-md mx-auto">
+                <div className="flex flex-col gap-5 w-full max-w-md mx-auto mb-4">
                   {STARTERS.map(({ labelKey, icon: Icon }) => (
                     <button
                       key={labelKey}
                       onClick={() => setInput(t(labelKey))}
-                      className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] hover:border-white/[0.1] rounded-xl px-4 py-3 text-[#a3a3a3] hover:text-[#e2e2e2] text-left transition-all duration-200 ease-out"
+                      className="flex items-center gap-4 bg-transparent border-none px-0 py-0 text-[#a3a3a3] hover:text-[#e2e2e2] text-left transition-colors duration-150"
                     >
-                      <Icon size={14} className="text-[#525252] shrink-0" />
-                      <span className="text-[13px] leading-[1.4]">{t(labelKey)}</span>
+                      <Icon size={16} className="text-[#525252] shrink-0" />
+                      <span className="text-[16px] whitespace-nowrap">{t(labelKey)}</span>
                     </button>
                   ))}
                 </div>
