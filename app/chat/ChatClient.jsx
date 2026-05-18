@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconPlus, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSpeaker, IconSliders } from '@/components/Icons'
+import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconPlus, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSpeaker, IconSliders, IconSettings } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
@@ -822,8 +822,17 @@ export default function ChatClient() {
           )}
         </div>
 
-        {/* ── Profile avatar only — pinned to bottom ── */}
-        <div className="p-2.5 border-t border-[#181818] shrink-0">
+        {/* ── Settings link + Profile avatar — pinned to bottom ── */}
+        <div className="p-2.5 border-t border-[#181818] shrink-0 space-y-0.5">
+          <Link
+            href="/chat/settings"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-[#737373] hover:text-white hover:bg-[#141414] transition-colors font-medium"
+            onClick={() => setHistoryOpen(false)}
+          >
+            <IconSettings size={14} className="shrink-0" />
+            {t('chat.settings') || 'Settings'}
+          </Link>
+
           {user ? (
             <Link
               href="/profile"

@@ -90,14 +90,9 @@ export default function WelcomePage() {
             </span>
           </Link>
 
-          <div className="flex items-center gap-3">
-            <Link href="/auth?mode=signin" className="text-sm text-[#737373] hover:text-white transition-colors font-medium">
-              {t('auth.signin')}
-            </Link>
-            <Link href="/auth?mode=signup" className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded-lg font-semibold transition-colors">
-              {t('welcome.cta.primary')}
-            </Link>
-          </div>
+          <Link href="/auth?mode=signin" className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded-lg font-semibold transition-colors">
+            {t('auth.signin')}
+          </Link>
         </div>
       </nav>
 
