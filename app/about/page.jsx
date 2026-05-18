@@ -12,7 +12,6 @@ export default function AboutPage() {
 
         {/* Header */}
         <div className="mb-16 animate-fade-up">
-          <p className="text-xs text-[#737373] font-mono uppercase tracking-widest mb-4">{t('about.title')}</p>
           <h1 className="text-4xl font-semibold tracking-tight mb-5 leading-tight">
             {t('about.hero1')}
             <span className="text-red-500"> {t('about.hero2')}</span>

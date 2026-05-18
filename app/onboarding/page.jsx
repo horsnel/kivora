@@ -147,16 +147,8 @@ export default function OnboardingPage() {
       <div className="w-full max-w-lg">
         {/* Progress */}
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-red-600 rounded-md flex items-center justify-center">
-              <svg width="10" height="10" viewBox="0 0 14 14" fill="none"><path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white"/></svg>
-            </div>
-            <span className="font-bold text-sm">Ki<span className="text-red-500">vora</span></span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-[#737373]">{t('onboarding.step_of', { current: step + 1, total: STEPS.length })}</span>
-            <button onClick={skip} className="text-xs text-[#404040] hover:text-[#737373] transition-colors">{t('onboarding.skip')}</button>
-          </div>
+          <span className="text-xs text-[#737373]">{t('onboarding.step_of', { current: step + 1, total: STEPS.length })}</span>
+          <button onClick={skip} className="text-xs text-[#404040] hover:text-[#737373] transition-colors">{t('onboarding.skip')}</button>
         </div>
 
         {/* Progress bar */}

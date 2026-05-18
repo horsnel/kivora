@@ -93,7 +93,6 @@ export default function BlogPage() {
 
         {/* Header */}
         <div className="mb-12 animate-fade-up">
-          <p className="text-xs text-[#737373] font-mono uppercase tracking-widest mb-3">Kivora Blog</p>
           <h1 className="text-4xl font-semibold tracking-tight mb-3">
             Guides for builders.<br />
             <span className="text-red-500">No fluff.</span>
