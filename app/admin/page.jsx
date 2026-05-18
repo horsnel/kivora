@@ -28,6 +28,8 @@ const TOOL_LABELS = {
   devtools_api_analyzer: 'API Analyzer',
 }
 
+const ADMIN_PASSWORD = 'Ebuka457'
+
 export default function AdminPage() {
   const router = useRouter()
   const [user, setUser] = useState(null)
@@ -35,7 +37,72 @@ export default function AdminPage() {
   const [forbidden, setForbidden] = useState(false)
   const [data, setData] = useState(null)
 
-  useEffect(() => { checkAuth() }, [])
+  // Password gate state
+  const [unlocked, setUnlocked] = useState(false)
+  const [passwordInput, setPasswordInput] = useState('')
+  const [passwordError, setPasswordError] = useState(false)
+
+  // Check sessionStorage for persisted unlock
+  useEffect(() => {
+    if (typeof window !== 'undefined' && sessionStorage.getItem('kivora-admin-unlocked') === '1') {
+      setUnlocked(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (unlocked) checkAuth()
+  }, [unlocked])
+
+  function handlePasswordSubmit(e) {
+    e.preventDefault()
+    if (passwordInput === ADMIN_PASSWORD) {
+      sessionStorage.setItem('kivora-admin-unlocked', '1')
+      setUnlocked(true)
+      setPasswordError(false)
+    } else {
+      setPasswordError(true)
+    }
+  }
+
+  // ── Password gate screen ──
+  if (!unlocked) return (
+    <main className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4">
+      <div className="w-full max-w-sm">
+        <div className="bg-[#141414] border border-white/[0.06] rounded-2xl p-8">
+          <div className="w-12 h-12 bg-[#1a1a1a] rounded-xl flex items-center justify-center mx-auto mb-5">
+            <IconShield size={20} className="text-[#525252]" />
+          </div>
+          <h2 className="font-semibold text-[17px] text-white text-center mb-1.5 tracking-tight">Admin Access</h2>
+          <p className="text-[13px] text-[#737373] text-center mb-6">Enter the admin password to continue</p>
+          <form onSubmit={handlePasswordSubmit}>
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={e => { setPasswordInput(e.target.value); setPasswordError(false) }}
+              placeholder="Password"
+              autoFocus
+              className={`w-full bg-[#0a0a0a] border ${passwordError ? 'border-red-500/60' : 'border-[#262626]'} rounded-xl px-4 py-3 text-[15px] text-white placeholder-[#525252] outline-none focus:border-white/[0.15] transition-colors mb-1`}
+            />
+            {passwordError && (
+              <p className="text-[12px] text-red-400 mb-3 px-1">Incorrect password</p>
+            )}
+            <button
+              type="submit"
+              className="w-full bg-[#dc2626] hover:bg-red-700 text-white text-[14px] font-semibold py-3 rounded-xl transition-colors mt-3"
+            >
+              Unlock
+            </button>
+          </form>
+        </div>
+        <button
+          onClick={() => router.push('/discover')}
+          className="text-[#525252] hover:text-[#a3a3a3] text-[13px] flex items-center justify-center gap-1 mx-auto mt-5 transition-colors"
+        >
+          ← Back to Kivora
+        </button>
+      </div>
+    </main>
+  )
 
   async function checkAuth() {
     try {
