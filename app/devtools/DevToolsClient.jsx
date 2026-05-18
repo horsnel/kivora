@@ -1002,7 +1002,7 @@ export default function DevToolsClient() {
 
         {/* All tools quick reference */}
         <div className="mt-10 border-t border-[#141414] pt-10">
-          <h2 className="font-semibold text-base tracking-tight mb-6">{t('devtools.all_tools')}</h2>
+          <h2 className="font-semibold text-base tracking-tight mb-6 text-[#737373]">{t('devtools.all_tools')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {CATEGORIES.map(cat => (
               <div key={cat.id} className="bg-[#141414] rounded-xl p-4">

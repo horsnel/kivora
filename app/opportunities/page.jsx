@@ -422,7 +422,7 @@ export default function OpportunitiesPage() {
             <div className="w-10 h-10 bg-[#141414] border border-white/[0.06] rounded-xl flex items-center justify-center mx-auto mb-3">
               <IconSearch size={20} className="text-[#2e2e2e]" />
             </div>
-            <h3 className="font-semibold mb-1.5 tracking-tight">{t('opportunities.no_results')}</h3>
+            <h3 className="font-semibold mb-1.5 tracking-tight text-[#737373]">{t('opportunities.no_results')}</h3>
             <p className="text-muted text-body mb-4">{search ? t('opportunities.no_matches', { search }) : t('opportunities.no_cat_results')}</p>
             <button onClick={() => { setSearch(''); setCat('All') }} className="text-red-500 hover:text-red-400 text-body">{t('opportunities.clear_filters')}</button>
           </div>
@@ -436,7 +436,7 @@ export default function OpportunitiesPage() {
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
               <div>
-                <h3 className="font-semibold text-body tracking-tight line-clamp-1">{checklistOpp.result?.title || checklistOpp.query}</h3>
+                <h3 className="font-semibold text-body tracking-tight line-clamp-1 text-[#737373]">{checklistOpp.result?.title || checklistOpp.query}</h3>
                 <p className="text-caption text-muted2 mt-0.5">{t('opportunities.action_plan')}</p>
               </div>
               <button onClick={() => setChecklistSlug(null)} className="text-muted2 hover:text-white transition-colors p-1">
@@ -523,7 +523,7 @@ export default function OpportunitiesPage() {
             <div className="flex items-center justify-between p-5 border-b border-white/[0.06] sticky top-0 bg-[#141414] z-10">
               <div className="flex items-center gap-2">
                 <IconCompare size={16} className="text-red-500" />
-                <h3 className="font-semibold text-body tracking-tight">{t('opportunities.compare_title')}</h3>
+                <h3 className="font-semibold text-body tracking-tight text-[#737373]">{t('opportunities.compare_title')}</h3>
               </div>
               <button onClick={() => setShowCompare(false)} className="text-muted2 hover:text-white transition-colors p-1">
                 <IconClose size={16} />

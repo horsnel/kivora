@@ -4,17 +4,6 @@ import { supabasePublic } from '@/lib/supabase'
 import { useTranslation } from '@/components/LanguageProvider'
 import { IconChat, IconArrowLeft, IconPlus, IconSpinner, IconTrash, IconSend, IconUser } from '@/components/Icons'
 
-function IconForum({ size = 16, className = '' }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
-      <path d="M2 3a1 1 0 011-1h10a1 1 0 011 1v7a1 1 0 01-1 1H9l-3 3v-3H3a1 1 0 01-1-1V3z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
-      <path d="M5 6h6M5 8.5h3" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
-      <circle cx="12" cy="11" r="3" fill="#0a0a0a" stroke="currentColor" strokeWidth="1.25"/>
-      <path d="M12 9.5v3M10.5 11h3" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-    </svg>
-  )
-}
-
 const inputClass = "w-full bg-[#0a0a0a] border border-[#262626] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors"
 
 export default function CommunityPage() {
@@ -165,14 +154,9 @@ export default function CommunityPage() {
       <div className="max-w-5xl mx-auto px-4 py-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-8 animate-fade-up">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-[#141414] rounded-xl flex items-center justify-center">
-              <IconForum size={14} className="text-[#737373]" />
-            </div>
-            <div>
-              <h1 className="font-semibold text-headline tracking-tight">{t('community.title')}</h1>
-              <p className="text-[#737373] text-caption">{t('community.subtitle')}</p>
-            </div>
+          <div>
+            <h1 className="text-display font-semibold mb-2 tracking-tight">{t('community.title')}</h1>
+            <p className="text-[#737373] text-body">{t('community.subtitle')}</p>
           </div>
           {user && (
             <button
@@ -202,7 +186,7 @@ export default function CommunityPage() {
             <div className="w-12 h-12 bg-[#141414] rounded-xl flex items-center justify-center mx-auto mb-4">
               <IconChat size={20} className="text-[#2e2e2e]" />
             </div>
-            <h3 className="font-semibold text-headline mb-2 tracking-tight">{t('community.empty')}</h3>
+            <h3 className="font-semibold text-headline mb-2 tracking-tight text-[#737373]">{t('community.empty')}</h3>
             <p className="text-[#737373] text-body mb-6">{t('community.empty_desc')}</p>
             {user && (
               <button

@@ -144,7 +144,7 @@ export default function WelcomePage() {
               <div className="w-9 h-9 bg-[#1a1a1a] rounded-xl flex items-center justify-center mb-4 group-hover:bg-red-950/20 transition-colors">
                 <Icon size={16} className="text-[#737373] group-hover:text-red-400 transition-colors" />
               </div>
-              <h3 className="font-semibold text-sm mb-2 tracking-tight">{title}</h3>
+              <h3 className="font-semibold text-sm mb-2 tracking-tight text-[#737373]">{title}</h3>
               <p className="text-[#737373] text-xs leading-relaxed">{desc}</p>
             </div>
           ))}
@@ -167,7 +167,7 @@ export default function WelcomePage() {
               <div key={step.n} className="flex gap-4 sm:gap-5 bg-[#141414] rounded-xl p-5 sm:p-6">
                 <span className="text-red-500 font-mono text-sm font-bold shrink-0 mt-0.5 w-6">{step.n}</span>
                 <div>
-                  <h3 className="font-semibold text-sm mb-1.5 tracking-tight">{step.title}</h3>
+                  <h3 className="font-semibold text-sm mb-1.5 tracking-tight text-[#737373]">{step.title}</h3>
                   <p className="text-[#737373] text-sm leading-relaxed">{step.desc}</p>
                 </div>
               </div>
@@ -196,7 +196,7 @@ export default function WelcomePage() {
                 <IconCheck size={10} className="text-red-400" />
               </div>
               <div>
-                <h4 className="font-semibold text-sm mb-1 tracking-tight">{item.title}</h4>
+                <h4 className="font-semibold text-sm mb-1 tracking-tight text-[#737373]">{item.title}</h4>
                 <p className="text-[#737373] text-xs leading-relaxed">{item.desc}</p>
               </div>
             </div>

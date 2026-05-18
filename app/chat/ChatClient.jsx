@@ -97,7 +97,15 @@ export default function ChatClient() {
   const [isListening, setIsListening] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [speakingIndex, setSpeakingIndex] = useState(null)
+  const [voiceToast, setVoiceToast] = useState(null) // { type: 'error'|'info', message: string }
+  const voiceToastTimer = useRef(null)
   const recognitionRef = useRef(null)
+
+  function showVoiceToast(type, message) {
+    if (voiceToastTimer.current) clearTimeout(voiceToastTimer.current)
+    setVoiceToast({ type, message })
+    voiceToastTimer.current = setTimeout(() => setVoiceToast(null), 4000)
+  }
 
   // Feature: System Prompt Customization
   const [customSystemPrompt, setCustomSystemPrompt] = useState('')
@@ -294,6 +302,7 @@ export default function ChatClient() {
       if (typeof window !== 'undefined' && window.speechSynthesis) {
         window.speechSynthesis.cancel()
       }
+      if (voiceToastTimer.current) clearTimeout(voiceToastTimer.current)
     }
   }, [])
 
@@ -497,12 +506,19 @@ export default function ChatClient() {
   }
 
   // ── Voice Input (ASR) ──
-  function toggleListening() {
-    const SpeechRecognition = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)
-    if (!SpeechRecognition) return // Handled by UI tooltip
+  async function toggleListening(e) {
+    // Do NOT call e.preventDefault() — it blocks the browser's permission popup
+    // by cancelling the "user gesture" that the browser requires.
+    if (e) { e.stopPropagation() }
+    if (typeof window === 'undefined') return
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+
+    if (!SpeechRecognition) {
+      showVoiceToast('error', t('chat.voice_not_supported') || 'Voice input is not supported in this browser. Please use Chrome or Edge.')
+      return
+    }
 
     if (isListening) {
-      // Stop listening
       if (recognitionRef.current) {
         recognitionRef.current.stop()
       }
@@ -510,24 +526,59 @@ export default function ChatClient() {
       return
     }
 
+    // Explicitly request microphone permission via getUserMedia first.
+    // This guarantees the browser shows the permission popup.
+    // SpeechRecognition.start() alone often fails to trigger the popup.
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      // Release the stream immediately — we only needed the permission grant
+      stream.getTracks().forEach(track => track.stop())
+    } catch (err) {
+      setIsListening(false)
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        showVoiceToast('error', t('chat.voice_permission_denied') || 'Microphone access denied. Please allow microphone permissions in your browser settings.')
+      } else if (err.name === 'NotFoundError') {
+        showVoiceToast('error', t('chat.voice_no_mic') || 'No microphone found. Please connect a microphone.')
+      } else {
+        showVoiceToast('error', t('chat.voice_error') || 'Voice input error. Please try again.')
+      }
+      return
+    }
+
     const recognition = new SpeechRecognition()
-    recognition.continuous = false
-    recognition.interimResults = false
+    recognition.continuous = true
+    recognition.interimResults = true
     recognition.lang = 'en-US'
 
+    let finalTranscript = ''
+
     recognition.onresult = (event) => {
-      const transcript = event.results[0]?.[0]?.transcript || ''
-      if (transcript) {
-        setInput(prev => prev ? prev + ' ' + transcript : transcript)
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript
+        }
+      }
+      if (finalTranscript) {
+        setInput(prev => prev ? prev + ' ' + finalTranscript : finalTranscript)
+        finalTranscript = ''
         if (textareaRef.current) {
           setTimeout(() => autoResize(textareaRef.current), 0)
         }
       }
-      setIsListening(false)
     }
 
-    recognition.onerror = () => {
+    recognition.onerror = (event) => {
       setIsListening(false)
+      if (event.error === 'not-allowed') {
+        showVoiceToast('error', t('chat.voice_permission_denied') || 'Microphone access denied. Please allow microphone permissions in your browser settings.')
+      } else if (event.error === 'no-speech') {
+        showVoiceToast('info', t('chat.voice_no_speech') || 'No speech detected. Please try again.')
+      } else if (event.error === 'audio-capture') {
+        showVoiceToast('error', t('chat.voice_no_mic') || 'No microphone found. Please connect a microphone.')
+      } else {
+        showVoiceToast('error', t('chat.voice_error') || 'Voice input error. Please try again.')
+      }
     }
 
     recognition.onend = () => {
@@ -535,8 +586,14 @@ export default function ChatClient() {
     }
 
     recognitionRef.current = recognition
-    recognition.start()
     setIsListening(true)
+    try {
+      recognition.start()
+      showVoiceToast('info', t('chat.voice_listening') || 'Listening... Speak now.')
+    } catch (e) {
+      setIsListening(false)
+      showVoiceToast('error', t('chat.voice_error') || 'Voice input error. Please try again.')
+    }
   }
 
   // ── TTS Output ──
@@ -723,7 +780,7 @@ export default function ChatClient() {
               {customizeOpen && (
                 <div className="absolute top-full right-0 mt-1.5 w-72 bg-[#141414] border border-[#262626] rounded-xl shadow-2xl z-50 p-3 animate-scale-in overflow-hidden">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-body-sm font-medium text-white">{t('chat.custom_prompt')}</span>
+                    <span className="text-body-sm font-medium text-[#737373]">{t('chat.custom_prompt')}</span>
                     <button
                       onClick={resetCustomSystemPrompt}
                       className="text-[11px] text-[#525252] hover:text-red-400 transition-colors"
@@ -913,6 +970,23 @@ export default function ChatClient() {
         {/* ── Expandable Chat Bar ────────────────────── */}
         <div className="shrink-0 px-4 pb-4 pt-2" style={{ overflow: 'visible' }}>
           <div className="max-w-3xl mx-auto" style={{ overflow: 'visible' }}>
+            {/* Voice toast notification */}
+            {voiceToast && (
+              <div className={`mb-2 flex items-center justify-center animate-slide-down`}>
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium ${
+                  voiceToast.type === 'error'
+                    ? 'bg-red-950/60 border border-red-900/40 text-red-400'
+                    : 'bg-[#1a1a1a] border border-[#262626] text-[#a3a3a3]'
+                }`}>
+                  {voiceToast.type === 'info' && isListening ? (
+                    <span className="relative flex items-center justify-center" style={{ width: 12, height: 12 }}>
+                      <span className="absolute w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
+                    </span>
+                  ) : null}
+                  {voiceToast.message}
+                </div>
+              </div>
+            )}
             {/* File attachment chip */}
             {attachedFile && barExpanded && (
               <div className="mb-2 flex items-center justify-end">
@@ -976,32 +1050,21 @@ export default function ChatClient() {
                 </div>
 
                 {/* Voice input button */}
-                {typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition) ? (
-                  <button
-                    className={`chat-collapsed-btn-circle ${isListening ? 'chat-collapsed-btn-active' : ''}`}
-                    onClick={toggleListening}
-                    aria-label="Voice input"
-                    title={isListening ? 'Stop listening' : 'Voice input'}
-                  >
-                    {isListening ? (
-                      <span className="relative flex items-center justify-center" style={{ width: 18, height: 18 }}>
-                        <span className="absolute w-4 h-4 bg-red-500 rounded-full animate-pulse" />
-                        <IconMicrophone size={18} className="relative z-10 text-red-400" />
-                      </span>
-                    ) : (
-                      <IconMicrophone size={18} />
-                    )}
-                  </button>
-                ) : (
-                  <button
-                    className="chat-collapsed-btn-circle"
-                    disabled
-                    style={{ opacity: 0.35, cursor: 'not-allowed' }}
-                    title="Voice input not supported"
-                  >
+                <button
+                  className={`chat-collapsed-btn-circle ${isListening ? 'chat-collapsed-btn-active' : ''}`}
+                  onClick={toggleListening}
+                  aria-label="Voice input"
+                  title={isListening ? 'Stop listening' : 'Voice input'}
+                >
+                  {isListening ? (
+                    <span className="relative flex items-center justify-center" style={{ width: 18, height: 18 }}>
+                      <span className="absolute w-4 h-4 bg-red-500 rounded-full animate-pulse" />
+                      <IconMicrophone size={18} className="relative z-10 text-red-400" />
+                    </span>
+                  ) : (
                     <IconMicrophone size={18} />
-                  </button>
-                )}
+                  )}
+                </button>
 
                 {/* Send button */}
                 <button
@@ -1083,43 +1146,35 @@ export default function ChatClient() {
                     </button>
 
                     {/* Voice input */}
-                    {typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition) ? (
-                      <button
-                        className={`chat-toolbar-btn ${isListening ? 'chat-toolbar-btn-active' : ''}`}
-                        onClick={toggleListening}
-                        title={isListening ? 'Stop listening' : 'Voice input'}
-                      >
-                        {isListening ? (
-                          <span className="relative flex items-center justify-center" style={{ width: 16, height: 16 }}>
-                            <span className="absolute w-3.5 h-3.5 bg-red-500 rounded-full animate-pulse" />
-                            <IconMicrophone size={16} className="relative z-10" />
-                          </span>
-                        ) : (
-                          <IconMicrophone size={16} />
-                        )}
-                      </button>
-                    ) : (
-                      <button
-                        className="chat-toolbar-btn"
-                        title="Voice input not supported in this browser"
-                        disabled
-                        style={{ opacity: 0.4, cursor: 'not-allowed' }}
-                      >
+                    <button
+                      className={`chat-toolbar-btn ${isListening ? 'chat-toolbar-btn-active' : ''}`}
+                      onClick={toggleListening}
+                      title={isListening ? 'Stop listening' : 'Voice input'}
+                    >
+                      {isListening ? (
+                        <span className="relative flex items-center justify-center" style={{ width: 16, height: 16 }}>
+                          <span className="absolute w-3.5 h-3.5 bg-red-500 rounded-full animate-pulse" />
+                          <IconMicrophone size={16} className="relative z-10" />
+                        </span>
+                      ) : (
                         <IconMicrophone size={16} />
-                      </button>
-                    )}
+                      )}
+                    </button>
 
-                    {/* Model chip — replaces web search */}
+                    {/* Model chip — model selector dropdown (logged in only) */}
+                    {user && (
                     <div className="relative" ref={modelChipDropdownRef}>
                       <button
-                        className="chat-toolbar-btn"
-                        onClick={() => { if (user) { setModelChipDropdownOpen(!modelChipDropdownOpen); setFocusDropdownOpen(false); setProTypeDropdownOpen(false) } }}
-                        title={user ? `Model: ${currentModel.name}` : 'Sign in for models'}
+                        className="chat-model-chip"
+                        onClick={() => { setModelChipDropdownOpen(!modelChipDropdownOpen); setFocusDropdownOpen(false); setProTypeDropdownOpen(false) }}
+                        title={`Model: ${currentModel.name}`}
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10A15 15 0 0 1 12 2z"/></svg>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10A15 15 0 0 1 12 2z"/></svg>
+                        <span>{currentModel.short}</span>
+                        <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M3 5l3 3 3-3"/></svg>
                       </button>
 
-                      {modelChipDropdownOpen && user && (
+                      {modelChipDropdownOpen && (
                         <div className="chat-model-dropdown">
                           {MODELS.map(m => (
                             <button
@@ -1137,6 +1192,7 @@ export default function ChatClient() {
                         </div>
                       )}
                     </div>
+                    )}
                   </div>
 
                   {/* Right actions */}
@@ -1416,6 +1472,32 @@ export default function ChatClient() {
         .chat-toolbar-btn-active:hover {
           background-color: rgba(220, 38, 38, 0.18) !important;
           color: #f87171 !important;
+        }
+
+        /* ── Model chip (visible button with model name) ── */
+        .chat-model-chip {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          padding: 4px 10px;
+          border-radius: 20px;
+          border: 1px solid #2f3232;
+          background: #2d3030;
+          color: #8a8f8f;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 500;
+          font-family: inherit;
+          transition: all 0.15s ease;
+          white-space: nowrap;
+        }
+        .chat-model-chip:hover {
+          border-color: #4c4f4f;
+          color: #c0c4c4;
+          background: #363939;
+        }
+        .chat-model-chip span {
+          line-height: 1;
         }
 
         /* ── Model dropdown (reuses toolbar-btn) ── */
