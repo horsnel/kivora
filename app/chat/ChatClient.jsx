@@ -886,12 +886,15 @@ export default function ChatClient() {
           </div>
           <button
             onClick={clearChat}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-[#737373] hover:text-[#e2e2e2] hover:bg-white/[0.07] hover:border-white/[0.1] transition-all duration-200 ease-out"
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-white/[0.04] border border-white/[0.06] text-[#737373] hover:text-[#e2e2e2] hover:bg-white/[0.07] hover:border-white/[0.1] transition-all duration-200 ease-out"
             aria-label={t('chat.new')}
             title={t('chat.new')}
           >
-            <IconPlus size={14} />
-            <span className="text-[13px] font-medium">{t('chat.new')}</span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M2 3.5a1 1 0 011-1h7a1 1 0 011 1v4.5a1 1 0 01-1 1H6.5L4 11V9H3a1 1 0 01-1-1V3.5z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+              <path d="M11 6h2.5a1 1 0 011 1v3.5a1 1 0 01-1 1H12v1.5L10 11.5h-1" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+              <path d="M5.5 5.5h2" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+            </svg>
           </button>
         </div>
 
