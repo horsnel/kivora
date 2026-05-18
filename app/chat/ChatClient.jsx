@@ -126,6 +126,12 @@ export default function ChatClient() {
   // Chat sidebar search
   const [convSearch, setConvSearch] = useState('')
 
+  // Chat sidebar settings panel
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsExportFormat, setSettingsExportFormat] = useState('md')
+  const [settingsPromptSaved, setSettingsPromptSaved] = useState(false)
+  const [settingsExported, setSettingsExported] = useState(false)
+
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
   const collapsedInputRef = useRef(null)
@@ -765,73 +771,169 @@ export default function ChatClient() {
         {/* ── Spacer ── */}
         <div className="h-3 shrink-0" />
 
-        {/* ── Search conversations ── */}
-        <div className="px-3 shrink-0">
-          <div className="relative">
-            <IconSearch size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#525252] pointer-events-none" />
-            <input
-              type="text"
-              placeholder={t('chat.search_conversations') || 'Search conversations'}
-              value={convSearch}
-              onChange={e => setConvSearch(e.target.value)}
-              className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg pl-8 pr-3 py-1.5 text-[12px] text-[#d4d4d4] placeholder-[#525252] outline-none focus:border-[#3a3a3a] transition-colors"
-              autoComplete="off"
-              spellCheck="false"
-            />
-          </div>
-        </div>
+        {settingsOpen ? (
+          /* ── Settings Panel (replaces conversation list) ── */
+          <div className="flex-1 overflow-y-auto overscroll-behavior-contain px-3 min-h-0">
+            {/* Custom System Prompt */}
+            <div className="mb-5">
+              <div className="flex items-center gap-2 mb-2">
+                <IconSliders size={13} className="text-[#737373]" />
+                <span className="text-xs font-medium text-[#737373]">{t('chat.custom_prompt')}</span>
+              </div>
+              <textarea
+                rows={4}
+                className="w-full bg-[#0a0a0a] border border-[#262626] rounded-lg px-2.5 py-2 text-[12px] text-[#d4d4d4] placeholder-[#525252] resize-none outline-none focus:border-[#3a3a3a] transition-colors"
+                placeholder="e.g. You are a sarcastic coding mentor..."
+                value={customSystemPrompt}
+                onChange={e => {
+                  saveCustomSystemPrompt(e.target.value)
+                  setSettingsPromptSaved(true)
+                  setTimeout(() => setSettingsPromptSaved(false), 1500)
+                }}
+              />
+              <div className="flex items-center justify-between mt-1.5">
+                <button
+                  onClick={() => { resetCustomSystemPrompt(); setSettingsPromptSaved(true); setTimeout(() => setSettingsPromptSaved(false), 1500) }}
+                  className="text-[10px] text-[#525252] hover:text-red-400 transition-colors"
+                >
+                  {t('chat.custom_prompt.reset')}
+                </button>
+                {settingsPromptSaved && (
+                  <span className="text-[10px] text-emerald-400 flex items-center gap-0.5">
+                    <IconCheck size={8} /> Saved
+                  </span>
+                )}
+              </div>
+            </div>
 
-        {/* ── Conversation list ── */}
-        <div className="flex-1 overflow-y-auto overscroll-behavior-contain px-2.5 min-h-0 mt-2">
-          {user && filteredHistory.length > 0 ? (
-            <div className="space-y-3">
-              {filteredHistory.map(group => (
-                <div key={group.labelKey}>
-                  <p className="text-caption text-muted2 px-1 mb-1 uppercase tracking-wider font-medium">{t(group.labelKey)}</p>
-                  <div className="space-y-0.5">
-                    {group.sessions.map(s => (
-                      <button
-                        key={s.id}
-                        onClick={() => loadSession(s)}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-caption transition-colors truncate ${
-                          s.id === sessionId
-                            ? 'bg-[#1a1a1a] text-white'
-                            : 'text-[#525252] hover:text-white hover:bg-[#141414]'
-                        }`}
-                      >
-                        {chatTitle(s)}
-                      </button>
-                    ))}
+            {/* Export Chat */}
+            <div className="mb-2">
+              <div className="flex items-center gap-2 mb-2">
+                <IconDownload size={13} className="text-[#737373]" />
+                <span className="text-xs font-medium text-[#737373]">{t('chat.export.title') || 'Export Chat'}</span>
+              </div>
+
+              {messages.length === 0 ? (
+                <p className="text-[11px] text-[#404040]">{t('chat.history.empty') || 'No conversation to export'}</p>
+              ) : (
+                <>
+                  {/* Format selector */}
+                  <div className="flex gap-1.5 mb-2.5">
+                    <button
+                      onClick={() => setSettingsExportFormat('md')}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                        settingsExportFormat === 'md'
+                          ? 'bg-[#1a1a1a] text-white border border-[#262626]'
+                          : 'text-[#525252] hover:text-white hover:bg-[#141414]'
+                      }`}
+                    >
+                      <IconFile size={10} /> Markdown
+                    </button>
+                    <button
+                      onClick={() => setSettingsExportFormat('txt')}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                        settingsExportFormat === 'txt'
+                          ? 'bg-[#1a1a1a] text-white border border-[#262626]'
+                          : 'text-[#525252] hover:text-white hover:bg-[#141414]'
+                      }`}
+                    >
+                      <IconFile size={10} /> Plain Text
+                    </button>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : user ? (
-            <p className="text-caption text-[#2e2e2e] px-1 pt-2">{convSearch.trim() ? (t('chat.no_results') || 'No conversations found') : (t('chat.history.empty') || 'No conversations yet')}</p>
-          ) : (
-            <div className="px-1 pt-2">
-              <Link
-                href="/auth"
-                className="flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-caption py-2 rounded-lg transition-colors font-semibold w-full"
-                onClick={() => setHistoryOpen(false)}
-              >
-                <IconUser size={12} />
-                {t('chat.history.signin')}
-              </Link>
-            </div>
-          )}
-        </div>
 
-        {/* ── Settings link + Profile avatar — pinned to bottom ── */}
+                  {/* Export button */}
+                  <button
+                    onClick={() => { exportChat(settingsExportFormat); setSettingsExported(true); setTimeout(() => setSettingsExported(false), 2000) }}
+                    className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-semibold transition-colors ${
+                      settingsExported
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-[#dc2626] hover:bg-red-700 text-white'
+                    }`}
+                  >
+                    {settingsExported ? (
+                      <><IconCheck size={12} /> Exported</>
+                    ) : (
+                      <><IconDownload size={12} /> {settingsExportFormat === 'md' ? (t('chat.export.md') || 'Export as Markdown') : (t('chat.export.txt') || 'Export as Text')}</>
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* ── Search conversations ── */}
+            <div className="px-3 shrink-0">
+              <div className="relative">
+                <IconSearch size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#525252] pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder={t('chat.search_conversations') || 'Search conversations'}
+                  value={convSearch}
+                  onChange={e => setConvSearch(e.target.value)}
+                  className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg pl-8 pr-3 py-1.5 text-[12px] text-[#d4d4d4] placeholder-[#525252] outline-none focus:border-[#3a3a3a] transition-colors"
+                  autoComplete="off"
+                  spellCheck="false"
+                />
+              </div>
+            </div>
+
+            {/* ── Conversation list ── */}
+            <div className="flex-1 overflow-y-auto overscroll-behavior-contain px-2.5 min-h-0 mt-2">
+              {user && filteredHistory.length > 0 ? (
+                <div className="space-y-3">
+                  {filteredHistory.map(group => (
+                    <div key={group.labelKey}>
+                      <p className="text-caption text-muted2 px-1 mb-1 uppercase tracking-wider font-medium">{t(group.labelKey)}</p>
+                      <div className="space-y-0.5">
+                        {group.sessions.map(s => (
+                          <button
+                            key={s.id}
+                            onClick={() => loadSession(s)}
+                            className={`w-full text-left px-3 py-2 rounded-lg text-caption transition-colors truncate ${
+                              s.id === sessionId
+                                ? 'bg-[#1a1a1a] text-white'
+                                : 'text-[#525252] hover:text-white hover:bg-[#141414]'
+                            }`}
+                          >
+                            {chatTitle(s)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : user ? (
+                <p className="text-caption text-[#2e2e2e] px-1 pt-2">{convSearch.trim() ? (t('chat.no_results') || 'No conversations found') : (t('chat.history.empty') || 'No conversations yet')}</p>
+              ) : (
+                <div className="px-1 pt-2">
+                  <Link
+                    href="/auth"
+                    className="flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-caption py-2 rounded-lg transition-colors font-semibold w-full"
+                    onClick={() => setHistoryOpen(false)}
+                  >
+                    <IconUser size={12} />
+                    {t('chat.history.signin')}
+                  </Link>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ── Settings toggle + Profile avatar — pinned to bottom ── */}
         <div className="p-2.5 border-t border-[#181818] shrink-0 space-y-0.5">
-          <Link
-            href="/chat/settings"
-            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-[#737373] hover:text-white hover:bg-[#141414] transition-colors font-medium"
-            onClick={() => setHistoryOpen(false)}
+          <button
+            onClick={() => setSettingsOpen(!settingsOpen)}
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors font-medium ${
+              settingsOpen
+                ? 'bg-[#1a1a1a] text-white'
+                : 'text-[#737373] hover:text-white hover:bg-[#141414]'
+            }`}
           >
             <IconSettings size={14} className="shrink-0" />
-            {t('chat.settings') || 'Settings'}
-          </Link>
+            {settingsOpen ? (t('nav.explore') || 'Explore') : (t('chat.settings') || 'Settings')}
+          </button>
 
           {user ? (
             <Link
