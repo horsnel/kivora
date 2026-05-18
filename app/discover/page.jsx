@@ -265,7 +265,7 @@ export default function DiscoverPage() {
         </div>
 
         {/* Did You Know? — Cinematic carousel */}
-        <div className="relative rounded-2xl overflow-hidden group" style={{ minHeight: 200 }}>
+        <div className="relative rounded-2xl overflow-hidden group" style={{ minHeight: 280 }}>
           {/* Atmospheric background layers */}
           <div className="absolute inset-0 bg-[#0c0c0c]" />
           <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(220,38,38,0.08)_0%,transparent_50%,rgba(220,38,38,0.04)_100%)]" />
@@ -276,13 +276,13 @@ export default function DiscoverPage() {
           <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-red-500/10 to-transparent" />
 
           {/* Slide content with crossfade */}
-          <div className="relative p-6 sm:p-8 flex items-start gap-4" style={{ minHeight: 200 }}>
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-red-500/10 border border-red-500/20">
-              <IconLightning size={18} className="text-red-400" />
+          <div className="relative p-8 sm:p-10 flex items-start gap-5" style={{ minHeight: 280 }}>
+            <div className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0 bg-red-500/10 border border-red-500/20">
+              <IconLightning size={22} className="text-red-400" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-red-400/80 font-semibold mb-3">{t('discover.didyouknow')}</p>
-              <p key={factIndex} className="text-[15px] sm:text-base text-[#d4d4d4] leading-relaxed" style={{ animation: 'fadeIn 0.6s ease forwards' }}>{FACTS[factIndex]}</p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-red-400/80 font-semibold mb-3">{t('discover.didyouknow')}</p>
+              <p key={factIndex} className="text-base sm:text-lg text-[#d4d4d4] leading-relaxed" style={{ animation: 'fadeIn 0.6s ease forwards' }}>{FACTS[factIndex]}</p>
             </div>
           </div>
 
