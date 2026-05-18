@@ -264,28 +264,28 @@ export default function DiscoverPage() {
           </div>
         </div>
 
-        {/* Did You Know? — Spotlight carousel */}
-        <div className="relative rounded-xl overflow-hidden border border-[#1e2d42] bg-[#111720]" style={{ minHeight: 200 }}>
-          {/* Carousel track */}
-          <div
-            className="flex will-change-transform"
-            style={{ transform: `translateX(-${factIndex * 100}%)`, transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)' }}
-          >
-            {FACTS.map((fact, i) => (
-              <div key={i} className="min-w-full shrink-0 relative">
-                {/* Gradient bg */}
-                <div className="absolute inset-0 bg-[linear-gradient(160deg,#1a0f0f,#2d1010_40%,#1a0808)]" />
-                {/* Bottom gradient overlay */}
-                <div className="absolute bottom-0 left-0 right-0 h-[70%] bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
-                {/* Content */}
-                <div className="relative px-5 pt-5 pb-10">
-                  <span className="inline-block text-[9px] font-bold tracking-[0.1em] uppercase text-amber-500 bg-amber-500/12 border border-amber-500/25 px-2 py-0.5 rounded-[3px] mb-3">
-                    {t('discover.didyouknow')}
-                  </span>
-                  <p className="text-[15px] text-white leading-relaxed font-medium">{fact}</p>
-                </div>
-              </div>
-            ))}
+        {/* Did You Know? — Bigger card with overlays */}
+        <div className="relative rounded-xl overflow-hidden border border-[#262626] bg-[#141414]" style={{ minHeight: 180 }}>
+          {/* Subtle red gradient background for depth */}
+          <div className="absolute inset-0 bg-[linear-gradient(160deg,#1a0a0a,#1f0e0e_40%,#0f0505)]" />
+          {/* Bottom gradient overlay — ensures text readability */}
+          <div className="absolute bottom-0 left-0 right-0 h-[65%] bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
+          {/* Content */}
+          <div className="relative p-6 sm:p-8 flex items-start gap-4 group">
+            <div className="w-10 h-10 bg-[#1a1a1a] rounded-lg flex items-center justify-center shrink-0">
+              <IconLightning size={18} className="text-red-400" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] uppercase tracking-widest text-red-400 font-semibold mb-2">{t('discover.didyouknow')}</p>
+              <p className="text-[15px] sm:text-base text-[#d4d4d4] leading-relaxed transition-all duration-500">{FACTS[factIndex]}</p>
+            </div>
+            <button
+              onClick={() => setFactIndex(prev => (prev + 1) % FACTS.length)}
+              className="text-[#737373] hover:text-white transition-colors shrink-0 mt-1"
+              title={t('discover.next_fact')}
+            >
+              <IconArrowRight size={16} />
+            </button>
           </div>
           {/* Navigation dots */}
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center justify-center gap-1.5 z-10">
@@ -295,8 +295,8 @@ export default function DiscoverPage() {
                 onClick={() => setFactIndex(i)}
                 className={`h-1.5 rounded-full transition-all duration-300 ${
                   i === factIndex
-                    ? 'w-5 bg-amber-500'
-                    : 'w-1.5 bg-white/40 hover:bg-white/60'
+                    ? 'w-5 bg-red-500'
+                    : 'w-1.5 bg-white/30 hover:bg-white/50'
                 }`}
               />
             ))}

@@ -109,19 +109,19 @@ export default function HomePage() {
           {/* Search row — larger, more prominent */}
           <div className="flex flex-col sm:flex-row gap-2 animate-fade-up animate-fade-up-3">
             <div className="relative flex-1">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted2 pointer-events-none">
-                <IconSearch size={20} />
+              <div className="absolute left-5 top-1/2 -translate-y-1/2 text-muted2 pointer-events-none">
+                <IconSearch size={22} />
               </div>
               <input
                 ref={inputRef}
-                className="w-full bg-[#141414] border border-[#262626] rounded-2xl pl-12 pr-12 py-6 sm:py-7 text-lg sm:text-xl text-white placeholder-muted2 transition-all focus:border-red-500/60 focus:shadow-[0_0_0_3px_rgba(220,38,38,0.1),0_0_24px_rgba(220,38,38,0.06)]"
+                className="w-full bg-[#141414] border border-[#262626] rounded-2xl pl-14 pr-14 py-7 sm:py-9 text-xl sm:text-2xl text-white placeholder-muted2 transition-all focus:border-red-500/60 focus:shadow-[0_0_0_3px_rgba(220,38,38,0.1),0_0_24px_rgba(220,38,38,0.06)]"
                 placeholder={displayText || t('home.placeholder')}
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
               />
               {query && (
-                <button onClick={() => setQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted2 hover:text-white transition-colors">
+                <button onClick={() => setQuery('')} className="absolute right-5 top-1/2 -translate-y-1/2 text-muted2 hover:text-white transition-colors">
                   <svg width={12} height={12} viewBox="0 0 12 12" fill="none"><path d="M2 2l8 8M10 2L2 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                 </button>
               )}
@@ -129,9 +129,9 @@ export default function HomePage() {
             <button
               onClick={() => handleSearch()}
               disabled={loading || !query.trim()}
-              className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white px-8 py-6 sm:py-7 rounded-2xl font-semibold text-lg transition-colors flex items-center justify-center gap-2 press"
+              className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white px-10 py-7 sm:py-9 rounded-2xl font-semibold text-xl transition-colors flex items-center justify-center gap-2 press"
             >
-              {loading ? <IconSpinner size={18} /> : <IconArrowRight size={18} />}
+              {loading ? <IconSpinner size={22} /> : <IconArrowRight size={22} />}
               {loading ? t('home.thinking') : t('home.explore')}
             </button>
           </div>
