@@ -89,7 +89,7 @@ export default function WelcomePage() {
             <span className="text-[11px] sm:text-xs text-[#737373] font-medium">{t('welcome.badge')}</span>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-semibold leading-[1.08] sm:leading-[1.05] tracking-tight mb-5 sm:mb-6 animate-fade-up animate-fade-up-1">
+          <h1 className="text-display-xl sm:text-[40px] md:text-[56px] font-semibold leading-[1.1] sm:leading-[1.08] tracking-tight mb-5 sm:mb-6 animate-fade-up animate-fade-up-1">
             {t('welcome.title1')}<br />
             <span className="text-red-500">{t('welcome.title2')}</span>
           </h1>
