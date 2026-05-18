@@ -310,7 +310,7 @@ export default function OpportunitiesPage() {
           <div className="relative flex-1">
             <IconSearch size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted2 pointer-events-none" />
             <input
-              className="w-full bg-[#141414] border border-white/[0.06] rounded-xl pl-9 pr-4 py-3 text-body text-white placeholder-muted2 focus:border-red-500 focus:outline-none transition-colors"
+              className="w-full bg-[#141414] border border-[#262626] rounded-xl pl-9 pr-4 py-3 text-body text-white placeholder-muted2 focus:border-red-500 focus:outline-none transition-colors"
               placeholder={t('opportunities.search')}
               value={search}
               onChange={e => setSearch(e.target.value)}
