@@ -89,9 +89,9 @@ export default function WelcomePage() {
             <span className="text-[11px] sm:text-xs text-[#737373] font-medium">{t('welcome.badge')}</span>
           </div>
 
-          <h1 className="text-display-xl sm:text-[40px] md:text-[56px] font-semibold leading-[1.1] sm:leading-[1.08] tracking-tight mb-5 sm:mb-6 animate-fade-up animate-fade-up-1">
-            {t('welcome.title1')}<br />
-            <span className="text-red-500">{t('welcome.title2')}</span>
+          <h1 className="text-[clamp(2.5rem,8vw,5rem)] font-extrabold leading-[1.05] tracking-[-0.02em] text-white mb-5 sm:mb-6 max-w-[15ch] mx-auto animate-fade-up animate-fade-up-1">
+            Intelligence for<br />
+            <span className="bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] bg-clip-text text-transparent">builders</span> everywhere.
           </h1>
 
           <p className="text-[#737373] text-base sm:text-lg md:text-xl mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed animate-fade-up animate-fade-up-2 px-2 sm:px-0">
