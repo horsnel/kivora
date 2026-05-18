@@ -37,7 +37,7 @@ export default function ResetPage() {
         </Link>
 
         <div className="text-center mb-8">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center mx-auto mb-4" style={{ background: 'linear-gradient(135deg, #FF6B6B, #FF8E53)' }}>
+          <div className="w-8 h-8 bg-[#dc2626] rounded-lg flex items-center justify-center mx-auto mb-4">
             <svg width="16" height="16" viewBox="0 0 32 32" fill="none">
               <path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95" />
               <path d="M16 4L26 24L16 18Z" fill="white" opacity="0.55" />

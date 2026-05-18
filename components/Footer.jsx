@@ -29,7 +29,7 @@ export default function Footer() {
     <footer className="border-t border-[#141414] mt-12 sm:mt-16 py-6 sm:py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-5 h-5 rounded-md flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FF6B6B, #FF8E53)' }}>
+          <div className="w-5 h-5 bg-[#dc2626] rounded-md flex items-center justify-center">
             <svg width="10" height="10" viewBox="0 0 32 32" fill="none">
               <path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95" />
               <path d="M16 4L26 24L16 18Z" fill="white" opacity="0.55" />
@@ -37,7 +37,7 @@ export default function Footer() {
             </svg>
           </div>
           <span className="font-bold text-caption group-hover:text-white transition-colors">
-            Ki<span style={{ background: 'linear-gradient(135deg, #FF6B6B, #FF8E53)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>vora</span>
+            Ki<span className="text-red-500">vora</span>
           </span>
         </Link>
 

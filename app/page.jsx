@@ -74,6 +74,33 @@ export default function WelcomePage() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
 
+      {/* ── Fixed top bar with logo ── */}
+      <nav className="fixed top-0 left-0 right-0 z-30 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-[#141414]/60">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-12 sm:h-14 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="w-7 h-7 bg-[#dc2626] rounded-lg flex items-center justify-center">
+              <svg width="14" height="14" viewBox="0 0 32 32" fill="none">
+                <path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95" />
+                <path d="M16 4L26 24L16 18Z" fill="white" opacity="0.55" />
+                <rect x="6" y="26" width="20" height="3" rx="1.5" fill="white" opacity="0.3" />
+              </svg>
+            </div>
+            <span className="font-bold text-[15px] tracking-tight">
+              Ki<span className="text-red-500">vora</span>
+            </span>
+          </Link>
+
+          <div className="flex items-center gap-3">
+            <Link href="/auth?mode=signin" className="text-sm text-[#737373] hover:text-white transition-colors font-medium">
+              {t('auth.signin')}
+            </Link>
+            <Link href="/auth?mode=signup" className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded-lg font-semibold transition-colors">
+              {t('welcome.cta.primary')}
+            </Link>
+          </div>
+        </div>
+      </nav>
+
       {/* ── Hero ───────────────────────────────────── */}
       <section className="relative min-h-[85vh] sm:min-h-screen flex flex-col items-center justify-center px-5 sm:px-6 text-center">
         {/* background glow */}
@@ -264,10 +291,10 @@ export default function WelcomePage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 mb-8 sm:mb-10">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FF6B6B, #FF8E53)' }}>
+                <div className="w-6 h-6 bg-[#dc2626] rounded-md flex items-center justify-center">
                   <svg width="12" height="12" viewBox="0 0 32 32" fill="none"><path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95"/><path d="M16 4L26 24L16 18Z" fill="white" opacity="0.55"/><rect x="6" y="26" width="20" height="3" rx="1.5" fill="white" opacity="0.3"/></svg>
                 </div>
-                <span className="font-bold text-sm">Ki<span style={{ background: 'linear-gradient(135deg, #FF6B6B, #FF8E53)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>vora</span></span>
+                <span className="font-bold text-sm">Ki<span className="text-red-500">vora</span></span>
               </div>
               <p className="text-xs text-[#737373] leading-relaxed">{t('welcome.footer.tagline')}</p>
             </div>
