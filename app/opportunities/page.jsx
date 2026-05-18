@@ -224,24 +224,52 @@ export default function OpportunitiesPage() {
         </div>
 
         {/* Generate new */}
-        <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mb-7">
-          <p className="text-caption text-muted font-medium mb-3 flex items-center gap-1.5"><IconPlus size={12} /> {t('opportunities.generate_new')}</p>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <IconSearch size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted2 pointer-events-none" />
-              <input
-                className="w-full bg-[#0a0a0a] border border-[#262626] rounded-xl pl-9 pr-4 py-3 text-body text-white placeholder-muted2 focus:border-red-500 focus:outline-none transition-colors"
-                placeholder="e.g. Build a legal document business with Claude..."
-                value={genQuery}
-                onChange={e => setGenQuery(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && generate()}
-              />
+        <div className="bg-[#141414] border border-[#262626] hover:border-[#3a3a3a] rounded-2xl p-6 mb-7 transition-all">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-9 h-9 bg-red-950/30 border border-red-900/30 rounded-xl flex items-center justify-center shrink-0">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M8 2v12M2 8h12" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
             </div>
-            <button onClick={generate} disabled={generating || !genQuery.trim()}
-              className="bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white px-5 py-3 rounded-xl text-body font-semibold transition-colors flex items-center gap-2 press whitespace-nowrap">
+            <div>
+              <h3 className="font-semibold text-sm tracking-tight">{t('opportunities.generate_new')}</h3>
+              <p className="text-xs text-[#737373] mt-0.5">{t('opportunities.generate_sub')}</p>
+            </div>
+          </div>
+
+          {/* Input */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              className="flex-1 bg-[#0a0a0a] border border-[#262626] focus:border-red-600 rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#404040] outline-none transition-colors"
+              placeholder="e.g. WhatsApp bot business, faceless YouTube channel..."
+              value={genQuery}
+              onChange={e => setGenQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && generate()}
+              disabled={generating}
+            />
+            <button
+              onClick={generate}
+              disabled={generating || !genQuery.trim()}
+              className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center gap-2 whitespace-nowrap press"
+            >
               {generating ? <IconSpinner size={14} /> : <IconArrowRight size={14} />}
               {generating ? t('opportunities.generating') : t('opportunities.generate')}
             </button>
+          </div>
+
+          {/* Suggestion pills */}
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {['whatsapp', 'youtube', 'agency', 'shopify', 'telegram'].map(s => (
+              <button
+                key={s}
+                onClick={() => setGenQuery(t(`opportunities.sug.${s}`))}
+                className="text-xs text-[#737373] hover:text-white bg-[#1a1a1a] hover:bg-[#222] border border-[#262626] hover:border-[#3a3a3a] px-2.5 py-1 rounded-full transition-all"
+              >
+                {t(`opportunities.sug.${s}`)}
+              </button>
+            ))}
           </div>
         </div>
 
