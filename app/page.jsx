@@ -267,7 +267,7 @@ export default function WelcomePage() {
                 <div className="w-6 h-6 bg-red-600 rounded-md flex items-center justify-center">
                   <svg width="10" height="10" viewBox="0 0 14 14" fill="none"><path d="M3 7L6.5 3.5L10 7L6.5 10.5L3 7Z" fill="white"/></svg>
                 </div>
-                <span className="font-bold text-sm">Ki<span className="text-red-500">vora</span></span>
+                <span className="font-bold text-sm">Ki<span className="bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] bg-clip-text text-transparent">vora</span></span>
               </div>
               <p className="text-xs text-[#737373] leading-relaxed">{t('welcome.footer.tagline')}</p>
             </div>
