@@ -24,7 +24,7 @@ const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp']
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
 const STARTERS = [
-  { labelKey: 'chat.starter.build', icon: IconChat },
+  { labelKey: 'chat.starter.build', icon: IconCode },
   { labelKey: 'chat.starter.earn', icon: IconMoney },
   { labelKey: 'chat.starter.learn', icon: IconBulb },
 ]
@@ -317,10 +317,10 @@ export default function ChatClient() {
   }, [])
 
   // ── Morphing brand mark timer ──
-  // Random 3–7s intervals between shape transitions
+  // Random 1.5–3s intervals between shape transitions
   useEffect(() => {
     if (!morphActive || messages.length > 0) return
-    const delay = 3000 + Math.random() * 4000
+    const delay = 1500 + Math.random() * 1500
     const timer = setTimeout(() => {
       setMorphIndex(prev => (prev + 1) % MORPH_SHAPES.length)
     }, delay)
@@ -965,10 +965,10 @@ export default function ChatClient() {
                 {/* Morphing brand mark — the chat page's nav icon, ghosted and alive in the upper void */}
                 <div className="flex-1 flex items-center justify-center">
                   <div className={`morph-logo-container ${!morphActive ? 'morph-logo-settled' : ''}`}>
-                    <div className="relative w-[80px] h-[80px] sm:w-[96px] sm:h-[96px]">
+                    <div className="relative w-[56px] h-[56px] sm:w-[64px] sm:h-[64px]">
                       {MORPH_SHAPES.map((shape, i) => (
                         <div key={i} className={`morph-shape ${i === morphIndex ? 'morph-shape-active' : ''}`}>
-                          <svg width="64" height="64" viewBox="0 0 32 32" fill="none" className="sm:w-[80px] sm:h-[80px] text-[#525252]">
+                          <svg width="44" height="44" viewBox="0 0 32 32" fill="none" className="sm:w-[52px] sm:h-[52px] text-[#525252]">
                             {shape}
                           </svg>
                         </div>
