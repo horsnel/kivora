@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/LanguageProvider'
 import { supabasePublic } from '@/lib/supabase'
-import { IconCode, IconLightning, IconBulb } from '@/components/Icons'
 
 const MODELS = [
   { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', tag: 'Default · Fastest', short: '3.3 70B' },
@@ -14,12 +13,6 @@ const MODELS = [
 ]
 
 const DEFAULT_MODEL = 'llama-3.3-70b-versatile'
-
-const STARTERS = [
-  { labelKey: 'chat.starter.build', icon: IconCode },
-  { labelKey: 'chat.starter.earn', icon: IconLightning },
-  { labelKey: 'chat.starter.learn', icon: IconBulb },
-]
 
 export default function HomePage() {
   const router = useRouter()
@@ -105,29 +98,10 @@ export default function HomePage() {
             <div className="chat-toolbar-expanded">
               {/* Left actions */}
               <div className="chat-toolbar-left">
-                {/* Focus mode (visual only — redirects to chat) */}
-                <button className="chat-toolbar-btn" title="Focus mode">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
-                </button>
-
                 {/* Attach file (visual only) */}
                 <button className="chat-toolbar-btn" title="Attach file">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-                  </svg>
-                </button>
-
-                {/* Image generation mode (visual only) */}
-                <button className="chat-toolbar-btn" title="Image generation">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>
-                  </svg>
-                </button>
-
-                {/* 3D generation mode (visual only) */}
-                <button className="chat-toolbar-btn" title="3D generation">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z"/><path d="M12 12l9-4.5"/><path d="M12 12v9"/><path d="M12 12L3 7.5"/>
                   </svg>
                 </button>
 
@@ -180,19 +154,6 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Starter pills — same style as ChatClient */}
-          <div className="flex items-center justify-center gap-2 mt-4">
-            {STARTERS.map(({ labelKey, icon: Icon }) => (
-              <button
-                key={labelKey}
-                onClick={() => setInput(t(labelKey))}
-                className="flex items-center gap-2 bg-transparent border border-[#1f1f1f] text-[#737373] hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px px-4 py-2 rounded-full text-[13px] font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em] whitespace-nowrap shrink-0"
-              >
-                <Icon size={13} className="shrink-0" />
-                <span>{t(labelKey)}</span>
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
