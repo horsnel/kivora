@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabasePublic } from '@/lib/supabase'
-import { IconBookmark, IconChat, IconTrash, IconArrowRight, IconUser, IconMail, IconClock, IconCode, IconBook, IconFlame } from '@/components/Icons'
+import { IconBookmark, IconChat, IconTrash, IconArrowRight, IconUser, IconMail, IconClock, IconCode, IconBook, IconFlame, IconTarget, IconPlus, IconClose, IconCheck, IconSearch, IconStar, IconMoney, IconLightning, IconGlobe } from '@/components/Icons'
 import { useTranslation } from '@/components/LanguageProvider'
 
 function IconActivity({ size = 16, className = '' }) {
@@ -173,6 +173,15 @@ export default function DashboardPage() {
   const [activityRange, setActivityRange] = useState('week')
   const [allTimeSessions, setAllTimeSessions] = useState([])
 
+  // ── Goals state (moved from home page) ──
+  const [goals, setGoals] = useState([])
+  const [showGoalModal, setShowGoalModal] = useState(false)
+  const [newGoalType, setNewGoalType] = useState('template')
+  const [customGoalTitle, setCustomGoalTitle] = useState('')
+  const [customGoalMilestones, setCustomGoalMilestones] = useState('')
+  const [showGapAnalysis, setShowGapAnalysis] = useState(null)
+  const [gapInput, setGapInput] = useState({ current: '', target: '' })
+
   useEffect(() => { checkAuth() }, [])
 
   async function checkAuth() {
@@ -183,6 +192,11 @@ export default function DashboardPage() {
     const { data: profile } = await supabasePublic.from('profiles').select('onboarding_done').eq('id', user.id).single()
     if (!profile?.onboarding_done) { router.push('/onboarding'); return }
     await Promise.all([loadSaves(user.id), loadChats(user.id), loadMessages(user.id), loadAllTimeSessions(user.id)])
+    // Load goals from localStorage
+    try {
+      const saved = localStorage.getItem('kv_discover_goals')
+      if (saved) setGoals(JSON.parse(saved))
+    } catch (_) {}
     setLoading(false)
   }
 
@@ -249,6 +263,68 @@ export default function DashboardPage() {
   }
 
   const unreadCount = messages.filter(m => !m.read).length
+
+  // ── Goal helpers ──
+  const GOAL_TEMPLATES = [
+    { label: 'Win a Scholarship', icon: IconStar, milestones: ['Research scholarships', 'Prepare documents', 'Write essays', 'Get recommendations', 'Submit applications', 'Follow up'] },
+    { label: 'Land an Internship', icon: IconTarget, milestones: ['Build portfolio', 'Prepare resume', 'Network & apply', 'Practice interviews', 'Accept offer', 'Onboard & perform'] },
+    { label: 'Start a Side Hustle', icon: IconMoney, milestones: ['Validate idea', 'Build MVP', 'Find first customers', 'Optimize process', 'Scale revenue', 'Automate'] },
+    { label: 'Learn a New Skill', icon: IconLightning, milestones: ['Choose skill & resources', 'Set schedule', 'Practice daily', 'Build projects', 'Get feedback', 'Teach others'] },
+    { label: 'Get a Remote Job', icon: IconGlobe, milestones: ['Identify target roles', 'Optimize profiles', 'Build presence', 'Apply strategically', 'Ace interviews', 'Negotiate offer'] },
+  ]
+
+  function addTemplateGoal(template) {
+    const newGoal = {
+      id: Date.now(),
+      title: template.label,
+      milestones: template.milestones.map(m => ({ text: m, done: false })),
+      type: 'template',
+      createdAt: new Date().toISOString(),
+    }
+    setGoals(prev => [newGoal, ...prev])
+    setShowGoalModal(false)
+  }
+
+  function addCustomGoal() {
+    if (!customGoalTitle.trim()) return
+    const milestones = customGoalMilestones
+      .split('\n').map(s => s.trim()).filter(Boolean)
+      .map(text => ({ text, done: false }))
+    const newGoal = {
+      id: Date.now(),
+      title: customGoalTitle.trim(),
+      milestones: milestones.length > 0 ? milestones : [{ text: 'Get started', done: false }],
+      type: 'custom',
+      createdAt: new Date().toISOString(),
+    }
+    setGoals(prev => [newGoal, ...prev])
+    setShowGoalModal(false)
+    setCustomGoalTitle('')
+    setCustomGoalMilestones('')
+  }
+
+  function toggleMilestone(goalId, milestoneIndex) {
+    setGoals(prev => prev.map(g => {
+      if (g.id !== goalId) return g
+      const updated = [...g.milestones]
+      updated[milestoneIndex] = { ...updated[milestoneIndex], done: !updated[milestoneIndex].done }
+      return { ...g, milestones: updated }
+    }))
+  }
+
+  function deleteGoal(goalId) {
+    setGoals(prev => prev.filter(g => g.id !== goalId))
+  }
+
+  function goalProgress(goal) {
+    if (!goal.milestones.length) return 0
+    return Math.round((goal.milestones.filter(m => m.done).length / goal.milestones.length) * 100)
+  }
+
+  // Persist goals
+  useEffect(() => {
+    try { localStorage.setItem('kv_discover_goals', JSON.stringify(goals)) } catch (_) {}
+  }, [goals])
 
   // Streak calculation from all-time sessions
   const streakInfo = useMemo(() => computeStreak(allTimeSessions), [allTimeSessions])
@@ -343,10 +419,10 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-7">
           {[
             { label: t('dashboard.streak'), value: streakInfo.current > 0 ? `${streakInfo.current}d` : '0d', icon: streakInfo.current > 0 ? '🔥' : null },
+            { label: 'Goals', value: goals.length },
             { label: t('dashboard.saved'), value: saves.length },
             { label: t('dashboard.chats'), value: chats.length },
             { label: t('dashboard.messages'), value: messages.length },
-            { label: t('dashboard.member_since'), value: user?.created_at ? new Date(user.created_at).toLocaleDateString('en', { month: 'short', year: 'numeric' }) : '–' },
           ].map(s => (
             <div key={s.label} className="bg-[#141414] border border-white/[0.06] rounded-xl px-4 py-3 text-center">
               <div className="font-bold text-headline tracking-tight">{s.icon ? `${s.icon} ` : ''}{s.value}</div>
@@ -428,6 +504,7 @@ export default function DashboardPage() {
         <div className="flex gap-1 bg-[#141414] border border-[#262626] p-1 rounded-xl mb-6">
           {[
             { id: 'saved', label: t('dashboard.tab_saved'), shortLabel: t('dashboard.tab_saved'), Icon: IconBookmark },
+            { id: 'goals', label: 'Goals', shortLabel: 'Goals', Icon: IconTarget },
             { id: 'chats', label: t('dashboard.tab_chats'), shortLabel: t('dashboard.chats'), Icon: IconChat },
             { id: 'messages', label: `${t('dashboard.tab_messages')}${unreadCount > 0 ? ` (${unreadCount})` : ''}`, shortLabel: unreadCount > 0 ? `Msgs (${unreadCount})` : 'Msgs', Icon: IconMail },
             { id: 'activity', label: t('dashboard.tab_activity'), shortLabel: t('dashboard.tab_activity'), Icon: IconActivity },
@@ -440,6 +517,263 @@ export default function DashboardPage() {
             </button>
           ))}
         </div>
+
+        {/* Goals */}
+        {tab === 'goals' && (
+          <div className="space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <IconTarget size={16} className="text-red-500" />
+                <h2 className="font-semibold text-sm tracking-tight text-muted">{t('discover.goals.title')}</h2>
+                {goals.length > 0 && (
+                  <span className="text-[10px] font-mono text-muted bg-[#141414] px-2 py-0.5 rounded-full">{goals.length}</span>
+                )}
+              </div>
+              <button
+                onClick={() => setShowGoalModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold transition-colors press"
+              >
+                <IconPlus size={12} /> {t('discover.goals.new')}
+              </button>
+            </div>
+
+            {goals.length === 0 ? (
+              <div className="bg-[#141414] rounded-xl p-8 text-center">
+                <div className="w-10 h-10 bg-[#1a1a1a] rounded-xl flex items-center justify-center mx-auto mb-3">
+                  <IconTarget size={18} className="text-muted" />
+                </div>
+                <h3 className="font-semibold text-sm mb-1.5 tracking-tight text-muted">{t('discover.goals.empty')}</h3>
+                <p className="text-muted text-xs mb-4 max-w-xs mx-auto">{t('discover.goals.empty.desc')}</p>
+                <button
+                  onClick={() => setShowGoalModal(true)}
+                  className="text-red-500 hover:text-red-400 text-xs font-medium transition-colors"
+                >
+                  {t('discover.goals.create_first')}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {goals.map((goal, gi) => {
+                  const progress = goalProgress(goal)
+                  const completedSteps = goal.milestones.filter(m => m.done).length
+                  const isGapOpen = showGapAnalysis === gi
+
+                  return (
+                    <div key={goal.id} className="bg-[#141414] rounded-xl overflow-hidden">
+                      <div className="p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 bg-[#1a1a1a] rounded-lg flex items-center justify-center shrink-0">
+                              <IconTarget size={14} className="text-red-400" />
+                            </div>
+                            <div className="min-w-0">
+                              <h3 className="font-semibold text-sm tracking-tight truncate text-muted">{goal.title}</h3>
+                              <p className="text-[10px] text-muted">{t('discover.goals.milestones', { done: completedSteps, total: goal.milestones.length })}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={`text-xs font-mono font-semibold ${progress === 100 ? 'text-green-400' : 'text-muted'}`}>
+                              {progress}%
+                            </span>
+                            <button onClick={() => deleteGoal(goal.id)} className="text-muted2 hover:text-red-400 transition-colors">
+                              <IconClose size={12} />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Progress bar */}
+                        <div className="w-full h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden mb-3">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${progress}%`,
+                              background: progress === 100 ? '#16a34a' : '#dc2626',
+                            }}
+                          />
+                        </div>
+
+                        {/* Milestones */}
+                        <div className="space-y-1.5">
+                          {goal.milestones.map((m, mi) => (
+                            <button
+                              key={mi}
+                              onClick={() => toggleMilestone(goal.id, mi)}
+                              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors text-xs ${
+                                m.done
+                                  ? 'bg-green-500/5'
+                                  : 'bg-[#0a0a0a] hover:bg-[#1a1a1a]'
+                              }`}
+                            >
+                              <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 transition-colors ${
+                                m.done ? 'bg-green-600' : 'bg-[#1a1a1a]'
+                              }`}>
+                                {m.done && <IconCheck size={9} className="text-white" />}
+                              </div>
+                              <span className={m.done ? 'text-muted line-through' : 'text-[#d4d4d4]'}>{m.text}</span>
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Gap Analysis toggle */}
+                        <button
+                          onClick={() => setShowGapAnalysis(isGapOpen ? null : gi)}
+                          className="mt-3 flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 transition-colors"
+                        >
+                          <IconSearch size={11} />
+                          {isGapOpen ? t('discover.goals.gap.hide') : t('discover.goals.gap.show')}
+                        </button>
+                      </div>
+
+                      {/* Gap Analysis panel */}
+                      {isGapOpen && (
+                        <div className="border-t border-[#1a1a1a] p-4 bg-[#0d0d0d] animate-fade-in">
+                          <p className="text-[10px] uppercase tracking-widest text-muted font-semibold mb-3">{t('discover.goals.gap.title', { title: goal.title })}</p>
+                          <div className="space-y-2 mb-3">
+                            <div>
+                              <label className="text-[10px] text-muted block mb-1">{t('discover.goals.gap.current_label')}</label>
+                              <input
+                                className="w-full bg-[#141414] border border-[#262626] rounded-lg px-3 py-2 text-xs text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors"
+                                placeholder={t('discover.goals.gap.current_placeholder')}
+                                value={gapInput.current}
+                                onChange={e => setGapInput(prev => ({ ...prev, current: e.target.value }))}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-muted block mb-1">{t('discover.goals.gap.target_label')}</label>
+                              <input
+                                className="w-full bg-[#141414] border border-[#262626] rounded-lg px-3 py-2 text-xs text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors"
+                                placeholder={t('discover.goals.gap.target_placeholder')}
+                                value={gapInput.target}
+                                onChange={e => setGapInput(prev => ({ ...prev, target: e.target.value }))}
+                              />
+                            </div>
+                          </div>
+                          {gapInput.current && gapInput.target && (
+                            <div className="bg-[#141414] rounded-lg p-3">
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <p className="text-[10px] text-green-400 font-semibold mb-1">{t('discover.goals.gap.have')}</p>
+                                  <div className="space-y-1">
+                                    {gapInput.current.split(',').map((s, i) => (
+                                      <div key={i} className="flex items-center gap-1.5 text-xs text-[#d4d4d4]">
+                                        <IconCheck size={10} className="text-green-400 shrink-0" />
+                                        {s.trim()}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-red-400 font-semibold mb-1">{t('discover.goals.gap.need')}</p>
+                                  <div className="space-y-1">
+                                    {gapInput.target.split(',').map((s, i) => (
+                                      <div key={i} className="flex items-center gap-1.5 text-xs text-[#d4d4d4]">
+                                        <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 shrink-0" />
+                                        {s.trim()}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Goal Creation Modal */}
+        {showGoalModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowGoalModal(false)}>
+            <div className="bg-[#141414] rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto animate-scale-in" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-5 border-b border-[#1a1a1a]">
+                <h3 className="font-semibold text-sm tracking-tight text-muted">{t('discover.modal.title')}</h3>
+                <button onClick={() => setShowGoalModal(false)} className="text-muted hover:text-white transition-colors">
+                  <IconClose size={14} />
+                </button>
+              </div>
+
+              <div className="flex gap-1 p-4 pb-0">
+                <button
+                  onClick={() => setNewGoalType('template')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    newGoalType === 'template' ? 'bg-red-600 text-white' : 'bg-[#0a0a0a] text-muted hover:text-white'
+                  }`}
+                >
+                  {t('discover.modal.template')}
+                </button>
+                <button
+                  onClick={() => setNewGoalType('custom')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    newGoalType === 'custom' ? 'bg-red-600 text-white' : 'bg-[#0a0a0a] text-muted hover:text-white'
+                  }`}
+                >
+                  {t('discover.modal.custom')}
+                </button>
+              </div>
+
+              {newGoalType === 'template' ? (
+                <div className="p-4 space-y-2">
+                  {GOAL_TEMPLATES.map(template => {
+                    const TemplateIcon = template.icon
+                    return (
+                      <button
+                        key={template.label}
+                        onClick={() => addTemplateGoal(template)}
+                        className="w-full flex items-start gap-3 p-3 rounded-xl text-left transition-all bg-[#0a0a0a] hover:bg-[#1a1a1a]"
+                      >
+                        <div className="w-8 h-8 bg-[#141414] rounded-lg flex items-center justify-center shrink-0 mt-0.5">
+                          <TemplateIcon size={14} className="text-muted" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold mb-1 text-muted">{template.label}</p>
+                          <div className="flex flex-wrap gap-1">
+                            {template.milestones.map((m, i) => (
+                              <span key={i} className="text-[9px] text-muted2 bg-[#141414] px-1.5 py-0.5 rounded">{m}</span>
+                            ))}
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="p-4 space-y-3">
+                  <div>
+                    <label className="text-[10px] text-muted block mb-1.5">{t('discover.modal.goal_title')}</label>
+                    <input
+                      className="w-full bg-[#0a0a0a] border border-[#262626] rounded-lg px-3 py-2.5 text-xs text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors"
+                      placeholder={t('discover.modal.goal_title_placeholder')}
+                      value={customGoalTitle}
+                      onChange={e => setCustomGoalTitle(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted block mb-1.5">{t('discover.modal.milestones')}</label>
+                    <textarea
+                      className="w-full bg-[#0a0a0a] border border-[#262626] rounded-lg px-3 py-2.5 text-xs text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors min-h-[120px] resize-none"
+                      placeholder={`Build portfolio\nPrepare resume\nApply to 20 companies\nPractice interviews\nAccept offer`}
+                      value={customGoalMilestones}
+                      onChange={e => setCustomGoalMilestones(e.target.value)}
+                    />
+                  </div>
+                  <button
+                    onClick={addCustomGoal}
+                    disabled={!customGoalTitle.trim()}
+                    className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white py-2.5 rounded-lg text-xs font-semibold transition-colors press"
+                  >
+                    {t('discover.modal.create')}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Saved */}
         {tab === 'saved' && (
