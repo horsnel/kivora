@@ -17,6 +17,46 @@ export default function HomePage() {
   const [user, setUser] = useState(null)
   const [input, setInput] = useState('')
   const textareaRef = useRef(null)
+  const pillsRef = useRef(null)
+
+  // Prevent page scroll when swiping pills horizontally
+  useEffect(() => {
+    const el = pillsRef.current
+    if (!el) return
+    function handleTouch(e) {
+      const atStart = el.scrollLeft <= 0
+      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1
+      if ((atStart && atEnd) || (atStart && e.touches[0]?.clientX > el._touchStartX) || (atEnd && e.touches[0]?.clientX < el._touchStartX)) {
+        return // allow page scroll if can't scroll further in that direction
+      }
+      // If pills can scroll, stop page from scrolling
+      if (!atStart || !atEnd) {
+        e.stopPropagation()
+      }
+    }
+    function saveStart(e) {
+      el._touchStartX = e.touches[0]?.clientX
+    }
+    // On desktop: convert vertical wheel scroll to horizontal scroll on pills
+    function handleWheel(e) {
+      const hasScroll = el.scrollWidth > el.clientWidth
+      if (!hasScroll) return
+      const atStart = el.scrollLeft <= 0
+      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1
+      if (atStart && atEnd) return
+      e.preventDefault()
+      e.stopPropagation()
+      el.scrollLeft += e.deltaY !== 0 ? e.deltaY : e.deltaX
+    }
+    el.addEventListener('touchstart', saveStart, { passive: true })
+    el.addEventListener('touchmove', handleTouch, { passive: false })
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    return () => {
+      el.removeEventListener('touchstart', saveStart)
+      el.removeEventListener('touchmove', handleTouch)
+      el.removeEventListener('wheel', handleWheel)
+    }
+  }, [])
 
   useEffect(() => {
     if (!supabasePublic) return
@@ -101,8 +141,8 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Starter pills */}
-          <div className="flex items-center justify-center gap-2 mt-4">
+          {/* Starter pills — horizontally scrollable */}
+          <div className="starter-pills-row mt-4" ref={pillsRef}>
             {STARTERS.map(({ labelKey, icon: Icon }) => (
               <button
                 key={labelKey}
@@ -233,6 +273,26 @@ export default function HomePage() {
         }
         .chat-submit-btn-active:active {
           transform: scale(0.95);
+        }
+
+        .starter-pills-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          overflow-x: auto;
+          overflow-y: hidden;
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior-x: contain;
+          scroll-snap-type: x proximity;
+          scrollbar-width: none;
+          padding: 4px 0;
+          justify-content: center;
+        }
+        .starter-pills-row::-webkit-scrollbar {
+          display: none;
+        }
+        .starter-pills-row > button {
+          scroll-snap-align: start;
         }
       `}</style>
     </main>
