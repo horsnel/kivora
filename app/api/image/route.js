@@ -12,9 +12,9 @@ const VALID_SIZES = [
 
 const DEFAULT_SIZE = '1024x1024'
 
-// Read config from environment (set at deploy time)
-const ZAI_BASE_URL = process.env.ZAI_BASE_URL || 'http://172.25.136.193:8080/v1'
-const ZAI_API_KEY = process.env.ZAI_API_KEY || 'Z.ai'
+// z-ai-web-dev-sdk config — read from Cloudflare secrets
+const ZAI_BASE_URL = process.env.ZAI_BASE_URL || ''
+const ZAI_API_KEY = process.env.ZAI_API_KEY || ''
 const ZAI_CHAT_ID = process.env.ZAI_CHAT_ID || ''
 const ZAI_USER_ID = process.env.ZAI_USER_ID || ''
 const ZAI_TOKEN = process.env.ZAI_TOKEN || ''
@@ -31,9 +31,16 @@ export async function POST(req) {
       )
     }
 
+    if (!ZAI_BASE_URL || !ZAI_API_KEY) {
+      return Response.json(
+        { error: 'Image generation is not configured. Set ZAI_BASE_URL and ZAI_API_KEY.' },
+        { status: 503 }
+      )
+    }
+
     const resolvedSize = VALID_SIZES.includes(size) ? size : DEFAULT_SIZE
 
-    // Call the z-ai image generation API directly via fetch (edge-compatible)
+    // Call the z-ai image generation API (same as z-ai-web-dev-sdk but edge-compatible)
     const headers = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${ZAI_API_KEY}`,

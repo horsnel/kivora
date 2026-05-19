@@ -1388,11 +1388,24 @@ export default function ChatClient() {
                             <p className="text-[10px] text-muted mt-2">This may take 1-2 minutes...</p>
                           </div>
                         </div>
-                      ) : msg.is3DModel && msg.glbUrl ? (
+                      ) : msg.is3DModel ? (
                         <div className="space-y-2">
-                          <div className="rounded-xl overflow-hidden border border-purple-500/20 max-w-md bg-[#111]">
-                            {modelViewerLoaded ? (
-                              /* eslint-disable-next-line @next/next/no-img-element */
+                          {/* Thumbnail preview image (always visible) */}
+                          {msg.thumbnailUrl && (
+                            <div className="rounded-xl overflow-hidden border border-purple-500/20 max-w-md bg-[#111]">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={msg.thumbnailUrl}
+                                alt={msg.prompt3d || '3D Model preview'}
+                                className="w-full h-auto object-cover"
+                                style={{ maxHeight: '320px' }}
+                              />
+                            </div>
+                          )}
+                          {/* Interactive 3D viewer (if GLB URL available and model-viewer loaded) */}
+                          {msg.glbUrl && modelViewerLoaded && (
+                            <div className="rounded-xl overflow-hidden border border-purple-500/20 max-w-md bg-[#111]">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
                               <model-viewer
                                 src={msg.glbUrl}
                                 alt={msg.prompt3d || '3D Model'}
@@ -1403,28 +1416,46 @@ export default function ChatClient() {
                                 environment-image="neutral"
                                 style={{ width: '100%', height: '320px', backgroundColor: '#111' }}
                               />
-                            ) : (
-                              <div className="w-full h-80 flex items-center justify-center text-muted text-xs">
-                                Loading 3D viewer...
-                              </div>
-                            )}
-                          </div>
+                            </div>
+                          )}
+                          {msg.glbUrl && !modelViewerLoaded && (
+                            <div className="w-full h-20 flex items-center justify-center text-muted text-xs bg-[#111] rounded-xl border border-purple-500/20 max-w-md">
+                              <IconSpinner size={14} className="mr-2" /> Loading 3D viewer...
+                            </div>
+                          )}
                           <div className="flex items-center gap-2 text-[10px] text-muted">
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z"/><path d="M12 12l9-4.5"/><path d="M12 12v9"/><path d="M12 12L3 7.5"/>
                             </svg>
-                            <span>3D Model &middot; {msg.hasTexture ? 'Textured' : 'Preview'} &middot; Drag to rotate</span>
+                            <span>3D Model &middot; {msg.hasTexture ? 'Textured' : 'Preview'}{msg.glbUrl ? ' \u00b7 Drag to rotate' : ''}</span>
                           </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <a
-                              href={msg.glbUrl}
-                              download
-                              className="inline-flex items-center gap-1 text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
-                            >
-                              <IconDownload size={10} />
-                              Download GLB
-                            </a>
+                          <div className="flex items-center gap-3 mt-1 flex-wrap">
+                            {msg.glbUrl && (
+                              <a
+                                href={msg.glbUrl}
+                                download
+                                className="inline-flex items-center gap-1 text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
+                              >
+                                <IconDownload size={10} />
+                                Download GLB
+                              </a>
+                            )}
+                            {msg.thumbnailUrl && (
+                              <a
+                                href={msg.thumbnailUrl}
+                                download
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
+                              >
+                                <IconDownload size={10} />
+                                Save Preview
+                              </a>
+                            )}
                           </div>
+                          {!msg.glbUrl && (
+                            <p className="text-[10px] text-muted leading-relaxed max-w-md">GLB file not available for this model. You can save the preview image above. To view GLB files in the future, use <a href="https://3dviewer.net" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 underline">3dviewer.net</a> or any 3D viewer app.</p>
+                          )}
                         </div>
                       ) : msg.is3DStub ? (
                         <div className="space-y-2">
