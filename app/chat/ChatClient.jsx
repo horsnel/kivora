@@ -1177,19 +1177,7 @@ export default function ChatClient() {
                     </div>
                   </div>
                 </div>
-                {/* Suggestion pills */}
-                <div className="flex flex-wrap gap-2 w-full max-w-md mx-auto mb-4 pb-4 animate-fade-up">
-                  {STARTERS.map(({ labelKey, icon: Icon }) => (
-                    <button
-                      key={labelKey}
-                      onClick={() => setInput(t(labelKey))}
-                      className="flex items-center gap-2 bg-transparent border border-[#1f1f1f] text-[#737373] hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px px-4 py-2 rounded-full text-[13px] font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em]"
-                    >
-                      <Icon size={13} className="shrink-0" />
-                      <span className="whitespace-nowrap">{t(labelKey)}</span>
-                    </button>
-                  ))}
-                </div>
+
               </div>
             )}
 
@@ -1287,6 +1275,21 @@ export default function ChatClient() {
         {!terminalMode && (
         <div className="shrink-0 px-[min(5vw,48px)] pb-4 pt-2" style={{ overflow: 'visible' }}>
           <div className="max-w-[720px] mx-auto" style={{ overflow: 'visible' }}>
+            {/* Suggestion pills — above chat bar, single scrollable row */}
+            {messages.length === 0 && (
+              <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none pb-0.5 animate-fade-up">
+                {STARTERS.map(({ labelKey, icon: Icon }) => (
+                  <button
+                    key={labelKey}
+                    onClick={() => setInput(t(labelKey))}
+                    className="flex items-center gap-2 bg-transparent border border-[#1f1f1f] text-[#737373] hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px px-4 py-2 rounded-full text-[13px] font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em] whitespace-nowrap shrink-0"
+                  >
+                    <Icon size={13} className="shrink-0" />
+                    <span>{t(labelKey)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {/* Voice toast notification */}
             {voiceToast && (
               <div className={`mb-2 flex items-center justify-center animate-slide-down`}>
