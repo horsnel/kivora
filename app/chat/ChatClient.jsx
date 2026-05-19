@@ -164,6 +164,9 @@ export default function ChatClient() {
   const [image3dMode, setImage3dMode] = useState(false)
   const [image3dLoading, setImage3dLoading] = useState(false)
   const [modelViewerLoaded, setModelViewerLoaded] = useState(false)
+  // Track 3D model loading state per message: { [msgIndex]: 'loading' | 'loaded' | 'error' | 'timeout' }
+  const [model3dLoadStates, setModel3dLoadStates] = useState({})
+  const model3dTimers = useRef({})
 
   // Chat sidebar settings panel
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -675,20 +678,30 @@ export default function ChatClient() {
       }
 
       // Replace loading message with actual 3D model
-      setMessages(prev => prev.map(m =>
-        m.is3DLoading ? {
-          ...m,
-          is3DLoading: false,
-          role: 'assistant',
-          content: `Generated 3D model: **${q}**`,
-          is3DModel: true,
-          glbUrl: data.glbUrl,
-          thumbnailUrl: data.thumbnailUrl,
-          tripoThumbnail: data.tripoThumbnail || null,
-          hasTexture: data.hasTexture,
-          isPollinationsPreview: data.isPollinationsPreview || false,
-        } : m
-      ))
+      setMessages(prev => {
+        const newMessages = prev.map(m =>
+          m.is3DLoading ? {
+            ...m,
+            is3DLoading: false,
+            role: 'assistant',
+            content: `Generated 3D model: **${q}**`,
+            is3DModel: true,
+            glbUrl: data.glbUrl,
+            thumbnailUrl: data.thumbnailUrl,
+            tripoThumbnail: data.tripoThumbnail || null,
+            hasTexture: data.hasTexture,
+            isPollinationsPreview: data.isPollinationsPreview || false,
+          } : m
+        )
+        // Set initial 3D model load state after a tick (need index)
+        if (data.glbUrl) {
+          const msgIdx = newMessages.findIndex(m => m.is3DModel && m.glbUrl === data.glbUrl)
+          if (msgIdx >= 0) {
+            setModel3dLoadStates(prev => ({ ...prev, [msgIdx]: 'loading' }))
+          }
+        }
+        return newMessages
+      })
     } catch {
       setMessages(prev => prev.map(m =>
         m.is3DLoading ? {
@@ -707,6 +720,42 @@ export default function ChatClient() {
     navigator.clipboard.writeText(stripMarkdown(content))
     setCopiedIndex(i)
     setTimeout(() => setCopiedIndex(null), 2000)
+  }
+
+  // ── 3D Model Viewer Event Handlers ──
+  const MODEL_3D_TIMEOUT = 60000 // 60s timeout for GLB loading
+
+  function handle3DModelLoad(msgIndex) {
+    // Clear timeout timer
+    if (model3dTimers.current[msgIndex]) {
+      clearTimeout(model3dTimers.current[msgIndex])
+      delete model3dTimers.current[msgIndex]
+    }
+    setModel3dLoadStates(prev => ({ ...prev, [msgIndex]: 'loaded' }))
+  }
+
+  function handle3DModelError(msgIndex) {
+    // Clear timeout timer
+    if (model3dTimers.current[msgIndex]) {
+      clearTimeout(model3dTimers.current[msgIndex])
+      delete model3dTimers.current[msgIndex]
+    }
+    setModel3dLoadStates(prev => ({ ...prev, [msgIndex]: 'error' }))
+  }
+
+  function start3DModelTimeout(msgIndex) {
+    // Start a timeout — if model hasn't loaded in 60s, mark as timeout
+    if (model3dTimers.current[msgIndex]) return // already started
+    model3dTimers.current[msgIndex] = setTimeout(() => {
+      setModel3dLoadStates(prev => {
+        // Only timeout if still loading
+        if (prev[msgIndex] === 'loading') {
+          return { ...prev, [msgIndex]: 'timeout' }
+        }
+        return prev
+      })
+      delete model3dTimers.current[msgIndex]
+    }, MODEL_3D_TIMEOUT)
   }
 
   // ── Voice Input (ASR) ──
@@ -1430,24 +1479,60 @@ export default function ChatClient() {
                             </div>
                           )}
                           {/* Interactive 3D viewer (if GLB URL available and model-viewer loaded) */}
-                          {msg.glbUrl && modelViewerLoaded && (
-                            <div className="rounded-xl overflow-hidden border border-purple-500/20 max-w-md bg-[#111]">
-                              <model-viewer
-                                src={msg.glbUrl}
-                                alt={msg.prompt3d || '3D Model'}
-                                auto-rotate
-                                camera-controls
-                                shadow-intensity="1"
-                                exposure="1.2"
-                                environment-image="neutral"
-                                interaction-prompt="auto"
-                                style={{ width: '100%', height: '360px', backgroundColor: '#111' }}
-                              />
-                            </div>
-                          )}
+                          {msg.glbUrl && modelViewerLoaded && (() => {
+                            const loadState = model3dLoadStates[i] || 'loading'
+                            // Start timeout on first render
+                            if (loadState === 'loading') start3DModelTimeout(i)
+
+                            return (
+                              <div className="rounded-xl overflow-hidden border border-purple-500/20 max-w-md bg-[#111] relative">
+                                <model-viewer
+                                  src={msg.glbUrl}
+                                  alt={msg.prompt3d || '3D Model'}
+                                  auto-rotate
+                                  camera-controls
+                                  shadow-intensity="1"
+                                  exposure="1.2"
+                                  environment-image="neutral"
+                                  interaction-prompt="auto"
+                                  style={{ width: '100%', height: '360px', backgroundColor: '#111' }}
+                                  onLoad={() => handle3DModelLoad(i)}
+                                  onError={() => handle3DModelError(i)}
+                                />
+                                {/* Loading overlay */}
+                                {loadState === 'loading' && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-[#111]/80 pointer-events-none">
+                                    <div className="text-center">
+                                      <IconSpinner size={20} className="text-purple-400 mx-auto mb-2" />
+                                      <p className="text-[11px] text-purple-300">Loading 3D model...</p>
+                                      <p className="text-[9px] text-muted mt-1">This may take a moment</p>
+                                    </div>
+                                  </div>
+                                )}
+                                {/* Error overlay */}
+                                {loadState === 'error' && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-[#111]/90 pointer-events-none">
+                                    <div className="text-center px-4">
+                                      <p className="text-[11px] text-red-300 font-medium">3D viewer failed to load</p>
+                                      <p className="text-[9px] text-muted mt-1">Try downloading the GLB file below</p>
+                                    </div>
+                                  </div>
+                                )}
+                                {/* Timeout overlay */}
+                                {loadState === 'timeout' && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-[#111]/90 pointer-events-none">
+                                    <div className="text-center px-4">
+                                      <p className="text-[11px] text-yellow-300 font-medium">3D model is taking too long</p>
+                                      <p className="text-[9px] text-muted mt-1">The file may be large. Download the GLB to view locally.</p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })()}
                           {msg.glbUrl && !modelViewerLoaded && (
                             <div className="w-full h-20 flex items-center justify-center text-muted text-xs bg-[#111] rounded-xl border border-purple-500/20 max-w-md">
-                              <IconSpinner size={14} className="mr-2" /> Loading 3D viewer...
+                              <IconSpinner size={14} className="mr-2" /> Loading 3D viewer component...
                             </div>
                           )}
                           <div className="flex items-center gap-2 text-[10px] text-muted">
