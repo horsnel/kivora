@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings, IconPlus } from '@/components/Icons'
+import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
@@ -38,9 +38,10 @@ const MORPH_SHAPES = [
     <path d="M4 6a2 2 0 012-2h20a2 2 0 012 2v14a2 2 0 01-2 2h-10l-6 6v-6H6a2 2 0 01-2-2V6z" />
     <path d="M10 12h12M10 17h6" />
   </g>,
-  // 1: Lightning bolt — speed / automation
-  <g key="bolt" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" fill="none">
-    <path d="M18 4L8 18h6l-2 10 10-14h-6l2-10z" />
+  // 1: Open book — learning / knowledge
+  <g key="book" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" fill="none">
+    <path d="M4 5.5h6a4 4 0 014 4v14a3 3 0 00-3-3H4z" />
+    <path d="M28 5.5h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z" />
   </g>,
   // 2: Stacked blocks — building / SaaS
   <g key="blocks" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" fill="none">
@@ -57,10 +58,11 @@ const MORPH_SHAPES = [
     <line x1="16" y1="11.5" x2="25" y2="21" />
     <line x1="7" y1="24" x2="25" y2="24" />
   </g>,
-  // 4: Growth arrow — earning / upward
-  <g key="growth" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" fill="none">
-    <path d="M16 5L7 16h5v8h8v-8h5L16 5z" />
-    <path d="M7 28h18" />
+  // 4: Stacked layers — composition / depth
+  <g key="layers" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" fill="none">
+    <polygon points="16,4 4,10 16,16 28,10" />
+    <polyline points="4,16 16,22 28,16" />
+    <polyline points="4,22 16,28 28,22" />
   </g>,
 ]
 
@@ -1098,7 +1100,11 @@ export default function ChatClient() {
             aria-label={t('chat.new')}
             title={t('chat.new')}
           >
-            <IconPlus size={16} />
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2l8.66 5v10L12 22l-8.66-5V7L12 2z"/>
+              <path d="M12 8v8"/>
+              <path d="M8 12h8"/>
+            </svg>
           </button>
         </div>
 
@@ -1257,11 +1263,27 @@ export default function ChatClient() {
 
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl rounded-tl-sm px-5 py-3.5">
-                  <div className="flex gap-1.5 items-center">
-                    {[0, 150, 300].map(d => (
-                      <span key={d} className="w-1.5 h-1.5 bg-[#525252] rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />
-                    ))}
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl rounded-tl-sm px-5 py-4">
+                  <div className="ai-thinking-indicator">
+                    <div className="ai-thinking-orb">
+                      <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+                        <circle cx="16" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" className="ai-orb-node ai-orb-top" />
+                        <circle cx="7" cy="24" r="3" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" className="ai-orb-node ai-orb-left" />
+                        <circle cx="25" cy="24" r="3" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" className="ai-orb-node ai-orb-right" />
+                        <line x1="16" y1="11.5" x2="7" y2="21" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" className="ai-orb-line" />
+                        <line x1="16" y1="11.5" x2="25" y2="21" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" className="ai-orb-line" />
+                        <line x1="7" y1="24" x2="25" y2="24" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" className="ai-orb-line" />
+                      </svg>
+                      <div className="ai-thinking-pulse" />
+                    </div>
+                    <div className="ai-thinking-text">
+                      <span className="ai-thinking-label">Thinking</span>
+                      <span className="ai-thinking-dots">
+                        <span className="ai-dot" />
+                        <span className="ai-dot" />
+                        <span className="ai-dot" />
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2186,7 +2208,9 @@ export default function ChatClient() {
         .morph-shape :global(path),
         .morph-shape :global(rect),
         .morph-shape :global(circle),
-        .morph-shape :global(line) {
+        .morph-shape :global(line),
+        .morph-shape :global(polygon),
+        .morph-shape :global(polyline) {
           stroke-dasharray: 200;
           stroke-dashoffset: 200;
           transition: none;
@@ -2237,10 +2261,101 @@ export default function ChatClient() {
           animation-delay: 0.6s;
         }
 
+        .morph-shape-active :global(polygon) {
+          animation: pencilStroke 1.2s ease-out forwards;
+          animation-delay: 0s;
+        }
+
+        .morph-shape-active :global(polyline:nth-child(2)) {
+          animation: pencilStroke 1s ease-out forwards;
+          animation-delay: 0.3s;
+        }
+
+        .morph-shape-active :global(polyline:nth-child(3)) {
+          animation: pencilStroke 1s ease-out forwards;
+          animation-delay: 0.55s;
+        }
+
         /* The actual stroke-drawing keyframe */
         @keyframes pencilStroke {
           0%   { stroke-dashoffset: 200; }
           100% { stroke-dashoffset: 0; }
+        }
+
+        /* ── AI Thinking Indicator — Claude/Replit-style ── */
+        .ai-thinking-indicator {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .ai-thinking-orb {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #525252;
+        }
+        .ai-thinking-pulse {
+          position: absolute;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(220,38,38,0.08) 0%, transparent 70%);
+          animation: aiPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes aiPulse {
+          0%, 100% { transform: scale(0.8); opacity: 0.4; }
+          50% { transform: scale(1.3); opacity: 0.8; }
+        }
+        .ai-orb-node {
+          animation: aiOrbGlow 2s ease-in-out infinite;
+        }
+        .ai-orb-top { animation-delay: 0s; }
+        .ai-orb-left { animation-delay: 0.6s; }
+        .ai-orb-right { animation-delay: 1.2s; }
+        @keyframes aiOrbGlow {
+          0%, 100% { stroke: #525252; }
+          50% { stroke: #dc2626; }
+        }
+        .ai-orb-line {
+          animation: aiLinePulse 2s ease-in-out infinite;
+        }
+        .ai-orb-line:nth-child(4) { animation-delay: 0.3s; }
+        .ai-orb-line:nth-child(5) { animation-delay: 0.6s; }
+        .ai-orb-line:nth-child(6) { animation-delay: 0.9s; }
+        @keyframes aiLinePulse {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 0.9; }
+        }
+        .ai-thinking-text {
+          display: flex;
+          align-items: baseline;
+          gap: 3px;
+        }
+        .ai-thinking-label {
+          font-size: 13px;
+          font-weight: 500;
+          color: #737373;
+          letter-spacing: -0.01em;
+        }
+        .ai-thinking-dots {
+          display: inline-flex;
+          gap: 2px;
+          margin-left: 1px;
+        }
+        .ai-dot {
+          width: 3px;
+          height: 3px;
+          border-radius: 50%;
+          background: #525252;
+          animation: aiDotBounce 1.4s ease-in-out infinite;
+        }
+        .ai-dot:nth-child(1) { animation-delay: 0s; }
+        .ai-dot:nth-child(2) { animation-delay: 0.2s; }
+        .ai-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes aiDotBounce {
+          0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+          30% { opacity: 1; transform: translateY(-3px); background: #dc2626; }
         }
 
         /* ═══════════════════════════════════════
