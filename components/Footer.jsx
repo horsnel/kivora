@@ -7,8 +7,8 @@ import { useTranslation } from '@/components/LanguageProvider'
 const NO_FOOTER = ['/chat', '/auth', '/onboarding', '/']
 
 const FOOTER_LINKS = [
-  { labelKey: 'footer.home',          href: '/discover' },
-  { labelKey: 'footer.explore',       href: '/home' },
+  { labelKey: 'footer.home',          href: '/home' },
+  { labelKey: 'footer.explore',       href: '/explore' },
   { labelKey: 'footer.chat',          href: '/chat' },
   { labelKey: 'footer.studydesk',     href: '/study' },
   { labelKey: 'footer.devtools',      href: '/devtools' },

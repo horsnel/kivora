@@ -99,9 +99,9 @@ function AuthForm() {
               <IconCheck size={24} className="text-emerald-400" />
             </div>
             <h1 className="font-semibold text-xl tracking-tight mb-2">{t('auth.check_email')}</h1>
-            <p className="text-[#737373] text-sm mb-1">{t('auth.confirmation_sent')}</p>
+            <p className="text-muted text-sm mb-1">{t('auth.confirmation_sent')}</p>
             <p className="text-white text-sm font-medium mb-6">{email}</p>
-            <p className="text-[#404040] text-xs leading-relaxed mb-8">
+            <p className="text-muted2 text-xs leading-relaxed mb-8">
               {t('auth.verify_instruction')}
             </p>
             <button
@@ -123,7 +123,7 @@ function AuthForm() {
             <span className="font-bold text-base">Ki<span className="text-red-500">vora</span></span>
           </Link>
           {mode === 'signin' && (
-            <Link href="/" className="text-[#737373] hover:text-white text-xs transition-colors">
+            <Link href="/" className="text-muted hover:text-white text-xs transition-colors">
               {t('auth.back_home')}
             </Link>
           )}
@@ -133,7 +133,7 @@ function AuthForm() {
           <h1 className="font-semibold text-xl tracking-tight">
             {mode === 'signin' ? t('auth.welcome_back') : t('auth.create_account')}
           </h1>
-          <p className="text-[#737373] text-xs mt-1.5">
+          <p className="text-muted text-xs mt-1.5">
             {mode === 'signin' ? t('auth.signin_subtitle') : t('auth.signup_subtitle')}
           </p>
         </div>
@@ -162,24 +162,24 @@ function AuthForm() {
           {/* Divider */}
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-[#262626]"></div>
-            <span className="text-[10px] text-[#404040] uppercase tracking-widest">{t('auth.or')}</span>
+            <span className="text-[10px] text-muted2 uppercase tracking-widest">{t('auth.or')}</span>
             <div className="flex-1 h-px bg-[#262626]"></div>
           </div>
 
           {mode === 'signup' && (
             <div>
-              <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('auth.full_name')}</label>
+              <label className="text-xs text-muted block mb-1.5 font-medium">{t('auth.full_name')}</label>
               <input type="text" className={inputClass} placeholder="Your name" value={name} onChange={e => setName(e.target.value)} />
             </div>
           )}
           <div>
-            <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('auth.email')}</label>
+            <label className="text-xs text-muted block mb-1.5 font-medium">{t('auth.email')}</label>
             <input type="email" className={inputClass} placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()} />
           </div>
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs text-[#737373] font-medium">{t('auth.password')}</label>
-              {mode === 'signin' && <Link href="/auth/reset" className="text-xs text-[#737373] hover:text-white transition-colors">{t('auth.forgot')}</Link>}
+              <label className="text-xs text-muted font-medium">{t('auth.password')}</label>
+              {mode === 'signin' && <Link href="/auth/reset" className="text-xs text-muted hover:text-white transition-colors">{t('auth.forgot')}</Link>}
             </div>
             <input type="password" className={inputClass} placeholder={mode === 'signup' ? t('auth.password_min') : '••••••••'} value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()} />
           </div>
@@ -193,7 +193,7 @@ function AuthForm() {
           </button>
 
           {mode === 'signup' && (
-            <p className="text-xs text-[#404040] text-center leading-relaxed">
+            <p className="text-xs text-muted2 text-center leading-relaxed">
               {t('auth.agreement')}
             </p>
           )}
@@ -201,13 +201,13 @@ function AuthForm() {
 
         <div className="text-center mt-5">
           <button onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(''); setSuccess('') }}
-            className="text-xs text-[#737373] hover:text-white transition-colors">
+            className="text-xs text-muted hover:text-white transition-colors">
             {mode === 'signin' ? t('auth.no_account') : t('auth.has_account')}
           </button>
         </div>
         <p className="text-center text-xs text-[#2e2e2e] mt-4">
           {t('auth.no_account_needed')}{' '}
-          <Link href="/home" className="text-[#404040] hover:text-white transition-colors">{t('auth.skip')}</Link>
+          <Link href="/home" className="text-muted2 hover:text-white transition-colors">{t('auth.skip')}</Link>
         </p>
         </>
         )}

@@ -145,7 +145,7 @@ export default function ExplorePage() {
   ]
   const costRows = (data.cost_breakdown || []).map(item => ({
     tool: <span className="font-medium">{item.tool}</span>,
-    note: <span className="text-[#737373]">{item.note}</span>,
+    note: <span className="text-muted">{item.note}</span>,
     cost: item.cost === 0 ? 'Free' : `${format(item.cost)}/mo`,
   }))
   const costFooter = {
@@ -173,12 +173,12 @@ export default function ExplorePage() {
         )}
       </span>
     ),
-    use: <span className="text-[#737373]">{tool.use}</span>,
+    use: <span className="text-muted">{tool.use}</span>,
     cost: <span className="text-[#a3a3a3]">{tool.cost}</span>,
     vpn: (
       <span className={`flex items-center gap-1 ${tool.works_without_vpn ? '' : 'font-semibold px-2 py-0.5'}`}>
         <IconVpn size={12} className={tool.works_without_vpn ? '' : 'stroke-[2]'} />
-        <span className={tool.works_without_vpn ? 'text-[#737373]' : 'text-[#d4d4d4]'}>
+        <span className={tool.works_without_vpn ? 'text-muted' : 'text-[#d4d4d4]'}>
           {tool.works_without_vpn ? 'No VPN' : 'VPN needed'}
         </span>
       </span>
@@ -186,7 +186,7 @@ export default function ExplorePage() {
     payment: (
       <span className={`flex items-center gap-1 ${tool.accepts_local_payment ? '' : 'font-semibold px-2 py-0.5'}`}>
         <IconCard size={12} className={tool.accepts_local_payment ? '' : 'stroke-[2]'} />
-        <span className={tool.accepts_local_payment ? 'text-[#737373]' : 'text-[#d4d4d4]'}>
+        <span className={tool.accepts_local_payment ? 'text-muted' : 'text-[#d4d4d4]'}>
           {tool.accepts_local_payment ? 'Local OK' : 'USD card'}
         </span>
       </span>
@@ -328,7 +328,7 @@ function Section({ num, title, children }) {
       <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
         <span className="text-caption font-mono text-[#525252] font-semibold">{num}</span>
         <div className="h-px flex-1 bg-[#1a1a1a]" />
-        <h2 className="font-semibold text-caption sm:text-body tracking-tight whitespace-nowrap text-[#737373]">{title}</h2>
+        <h2 className="font-semibold text-caption sm:text-body tracking-tight whitespace-nowrap text-muted">{title}</h2>
         <div className="h-px flex-1 bg-[#1a1a1a]" />
       </div>
       {children}

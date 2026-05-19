@@ -30,7 +30,7 @@ export default function ResetPage() {
       <div className="w-full max-w-sm">
         <Link
           href="/auth"
-          className="flex items-center gap-1.5 text-[#737373] hover:text-white text-xs mb-8 transition-colors group"
+          className="flex items-center gap-1.5 text-muted hover:text-white text-xs mb-8 transition-colors group"
         >
           <IconArrowLeft size={12} className="group-hover:-translate-x-0.5 transition-transform" />
           Back to sign in
@@ -45,7 +45,7 @@ export default function ResetPage() {
             </svg>
           </div>
           <h1 className="font-semibold text-xl tracking-tight">Reset your password</h1>
-          <p className="text-[#737373] text-xs mt-1.5">
+          <p className="text-muted text-xs mt-1.5">
             Enter your email and we'll send you a reset link.
           </p>
         </div>
@@ -56,7 +56,7 @@ export default function ResetPage() {
               <IconCheck size={16} className="text-emerald-400" />
             </div>
             <h3 className="font-semibold text-sm mb-2">Check your email</h3>
-            <p className="text-xs text-[#737373] leading-relaxed">
+            <p className="text-xs text-muted leading-relaxed">
               We sent a password reset link to <span className="text-white">{email}</span>.
               Check your inbox and spam folder.
             </p>
@@ -70,7 +70,7 @@ export default function ResetPage() {
         ) : (
           <div className="bg-[#141414] rounded-xl p-6 space-y-4">
             <div>
-              <label className="text-xs text-[#737373] block mb-1.5 font-medium">
+              <label className="text-xs text-muted block mb-1.5 font-medium">
                 Email address
               </label>
               <input

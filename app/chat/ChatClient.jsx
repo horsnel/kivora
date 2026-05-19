@@ -1,8 +1,8 @@
 'use client'
 import Link from 'next/link'
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
-import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings } from '@/components/Icons'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings, IconPlus } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
@@ -103,6 +103,7 @@ function groupByDate(sessions) {
 
 export default function ChatClient() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -315,6 +316,31 @@ export default function ChatClient() {
       if (saved) setCustomSystemPrompt(saved)
     } catch {}
   }, [])
+
+  // ── Handle URL query parameter (pre-fill from homepage) ──
+  const urlQueryHandled = useRef(false)
+  const autoSendRef = useRef(false)
+  useEffect(() => {
+    if (urlQueryHandled.current) return
+    const q = searchParams.get('q')
+    if (q) {
+      urlQueryHandled.current = true
+      setInput(q)
+      autoSendRef.current = true
+      // Clean URL parameter after reading
+      router.replace('/chat')
+    }
+  }, [searchParams, router])
+
+  // Auto-send when input is pre-filled from URL
+  useEffect(() => {
+    if (autoSendRef.current && input.trim() && !loading) {
+      autoSendRef.current = false
+      // Small delay to let barExpanded state sync
+      setTimeout(() => send(), 50)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -819,7 +845,7 @@ export default function ChatClient() {
         {/* ── Logo + close ── */}
         <div className="px-3 pt-3 pb-2 shrink-0">
           <div className="flex items-center justify-between mb-3">
-            <Link href="/discover" className="flex items-center gap-2.5" onClick={() => setHistoryOpen(false)}>
+            <Link href="/home" className="flex items-center gap-2.5" onClick={() => setHistoryOpen(false)}>
               <div className="w-7 h-7 bg-[#dc2626] rounded-lg flex items-center justify-center">
                 <svg width="14" height="14" viewBox="0 0 32 32" fill="none">
                   <path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95" />
@@ -843,11 +869,11 @@ export default function ChatClient() {
         {/* ── Explore link ── */}
         <div className="px-2.5 shrink-0">
           <Link
-            href="/home"
+            href="/explore"
             className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
               false
                 ? 'bg-[#1a1a1a] text-white'
-                : 'text-[#737373] hover:text-white hover:bg-[#141414]'
+                : 'text-muted hover:text-white hover:bg-[#141414]'
             }`}
             onClick={() => setHistoryOpen(false)}
           >
@@ -914,8 +940,8 @@ export default function ChatClient() {
             >
               {/* Header */}
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold flex items-center gap-2">
-                  <IconSettings size={14} className="text-[#737373]" />
+                <h2 className="font-semibold text-sm tracking-tight flex items-center gap-2">
+                  <IconSettings size={14} className="text-muted" />
                   {t('chat.settings') || 'Settings'}
                 </h2>
                 <button
@@ -929,8 +955,8 @@ export default function ChatClient() {
               {/* Custom System Prompt */}
               <div className="mb-4">
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <IconSliders size={11} className="text-[#737373]" />
-                  <span className="text-[11px] font-medium text-[#737373]">{t('chat.custom_prompt')}</span>
+                  <IconSliders size={11} className="text-muted" />
+                  <span className="text-[11px] font-medium text-muted">{t('chat.custom_prompt')}</span>
                 </div>
                 <textarea
                   rows={3}
@@ -961,12 +987,12 @@ export default function ChatClient() {
               {/* Export Chat */}
               <div>
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <IconDownload size={11} className="text-[#737373]" />
-                  <span className="text-[11px] font-medium text-[#737373]">{t('chat.export.title') || 'Export Chat'}</span>
+                  <IconDownload size={11} className="text-muted" />
+                  <span className="text-[11px] font-medium text-muted">{t('chat.export.title') || 'Export Chat'}</span>
                 </div>
 
                 {messages.length === 0 ? (
-                  <p className="text-[10px] text-[#404040]">No conversation to export</p>
+                  <p className="text-[10px] text-muted2">No conversation to export</p>
                 ) : (
                   <>
                     <div className="flex gap-1.5 mb-2">
@@ -1019,7 +1045,7 @@ export default function ChatClient() {
             className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors font-medium ${
               settingsOpen
                 ? 'bg-[#1a1a1a] text-white'
-                : 'text-[#737373] hover:text-white hover:bg-[#141414]'
+                : 'text-muted hover:text-white hover:bg-[#141414]'
             }`}
           >
             <IconSettings size={14} className="shrink-0" />
@@ -1053,40 +1079,26 @@ export default function ChatClient() {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
         <div className="shrink-0 flex items-center justify-between px-[min(5vw,48px)] py-3">
-          <button
-            className="lg:hidden w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors -ml-1"
-            onClick={() => setHistoryOpen(true)}
-            aria-label={t('chat.history')}
-          >
-            <IconMenu size={16} />
-          </button>
+          {/* Left: hamburger (mobile) / spacer (desktop) */}
+          <div className="w-8 flex items-center justify-center">
+            <button
+              className="lg:hidden w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors -ml-1"
+              onClick={() => setHistoryOpen(true)}
+              aria-label={t('chat.history')}
+            >
+              <IconMenu size={16} />
+            </button>
+          </div>
+          {/* Center: spacer for balanced layout */}
+          <div className="flex-1" />
+          {/* Right: new conversation */}
           <button
             onClick={clearChat}
-            className="flex items-center justify-center w-8 h-8 rounded-full text-[#525252] hover:text-[#e2e2e2] hover:bg-white/[0.04] transition-all duration-200"
+            className="w-8 h-8 flex items-center justify-center rounded-full text-[#525252] hover:text-[#e2e2e2] hover:bg-white/[0.04] transition-all duration-200"
             aria-label={t('chat.new')}
             title={t('chat.new')}
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 2.5l1.5 1.5L6 9.5H4.5V8L10 2.5z"/>
-              <path d="M2 4a1 1 0 011-1h4"/>
-              <path d="M2 4v7a1 1 0 001 1h7a1 1 0 001-1V7"/>
-            </svg>
-          </button>
-          {/* Terminal mode toggle */}
-          <button
-            onClick={() => { setTerminalMode(!terminalMode); setAiSuggestion(null) }}
-            className={`w-8 h-8 flex items-center justify-center rounded-full transition-all duration-200 ${
-              terminalMode
-                ? 'text-green-400 bg-green-400/10'
-                : 'text-[#525252] hover:text-[#e2e2e2] hover:bg-white/[0.04]'
-            }`}
-            aria-label="Toggle terminal mode"
-            title={terminalMode ? 'Switch to AI Chat' : 'Switch to Live Terminal'}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="4 17 10 11 4 5"/>
-              <line x1="12" y1="19" x2="20" y2="19"/>
-            </svg>
+            <IconPlus size={16} />
           </button>
         </div>
 
@@ -1096,22 +1108,22 @@ export default function ChatClient() {
             {/* Terminal header */}
             <div className="flex items-center gap-2 px-4 py-2 border-b border-white/[0.06]">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[12px] font-mono text-[#737373] uppercase tracking-wider">Live Terminal</span>
+              <span className="text-[12px] font-mono text-muted uppercase tracking-wider">Live Terminal</span>
             </div>
 
             {/* Terminal output */}
             <div className="flex-1 overflow-y-auto bg-[#0d0d0d] p-4 font-mono text-[13px] leading-[1.6] terminal-output" ref={termOutputRef}>
               {terminalHistory.length === 0 && !aiSuggestion && (
-                <div className="text-[#404040] text-[12px]">
+                <div className="text-muted2 text-[12px]">
                   <div className="text-green-400/60 mb-2">Welcome to Live Terminal</div>
                   <div>Type a shell command to execute it directly.</div>
                   <div>Or type a natural language query and AI will suggest a command.</div>
                 </div>
               )}
               {terminalHistory.map((entry, i) => (
-                <div key={i} className={entry.type === 'input' ? 'text-[#737373]' : entry.type === 'output' ? 'text-[#d4d4d4] whitespace-pre-wrap break-all' : 'text-yellow-400'}>
+                <div key={i} className={entry.type === 'input' ? 'text-muted' : entry.type === 'output' ? 'text-[#d4d4d4] whitespace-pre-wrap break-all' : 'text-yellow-400'}>
                   {entry.type === 'input' && entry.content.startsWith('#') ? (
-                    <><span className="text-[#525252]"># </span><span className="text-[#737373]">{entry.content.slice(2)}</span></>
+                    <><span className="text-[#525252]"># </span><span className="text-muted">{entry.content.slice(2)}</span></>
                   ) : entry.type === 'input' ? (
                     <><span className="text-green-400">$ </span>{entry.content}</>
                   ) : entry.type === 'ai-suggest' ? (
@@ -1127,7 +1139,7 @@ export default function ChatClient() {
                 <div className="mt-2">
                   <div className="text-yellow-400 text-[12px]">AI suggests:</div>
                   <div className="text-[#e2e2e2] bg-yellow-400/[0.06] border border-yellow-400/20 rounded-md px-3 py-1.5 mt-1 inline-block">{aiSuggestion}</div>
-                  <div className="text-[11px] text-[#525252] mt-1.5">Press <span className="text-[#737373]">Enter</span> to run · <span className="text-[#737373]">Esc</span> to dismiss</div>
+                  <div className="text-[11px] text-[#525252] mt-1.5">Press <span className="text-muted">Enter</span> to run · <span className="text-muted">Esc</span> to dismiss</div>
                 </div>
               )}
             </div>
@@ -1210,7 +1222,7 @@ export default function ChatClient() {
                     {/* File/Image attachment indicator */}
                     {hasFileAttachment && (
                       <div className="flex items-center gap-1.5 mb-1.5 justify-end">
-                        <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-lg px-2.5 py-1 text-[11px] text-[#737373]">
+                        <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-lg px-2.5 py-1 text-[11px] text-muted">
                           <IconFile size={10} />
                           <span>{attachmentName}</span>
                         </div>
@@ -1218,7 +1230,7 @@ export default function ChatClient() {
                     )}
                     {hasImageAttachment && (
                       <div className="flex items-center gap-1.5 mb-1.5 justify-end">
-                        <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-lg px-2.5 py-1 text-[11px] text-[#737373]">
+                        <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-lg px-2.5 py-1 text-[11px] text-muted">
                           <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1.5"/><path d="M2 11l3.5-3.5 2.5 2.5 2-2L14 11"/></svg>
                           <span>{attachmentName}</span>
                         </div>
@@ -1243,7 +1255,7 @@ export default function ChatClient() {
                       <div className="opacity-0 group-hover:opacity-100 mt-1.5 flex items-center gap-3 transition-all">
                         <button
                           onClick={() => copy(msg.content, i)}
-                          className="flex items-center gap-1 text-caption text-[#737373] hover:text-[#e2e2e2] transition-colors"
+                          className="flex items-center gap-1 text-caption text-muted hover:text-[#e2e2e2] transition-colors"
                         >
                           {copiedIndex === i ? <IconCheck size={12} /> : <IconCopy size={12} />}
                           {copiedIndex === i ? t('common.copied') : t('common.copy')}
@@ -1583,7 +1595,7 @@ export default function ChatClient() {
               </div>
               <div>
                 <h3 className="font-semibold text-white text-[15px]">Microphone Access Required</h3>
-                <p className="text-[12px] text-[#737373]">Permission was previously denied</p>
+                <p className="text-[12px] text-muted">Permission was previously denied</p>
               </div>
             </div>
 

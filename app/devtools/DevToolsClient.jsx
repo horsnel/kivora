@@ -40,7 +40,7 @@ const CATEGORIES = [
   {
     id: 'code',
     labelKey: 'devtools.cat.code',
-    color: '#3b82f6',
+    color: '#dc2626',
     tools: [
       { id: 'code_explainer', labelKey: 'devtools.code_explainer',    Icon: (p) => <IconCode {...p} />,      descKey: 'devtools.code_explainer.desc' },
       { id: 'code_reviewer',  labelKey: 'devtools.code_reviewer',     Icon: (p) => <I.Shield {...p} />,      descKey: 'devtools.code_reviewer.desc' },
@@ -55,7 +55,7 @@ const CATEGORIES = [
   {
     id: 'data',
     labelKey: 'devtools.cat.data',
-    color: '#a855f7',
+    color: '#ef4444',
     tools: [
       { id: 'json_formatter', labelKey: 'devtools.json_formatter',    Icon: (p) => <I.Braces {...p} />,      descKey: 'devtools.json_formatter.desc' },
       { id: 'csv_analyser',   labelKey: 'devtools.csv_analyser',      Icon: (p) => <I.Diff {...p} />,        descKey: 'devtools.csv_analyser.desc' },
@@ -70,7 +70,7 @@ const CATEGORIES = [
   {
     id: 'content',
     labelKey: 'devtools.cat.content',
-    color: '#16a34a',
+    color: '#f87171',
     tools: [
       { id: 'readme',         labelKey: 'devtools.readme',            Icon: (p) => <IconBook {...p} />,      descKey: 'devtools.readme.desc' },
       { id: 'email_writer',   labelKey: 'devtools.email_writer',      Icon: (p) => <I.Mail {...p} />,        descKey: 'devtools.email_writer.desc' },
@@ -82,7 +82,7 @@ const CATEGORIES = [
   {
     id: 'business',
     labelKey: 'devtools.cat.business',
-    color: '#f59e0b',
+    color: '#b91c1c',
     tools: [
       { id: 'pitch_writer',   labelKey: 'devtools.pitch_writer',      Icon: (p) => <I.Zap {...p} />,         descKey: 'devtools.pitch_writer.desc' },
       { id: 'job_desc',       labelKey: 'devtools.job_desc',          Icon: (p) => <I.FileText {...p} />,    descKey: 'devtools.job_desc.desc' },
@@ -93,7 +93,7 @@ const CATEGORIES = [
   {
     id: 'education',
     labelKey: 'devtools.cat.education',
-    color: '#06b6d4',
+    color: '#991b1b',
     tools: [
       { id: 'math_solver',    labelKey: 'devtools.math_solver',       Icon: (p) => <I.Calc {...p} />,        descKey: 'devtools.math_solver.desc' },
     ]
@@ -435,20 +435,20 @@ export default function DevToolsClient() {
 
   return (
     <main className="min-h-screen bg-[#0a0a0a]">
-      <div className="max-w-4xl mx-auto px-4 pt-6 pb-10">
+      <div className="max-w-5xl mx-auto px-4 pt-6 pb-10">
 
         {/* Header */}
         <div className="mb-6 animate-fade-up">
           <h1 className="text-display font-semibold mb-2 tracking-tight">
             {t('devtools.title').slice(0, parseInt(t('devtools.split')))}<span className="text-red-500">{t('devtools.title').slice(parseInt(t('devtools.split')))}</span>
           </h1>
-          <p className="text-[#737373] text-sm mt-0.5">
+          <p className="text-muted text-body-sm mt-0.5">
             {t('devtools.subtitle')}
           </p>
         </div>
 
         {/* Category tabs */}
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="flex flex-wrap gap-2 mb-8">
           {CATEGORIES.map(cat => (
             <button
               key={cat.id}
@@ -456,7 +456,7 @@ export default function DevToolsClient() {
               className={`px-4 py-2 rounded-full text-sm font-semibold border transition-all ${
                 activeCat === cat.id
                   ? 'text-[#0a0a0a] border-transparent'
-                  : 'bg-[#141414] border-[#262626] text-[#737373] hover:text-white hover:border-[#3a3a3a]'
+                  : 'bg-[#141414] border-[#262626] text-muted hover:text-white hover:border-[#3a3a3a]'
               }`}
               style={activeCat === cat.id ? { background: cat.color, borderColor: cat.color } : {}}
             >
@@ -466,7 +466,7 @@ export default function DevToolsClient() {
         </div>
 
         {/* Tool pills within active category */}
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="flex flex-wrap gap-2 mb-7">
           {currentCat.tools.map(tool => (
             <button
               key={tool.id}
@@ -474,7 +474,7 @@ export default function DevToolsClient() {
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all ${
                 active === tool.id
                   ? 'bg-red-600 border-red-600 text-white'
-                  : 'bg-[#141414] border-[#262626] text-[#737373] hover:text-white hover:border-[#3a3a3a]'
+                  : 'bg-[#141414] border-[#262626] text-muted hover:text-white hover:border-[#3a3a3a]'
               }`}
             >
               <tool.Icon size={12} /> {t(tool.labelKey)}
@@ -483,17 +483,17 @@ export default function DevToolsClient() {
         </div>
 
         {/* Split panel */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
           {/* ── Input Panel ─────────────────────────────────── */}
-          <div className="bg-[#141414] rounded-xl p-6">
+          <div className="bg-[#141414] rounded-xl p-7">
             <div className="flex items-center gap-2.5 mb-5">
               <div className="w-8 h-8 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
-                <currentTool.Icon size={15} className="text-[#737373]" />
+                <currentTool.Icon size={15} className="text-muted" />
               </div>
               <div>
-                <h2 className="font-semibold text-sm tracking-tight text-[#737373]">{t(currentTool.labelKey)}</h2>
-                <p className="text-xs text-[#737373]">{t(currentTool.descKey)}</p>
+                <h2 className="font-semibold text-sm tracking-tight text-muted">{t(currentTool.labelKey)}</h2>
+                <p className="text-xs text-muted">{t(currentTool.descKey)}</p>
               </div>
             </div>
 
@@ -503,88 +503,88 @@ export default function DevToolsClient() {
 
               {active === 'code_explainer' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.language')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.language')}</label>
                   <Select value={form.language} onChange={v => set('language', v)} options={LANGUAGES.map(l => ({ value: l, label: l }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.code')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.code')}</label>
                   <textarea className={`${tamono} h-52`} placeholder="Paste any code here..." value={form.code} onChange={e => set('code', e.target.value)} />
                 </div>
               </>}
 
               {active === 'code_reviewer' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.language')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.language')}</label>
                   <Select value={form.reviewLang} onChange={v => set('reviewLang', v)} options={LANGUAGES.map(l => ({ value: l, label: l }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.code_to_review')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.code_to_review')}</label>
                   <textarea className={`${tamono} h-52`} placeholder="Paste the code you want reviewed..." value={form.reviewCode} onChange={e => set('reviewCode', e.target.value)} />
                 </div>
               </>}
 
               {active === 'regex' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.pattern_match')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.pattern_match')}</label>
                   <textarea className={`${ta} h-24`} placeholder="e.g. Nigerian phone numbers starting with 070, 080, 081, 090..." value={form.description} onChange={e => set('description', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.language')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.language')}</label>
                   <Select value={form.regexLang} onChange={v => set('regexLang', v)} options={LANGUAGES.map(l => ({ value: l, label: l }))} />
                 </div>
               </>}
 
               {active === 'sql_builder' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.describe_query')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.describe_query')}</label>
                   <textarea className={`${ta} h-24`} placeholder="e.g. Get all users who signed up in the last 30 days with their total order count, sorted by most recent" value={form.sqlDesc} onChange={e => set('sqlDesc', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.sql_dialect')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.sql_dialect')}</label>
                   <Select value={form.dialect} onChange={v => set('dialect', v)} options={SQL_DIALECTS.map(d => ({ value: d, label: d }))} />
                 </div>
               </>}
 
               {active === 'terminal' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.context')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.context')}</label>
                   <Select value={form.terminalContext} onChange={v => set('terminalContext', v)} options={['Linux/Mac','Windows','Docker','AWS CLI','Git Bash'].map(c => ({ value: c, label: c }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.command')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.command')}</label>
                   <textarea className={`${tamono} h-28`} placeholder="e.g. find all .env files in this folder and subfolders but not in node_modules" value={form.terminalCmd} onChange={e => set('terminalCmd', e.target.value)} />
                 </div>
               </>}
 
               {active === 'git_helper' && (
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.git_task')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.git_task')}</label>
                   <textarea className={`${ta} h-36`} placeholder="e.g. How do I squash my last 4 commits into one? / What does this error mean: fatal: refusing to merge unrelated histories" value={form.gitCmd} onChange={e => set('gitCmd', e.target.value)} />
                 </div>
               )}
 
               {active === 'regex_tester' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.regex_pattern')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.regex_pattern')}</label>
                   <input className={mono} placeholder="e.g. \b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b" value={form.regexPattern} onChange={e => set('regexPattern', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.flags')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.flags')}</label>
                   <Select value={form.regexFlags} onChange={v => set('regexFlags', v)} options={['g','gi','gm','gs','gim','gims','i','im','m','s'].map(f => ({ value: f, label: f }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.test_string')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.test_string')}</label>
                   <textarea className={`${ta} h-32`} placeholder="Enter text to test against the pattern..." value={form.regexTestString} onChange={e => set('regexTestString', e.target.value)} />
                 </div>
               </>}
 
               {active === 'diff_checker' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.original_text')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.original_text')}</label>
                   <textarea className={`${tamono} h-36`} placeholder="Paste the original text here..." value={form.diffOriginal} onChange={e => set('diffOriginal', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.modified_text')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.modified_text')}</label>
                   <textarea className={`${tamono} h-36`} placeholder="Paste the modified text here..." value={form.diffModified} onChange={e => set('diffModified', e.target.value)} />
                 </div>
               </>}
@@ -593,88 +593,88 @@ export default function DevToolsClient() {
 
               {active === 'json_formatter' && (
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.paste_json')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.paste_json')}</label>
                   <textarea className={`${tamono} h-56`} placeholder={'{"key": "value"}'} value={form.json} onChange={e => set('json', e.target.value)} />
                 </div>
               )}
 
               {active === 'csv_analyser' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.paste_csv')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.paste_csv')}</label>
                   <textarea className={`${tamono} h-40`} placeholder={"name,email,plan,created_at\nAlex,alex@example.com,pro,2026-01-01"} value={form.csvData} onChange={e => set('csvData', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.csv_goal')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.csv_goal')}</label>
                   <input className={inp} placeholder="e.g. Which plan has the most users? Any patterns in the data?" value={form.csvGoal} onChange={e => set('csvGoal', e.target.value)} />
                 </div>
               </>}
 
               {active === 'data_to_schema' && (
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.describe_data')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.describe_data')}</label>
                   <textarea className={`${ta} h-44`} placeholder={"e.g. An e-commerce platform with products, customers, orders, and order items. Customers can have multiple addresses. Products have categories and images."} value={form.schemaDesc} onChange={e => set('schemaDesc', e.target.value)} />
                 </div>
               )}
 
               {active === 'api_analyzer' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.endpoint')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.endpoint')}</label>
                   <input className={mono} placeholder="https://api.example.com/v1/users" value={form.endpoint} onChange={e => set('endpoint', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.method')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.method')}</label>
                   <Select value={form.method} onChange={v => set('method', v)} options={HTTP_METHODS.map(m => ({ value: m, label: m }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.headers')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.headers')}</label>
                   <textarea className={`${tamono} h-14`} placeholder='{"Authorization": "Bearer token"}' value={form.headers} onChange={e => set('headers', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.body')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.body')}</label>
                   <textarea className={`${tamono} h-14`} placeholder='{"email": "user@example.com"}' value={form.body} onChange={e => set('body', e.target.value)} />
                 </div>
               </>}
 
               {active === 'env_checker' && (
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.paste_env')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.paste_env')}</label>
                   <textarea className={`${tamono} h-52`} placeholder={"DATABASE_URL=...\nJWT_SECRET=...\nNEXT_PUBLIC_API_URL=..."} value={form.envContent} onChange={e => set('envContent', e.target.value)} />
                 </div>
               )}
 
               {active === 'jwt_decoder' && (
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.paste_jwt')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.paste_jwt')}</label>
                   <textarea className={`${tamono} h-52`} placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c" value={form.jwtToken} onChange={e => set('jwtToken', e.target.value)} />
                 </div>
               )}
 
               {active === 'base64' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.mode')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.mode')}</label>
                   <Select value={form.base64Mode} onChange={v => set('base64Mode', v)} options={[{ value: 'encode', label: t('devtools.label.encode') }, { value: 'decode', label: t('devtools.label.decode') }]} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{form.base64Mode === 'encode' ? t('devtools.label.text_to_encode') : t('devtools.label.base64_to_decode')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{form.base64Mode === 'encode' ? t('devtools.label.text_to_encode') : t('devtools.label.base64_to_decode')}</label>
                   <textarea className={`${tamono} h-40`} placeholder={form.base64Mode === 'encode' ? 'Enter text to encode...' : 'Enter Base64 string to decode...'} value={form.base64Input} onChange={e => set('base64Input', e.target.value)} />
                 </div>
               </>}
 
               {active === 'api_tester' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.url')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.url')}</label>
                   <input className={mono} placeholder="https://api.example.com/v1/users" value={form.apiTesterUrl} onChange={e => set('apiTesterUrl', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.method')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.method')}</label>
                   <Select value={form.apiTesterMethod} onChange={v => set('apiTesterMethod', v)} options={HTTP_METHODS.map(m => ({ value: m, label: m }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.headers')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.headers')}</label>
                   <textarea className={`${tamono} h-14`} placeholder='{"Authorization": "Bearer token"}' value={form.apiTesterHeaders} onChange={e => set('apiTesterHeaders', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.body')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.body')}</label>
                   <textarea className={`${tamono} h-14`} placeholder='{"email": "user@example.com"}' value={form.apiTesterBody} onChange={e => set('apiTesterBody', e.target.value)} />
                 </div>
               </>}
@@ -683,55 +683,55 @@ export default function DevToolsClient() {
 
               {active === 'readme' && (
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.describe_project')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.describe_project')}</label>
                   <textarea className={`${ta} h-52`} placeholder={"Project name, what it does, tech stack, key features, how to install and use it..."} value={form.info} onChange={e => set('info', e.target.value)} />
                 </div>
               )}
 
               {active === 'email_writer' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.recipient')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.recipient')}</label>
                   <input className={inp} placeholder="e.g. CEO of a logistics company / potential client" value={form.emailRecipient} onChange={e => set('emailRecipient', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.tone')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.tone')}</label>
                   <Select value={form.emailTone} onChange={v => set('emailTone', v)} options={TONES.map(tn => ({ value: tn, label: tn }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.email_content')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.email_content')}</label>
                   <textarea className={`${ta} h-32`} placeholder="Bullet points or a rough description. e.g. Following up on the proposal I sent Tuesday. Asking if they have questions. Suggesting a call this week." value={form.emailContext} onChange={e => set('emailContext', e.target.value)} />
                 </div>
               </>}
 
               {active === 'text_improver' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.goal')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.goal')}</label>
                   <Select value={form.textGoal} onChange={v => set('textGoal', v)} options={['Improve clarity','Make more professional','Make more concise','Fix grammar','Make more persuasive','Simplify for non-experts','Make more engaging'].map(g => ({ value: g, label: g }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.your_text')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.your_text')}</label>
                   <textarea className={`${ta} h-44`} placeholder="Paste the text you want improved..." value={form.textInput} onChange={e => set('textInput', e.target.value)} />
                 </div>
               </>}
 
               {active === 'translator' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.target_lang')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.target_lang')}</label>
                   <Select value={form.targetLang} onChange={v => set('targetLang', v)} options={LANGUAGES_HUMAN.map(l => ({ value: l, label: l }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.text_to_translate')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.text_to_translate')}</label>
                   <textarea className={`${ta} h-44`} placeholder="Paste the text to translate..." value={form.translateText} onChange={e => set('translateText', e.target.value)} />
                 </div>
               </>}
 
               {active === 'summariser' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.summary_style')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.summary_style')}</label>
                   <Select value={form.summariseStyle} onChange={v => set('summariseStyle', v)} options={['Bullet points','One paragraph','Executive summary','Tweet thread','ELI5 (simple)','Key quotes only'].map(s => ({ value: s, label: s }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.text_to_summarise')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.text_to_summarise')}</label>
                   <textarea className={`${ta} h-44`} placeholder="Paste an article, report, meeting notes, or any long text..." value={form.summariseText} onChange={e => set('summariseText', e.target.value)} />
                 </div>
               </>}
@@ -740,56 +740,56 @@ export default function DevToolsClient() {
 
               {active === 'pitch_writer' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.pitch_product')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.pitch_product')}</label>
                   <textarea className={`${ta} h-24`} placeholder="What you're pitching: the product, service, or idea. What it does, who it's for." value={form.pitchProduct} onChange={e => set('pitchProduct', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.pitch_audience')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.pitch_audience')}</label>
                   <input className={inp} placeholder="e.g. Seed-stage investors / a potential enterprise client / a strategic partner" value={form.pitchAudience} onChange={e => set('pitchAudience', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.pitch_ask')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.pitch_ask')}</label>
                   <input className={inp} placeholder="e.g. $150,000 pre-seed / a 30-minute meeting / a pilot contract" value={form.pitchAsk} onChange={e => set('pitchAsk', e.target.value)} />
                 </div>
               </>}
 
               {active === 'job_desc' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.job_title')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.job_title')}</label>
                   <input className={inp} placeholder="e.g. Senior Backend Engineer / Content Manager / Operations Lead" value={form.jobTitle} onChange={e => set('jobTitle', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.job_responsibilities')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.job_responsibilities')}</label>
                   <textarea className={`${ta} h-24`} placeholder="3–5 bullet points of what this person will own..." value={form.jobResponsibilities} onChange={e => set('jobResponsibilities', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.job_requirements')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.job_requirements')}</label>
                   <textarea className={`${ta} h-20`} placeholder="Skills, experience, and tools required..." value={form.jobRequirements} onChange={e => set('jobRequirements', e.target.value)} />
                 </div>
               </>}
 
               {active === 'sop_writer' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.sop_process')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.sop_process')}</label>
                   <textarea className={`${ta} h-28`} placeholder="e.g. How to onboard a new client: from signed contract to first deliverable. Includes Slack setup, project creation in Notion, first call, questionnaire." value={form.sopProcess} onChange={e => set('sopProcess', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.sop_role')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.sop_role')}</label>
                   <input className={inp} placeholder="e.g. Junior account manager / any new team member / the founder" value={form.sopRole} onChange={e => set('sopRole', e.target.value)} />
                 </div>
               </>}
 
               {active === 'cold_email' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.cold_target')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.cold_target')}</label>
                   <input className={inp} placeholder="e.g. Operations manager at a mid-sized Lagos logistics company" value={form.coldTarget} onChange={e => set('coldTarget', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.cold_product')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.cold_product')}</label>
                   <input className={inp} placeholder="e.g. WhatsApp automation that handles customer queries automatically" value={form.coldProduct} onChange={e => set('coldProduct', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.cold_observation')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.cold_observation')}</label>
                   <textarea className={`${ta} h-20`} placeholder="e.g. I noticed on their Google listing that customers complained about slow WhatsApp response times..." value={form.coldObservation} onChange={e => set('coldObservation', e.target.value)} />
                 </div>
               </>}
@@ -798,11 +798,11 @@ export default function DevToolsClient() {
 
               {active === 'math_solver' && <>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.equation')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.equation')}</label>
                   <textarea className={`${tamono} h-28`} placeholder="e.g. Solve x² + 5x + 6 = 0" value={form.mathEquation} onChange={e => set('mathEquation', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5">{t('devtools.label.math_context')}</label>
+                  <label className="text-xs text-muted block mb-1.5">{t('devtools.label.math_context')}</label>
                   <input className={inp} placeholder="e.g. Find all real roots" value={form.mathContext} onChange={e => set('mathContext', e.target.value)} />
                 </div>
               </>}
@@ -819,38 +819,38 @@ export default function DevToolsClient() {
             {/* ── Live display: JWT Decoder ─────────────── */}
             {active === 'jwt_decoder' && form.jwtToken.trim() && (
               <div className="mt-4 space-y-3">
-                <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider">{t('devtools.decoded_token')}</h3>
+                <h3 className="text-xs text-muted font-semibold uppercase tracking-wider">{t('devtools.decoded_token')}</h3>
                 {jwtDecoded?.error ? (
                   <div className="bg-red-950/20 border border-red-900/30 rounded-lg px-3 py-2 text-xs text-red-400">{jwtDecoded.error}</div>
                 ) : jwtDecoded ? (
                   <>
                     <div>
-                      <span className="text-xs text-[#737373]">{t('devtools.jwt_header')}</span>
+                      <span className="text-xs text-muted">{t('devtools.jwt_header')}</span>
                       <pre className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-3 text-xs font-mono text-emerald-400 overflow-auto max-h-28 mt-1">{JSON.stringify(jwtDecoded.header, null, 2)}</pre>
                     </div>
                     <div>
-                      <span className="text-xs text-[#737373]">{t('devtools.jwt_payload')}</span>
-                      <pre className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-3 text-xs font-mono text-sky-400 overflow-auto max-h-36 mt-1">{JSON.stringify(jwtDecoded.payload, null, 2)}</pre>
+                      <span className="text-xs text-muted">{t('devtools.jwt_payload')}</span>
+                      <pre className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-3 text-xs font-mono text-red-400 overflow-auto max-h-36 mt-1">{JSON.stringify(jwtDecoded.payload, null, 2)}</pre>
                     </div>
                     <div className="flex flex-wrap gap-3 text-xs">
                       {jwtDecoded.expDate && (
                         <div className="flex items-center gap-1.5">
                           <span className={`w-1.5 h-1.5 rounded-full ${jwtDecoded.expired ? 'bg-red-500' : 'bg-emerald-500'}`} />
-                          <span className="text-[#737373]">{jwtDecoded.expired ? t('devtools.jwt_expired') : t('devtools.jwt_valid')}</span>
+                          <span className="text-muted">{jwtDecoded.expired ? t('devtools.jwt_expired') : t('devtools.jwt_valid')}</span>
                           <span className="text-[#525252]">{jwtDecoded.expDate}</span>
                         </div>
                       )}
                       {jwtDecoded.iatDate && (
                         <div className="flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                          <span className="text-[#737373]">{t('devtools.jwt_issued')}</span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                          <span className="text-muted">{t('devtools.jwt_issued')}</span>
                           <span className="text-[#525252]">{jwtDecoded.iatDate}</span>
                         </div>
                       )}
                       {jwtDecoded.nbfDate && (
                         <div className="flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                          <span className="text-[#737373]">{t('devtools.jwt_not_before')}</span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-700" />
+                          <span className="text-muted">{t('devtools.jwt_not_before')}</span>
                           <span className="text-[#525252]">{jwtDecoded.nbfDate}</span>
                         </div>
                       )}
@@ -863,7 +863,7 @@ export default function DevToolsClient() {
             {/* ── Live display: Base64 ──────────────────── */}
             {active === 'base64' && form.base64Input.trim() && (
               <div className="mt-4 space-y-3">
-                <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider">{form.base64Mode === 'encode' ? t('devtools.encoded_result') : t('devtools.decoded_result')}</h3>
+                <h3 className="text-xs text-muted font-semibold uppercase tracking-wider">{form.base64Mode === 'encode' ? t('devtools.encoded_result') : t('devtools.decoded_result')}</h3>
                 {base64Result === '__ERROR__' ? (
                   <div className="bg-red-950/20 border border-red-900/30 rounded-lg px-3 py-2 text-xs text-red-400">{t('devtools.invalid_base64', { mode: form.base64Mode })}</div>
                 ) : base64Result ? (
@@ -875,7 +875,7 @@ export default function DevToolsClient() {
             {/* ── Live display: Regex Tester ────────────── */}
             {active === 'regex_tester' && form.regexPattern && form.regexTestString && (
               <div className="mt-4 space-y-3">
-                <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider">{t('devtools.matches')}</h3>
+                <h3 className="text-xs text-muted font-semibold uppercase tracking-wider">{t('devtools.matches')}</h3>
                 {regexMatches === null ? (
                   <div className="bg-red-950/20 border border-red-900/30 rounded-lg px-3 py-2 text-xs text-red-400">{t('devtools.invalid_regex')}</div>
                 ) : (
@@ -887,7 +887,7 @@ export default function DevToolsClient() {
                           : <span key={i}>{part.text}</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-[#737373]">
+                    <div className="flex items-center gap-3 text-xs text-muted">
                       <span>{regexMatches.length} {t('devtools.match')}{regexMatches.length !== 1 ? 'es' : ''}</span>
                       {regexMatches.some(m => m.groups.length > 0) && (
                         <span>{regexMatches.reduce((acc, m) => acc + m.groups.length, 0)} {t('devtools.captured_group')}{regexMatches.reduce((acc, m) => acc + m.groups.length, 0) !== 1 ? 's' : ''}</span>
@@ -901,7 +901,7 @@ export default function DevToolsClient() {
                             <span className="text-yellow-300 font-mono">&quot;{m.value}&quot;</span>
                             <span className="text-[#525252]">at {m.index}</span>
                             {m.groups.filter(g => g != null).length > 0 && (
-                              <span className="text-[#737373]">[{m.groups.filter(g => g != null).map(g => `"${g}"`).join(', ')}]</span>
+                              <span className="text-muted">[{m.groups.filter(g => g != null).map(g => `"${g}"`).join(', ')}]</span>
                             )}
                           </div>
                         ))}
@@ -916,9 +916,9 @@ export default function DevToolsClient() {
           {/* ── Output Panel ─────────────────────────────────── */}
           <div className="bg-[#141414] rounded-xl p-6 flex flex-col min-h-[560px]">
             <div className="flex items-center justify-between mb-4 shrink-0">
-              <h2 className="font-semibold text-sm text-[#737373]">{t('devtools.output')}</h2>
+              <h2 className="font-semibold text-sm text-muted">{t('devtools.output')}</h2>
               {result && (
-                <button onClick={copy} className="flex items-center gap-1.5 text-xs text-[#737373] hover:text-white transition-colors">
+                <button onClick={copy} className="flex items-center gap-1.5 text-xs text-muted hover:text-white transition-colors">
                   {copied
                     ? <><IconCheck size={11} className="text-emerald-400" /> {t('common.copied')}</>
                     : <><IconCopy size={11} /> {t('common.copy')}</>}
@@ -947,7 +947,7 @@ export default function DevToolsClient() {
                       </div>
                     ))}
                   </div>
-                  <div className="flex items-center gap-4 mt-3 text-xs text-[#737373]">
+                  <div className="flex items-center gap-4 mt-3 text-xs text-muted">
                     <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" /> {t('devtools.diff_added')} ({diffResult.filter(l => l.type === 'added').length})</span>
                     <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500" /> {t('devtools.diff_removed')} ({diffResult.filter(l => l.type === 'removed').length})</span>
                     <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#525252]" /> {t('devtools.diff_unchanged')} ({diffResult.filter(l => l.type === 'unchanged').length})</span>
@@ -965,21 +965,21 @@ export default function DevToolsClient() {
                       <div className="flex items-center gap-3">
                         <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
                           apiTestResult.status < 300 ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/40'
-                          : apiTestResult.status < 400 ? 'bg-amber-950/40 text-amber-400 border border-amber-900/40'
+                          : apiTestResult.status < 400 ? 'bg-red-950/40 text-red-400 border border-red-900/40'
                           : 'bg-red-950/40 text-red-400 border border-red-900/40'
                         }`}>
                           {apiTestResult.status} {apiTestResult.statusText}
                         </span>
-                        <span className="text-xs text-[#737373]">{apiTestResult.time}ms</span>
+                        <span className="text-xs text-muted">{apiTestResult.time}ms</span>
                       </div>
                       {/* Headers */}
                       <div>
-                        <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider mb-1.5">{t('devtools.label.headers')}</h3>
-                        <pre className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-3 text-xs font-mono text-sky-400 overflow-auto max-h-28">{Object.entries(apiTestResult.headers).map(([k, v]) => `${k}: ${v}`).join('\n')}</pre>
+                        <h3 className="text-xs text-muted font-semibold uppercase tracking-wider mb-1.5">{t('devtools.label.headers')}</h3>
+                        <pre className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-3 text-xs font-mono text-red-400 overflow-auto max-h-28">{Object.entries(apiTestResult.headers).map(([k, v]) => `${k}: ${v}`).join('\n')}</pre>
                       </div>
                       {/* Body */}
                       <div>
-                        <h3 className="text-xs text-[#737373] font-semibold uppercase tracking-wider mb-1.5">{t('devtools.label.body')}</h3>
+                        <h3 className="text-xs text-muted font-semibold uppercase tracking-wider mb-1.5">{t('devtools.label.body')}</h3>
                         <pre className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-3 text-xs font-mono text-emerald-400 overflow-auto max-h-64 whitespace-pre-wrap break-all">{apiTestResult.body}</pre>
                       </div>
                     </>
@@ -992,7 +992,7 @@ export default function DevToolsClient() {
                     <div className="w-12 h-12 bg-[#1a1a1a] rounded-xl flex items-center justify-center mx-auto mb-3">
                       <currentTool.Icon size={20} className="text-[#2e2e2e]" />
                     </div>
-                    <p className="text-[#404040] text-sm">{loading ? t('devtools.running') : t('devtools.output_appears_here')}</p>
+                    <p className="text-muted2 text-sm">{loading ? t('devtools.running') : t('devtools.output_appears_here')}</p>
                     <p className="text-[#2e2e2e] text-xs mt-1">{t('devtools.fill_and_run')}</p>
                   </div>
                 </div>
@@ -1003,13 +1003,13 @@ export default function DevToolsClient() {
 
         {/* All tools quick reference */}
         <div className="mt-10 border-t border-[#141414] pt-10">
-          <h2 className="font-semibold text-base tracking-tight mb-6 text-[#737373]">{t('devtools.all_tools')}</h2>
+          <h2 className="font-semibold text-base tracking-tight mb-6 text-muted">{t('devtools.all_tools')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {CATEGORIES.map(cat => (
               <div key={cat.id} className="bg-[#141414] rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-2 h-5 rounded-full" style={{ background: cat.color }} />
-                  <h3 className="font-semibold text-sm text-[#737373]">{t(cat.labelKey)}</h3>
+                  <h3 className="font-semibold text-sm text-muted">{t(cat.labelKey)}</h3>
                 </div>
                 <ul className="space-y-1.5">
                   {cat.tools.map(tool => (
@@ -1019,7 +1019,7 @@ export default function DevToolsClient() {
                         className={`w-full text-left text-xs flex items-center gap-2 py-1 px-2 rounded-lg transition-colors ${
                           active === tool.id
                             ? 'text-red-400 bg-red-950/20'
-                            : 'text-[#737373] hover:text-white hover:bg-[#1a1a1a]'
+                            : 'text-muted hover:text-white hover:bg-[#1a1a1a]'
                         }`}
                       >
                         <tool.Icon size={11} className="shrink-0" />

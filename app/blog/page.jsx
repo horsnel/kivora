@@ -97,7 +97,7 @@ export default function BlogPage() {
             Guides for builders.<br />
             <span className="text-red-500">No fluff.</span>
           </h1>
-          <p className="text-[#737373] text-base max-w-xl">
+          <p className="text-muted text-base max-w-xl">
             Deep dives on AI opportunities, automation strategies, and honest breakdowns of what actually works.
           </p>
         </div>
@@ -106,7 +106,7 @@ export default function BlogPage() {
         <div className="bg-[#141414] border border-[#262626] rounded-xl px-5 py-4 mb-10 flex items-center justify-between gap-4">
           <div>
             <p className="text-sm font-medium mb-0.5">Full blog on Kivora</p>
-            <p className="text-xs text-[#737373]">Our full editorial archive lives on the Kivora blog, hundreds of articles, guides, and analyses.</p>
+            <p className="text-xs text-muted">Our full editorial archive lives on the Kivora blog, hundreds of articles, guides, and analyses.</p>
           </div>
           <a
             href={BLOG_URL}
@@ -127,7 +127,7 @@ export default function BlogPage() {
               className={`px-3 py-1.5 rounded-full text-xs border transition-colors cursor-pointer ${
                 activeCategory === c
                   ? 'bg-red-600 border-red-600 text-white'
-                  : 'bg-[#141414] border-[#262626] text-[#737373] hover:border-[#3a3a3a] hover:text-[#d4d4d4]'
+                  : 'bg-[#141414] border-[#262626] text-muted hover:border-[#3a3a3a] hover:text-[#d4d4d4]'
               }`}
             >
               {c}
@@ -158,13 +158,13 @@ export default function BlogPage() {
                 <div className="p-5">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-[10px] font-medium text-red-400 bg-red-950/30 border border-red-900/20 px-2 py-0.5 rounded-full">{post.category}</span>
-                    <span className="text-[10px] text-[#404040]">{post.readTime}</span>
+                    <span className="text-[10px] text-muted2">{post.readTime}</span>
                   </div>
-                  <h3 className="font-semibold text-sm leading-snug tracking-tight mb-2 group-hover:text-red-400 transition-colors text-[#737373]">{post.title}</h3>
-                  <p className="text-xs text-[#737373] leading-relaxed line-clamp-2">{post.excerpt}</p>
+                  <h3 className="font-semibold text-sm leading-snug tracking-tight mb-2 group-hover:text-red-400 transition-colors text-muted">{post.title}</h3>
+                  <p className="text-xs text-muted leading-relaxed line-clamp-2">{post.excerpt}</p>
                   <div className="flex items-center justify-between mt-4">
-                    <span className="text-[10px] text-[#404040] font-mono">{post.date}</span>
-                    <span className="flex items-center gap-1 text-[10px] text-[#404040] group-hover:text-red-400 transition-colors">
+                    <span className="text-[10px] text-muted2 font-mono">{post.date}</span>
+                    <span className="flex items-center gap-1 text-[10px] text-muted2 group-hover:text-red-400 transition-colors">
                       Read <IconArrowRight size={10} />
                     </span>
                   </div>
@@ -197,13 +197,13 @@ export default function BlogPage() {
                 <div className="p-5">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-[10px] font-medium text-red-400 bg-red-950/30 border border-red-900/20 px-2 py-0.5 rounded-full">{post.category}</span>
-                    <span className="text-[10px] text-[#404040]">{post.readTime}</span>
+                    <span className="text-[10px] text-muted2">{post.readTime}</span>
                   </div>
-                  <h3 className="font-semibold text-sm leading-snug tracking-tight mb-2 group-hover:text-red-400 transition-colors text-[#737373]">{post.title}</h3>
-                  <p className="text-xs text-[#737373] leading-relaxed line-clamp-2">{post.excerpt}</p>
+                  <h3 className="font-semibold text-sm leading-snug tracking-tight mb-2 group-hover:text-red-400 transition-colors text-muted">{post.title}</h3>
+                  <p className="text-xs text-muted leading-relaxed line-clamp-2">{post.excerpt}</p>
                   <div className="flex items-center justify-between mt-4">
-                    <span className="text-[10px] text-[#404040] font-mono">{post.date}</span>
-                    <span className="flex items-center gap-1 text-[10px] text-[#404040] group-hover:text-red-400 transition-colors">
+                    <span className="text-[10px] text-muted2 font-mono">{post.date}</span>
+                    <span className="flex items-center gap-1 text-[10px] text-muted2 group-hover:text-red-400 transition-colors">
                       Read <IconArrowRight size={10} />
                     </span>
                   </div>
@@ -215,7 +215,7 @@ export default function BlogPage() {
 
         {/* Empty state */}
         {filtered.length === 0 && (
-          <div className="text-center py-16 text-[#737373]">
+          <div className="text-center py-16 text-muted">
             <p className="text-sm">No posts in this category yet.</p>
             <button onClick={() => setActiveCategory('All')} className="text-xs text-red-500 hover:text-red-400 mt-2 transition-colors">
               View all posts
@@ -225,8 +225,8 @@ export default function BlogPage() {
 
         {/* View all CTA */}
         <div className="text-center py-12 bg-[#0d0d0d] rounded-xl">
-          <h3 className="font-semibold text-lg tracking-tight mb-2 text-[#737373]">More articles on Kivora</h3>
-          <p className="text-[#737373] text-sm mb-6 max-w-md mx-auto">
+          <h3 className="font-semibold text-lg tracking-tight mb-2 text-muted">More articles on Kivora</h3>
+          <p className="text-muted text-sm mb-6 max-w-md mx-auto">
             Hundreds of articles covering AI tools, automation, business building, and opportunities for builders everywhere.
           </p>
           <a
@@ -239,7 +239,7 @@ export default function BlogPage() {
           </a>
         </div>
 
-        <div className="mt-12 pt-8 border-t border-[#141414] flex flex-wrap gap-4 text-xs text-[#737373]">
+        <div className="mt-12 pt-8 border-t border-[#141414] flex flex-wrap gap-4 text-xs text-muted">
           <Link href="/about" className="hover:text-white transition-colors">About</Link>
           <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
           <Link href="/home" className="hover:text-white transition-colors">Back to app</Link>

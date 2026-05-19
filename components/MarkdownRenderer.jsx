@@ -450,7 +450,7 @@ function CodeBlock({ langLabel, codeText, codeClassName }) {
               {langLabel || 'Code'}
             </span>
           </div>
-          {/* Right: Copy + Run */}
+          {/* Right: Copy + Expand + Run */}
           <div className="flex items-center" style={{ gap: '12px' }}>
             {/* Copy button */}
             <button
@@ -469,6 +469,20 @@ function CodeBlock({ langLabel, codeText, codeClassName }) {
                   <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
                 </svg>
               )}
+            </button>
+            {/* Expand / Fullscreen button */}
+            <button
+              onClick={() => setModalOpen(true)}
+              className="flex items-center justify-center transition-colors duration-200 hover:opacity-80"
+              style={{ color: 'rgba(255,255,255,0.5)' }}
+              aria-label="Expand code fullscreen"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 3 21 3 21 9" />
+                <polyline points="9 21 3 21 3 15" />
+                <line x1="21" y1="3" x2="14" y2="10" />
+                <line x1="3" y1="21" x2="10" y2="14" />
+              </svg>
             </button>
             {/* Run button */}
             {langId ? (
@@ -682,23 +696,6 @@ function CodeBlock({ langLabel, codeText, codeClassName }) {
             )}
           </div>
         )}
-
-        {/* ── Tap to open full-screen ── */}
-        <button
-          onClick={() => setModalOpen(true)}
-          className="w-full flex items-center justify-center py-1.5 transition-colors duration-200"
-          style={{
-            borderTop: '1px solid rgba(255,255,255,0.04)',
-            color: 'rgba(255,255,255,0.2)',
-          }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 3 21 3 21 9" />
-            <polyline points="9 21 3 21 3 15" />
-            <line x1="21" y1="3" x2="14" y2="10" />
-            <line x1="3" y1="21" x2="10" y2="14" />
-          </svg>
-        </button>
       </div>
 
       {/* ── Full-screen modal ── */}

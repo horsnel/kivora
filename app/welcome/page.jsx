@@ -67,8 +67,8 @@ export default function WelcomePage() {
   }, [])
 
   function handleSearch() {
-    if (query.trim()) router.push(`/home?q=${encodeURIComponent(query.trim())}`)
-    else router.push('/home')
+    if (query.trim()) router.push(`/explore?q=${encodeURIComponent(query.trim())}`)
+    else router.push('/explore')
   }
 
   return (
@@ -86,7 +86,7 @@ export default function WelcomePage() {
           {/* badge */}
           <div className="inline-flex items-center gap-2 bg-[#141414] border border-[#262626] rounded-full px-3 sm:px-4 py-1.5 mb-6 sm:mb-8 animate-fade-up">
             <span className="w-1.5 h-1.5 bg-red-500 rounded-full pulse-dot" />
-            <span className="text-[11px] sm:text-xs text-[#737373] font-medium">{t('welcome.badge')}</span>
+            <span className="text-[11px] sm:text-xs text-muted font-medium">{t('welcome.badge')}</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-semibold leading-[1.08] sm:leading-[1.05] tracking-tight mb-5 sm:mb-6 animate-fade-up animate-fade-up-1">
@@ -94,7 +94,7 @@ export default function WelcomePage() {
             <span className="text-red-500">{t('welcome.title2')}</span>
           </h1>
 
-          <p className="text-[#737373] text-base sm:text-lg md:text-xl mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed animate-fade-up animate-fade-up-2 px-2 sm:px-0">
+          <p className="text-muted text-base sm:text-lg md:text-xl mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed animate-fade-up animate-fade-up-2 px-2 sm:px-0">
             {t('welcome.subtitle')}
           </p>
 
@@ -107,14 +107,14 @@ export default function WelcomePage() {
               {t('welcome.cta.primary')} <IconArrowRight size={14} />
             </Link>
             <Link
-              href="/home"
+              href="/explore"
               className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#141414] border border-[#262626] hover:border-[#3a3a3a] text-white px-6 py-3.5 rounded-xl font-medium text-sm transition-colors"
             >
               <IconSearch size={14} /> {t('welcome.cta.secondary')}
             </Link>
           </div>
 
-          <p className="text-[11px] sm:text-xs text-[#404040] mt-4 animate-fade-up animate-fade-up-4">
+          <p className="text-[11px] sm:text-xs text-muted2 mt-4 animate-fade-up animate-fade-up-4">
             {t('welcome.cta.sub')}
           </p>
         </div>
@@ -126,7 +126,7 @@ export default function WelcomePage() {
           {STATS.map(s => (
             <div key={s.label}>
               <div className="text-2xl sm:text-3xl font-bold tracking-tight text-white mb-1">{s.value}</div>
-              <div className="text-[11px] sm:text-xs text-[#737373]">{s.label}</div>
+              <div className="text-[11px] sm:text-xs text-muted">{s.label}</div>
             </div>
           ))}
         </div>
@@ -136,16 +136,16 @@ export default function WelcomePage() {
       <section className="max-w-5xl mx-auto px-5 sm:px-6 py-14 sm:py-20">
         <div className="text-center mb-10 sm:mb-12">
           <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mb-3">{t('welcome.features.title')}</h2>
-          <p className="text-[#737373] text-sm sm:text-base max-w-xl mx-auto">{t('welcome.features.subtitle')}</p>
+          <p className="text-muted text-sm sm:text-base max-w-xl mx-auto">{t('welcome.features.subtitle')}</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {FEATURES.map(({ Icon, title, desc }) => (
             <div key={title} className="bg-[#141414] rounded-xl p-5 sm:p-6 transition-colors group">
               <div className="w-9 h-9 bg-[#1a1a1a] rounded-xl flex items-center justify-center mb-4 group-hover:bg-red-950/20 transition-colors">
-                <Icon size={16} className="text-[#737373] group-hover:text-red-400 transition-colors" />
+                <Icon size={16} className="text-muted group-hover:text-red-400 transition-colors" />
               </div>
               <h3 className="font-semibold text-sm mb-2 tracking-tight">{title}</h3>
-              <p className="text-[#737373] text-xs leading-relaxed">{desc}</p>
+              <p className="text-muted text-xs leading-relaxed">{desc}</p>
             </div>
           ))}
         </div>
@@ -156,7 +156,7 @@ export default function WelcomePage() {
         <div className="max-w-3xl mx-auto px-5 sm:px-6">
           <div className="text-center mb-10 sm:mb-12">
             <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mb-3">{t('welcome.how.title')}</h2>
-            <p className="text-[#737373] text-sm sm:text-base">{t('welcome.how.subtitle')}</p>
+            <p className="text-muted text-sm sm:text-base">{t('welcome.how.subtitle')}</p>
           </div>
           <div className="space-y-3 sm:space-y-4">
             {[
@@ -168,7 +168,7 @@ export default function WelcomePage() {
                 <span className="text-red-500 font-mono text-sm font-bold shrink-0 mt-0.5 w-6">{step.n}</span>
                 <div>
                   <h3 className="font-semibold text-sm mb-1.5 tracking-tight">{step.title}</h3>
-                  <p className="text-[#737373] text-sm leading-relaxed">{step.desc}</p>
+                  <p className="text-muted text-sm leading-relaxed">{step.desc}</p>
                 </div>
               </div>
             ))}
@@ -180,7 +180,7 @@ export default function WelcomePage() {
       <section className="max-w-4xl mx-auto px-5 sm:px-6 py-14 sm:py-20">
         <div className="text-center mb-10 sm:mb-12">
           <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mb-3">{t('welcome.why.title')}</h2>
-          <p className="text-[#737373] text-sm sm:text-base max-w-xl mx-auto">{t('welcome.why.subtitle')}</p>
+          <p className="text-muted text-sm sm:text-base max-w-xl mx-auto">{t('welcome.why.subtitle')}</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
@@ -197,7 +197,7 @@ export default function WelcomePage() {
               </div>
               <div>
                 <h4 className="font-semibold text-sm mb-1 tracking-tight">{item.title}</h4>
-                <p className="text-[#737373] text-xs leading-relaxed">{item.desc}</p>
+                <p className="text-muted text-xs leading-relaxed">{item.desc}</p>
               </div>
             </div>
           ))}
@@ -221,7 +221,7 @@ export default function WelcomePage() {
                 <p className="text-[#d4d4d4] text-sm leading-relaxed mb-5">"{tItem.quote}"</p>
                 <div>
                   <div className="font-semibold text-sm">{tItem.name}</div>
-                  <div className="text-xs text-[#737373]">{tItem.location}</div>
+                  <div className="text-xs text-muted">{tItem.location}</div>
                 </div>
               </div>
             ))}
@@ -234,7 +234,7 @@ export default function WelcomePage() {
         <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight mb-4">
           {t('welcome.cta_bottom.title')}
         </h2>
-        <p className="text-[#737373] text-base sm:text-lg mb-8 sm:mb-10 max-w-xl mx-auto">
+        <p className="text-muted text-base sm:text-lg mb-8 sm:mb-10 max-w-xl mx-auto">
           {t('welcome.cta_bottom.subtitle')}
         </p>
         <div className="flex flex-col sm:flex-row gap-2 max-w-lg mx-auto mb-4">
@@ -249,7 +249,7 @@ export default function WelcomePage() {
             {t('welcome.cta_bottom.explore')} <IconArrowRight size={13} />
           </button>
         </div>
-        <p className="text-xs text-[#404040]">
+        <p className="text-xs text-muted2">
           {t('welcome.cta_bottom.or')}{' '}
           <Link href="/auth?mode=signup" className="text-red-500 hover:text-red-400 transition-colors">
             {t('welcome.cta_bottom.create_account')}
@@ -269,10 +269,10 @@ export default function WelcomePage() {
                 </div>
                 <span className="font-bold text-sm">Ki<span className="text-red-500">vora</span></span>
               </div>
-              <p className="text-xs text-[#737373] leading-relaxed">{t('welcome.footer.tagline')}</p>
+              <p className="text-xs text-muted leading-relaxed">{t('welcome.footer.tagline')}</p>
             </div>
             <div>
-              <h4 className="font-semibold text-xs uppercase tracking-widest text-[#737373] mb-4">{t('welcome.footer.platform')}</h4>
+              <h4 className="font-semibold text-xs uppercase tracking-widest text-muted mb-4">{t('welcome.footer.platform')}</h4>
               <ul className="space-y-2.5">
                 {[
                   [t('footer.explore'), '/'],
@@ -281,37 +281,37 @@ export default function WelcomePage() {
                   [t('footer.devtools'), '/devtools'],
                   [t('footer.opportunities'), '/opportunities']
                 ].map(([l, h]) => (
-                  <li key={l}><Link href={h} className="text-xs text-[#737373] hover:text-white transition-colors">{l}</Link></li>
+                  <li key={l}><Link href={h} className="text-xs text-muted hover:text-white transition-colors">{l}</Link></li>
                 ))}
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold text-xs uppercase tracking-widest text-[#737373] mb-4">{t('welcome.footer.company')}</h4>
+              <h4 className="font-semibold text-xs uppercase tracking-widest text-muted mb-4">{t('welcome.footer.company')}</h4>
               <ul className="space-y-2.5">
                 {[
                   [t('footer.about'), '/about'],
                   [t('footer.blog'), '/blog'],
                   [t('footer.contact'), '/contact']
                 ].map(([l, h]) => (
-                  <li key={l}><Link href={h} className="text-xs text-[#737373] hover:text-white transition-colors">{l}</Link></li>
+                  <li key={l}><Link href={h} className="text-xs text-muted hover:text-white transition-colors">{l}</Link></li>
                 ))}
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold text-xs uppercase tracking-widest text-[#737373] mb-4">{t('welcome.footer.legal')}</h4>
+              <h4 className="font-semibold text-xs uppercase tracking-widest text-muted mb-4">{t('welcome.footer.legal')}</h4>
               <ul className="space-y-2.5">
                 {[
                   [t('footer.privacy'), '/privacy'],
                   [t('footer.terms'), '/terms']
                 ].map(([l, h]) => (
-                  <li key={l}><Link href={h} className="text-xs text-[#737373] hover:text-white transition-colors">{l}</Link></li>
+                  <li key={l}><Link href={h} className="text-xs text-muted hover:text-white transition-colors">{l}</Link></li>
                 ))}
               </ul>
             </div>
           </div>
           <div className="border-t border-[#141414] pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <p className="text-xs text-[#404040]">&copy; {new Date().getFullYear()} Kivora. All rights reserved.</p>
-            <p className="text-xs text-[#404040]">product of <span className="font-black text-[#737373]">O.L.H.M.E.S</span></p>
+            <p className="text-xs text-muted2">&copy; {new Date().getFullYear()} Kivora. All rights reserved.</p>
+            <p className="text-xs text-muted2">product of <span className="font-black text-muted">O.L.H.M.E.S</span></p>
           </div>
         </div>
       </footer>

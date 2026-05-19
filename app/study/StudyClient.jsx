@@ -331,14 +331,14 @@ export default function StudyClient() {
 
   return (
     <main className="min-h-screen bg-[#0a0a0a]">
-      <div className="max-w-4xl mx-auto px-4 pt-6 pb-10">
+      <div className="max-w-5xl mx-auto px-4 pt-6 pb-10">
         <div className="mb-6 animate-fade-up">
           <h1 className="text-display font-semibold mb-2 tracking-tight">{t('study.title').slice(0, parseInt(t('study.split')))}<span className="text-red-500">{t('study.title').slice(parseInt(t('study.split')))}</span></h1>
-          <p className="text-[#737373] text-sm mt-0.5">{t('study.subtitle')}</p>
+          <p className="text-muted text-body-sm mt-0.5">{t('study.subtitle')}</p>
         </div>
 
         {/* Tool tabs */}
-        <div className="flex flex-wrap gap-2 mb-7">
+        <div className="flex flex-wrap gap-2 mb-8">
           {TOOLS.map(({ id, labelKey, Icon }) => (
             <button key={id} onClick={() => {
               setActive(id); setResult('')
@@ -349,96 +349,96 @@ export default function StudyClient() {
               }
             }}
               className={`flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium border transition-all ${
-                active === id ? 'bg-red-600 border-red-600 text-white' : 'bg-[#141414] border-[#262626] text-[#737373] hover:text-white hover:border-[#3a3a3a]'
+                active === id ? 'bg-red-600 border-red-600 text-white' : 'bg-[#141414] border-[#262626] text-muted hover:text-white hover:border-[#3a3a3a]'
               }`}>
               <Icon size={13} /> {t(labelKey)}
             </button>
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Input */}
-          <div className="bg-[#141414] rounded-xl p-6">
+          <div className="bg-[#141414] rounded-xl p-7">
             <div className="flex items-center gap-2 mb-5">
-              <meta.Icon size={15} className="text-[#737373]" />
+              <meta.Icon size={15} className="text-muted" />
               <div>
-                <h2 className="font-semibold text-sm text-[#737373]">{t(meta.labelKey)}</h2>
-                <p className="text-xs text-[#737373]">{t(meta.descKey)}</p>
+                <h2 className="font-semibold text-sm tracking-tight text-muted">{t(meta.labelKey)}</h2>
+                <p className="text-xs text-muted">{t(meta.descKey)}</p>
               </div>
             </div>
 
             <div className="space-y-3">
               {active === 'homework' && <>
-                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.subject')}</label>
+                <div><label className="text-xs text-muted block mb-1.5">{t('study.label.subject')}</label>
                   <Select value={form.subject} onChange={v => set('subject', v)} options={SUBJECTS.map(s => ({ value: s, label: s }))} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.question')}</label>
+                <div><label className="text-xs text-muted block mb-1.5">{t('study.label.question')}</label>
                   <textarea className={`${textareaClass} h-32`} placeholder="Paste your homework question here..." value={form.question} onChange={e => set('question', e.target.value)} /></div>
               </>}
 
               {active === 'essay' && <>
-                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.topic')}</label>
+                <div><label className="text-xs text-muted block mb-1.5">{t('study.label.topic')}</label>
                   <input className={inputClass} placeholder="e.g. The impact of social media on democracy" value={form.topic} onChange={e => set('topic', e.target.value)} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.level')}</label>
+                <div><label className="text-xs text-muted block mb-1.5">{t('study.label.level')}</label>
                   <Select value={form.level} onChange={v => set('level', v)} options={ESSAY_LEVELS.map(l => ({ value: l, label: l }))} /></div>
               </>}
 
               {active === 'research' && (
-                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.paper')}</label>
+                <div><label className="text-xs text-muted block mb-1.5">{t('study.label.paper')}</label>
                   <textarea className={`${textareaClass} h-48`} placeholder="Paste the full text of the research paper..." value={form.text} onChange={e => set('text', e.target.value)} /></div>
               )}
 
               {active === 'citation' && <>
-                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.source')}</label>
+                <div><label className="text-xs text-muted block mb-1.5">{t('study.label.source')}</label>
                   <textarea className={`${textareaClass} h-24`} placeholder="Author, title, year, publisher, URL..." value={form.source} onChange={e => set('source', e.target.value)} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.style')}</label>
+                <div><label className="text-xs text-muted block mb-1.5">{t('study.label.style')}</label>
                   <Select value={form.style} onChange={v => set('style', v)} options={CITATION_STYLES.map(s => ({ value: s, label: s }))} /></div>
               </>}
 
               {active === 'coding' && <>
-                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.language')}</label>
+                <div><label className="text-xs text-muted block mb-1.5">{t('study.label.language')}</label>
                   <Select value={form.language} onChange={v => set('language', v)} options={LANGUAGES.map(l => ({ value: l, label: l }))} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.difficulty')}</label>
+                <div><label className="text-xs text-muted block mb-1.5">{t('study.label.difficulty')}</label>
                   <Select value={form.codeLevel} onChange={v => set('codeLevel', v)} options={CODE_LEVELS.map(l => ({ value: l, label: l }))} /></div>
               </>}
 
               {active === 'flashcard' && <>
-                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.subject')}</label>
+                <div><label className="text-xs text-muted block mb-1.5">{t('study.label.subject')}</label>
                   <Select value={form.flashcardSubject} onChange={v => set('flashcardSubject', v)} options={SUBJECTS.map(s => ({ value: s, label: s }))} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.notes')}</label>
+                <div><label className="text-xs text-muted block mb-1.5">{t('study.label.notes')}</label>
                   <textarea className={`${textareaClass} h-28`} placeholder="Enter the topic or paste your notes..." value={form.flashcardNotes} onChange={e => set('flashcardNotes', e.target.value)} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.cards')}</label>
+                <div><label className="text-xs text-muted block mb-1.5">{t('study.label.cards')}</label>
                   <Select value={form.flashcardCount} onChange={v => set('flashcardCount', v)} options={FLASHCARD_COUNTS.map(c => ({ value: c, label: c }))} /></div>
               </>}
 
               {active === 'quiz' && <>
-                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.subject')}</label>
+                <div><label className="text-xs text-muted block mb-1.5">{t('study.label.subject')}</label>
                   <Select value={form.quizSubject} onChange={v => set('quizSubject', v)} options={SUBJECTS.map(s => ({ value: s, label: s }))} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.quizTopic')}</label>
+                <div><label className="text-xs text-muted block mb-1.5">{t('study.label.quizTopic')}</label>
                   <input className={inputClass} placeholder="e.g. World War II, Organic Chemistry" value={form.quizTopic} onChange={e => set('quizTopic', e.target.value)} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.difficulty')}</label>
+                <div><label className="text-xs text-muted block mb-1.5">{t('study.label.difficulty')}</label>
                   <Select value={form.quizDifficulty} onChange={v => set('quizDifficulty', v)} options={QUIZ_DIFFICULTIES.map(d => ({ value: d, label: d }))} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.questions')}</label>
+                <div><label className="text-xs text-muted block mb-1.5">{t('study.label.questions')}</label>
                   <Select value={form.quizCount} onChange={v => set('quizCount', v)} options={QUIZ_COUNTS.map(c => ({ value: c, label: c }))} /></div>
               </>}
 
               {active === 'notes' && <>
-                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.subject')}</label>
+                <div><label className="text-xs text-muted block mb-1.5">{t('study.label.subject')}</label>
                   <Select value={form.notesSubject} onChange={v => set('notesSubject', v)} options={SUBJECTS.map(s => ({ value: s, label: s }))} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">Topics / Key Concepts</label>
+                <div><label className="text-xs text-muted block mb-1.5">Topics / Key Concepts</label>
                   <textarea className={`${textareaClass} h-28`} placeholder="Enter topics or key concepts to compile into notes..." value={form.notesTopics} onChange={e => set('notesTopics', e.target.value)} /></div>
-                <div><label className="text-xs text-[#737373] block mb-1.5">Note Style</label>
+                <div><label className="text-xs text-muted block mb-1.5">Note Style</label>
                   <Select value={form.notesStyle} onChange={v => set('notesStyle', v)} options={NOTE_STYLES.map(s => ({ value: s, label: s }))} /></div>
               </>}
 
               {active === 'pomodoro' && <>
-                <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.mode')}</label>
+                <div><label className="text-xs text-muted block mb-1.5">{t('study.label.mode')}</label>
                   <div className="flex flex-wrap gap-2">
                     {POMODORO_MODES.map(m => (
                       <button key={m.value} type="button" onClick={() => set('pomodoroMode', m.value)}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
                           form.pomodoroMode === m.value
                             ? 'bg-red-600 border-red-600 text-white'
-                            : 'bg-[#0a0a0a] border-[#262626] text-[#737373] hover:text-white hover:border-[#3a3a3a]'
+                            : 'bg-[#0a0a0a] border-[#262626] text-muted hover:text-white hover:border-[#3a3a3a]'
                         }`}>
                         {t(m.labelKey)}
                       </button>
@@ -446,7 +446,7 @@ export default function StudyClient() {
                   </div>
                 </div>
                 {form.pomodoroMode === 'custom' && (
-                  <div><label className="text-xs text-[#737373] block mb-1.5">{t('study.label.minutes')}</label>
+                  <div><label className="text-xs text-muted block mb-1.5">{t('study.label.minutes')}</label>
                     <input type="number" min="1" max="120" className={inputClass} placeholder="25" value={form.pomodoroMinutes} onChange={e => set('pomodoroMinutes', parseInt(e.target.value) || 25)} /></div>
                 )}
               </>}
@@ -463,13 +463,13 @@ export default function StudyClient() {
           </div>
 
           {/* Output */}
-          <div className="bg-[#141414] rounded-xl p-6 flex flex-col min-h-[400px]">
+          <div className="bg-[#141414] rounded-xl p-6 flex flex-col min-h-[500px]">
             <div className="flex items-center justify-between mb-4 shrink-0">
-              <h2 className="font-semibold text-sm text-[#737373]">
+              <h2 className="font-semibold text-sm tracking-tight text-muted">
                 {active === 'pomodoro' ? t('study.timer') : active === 'quiz' && quizQuestions.length > 0 ? 'Quiz' : t('study.output')}
               </h2>
               {result && active !== 'pomodoro' && !(active === 'quiz' && quizQuestions.length > 0) && (
-                <button onClick={copy} className="flex items-center gap-1 text-xs text-[#737373] hover:text-white transition-colors">
+                <button onClick={copy} className="flex items-center gap-1 text-xs text-muted hover:text-white transition-colors">
                   {copied ? <><IconCheck size={11} className="text-emerald-400" /> {t('common.copied')}</> : <><IconCopy size={11} /> {t('common.copy')}</>}
                 </button>
               )}
@@ -528,7 +528,7 @@ export default function StudyClient() {
                 {quizChecked && (
                   <div className="bg-[#1a1a1a] rounded-xl p-4 text-center shrink-0">
                     <span className="text-lg font-bold text-white">{t('study.quiz.score')} {quizScore}/{quizQuestions.length}</span>
-                    <span className="text-[#737373] ml-2">({quizQuestions.length > 0 ? Math.round((quizScore / quizQuestions.length) * 100) : 0}%)</span>
+                    <span className="text-muted ml-2">({quizQuestions.length > 0 ? Math.round((quizScore / quizQuestions.length) * 100) : 0}%)</span>
                   </div>
                 )}
                 {quizQuestions.map((q, qi) => (
@@ -543,7 +543,7 @@ export default function StudyClient() {
                         if (quizChecked) {
                           if (isCorrect) optClass += "bg-emerald-950/30 border-emerald-700/40 text-emerald-300"
                           else if (isSelected && !isCorrect) optClass += "bg-red-950/30 border-red-700/40 text-red-300"
-                          else optClass += "bg-[#0a0a0a] border-[#262626] text-[#737373]"
+                          else optClass += "bg-[#0a0a0a] border-[#262626] text-muted"
                         } else {
                           optClass += isSelected
                             ? "bg-red-950/30 border-red-600/40 text-red-300"
@@ -558,7 +558,7 @@ export default function StudyClient() {
                       })}
                     </div>
                     {quizChecked && q.explanation && (
-                      <p className="mt-3 text-xs text-[#737373] bg-[#0a0a0a] rounded-lg p-3">{q.explanation}</p>
+                      <p className="mt-3 text-xs text-muted bg-[#0a0a0a] rounded-lg p-3">{q.explanation}</p>
                     )}
                   </div>
                 ))}
@@ -583,7 +583,7 @@ export default function StudyClient() {
                   <div className="w-10 h-10 bg-[#1a1a1a] rounded-xl flex items-center justify-center mx-auto mb-3">
                     <meta.Icon size={18} className="text-[#2e2e2e]" />
                   </div>
-                  <p className="text-[#404040] text-sm">{loading ? t('common.loading') : active === 'pomodoro' ? 'Configure and start your focus session' : t('study.empty_hint')}</p>
+                  <p className="text-muted2 text-sm">{loading ? t('common.loading') : active === 'pomodoro' ? 'Configure and start your focus session' : t('study.empty_hint')}</p>
                 </div>
               </div>
             )}

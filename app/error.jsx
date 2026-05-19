@@ -10,7 +10,7 @@ export default function Error({ error, reset }) {
           <span className="text-red-400 text-xl">!</span>
         </div>
         <h1 className="font-semibold text-2xl tracking-tight mb-2">Something went wrong</h1>
-        <p className="text-[#737373] text-sm mb-6">
+        <p className="text-muted text-sm mb-6">
           An unexpected error occurred. This has been noted and we're working on it.
         </p>
         <div className="flex items-center justify-center gap-3">

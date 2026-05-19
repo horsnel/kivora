@@ -90,7 +90,7 @@ export default function ContactPage() {
           {/* Left */}
           <div>
             <h1 className="text-3xl font-semibold tracking-tight mb-4">{t('contact.title')}</h1>
-            <p className="text-[#737373] text-sm leading-relaxed mb-8">
+            <p className="text-muted text-sm leading-relaxed mb-8">
               {t('contact.subtitle')}
             </p>
 
@@ -103,18 +103,18 @@ export default function ContactPage() {
               ].map(c => (
                 <div key={c.label} className="flex items-center gap-4">
                   <div className="w-8 h-8 bg-[#141414] rounded-lg flex items-center justify-center shrink-0">
-                    <span className="text-xs font-mono text-[#404040]">{c.label[0]}</span>
+                    <span className="text-xs font-mono text-muted2">{c.label[0]}</span>
                   </div>
                   <div>
                     <a href={`mailto:${c.email}`} className="text-sm font-medium hover:text-red-400 transition-colors">{c.email}</a>
-                    <p className="text-xs text-[#737373]">{c.desc}</p>
+                    <p className="text-xs text-muted">{c.desc}</p>
                   </div>
                 </div>
               ))}
             </div>
 
             <div className="mt-10 pt-8 border-t border-[#141414]">
-              <p className="text-xs text-[#737373]">{t('contact.response_time')}</p>
+              <p className="text-xs text-muted">{t('contact.response_time')}</p>
             </div>
           </div>
 
@@ -125,30 +125,30 @@ export default function ContactPage() {
                 <div className="w-12 h-12 bg-emerald-950/30 border border-emerald-900/40 rounded-full flex items-center justify-center mb-4">
                   <IconCheck size={20} className="text-emerald-400" />
                 </div>
-                <h3 className="font-semibold text-base mb-2 text-[#737373]">{t('contact.sent')}</h3>
-                <p className="text-[#737373] text-sm">{t('contact.sent_desc')}</p>
+                <h3 className="font-semibold text-base mb-2 text-muted">{t('contact.sent')}</h3>
+                <p className="text-muted text-sm">{t('contact.sent_desc')}</p>
                 <button onClick={() => { setStatus('idle'); setForm({ name: '', email: '', subject: 'General question', message: '' }) }}
-                  className="mt-6 text-xs text-[#737373] hover:text-white transition-colors">
+                  className="mt-6 text-xs text-muted hover:text-white transition-colors">
                   {t('contact.send_another')}
                 </button>
               </div>
             ) : (
               <div className="bg-[#141414] rounded-xl p-6 space-y-4">
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('contact.name')}</label>
+                  <label className="text-xs text-muted block mb-1.5 font-medium">{t('contact.name')}</label>
                   <input type="text" className={inputClass} placeholder="Your name" value={form.name} onChange={e => set('name', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('contact.email')} <span className="text-red-500">*</span></label>
+                  <label className="text-xs text-muted block mb-1.5 font-medium">{t('contact.email')} <span className="text-red-500">*</span></label>
                   <input type="email" className={errors.email ? errorInputClass : inputClass} placeholder="you@example.com" value={form.email} onChange={e => set('email', e.target.value)} onBlur={e => handleBlur('email', e.target.value)} />
                   {errors.email && <p className="text-xs text-red-400 mt-1">{errors.email}</p>}
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('contact.subject')}</label>
+                  <label className="text-xs text-muted block mb-1.5 font-medium">{t('contact.subject')}</label>
                   <Select value={form.subject} onChange={v => set('subject', v)} options={SUBJECTS.map(s => ({ value: s, label: s }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('contact.message')} <span className="text-red-500">*</span></label>
+                  <label className="text-xs text-muted block mb-1.5 font-medium">{t('contact.message')} <span className="text-red-500">*</span></label>
                   <textarea className={`${errors.message ? errorInputClass : inputClass} h-32 resize-none leading-relaxed`} placeholder="What can we help you with?" value={form.message} onChange={e => set('message', e.target.value)} onBlur={e => handleBlur('message', e.target.value)} />
                   {errors.message && <p className="text-xs text-red-400 mt-1">{errors.message}</p>}
                 </div>

@@ -147,8 +147,8 @@ export default function OnboardingPage() {
       <div className="w-full max-w-lg">
         {/* Progress */}
         <div className="flex items-center justify-between mb-8">
-          <span className="text-xs text-[#737373]">{t('onboarding.step_of', { current: step + 1, total: STEPS.length })}</span>
-          <button onClick={skip} className="text-xs text-[#404040] hover:text-[#737373] transition-colors">{t('onboarding.skip')}</button>
+          <span className="text-xs text-muted">{t('onboarding.step_of', { current: step + 1, total: STEPS.length })}</span>
+          <button onClick={skip} className="text-xs text-muted2 hover:text-muted transition-colors">{t('onboarding.skip')}</button>
         </div>
 
         {/* Progress bar */}
@@ -159,7 +159,7 @@ export default function OnboardingPage() {
         {/* Question */}
         <div className="animate-fade-up" key={step}>
           <h1 className="text-2xl font-semibold tracking-tight mb-1.5">{t(`onboarding.step.${current.id}.question`)}</h1>
-          <p className="text-[#737373] text-sm mb-7">{t(`onboarding.step.${current.id}.subtitle`)}</p>
+          <p className="text-muted text-sm mb-7">{t(`onboarding.step.${current.id}.subtitle`)}</p>
 
           <div className={`grid gap-2 mb-8 ${isMulti ? 'grid-cols-2' : 'grid-cols-1'}`}>
             {current.options.map(opt => (
@@ -169,7 +169,7 @@ export default function OnboardingPage() {
                 className={`text-left rounded-xl border px-4 py-3.5 transition-all ${
                   isSelected(opt.value)
                     ? 'bg-red-950/20 border-red-600 text-white'
-                    : 'bg-[#141414] border-[#262626] text-[#737373] hover:border-[#3a3a3a] hover:text-white'
+                    : 'bg-[#141414] border-[#262626] text-muted hover:border-[#3a3a3a] hover:text-white'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">

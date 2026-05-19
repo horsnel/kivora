@@ -47,7 +47,7 @@ export default function UpdatePasswordPage() {
             </svg>
           </div>
           <h1 className="font-semibold text-xl tracking-tight">Set new password</h1>
-          <p className="text-[#737373] text-xs mt-1.5">Choose a strong password for your account.</p>
+          <p className="text-muted text-xs mt-1.5">Choose a strong password for your account.</p>
         </div>
 
         {status === 'success' ? (
@@ -56,16 +56,16 @@ export default function UpdatePasswordPage() {
               <IconCheck size={16} className="text-emerald-400" />
             </div>
             <h3 className="font-semibold text-sm mb-1">Password updated</h3>
-            <p className="text-xs text-[#737373]">Redirecting you to your dashboard...</p>
+            <p className="text-xs text-muted">Redirecting you to your dashboard...</p>
           </div>
         ) : (
           <div className="bg-[#141414] rounded-xl p-6 space-y-4">
             <div>
-              <label className="text-xs text-[#737373] block mb-1.5 font-medium">New password</label>
+              <label className="text-xs text-muted block mb-1.5 font-medium">New password</label>
               <input type="password" className={inputClass} placeholder="At least 8 characters" value={password} onChange={e => setPassword(e.target.value)} />
             </div>
             <div>
-              <label className="text-xs text-[#737373] block mb-1.5 font-medium">Confirm password</label>
+              <label className="text-xs text-muted block mb-1.5 font-medium">Confirm password</label>
               <input type="password" className={inputClass} placeholder="Same as above" value={confirm} onChange={e => setConfirm(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()} />
             </div>
 

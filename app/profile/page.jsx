@@ -5,6 +5,16 @@ import { supabasePublic } from '@/lib/supabase'
 import { IconUser, IconCheck, IconSpinner, IconGlobe, IconMapPin, IconLink, IconWarning, IconLogout } from '@/components/Icons'
 import { useTranslation } from '@/components/LanguageProvider'
 
+const PRESET_AVATARS = [
+  'Alex', 'Jordan', 'Sam', 'Riley', 'Casey',
+  'Morgan', 'Quinn', 'Avery', 'Taylor', 'Blake',
+  'Cameron', 'Drew', 'Emery', 'Finley', 'Harper',
+  'Kai', 'Logan', 'Parker', 'Reese', 'Skyler',
+].map(name => ({
+  name,
+  url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
+}))
+
 function IconShield({ size = 16, className = '' }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
@@ -51,6 +61,7 @@ export default function ProfilePage() {
   const [deleting, setDeleting] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false)
   const [toast, setToast] = useState(null) // { type: 'success'|'error', message: string }
   const [form, setForm] = useState({
     display_name: '',
@@ -163,7 +174,7 @@ export default function ProfilePage() {
 
   if (loading) return (
     <div className="min-h-screen bg-[#0a0a0a]">
-      <div className="max-w-5xl mx-auto px-4 py-10">
+      <div className="max-w-6xl mx-auto px-4 py-10">
         <div className="flex items-center gap-3 mb-8">
           <div className="skeleton w-9 h-9 rounded-xl" />
           <div>
@@ -178,15 +189,15 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen bg-[#0a0a0a]">
-      <div className="max-w-5xl mx-auto px-4 py-10">
+      <div className="max-w-6xl mx-auto px-4 py-10">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8 animate-fade-up">
           <div className="w-9 h-9 bg-[#141414] rounded-xl flex items-center justify-center">
-            <IconUser size={14} className="text-[#737373]" />
+            <IconUser size={14} className="text-muted" />
           </div>
           <div>
-            <h1 className="font-semibold text-headline tracking-tight">{t('profile.title')}</h1>
-            <p className="text-[#737373] text-caption">{t('profile.subtitle')}</p>
+            <h1 className="text-display font-semibold mb-2 tracking-tight">{t('profile.title')}</h1>
+            <p className="text-muted text-body-sm mt-0.5">{t('profile.subtitle')}</p>
           </div>
         </div>
 
@@ -202,7 +213,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left — Avatar card */}
           <div className="lg:col-span-1">
             <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 text-center">
@@ -220,10 +231,52 @@ export default function ProfilePage() {
               >
                 {initials}
               </div>
-              <h3 className="font-semibold text-body-sm mb-1 text-[#737373]">{displayName || 'Your name'}</h3>
-              <p className="text-[#737373] text-caption truncate">{user?.email}</p>
+              <h3 className="font-semibold text-body-sm mb-1 text-muted">{displayName || 'Your name'}</h3>
+              <p className="text-muted text-caption truncate">{user?.email}</p>
               <div className="mt-4 pt-4 border-t border-[#1a1a1a]">
-                <label className="text-xs text-[#737373] block mb-1.5 font-medium text-left">{t('profile.avatar')}</label>
+                {/* Choose Avatar button */}
+                <button
+                  type="button"
+                  onClick={() => setShowAvatarPicker(v => !v)}
+                  className="w-full bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-[#a3a3a3] hover:text-white py-2 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 mb-3"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 1.5L2.5 4v4c0 3.5 2.5 6 5.5 7 3-1 5.5-3.5 5.5-7V4L8 1.5z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+                    <path d="M6 8l1.5 1.5L10 6" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  {showAvatarPicker ? t('profile.hide_avatars') : t('profile.choose_avatar')}
+                </button>
+
+                {/* Avatar picker grid */}
+                {showAvatarPicker && (
+                  <div className="bg-[#0a0a0a] border border-[#262626] rounded-xl p-4 mb-3">
+                    <div className="grid grid-cols-5 gap-3 justify-items-center">
+                      {PRESET_AVATARS.map(({ name, url }) => (
+                        <button
+                          key={name}
+                          type="button"
+                          onClick={() => { set('avatar_url', url); setShowAvatarPicker(false) }}
+                          className={`w-12 h-12 rounded-full cursor-pointer hover:ring-2 hover:ring-red-500/50 transition-all ${
+                            form.avatar_url === url
+                              ? 'ring-2 ring-red-500 ring-offset-2 ring-offset-[#0a0a0a]'
+                              : ''
+                          }`}
+                          title={name}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt={name}
+                            className="w-full h-full rounded-full"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Custom URL fallback */}
+                <label className="text-xs text-muted block mb-1.5 font-medium text-left">{t('profile.custom_url')}</label>
                 <input
                   type="url"
                   className={inputClass}
@@ -240,7 +293,7 @@ export default function ProfilePage() {
             <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 space-y-5">
               {/* Display name */}
               <div>
-                <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('profile.display_name')}</label>
+                <label className="text-xs text-muted block mb-1.5 font-medium">{t('profile.display_name')}</label>
                 <input
                   type="text"
                   className={inputClass}
@@ -252,16 +305,16 @@ export default function ProfilePage() {
 
               {/* Email (read-only) */}
               <div>
-                <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('profile.email')}</label>
+                <label className="text-xs text-muted block mb-1.5 font-medium">{t('profile.email')}</label>
                 <div className="w-full bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl px-4 py-2.5 text-sm text-[#525252] cursor-not-allowed">
                   {user?.email}
                 </div>
-                <p className="text-[10px] text-[#404040] mt-1">{t('profile.email_cannot_change')}</p>
+                <p className="text-[10px] text-muted2 mt-1">{t('profile.email_cannot_change')}</p>
               </div>
 
               {/* Bio */}
               <div>
-                <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('profile.bio')}</label>
+                <label className="text-xs text-muted block mb-1.5 font-medium">{t('profile.bio')}</label>
                 <textarea
                   className={`${inputClass} h-24 resize-none leading-relaxed`}
                   placeholder={t('profile.bio_placeholder')}
@@ -269,15 +322,15 @@ export default function ProfilePage() {
                   onChange={e => set('bio', e.target.value)}
                   maxLength={300}
                 />
-                <p className="text-[10px] text-[#404040] mt-1 text-right">{form.bio.length}/300</p>
+                <p className="text-[10px] text-muted2 mt-1 text-right">{form.bio.length}/300</p>
               </div>
 
               {/* Location + Website row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('profile.location')}</label>
+                  <label className="text-xs text-muted block mb-1.5 font-medium">{t('profile.location')}</label>
                   <div className="relative">
-                    <IconMapPin size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#404040]" />
+                    <IconMapPin size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted2" />
                     <input
                       type="text"
                       className={`${inputClass} pl-9`}
@@ -288,9 +341,9 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('profile.website')}</label>
+                  <label className="text-xs text-muted block mb-1.5 font-medium">{t('profile.website')}</label>
                   <div className="relative">
-                    <IconGlobe size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#404040]" />
+                    <IconGlobe size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted2" />
                     <input
                       type="url"
                       className={`${inputClass} pl-9`}
@@ -313,12 +366,12 @@ export default function ProfilePage() {
             </div>
 
             {/* Session Management */}
-            <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mt-6">
+            <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mt-8">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-7 h-7 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
-                  <IconMonitor size={14} className="text-[#737373]" />
+                  <IconMonitor size={14} className="text-muted" />
                 </div>
-                <h2 className="font-semibold text-sm text-[#737373]">{t('profile.sessions')}</h2>
+                <h2 className="font-semibold text-sm tracking-tight text-muted">{t('profile.sessions')}</h2>
               </div>
 
               <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl p-4 space-y-3">
@@ -329,7 +382,7 @@ export default function ProfilePage() {
                     </div>
                     <div>
                       <div className="text-sm text-white font-medium">{t('profile.current_session')}</div>
-                      <div className="text-xs text-[#737373]">{browser} on {os}</div>
+                      <div className="text-xs text-muted">{browser} on {os}</div>
                     </div>
                   </div>
                   <span className="text-xs text-emerald-400 bg-emerald-950/30 border border-emerald-900/40 px-2 py-0.5 rounded-full">{t('profile.active')}</span>
@@ -346,19 +399,19 @@ export default function ProfilePage() {
                 >
                   <IconLogout size={14} /> {t('profile.sign_out_all')}
                 </button>
-                <p className="text-[10px] text-[#404040] mt-2 text-center">This will invalidate all active sessions across all devices</p>
+                <p className="text-[10px] text-muted2 mt-2 text-center">This will invalidate all active sessions across all devices</p>
               </div>
             </div>
 
             {/* Sign Out */}
-            <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mt-6">
+            <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mt-8">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-7 h-7 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
-                  <IconLogout size={14} className="text-[#737373]" />
+                  <IconLogout size={14} className="text-muted" />
                 </div>
-                <h2 className="font-semibold text-sm text-[#737373]">{t('profile.sign_out')}</h2>
+                <h2 className="font-semibold text-sm tracking-tight text-muted">{t('profile.sign_out')}</h2>
               </div>
-              <p className="text-xs text-[#737373] mb-4">
+              <p className="text-xs text-muted mb-4">
                 Sign out of your account on this device. You can always sign back in later.
               </p>
               <button
@@ -370,7 +423,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Danger Zone */}
-            <div className="bg-[#141414] border border-red-900/30 rounded-xl p-6 mt-6">
+            <div className="bg-[#141414] border border-red-900/30 rounded-xl p-6 mt-8">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-7 h-7 bg-red-950/30 rounded-lg flex items-center justify-center">
                   <IconWarning size={14} className="text-red-400" />
@@ -380,7 +433,7 @@ export default function ProfilePage() {
 
               {!showDeleteDialog ? (
                 <>
-                  <p className="text-xs text-[#737373] mb-4">
+                  <p className="text-xs text-muted mb-4">
                     Once you delete your account, there is no going back. All your data, including profile, saved results, chat history, and study sessions, will be permanently removed.
                   </p>
                   <button
@@ -394,7 +447,7 @@ export default function ProfilePage() {
                 <div className="space-y-4">
                   <div className="bg-red-950/20 border border-red-900/30 rounded-xl p-4">
                     <p className="text-sm text-red-300 mb-3 font-medium">{t('profile.delete_confirm')}</p>
-                    <p className="text-xs text-[#737373] mb-3">
+                    <p className="text-xs text-muted mb-3">
                       {t('profile.delete_description')} Type <span className="text-red-400 font-mono font-bold">DELETE</span> to confirm.
                     </p>
                     <input

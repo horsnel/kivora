@@ -327,14 +327,14 @@ export default function DashboardPage() {
         <div className="flex items-start justify-between mb-8 animate-fade-up">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-[#141414] rounded-xl flex items-center justify-center">
-              <IconUser size={14} className="text-[#737373]" />
+              <IconUser size={14} className="text-muted" />
             </div>
             <div>
               <h1 className="font-semibold text-headline tracking-tight">{t('dashboard.title')}</h1>
-              <p className="text-[#737373] text-caption">{user?.email}</p>
+              <p className="text-muted text-caption">{user?.email}</p>
             </div>
           </div>
-          <button onClick={() => router.push('/profile')} className="flex items-center gap-1.5 text-caption text-[#737373] hover:text-white border border-[#262626] hover:border-[#3a3a3a] px-3 py-1.5 rounded-lg transition-all">
+          <button onClick={() => router.push('/profile')} className="flex items-center gap-1.5 text-caption text-muted hover:text-white border border-[#262626] hover:border-[#3a3a3a] px-3 py-1.5 rounded-lg transition-all">
             <IconUser size={14} /> {t('dashboard.profile')}
           </button>
         </div>
@@ -350,7 +350,7 @@ export default function DashboardPage() {
           ].map(s => (
             <div key={s.label} className="bg-[#141414] border border-white/[0.06] rounded-xl px-4 py-3 text-center">
               <div className="font-bold text-headline tracking-tight">{s.icon ? `${s.icon} ` : ''}{s.value}</div>
-              <div className="text-caption text-[#737373] mt-0.5">{s.label}</div>
+              <div className="text-caption text-muted mt-0.5">{s.label}</div>
             </div>
           ))}
         </div>
@@ -364,7 +364,7 @@ export default function DashboardPage() {
                 <div className="w-6 h-6 bg-red-600/10 rounded-lg flex items-center justify-center">
                   <IconFlame size={14} className="text-red-400" />
                 </div>
-                <span className="text-caption text-[#737373]">{t('dashboard.study_streak')}</span>
+                <span className="text-caption text-muted">{t('dashboard.study_streak')}</span>
               </div>
               <div className="flex items-end gap-4">
                 <div>
@@ -372,11 +372,11 @@ export default function DashboardPage() {
                     {streakInfo.current > 0 && <span className="mr-1">🔥</span>}
                     {streakInfo.current}
                   </div>
-                  <div className="text-caption text-[#737373]">{t('dashboard.current')}</div>
+                  <div className="text-caption text-muted">{t('dashboard.current')}</div>
                 </div>
                 <div className="border-l border-[#262626] pl-4">
-                  <div className="font-bold text-lg text-[#737373] tracking-tight">{streakInfo.best}</div>
-                  <div className="text-caption text-[#404040]">{t('dashboard.best')}</div>
+                  <div className="font-bold text-lg text-muted tracking-tight">{streakInfo.best}</div>
+                  <div className="text-caption text-muted2">{t('dashboard.best')}</div>
                 </div>
               </div>
             </div>
@@ -387,13 +387,13 @@ export default function DashboardPage() {
                 <div className="w-6 h-6 bg-red-600/10 rounded-lg flex items-center justify-center">
                   <IconActivity size={14} className="text-red-400" />
                 </div>
-                <span className="text-caption text-[#737373]">{t('dashboard.weekly_activity')}</span>
+                <span className="text-caption text-muted">{t('dashboard.weekly_activity')}</span>
               </div>
               <div className="space-y-1">
                 {/* Day labels header */}
                 <div className="grid grid-cols-7 gap-1 mb-1">
                   {['M','T','W','T','F','S','S'].map((d, i) => (
-                    <div key={i} className="text-[9px] text-[#404040] text-center font-medium">{d}</div>
+                    <div key={i} className="text-[9px] text-muted2 text-center font-medium">{d}</div>
                   ))}
                 </div>
                 {/* Heatmap rows (week 0 = oldest, week 3 = current) */}
@@ -410,7 +410,7 @@ export default function DashboardPage() {
                 ))}
               </div>
               <div className="flex items-center gap-2 mt-2">
-                <span className="text-[9px] text-[#404040]">Less</span>
+                <span className="text-[9px] text-muted2">Less</span>
                 <div className="flex gap-0.5">
                   <div className="w-2.5 h-2.5 rounded-sm bg-[#1a1a1a]" />
                   <div className="w-2.5 h-2.5 rounded-sm bg-red-900/40" />
@@ -418,7 +418,7 @@ export default function DashboardPage() {
                   <div className="w-2.5 h-2.5 rounded-sm bg-red-600/60" />
                   <div className="w-2.5 h-2.5 rounded-sm bg-red-500/80" />
                 </div>
-                <span className="text-[9px] text-[#404040]">More</span>
+                <span className="text-[9px] text-muted2">More</span>
               </div>
             </div>
           </div>
@@ -434,7 +434,7 @@ export default function DashboardPage() {
           ].map(tabItem => (
             <button key={tabItem.id} onClick={() => setTab(tabItem.id)}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 sm:px-3 rounded-lg text-caption sm:text-body font-medium transition-all whitespace-nowrap ${
-                tab === tabItem.id ? 'bg-[#262626] text-white' : 'text-[#737373] hover:text-white'
+                tab === tabItem.id ? 'bg-[#262626] text-white' : 'text-muted hover:text-white'
               }`}>
               <tabItem.Icon size={14} /> <span className="hidden sm:inline">{tabItem.label}</span><span className="sm:hidden">{tabItem.shortLabel}</span>
             </button>
@@ -451,13 +451,13 @@ export default function DashboardPage() {
                 <div key={save.id} className="bg-[#141414] border border-white/[0.06] rounded-xl px-5 py-4 flex items-center justify-between gap-4">
                   <button onClick={() => router.push(`/explore/${save.result_slug}`)} className="flex-1 text-left">
                     <div className="text-body text-white hover:text-red-400 transition-colors leading-snug">{save.query}</div>
-                    <div className="text-caption text-[#404040] mt-1">Saved {new Date(save.created_at).toLocaleDateString()}</div>
+                    <div className="text-caption text-muted2 mt-1">Saved {new Date(save.created_at).toLocaleDateString()}</div>
                   </button>
                   <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={() => router.push(`/explore/${save.result_slug}`)} className="text-[#404040] hover:text-white transition-colors p-1">
+                    <button onClick={() => router.push(`/explore/${save.result_slug}`)} className="text-muted2 hover:text-white transition-colors p-1">
                       <IconArrowRight size={14} />
                     </button>
-                    <button onClick={() => deleteSave(save.id)} className="text-[#404040] hover:text-red-500 transition-colors p-1">
+                    <button onClick={() => deleteSave(save.id)} className="text-muted2 hover:text-red-500 transition-colors p-1">
                       <IconTrash size={14} />
                     </button>
                   </div>
@@ -479,7 +479,7 @@ export default function DashboardPage() {
                 return (
                   <div key={chat.id} className="bg-[#141414] border border-white/[0.06] rounded-xl px-5 py-4">
                     <div className="text-body text-white mb-1 line-clamp-1 leading-snug">{first?.content || 'Chat session'}</div>
-                    <div className="flex items-center gap-3 text-caption text-[#404040] font-mono">
+                    <div className="flex items-center gap-3 text-caption text-muted2 font-mono">
                       <span>{msgs.length} msg{msgs.length !== 1 ? 's' : ''}</span>
                       <span>·</span>
                       <span>{new Date(chat.updated_at).toLocaleDateString()}</span>
@@ -504,11 +504,11 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-2 mb-1">
                         {!msg.read && <span className="w-1.5 h-1.5 bg-red-500 rounded-full shrink-0" />}
                         <span className="text-body text-white font-medium truncate">{msg.name || t('dashboard.anonymous')}</span>
-                        <span className="text-caption text-[#404040] shrink-0">{new Date(msg.created_at).toLocaleDateString()}</span>
+                        <span className="text-caption text-muted2 shrink-0">{new Date(msg.created_at).toLocaleDateString()}</span>
                       </div>
                       <a href={`mailto:${msg.email}`} className="text-caption text-red-400 hover:text-red-300 transition-colors">{msg.email}</a>
                       <div className="flex items-center gap-2 mt-1.5">
-                        <span className="text-caption font-medium text-[#737373] bg-[#1a1a1a] border border-[#262626] px-2 py-0.5 rounded-full">{msg.subject}</span>
+                        <span className="text-caption font-medium text-muted bg-[#1a1a1a] border border-[#262626] px-2 py-0.5 rounded-full">{msg.subject}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
@@ -517,11 +517,11 @@ export default function DashboardPage() {
                           if (expandedMsg === msg.id) { setExpandedMsg(null) }
                           else { setExpandedMsg(msg.id); if (!msg.read) markRead(msg.id) }
                         }}
-                        className="text-caption text-[#737373] hover:text-white border border-[#262626] hover:border-[#3a3a3a] px-2.5 py-1 rounded-lg transition-all"
+                        className="text-caption text-muted hover:text-white border border-[#262626] hover:border-[#3a3a3a] px-2.5 py-1 rounded-lg transition-all"
                       >
                         {expandedMsg === msg.id ? t('dashboard.hide') : t('dashboard.view')}
                       </button>
-                      <button onClick={() => deleteMessage(msg.id)} className="text-[#404040] hover:text-red-500 transition-colors p-1">
+                      <button onClick={() => deleteMessage(msg.id)} className="text-muted2 hover:text-red-500 transition-colors p-1">
                         <IconTrash size={14} />
                       </button>
                     </div>
@@ -561,7 +561,7 @@ export default function DashboardPage() {
                 ].map(r => (
                   <button key={r.id} onClick={() => setActivityRange(r.id)}
                     className={`flex-1 py-1.5 px-3 rounded-md text-caption font-medium transition-all ${
-                      activityRange === r.id ? 'bg-[#262626] text-white' : 'text-[#737373] hover:text-white'
+                      activityRange === r.id ? 'bg-[#262626] text-white' : 'text-muted hover:text-white'
                     }`}>
                     {r.label}
                   </button>
@@ -575,7 +575,7 @@ export default function DashboardPage() {
                     <div className="w-6 h-6 bg-red-600/10 rounded-lg flex items-center justify-center">
                       <IconClock size={14} className="text-red-400" />
                     </div>
-                    <span className="text-caption text-[#737373]">{t('dashboard.time_spent')}</span>
+                    <span className="text-caption text-muted">{t('dashboard.time_spent')}</span>
                   </div>
                   <div className="font-bold text-headline tracking-tight">{formatDuration(totalTimeMs)}</div>
                 </div>
@@ -584,7 +584,7 @@ export default function DashboardPage() {
                     <div className="w-6 h-6 bg-red-600/10 rounded-lg flex items-center justify-center">
                       <IconActivity size={14} className="text-red-400" />
                     </div>
-                    <span className="text-caption text-[#737373]">{t('dashboard.sessions')}</span>
+                    <span className="text-caption text-muted">{t('dashboard.sessions')}</span>
                   </div>
                   <div className="font-bold text-headline tracking-tight">{totalSessions}</div>
                 </div>
@@ -593,7 +593,7 @@ export default function DashboardPage() {
                     <div className="w-6 h-6 bg-red-600/10 rounded-lg flex items-center justify-center">
                       <IconBook size={14} className="text-red-400" />
                     </div>
-                    <span className="text-caption text-[#737373]">{t('dashboard.subjects')}</span>
+                    <span className="text-caption text-muted">{t('dashboard.subjects')}</span>
                   </div>
                   <div className="font-bold text-headline tracking-tight">{Object.keys(subjectBreakdown).length}</div>
                 </div>
@@ -604,7 +604,7 @@ export default function DashboardPage() {
                 {/* Category breakdown */}
                 {Object.keys(categoryBreakdown).length > 0 && (
                   <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
-                    <h3 className="font-semibold text-body mb-4 text-[#737373]">{t('dashboard.tool_categories')}</h3>
+                    <h3 className="font-semibold text-body mb-4 text-muted">{t('dashboard.tool_categories')}</h3>
                     <div className="space-y-3">
                       {Object.entries(categoryBreakdown)
                         .sort((a, b) => b[1].timeMs - a[1].timeMs)
@@ -615,7 +615,7 @@ export default function DashboardPage() {
                           <div key={cat}>
                             <div className="flex items-center justify-between mb-1.5">
                               <span className="text-body text-[#d4d4d4]">{cat}</span>
-                              <span className="text-caption text-[#737373] font-mono">{formatDurationShort(data.timeMs)} · {data.count} session{data.count !== 1 ? 's' : ''}</span>
+                              <span className="text-caption text-muted font-mono">{formatDurationShort(data.timeMs)} · {data.count} session{data.count !== 1 ? 's' : ''}</span>
                             </div>
                             <div className="h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
                               <div className="h-full bg-red-600 rounded-full transition-all" style={{ width: `${pct}%` }} />
@@ -630,11 +630,11 @@ export default function DashboardPage() {
                 {/* Subject breakdown */}
                 {topSubjects.length > 0 && (
                   <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
-                    <h3 className="font-semibold text-body mb-4 text-[#737373]">{t('dashboard.subjects')}</h3>
+                    <h3 className="font-semibold text-body mb-4 text-muted">{t('dashboard.subjects')}</h3>
                     <div className="flex flex-wrap gap-2">
                       {topSubjects.map(([subject, count]) => (
                         <span key={subject} className="text-caption text-[#d4d4d4] bg-[#1a1a1a] border border-[#262626] px-3 py-1.5 rounded-full font-medium">
-                          {subject} <span className="text-[#737373] ml-1">{count}</span>
+                          {subject} <span className="text-muted ml-1">{count}</span>
                         </span>
                       ))}
                     </div>
@@ -645,7 +645,7 @@ export default function DashboardPage() {
               {/* Recent sessions */}
               {activitySessions.length > 0 && (
                 <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
-                  <h3 className="font-semibold text-body mb-4 text-[#737373]">{t('dashboard.recent_sessions')}</h3>
+                  <h3 className="font-semibold text-body mb-4 text-muted">{t('dashboard.recent_sessions')}</h3>
                   <div className="space-y-2">
                     {activitySessions.slice(0, 15).map(s => {
                       const duration = s.duration_ms || (s.ended_at && s.started_at ? new Date(s.ended_at) - new Date(s.started_at) : null)
@@ -655,16 +655,16 @@ export default function DashboardPage() {
                             <div className={`w-2 h-2 rounded-full shrink-0 ${
                               TOOL_CATEGORIES[s.tool_type] === 'Chat' ? 'bg-red-500' :
                               TOOL_CATEGORIES[s.tool_type] === 'StudyDesk' ? 'bg-emerald-400' :
-                              TOOL_CATEGORIES[s.tool_type] === 'DevTools' ? 'bg-blue-500' : 'bg-[#404040]'
+                              TOOL_CATEGORIES[s.tool_type] === 'DevTools' ? 'bg-red-600' : 'bg-[#404040]'
                             }`} />
                             <div className="min-w-0">
                               <div className="text-body text-[#d4d4d4] truncate">{TOOL_LABELS[s.tool_type] || s.tool_type}</div>
                               {s.input_summary && (
-                                <div className="text-caption text-[#404040] truncate max-w-[480px]">{s.input_summary}</div>
+                                <div className="text-caption text-muted2 truncate max-w-[480px]">{s.input_summary}</div>
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-3 shrink-0 text-caption text-[#737373]">
+                          <div className="flex items-center gap-3 shrink-0 text-caption text-muted">
                             {duration != null && <span className="font-mono">{formatDuration(duration)}</span>}
                             {s.subject && <span className="bg-[#1a1a1a] border border-[#262626] px-2 py-0.5 rounded-full text-caption">{s.subject}</span>}
                             <span>{new Date(s.created_at).toLocaleDateString('en', { month: 'short', day: 'numeric' })}</span>
@@ -687,8 +687,8 @@ function Empty({ icon, title, desc, action, router }) {
   return (
     <div className="text-center py-16">
       <div className="w-10 h-10 bg-[#141414] rounded-xl flex items-center justify-center mx-auto mb-4">{icon}</div>
-      <h3 className="font-semibold mb-1.5 tracking-tight text-[#737373]">{title}</h3>
-      <p className="text-[#737373] text-body mb-4">{desc}</p>
+      <h3 className="font-semibold mb-1.5 tracking-tight text-muted">{title}</h3>
+      <p className="text-muted text-body mb-4">{desc}</p>
       <button onClick={() => router.push(action.href)} className="text-red-500 hover:text-red-400 text-body flex items-center gap-1 mx-auto">
         {action.label} <IconArrowRight size={14} />
       </button>

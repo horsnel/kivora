@@ -160,6 +160,7 @@ export default function OpportunitiesPage() {
   // Compact format for projection cards — abbreviates large numbers
   function formatCompact(usd) {
     const val = convert(usd)
+    if (val >= 1_000_000_000) return `${currency.symbol}${(val / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}B`
     if (val >= 1_000_000) return `${currency.symbol}${(val / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
     if (val >= 100_000) return `${currency.symbol}${(val / 1_000).toFixed(0)}K`
     if (val >= 10_000) return `${currency.symbol}${(val / 1_000).toFixed(1).replace(/\.0$/, '')}K`
@@ -217,14 +218,14 @@ export default function OpportunitiesPage() {
 
   return (
     <main className="min-h-screen bg-[#0a0a0a]">
-      <div className="max-w-4xl mx-auto px-4 pt-6 pb-10">
+      <div className="max-w-5xl mx-auto px-4 pt-6 pb-10">
         <div className="mb-6 animate-fade-up">
           <h1 className="text-display font-semibold mb-2 tracking-tight">{t('opportunities.title').slice(0, parseInt(t('opportunities.split')))}<span className="text-red-500">{t('opportunities.title').slice(parseInt(t('opportunities.split')))}</span></h1>
-          <p className="text-[#737373] text-sm mt-0.5">{t('opportunities.browse', { count: opps.length })}</p>
+          <p className="text-muted text-body-sm mt-0.5">{t('opportunities.browse', { count: opps.length })}</p>
         </div>
 
         {/* Generate new */}
-        <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mb-7">
+        <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mb-10">
           <p className="text-caption text-muted font-medium mb-3 flex items-center gap-1.5"><IconPlus size={12} /> {t('opportunities.generate_new')}</p>
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -246,17 +247,17 @@ export default function OpportunitiesPage() {
         </div>
 
         {/* ── Feature 1: Income Calculator ── */}
-        <div className="bg-[#141414] rounded-xl p-6 mb-7">
+        <div className="bg-[#141414] rounded-xl p-7 sm:p-8 mb-10">
           <p className="text-caption text-muted font-medium mb-4 flex items-center gap-1.5"><IconCalc size={12} /> {t('opportunities.income_calc')}</p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
             {/* Min slider */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-caption text-muted2">{t('opportunities.min_income')}</span>
-                <span className="text-caption text-muted2 font-mono">{format(calcMin)}</span>
+                <span className="text-caption text-muted2 font-mono">{formatCompact(calcMin)}</span>
               </div>
-              <input type="range" min={0} max={20000} step={50} value={calcMin}
+              <input type="range" min={0} max={10000000} step={100} value={calcMin}
                 onChange={e => setCalcMin(Number(e.target.value))}
                 className="w-full h-1.5 bg-[#262626] rounded-full appearance-none cursor-pointer accent-red-500
                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-red-500 [&::-webkit-slider-thumb]:cursor-pointer
@@ -266,9 +267,9 @@ export default function OpportunitiesPage() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-caption text-muted2">{t('opportunities.max_income')}</span>
-                <span className="text-caption text-muted2 font-mono">{format(calcMax)}</span>
+                <span className="text-caption text-muted2 font-mono">{formatCompact(calcMax)}</span>
               </div>
-              <input type="range" min={0} max={50000} step={100} value={calcMax}
+              <input type="range" min={0} max={10000000} step={100} value={calcMax}
                 onChange={e => setCalcMax(Number(e.target.value))}
                 className="w-full h-1.5 bg-[#262626] rounded-full appearance-none cursor-pointer accent-red-500
                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-red-500 [&::-webkit-slider-thumb]:cursor-pointer
@@ -277,7 +278,7 @@ export default function OpportunitiesPage() {
           </div>
 
           {/* Period selector */}
-          <div className="flex gap-2 mb-5">
+          <div className="flex gap-2 mb-6">
             {['daily', 'weekly', 'monthly'].map(p => (
               <button key={p} onClick={() => setCalcPeriod(p)}
                 className={`px-3 py-1.5 rounded-full text-caption font-medium border transition-all ${
@@ -291,8 +292,8 @@ export default function OpportunitiesPage() {
           {/* Projection cards + bar chart */}
           <div className="grid grid-cols-3 gap-3">
             {Object.entries(projections).map(([label, { min, max }]) => {
-              const barHeight = Math.max(4, (max / maxProjection) * 100)
-              const barMinHeight = Math.max(2, (min / maxProjection) * 100)
+              const barHeight = maxProjection > 0 ? Math.max(8, (Math.log10(max + 1) / Math.log10(maxProjection + 1)) * 100) : 8
+              const barMinHeight = maxProjection > 0 ? Math.max(8, (Math.log10(min + 1) / Math.log10(maxProjection + 1)) * 100) : 8
               return (
                 <div key={label} className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-4 text-center overflow-hidden">
                   <p className="text-caption text-muted2 mb-2">{label}</p>
@@ -306,8 +307,8 @@ export default function OpportunitiesPage() {
                       <div className="w-full bg-red-500/70 rounded-sm relative" style={{ height: `${barMinHeight}%` }} />
                     </div>
                   </div>
-                  <p className="text-body text-muted2 font-semibold truncate">{formatCompact(min)}</p>
-                  <p className="text-caption text-muted2 truncate">to {formatCompact(max)}</p>
+                  <p className="text-xs sm:text-body text-muted2 font-semibold whitespace-nowrap">{formatCompact(min)}</p>
+                  <p className="text-caption text-muted2 whitespace-nowrap">to {formatCompact(max)}</p>
                 </div>
               )
             })}
@@ -346,26 +347,26 @@ export default function OpportunitiesPage() {
         {!loading && <p className="text-caption text-muted2 mb-4 font-mono">{filtered.length} {cat !== 'All' ? t('opportunities.results_in', { cat }) : t('opportunities.results')}</p>}
 
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton bg-[#141414] rounded-xl h-32" />)}
           </div>
         ) : filtered.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map(opp => {
               const isComparing = compareSlugs.includes(opp.slug)
               return (
                 <div key={opp.slug}
-                  className={`bg-[#141414] rounded-xl p-6 text-left transition-all group hover:-translate-y-0.5 hover:bg-[#161616] relative ${
-                    isComparing ? 'border border-red-500/50' : ''
+                  className={`bg-[#141414] border border-white/[0.06] rounded-xl p-5 sm:p-6 text-left transition-all group hover:-translate-y-0.5 hover:bg-[#161616] relative ${
+                    isComparing ? '!border-red-500/50' : ''
                   }`}>
                   {/* Card main area - clickable */}
                   <button onClick={() => router.push(`/explore/${opp.slug}`)} className="w-full text-left">
-                    <h3 className="font-semibold text-body mb-3 group-hover:text-red-400 transition-colors line-clamp-2 leading-snug tracking-tight text-[#737373]">
+                    <h3 className="font-semibold text-sm mb-2 group-hover:text-red-400 transition-colors line-clamp-2 leading-snug tracking-tight text-muted">
                       {opp.result?.title || opp.query}
                     </h3>
                     {opp.result && (
                       <div className="space-y-1.5">
-                        <div className="flex items-center gap-1.5 text-slate-400 text-body font-medium">
+                        <div className="flex items-center gap-1.5 text-[#d4d4d4] text-body font-medium">
                           <IconMoney size={14} />
                           {format(opp.result.income_min || 0)}–{format(opp.result.income_max || 0)}
                           <span className="text-muted2 text-caption font-normal">/{opp.result.income_period || 'mo'}</span>
@@ -422,7 +423,7 @@ export default function OpportunitiesPage() {
             <div className="w-10 h-10 bg-[#141414] rounded-xl flex items-center justify-center mx-auto mb-3">
               <IconSearch size={20} className="text-[#2e2e2e]" />
             </div>
-            <h3 className="font-semibold mb-1.5 tracking-tight text-[#737373]">{t('opportunities.no_results')}</h3>
+            <h3 className="font-semibold text-sm mb-1.5 tracking-tight text-muted">{t('opportunities.no_results')}</h3>
             <p className="text-muted text-body mb-4">{search ? t('opportunities.no_matches', { search }) : t('opportunities.no_cat_results')}</p>
             <button onClick={() => { setSearch(''); setCat('All') }} className="text-red-500 hover:text-red-400 text-body">{t('opportunities.clear_filters')}</button>
           </div>
@@ -436,7 +437,7 @@ export default function OpportunitiesPage() {
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
               <div>
-                <h3 className="font-semibold text-body tracking-tight line-clamp-1 text-[#737373]">{checklistOpp.result?.title || checklistOpp.query}</h3>
+                <h3 className="font-semibold text-sm tracking-tight line-clamp-1 text-muted">{checklistOpp.result?.title || checklistOpp.query}</h3>
                 <p className="text-caption text-muted2 mt-0.5">{t('opportunities.action_plan')}</p>
               </div>
               <button onClick={() => setChecklistSlug(null)} className="text-muted2 hover:text-white transition-colors p-1">
@@ -523,7 +524,7 @@ export default function OpportunitiesPage() {
             <div className="flex items-center justify-between p-5 border-b border-white/[0.06] sticky top-0 bg-[#141414] z-10">
               <div className="flex items-center gap-2">
                 <IconCompare size={16} className="text-red-500" />
-                <h3 className="font-semibold text-body tracking-tight text-[#737373]">{t('opportunities.compare_title')}</h3>
+                <h3 className="font-semibold text-sm tracking-tight text-muted">{t('opportunities.compare_title')}</h3>
               </div>
               <button onClick={() => setShowCompare(false)} className="text-muted2 hover:text-white transition-colors p-1">
                 <IconClose size={16} />

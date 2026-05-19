@@ -156,7 +156,7 @@ export default function CommunityPage() {
         <div className="flex items-center justify-between mb-8 animate-fade-up">
           <div>
             <h1 className="text-display font-semibold mb-2 tracking-tight">{t('community.title')}</h1>
-            <p className="text-[#737373] text-body">{t('community.subtitle')}</p>
+            <p className="text-muted text-body">{t('community.subtitle')}</p>
           </div>
           {user && (
             <button
@@ -186,8 +186,8 @@ export default function CommunityPage() {
             <div className="w-12 h-12 bg-[#141414] rounded-xl flex items-center justify-center mx-auto mb-4">
               <IconChat size={20} className="text-[#2e2e2e]" />
             </div>
-            <h3 className="font-semibold text-headline mb-2 tracking-tight text-[#737373]">{t('community.empty')}</h3>
-            <p className="text-[#737373] text-body mb-6">{t('community.empty_desc')}</p>
+            <h3 className="font-semibold text-headline mb-2 tracking-tight text-muted">{t('community.empty')}</h3>
+            <p className="text-muted text-body mb-6">{t('community.empty_desc')}</p>
             {user && (
               <button
                 onClick={() => { setView('new'); setError('') }}
@@ -207,10 +207,10 @@ export default function CommunityPage() {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-body-sm text-[#737373] font-medium leading-snug mb-1.5 line-clamp-1">
+                    <h3 className="text-body-sm text-muted font-medium leading-snug mb-1.5 line-clamp-1">
                       {post.title}
                     </h3>
-                    <p className="text-caption text-[#737373] line-clamp-2 leading-relaxed mb-2">
+                    <p className="text-caption text-muted line-clamp-2 leading-relaxed mb-2">
                       {post.body}
                     </p>
                     <div className="flex items-center gap-3 text-[10px] text-[#525252]">
@@ -219,7 +219,7 @@ export default function CommunityPage() {
                       </span>
                       <span>{formatTime(post.created_at)}</span>
                       {post.reply_count > 0 && (
-                        <span className="flex items-center gap-1 text-[#737373]">
+                        <span className="flex items-center gap-1 text-muted">
                           <IconChat size={10} /> {post.reply_count} {post.reply_count === 1 ? t('community.reply') : t('community.replies')}
                         </span>
                       )}
@@ -228,7 +228,7 @@ export default function CommunityPage() {
                   <div className="shrink-0 mt-1">
                     {post.reply_count > 0 && (
                       <div className="w-8 h-8 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
-                        <span className="text-caption font-bold text-[#737373]">{post.reply_count}</span>
+                        <span className="text-caption font-bold text-muted">{post.reply_count}</span>
                       </div>
                     )}
                   </div>
@@ -249,13 +249,13 @@ export default function CommunityPage() {
         <div className="flex items-center gap-3 mb-8 animate-fade-up">
           <button
             onClick={() => { setView('list'); setError('') }}
-            className="w-9 h-9 bg-[#141414] rounded-xl flex items-center justify-center text-[#737373] hover:text-white transition-colors"
+            className="w-9 h-9 bg-[#141414] rounded-xl flex items-center justify-center text-muted hover:text-white transition-colors"
           >
             <IconArrowLeft size={14} />
           </button>
           <div>
             <h1 className="font-semibold text-headline tracking-tight">{t('community.new_discussion')}</h1>
-            <p className="text-[#737373] text-caption">{t('community.start_conversation')}</p>
+            <p className="text-muted text-caption">{t('community.start_conversation')}</p>
           </div>
         </div>
 
@@ -267,7 +267,7 @@ export default function CommunityPage() {
 
         <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 space-y-4">
           <div>
-            <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('community.title_label')}</label>
+            <label className="text-xs text-muted block mb-1.5 font-medium">{t('community.title_label')}</label>
             <input
               type="text"
               className={inputClass}
@@ -276,10 +276,10 @@ export default function CommunityPage() {
               onChange={e => setNewPost(p => ({ ...p, title: e.target.value }))}
               maxLength={200}
             />
-            <p className="text-[10px] text-[#404040] mt-1 text-right">{newPost.title.length}/200</p>
+            <p className="text-[10px] text-muted2 mt-1 text-right">{newPost.title.length}/200</p>
           </div>
           <div>
-            <label className="text-xs text-[#737373] block mb-1.5 font-medium">{t('community.body')}</label>
+            <label className="text-xs text-muted block mb-1.5 font-medium">{t('community.body')}</label>
             <textarea
               className={`${inputClass} h-40 resize-none leading-relaxed`}
               placeholder="Share your thoughts, questions, or ideas..."
@@ -297,7 +297,7 @@ export default function CommunityPage() {
             </button>
             <button
               onClick={() => { setView('list'); setError('') }}
-              className="px-4 py-2.5 border border-[#262626] hover:border-[#3a3a3a] text-[#737373] hover:text-white rounded-xl text-sm font-medium transition-colors"
+              className="px-4 py-2.5 border border-[#262626] hover:border-[#3a3a3a] text-muted hover:text-white rounded-xl text-sm font-medium transition-colors"
             >
               {t('community.cancel')}
             </button>
@@ -315,13 +315,13 @@ export default function CommunityPage() {
         <div className="flex items-center gap-3 mb-8 animate-fade-up">
           <button
             onClick={() => { setView('list'); setSelectedPost(null); setReplies([]) }}
-            className="w-9 h-9 bg-[#141414] rounded-xl flex items-center justify-center text-[#737373] hover:text-white transition-colors"
+            className="w-9 h-9 bg-[#141414] rounded-xl flex items-center justify-center text-muted hover:text-white transition-colors"
           >
             <IconArrowLeft size={14} />
           </button>
           <div>
             <h1 className="font-semibold text-headline tracking-tight">{t('community.discussion')}</h1>
-            <p className="text-[#737373] text-caption">{t('community.back')}</p>
+            <p className="text-muted text-caption">{t('community.back')}</p>
           </div>
         </div>
 
@@ -338,11 +338,11 @@ export default function CommunityPage() {
             {/* Post */}
             <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mb-4">
               <div className="flex items-start justify-between gap-4 mb-4">
-                <h2 className="font-semibold text-headline-sm tracking-tight leading-snug text-[#737373]">{selectedPost.title}</h2>
+                <h2 className="font-semibold text-headline-sm tracking-tight leading-snug text-muted">{selectedPost.title}</h2>
                 {user && selectedPost.user_id === user.id && (
                   <button
                     onClick={() => deletePost(selectedPost.id)}
-                    className="text-[#404040] hover:text-red-500 transition-colors p-1 shrink-0"
+                    className="text-muted2 hover:text-red-500 transition-colors p-1 shrink-0"
                   >
                     <IconTrash size={14} />
                   </button>
@@ -381,7 +381,7 @@ export default function CommunityPage() {
                       {user && reply.user_id === user.id && (
                         <button
                           onClick={() => deleteReply(reply.id)}
-                          className="text-[#404040] hover:text-red-500 transition-colors p-1 shrink-0"
+                          className="text-muted2 hover:text-red-500 transition-colors p-1 shrink-0"
                         >
                           <IconTrash size={12} />
                         </button>
@@ -421,7 +421,7 @@ export default function CommunityPage() {
               </div>
             ) : (
               <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5 text-center">
-                <p className="text-[#737373] text-caption">
+                <p className="text-muted text-caption">
                   <a href="/auth" className="text-red-400 hover:text-red-300 transition-colors">Sign in</a> {t('community.signin_to_reply')}
                 </p>
               </div>

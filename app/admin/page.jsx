@@ -72,7 +72,7 @@ export default function AdminPage() {
             <IconShield size={20} className="text-[#525252]" />
           </div>
           <h2 className="font-semibold text-[17px] text-white text-center mb-1.5 tracking-tight">Admin Access</h2>
-          <p className="text-[13px] text-[#737373] text-center mb-6">Enter the admin password to continue</p>
+          <p className="text-[13px] text-muted text-center mb-6">Enter the admin password to continue</p>
           <form onSubmit={handlePasswordSubmit}>
             <input
               type="password"
@@ -94,7 +94,7 @@ export default function AdminPage() {
           </form>
         </div>
         <button
-          onClick={() => router.push('/discover')}
+          onClick={() => router.push('/home')}
           className="text-[#525252] hover:text-[#a3a3a3] text-[13px] flex items-center justify-center gap-1 mx-auto mt-5 transition-colors"
         >
           ← Back to Kivora
@@ -147,7 +147,7 @@ export default function AdminPage() {
             <IconShield size={20} className="text-[#2e2e2e]" />
           </div>
           <h3 className="font-semibold text-headline mb-2 tracking-tight">Admin access required</h3>
-          <p className="text-[#737373] text-body mb-6">You don&apos;t have permission to view this page.</p>
+          <p className="text-muted text-body mb-6">You don&apos;t have permission to view this page.</p>
           <button
             onClick={() => router.push('/dashboard')}
             className="text-red-500 hover:text-red-400 text-body flex items-center gap-1 mx-auto"
@@ -177,11 +177,11 @@ export default function AdminPage() {
         {/* Header */}
         <div className="flex items-center gap-3 mb-8 animate-fade-up">
           <div className="w-9 h-9 bg-[#141414] rounded-xl flex items-center justify-center">
-            <IconDashboard size={14} className="text-[#737373]" />
+            <IconDashboard size={14} className="text-muted" />
           </div>
           <div>
             <h1 className="font-semibold text-headline tracking-tight">Admin Dashboard</h1>
-            <p className="text-[#737373] text-caption">Platform-wide metrics and activity</p>
+            <p className="text-muted text-caption">Platform-wide metrics and activity</p>
           </div>
         </div>
 
@@ -195,7 +195,7 @@ export default function AdminPage() {
                 </div>
               </div>
               <div className="font-bold text-headline tracking-tight">{m.value?.toLocaleString() ?? '–'}</div>
-              <div className="text-caption text-[#737373] mt-0.5">{m.label}</div>
+              <div className="text-caption text-muted mt-0.5">{m.label}</div>
             </div>
           ))}
         </div>
@@ -206,7 +206,7 @@ export default function AdminPage() {
           <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
             <h3 className="font-semibold text-body-sm mb-4">Recent signups</h3>
             {recentSignups.length === 0 ? (
-              <p className="text-[#404040] text-caption py-8 text-center">No users yet</p>
+              <p className="text-muted2 text-caption py-8 text-center">No users yet</p>
             ) : (
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {recentSignups.map(u => (
@@ -219,7 +219,7 @@ export default function AdminPage() {
                         <div className="text-body-sm text-[#d4d4d4] truncate">
                           {u.display_name || u.email?.split('@')[0] || 'User'}
                         </div>
-                        <div className="text-[10px] text-[#404040] truncate">{u.email}</div>
+                        <div className="text-[10px] text-muted2 truncate">{u.email}</div>
                       </div>
                     </div>
                     <span className="text-[10px] text-[#525252] shrink-0">
@@ -235,7 +235,7 @@ export default function AdminPage() {
           <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
             <h3 className="font-semibold text-body-sm mb-4">Recent activity</h3>
             {recentActivity.length === 0 ? (
-              <p className="text-[#404040] text-caption py-8 text-center">No activity yet</p>
+              <p className="text-muted2 text-caption py-8 text-center">No activity yet</p>
             ) : (
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {recentActivity.map(s => (
@@ -245,7 +245,7 @@ export default function AdminPage() {
                         {TOOL_LABELS[s.tool_type] || s.tool_type}
                       </div>
                       {s.subject && (
-                        <span className="text-[10px] bg-[#1a1a1a] border border-[#262626] px-2 py-0.5 rounded-full text-[#737373] inline-block mt-0.5">
+                        <span className="text-[10px] bg-[#1a1a1a] border border-[#262626] px-2 py-0.5 rounded-full text-muted inline-block mt-0.5">
                           {s.subject}
                         </span>
                       )}

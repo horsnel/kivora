@@ -22,12 +22,12 @@ export default function NotFound() {
         </div>
 
         <h1 className="text-xl font-semibold tracking-tight mb-3">{t('notfound.title')}</h1>
-        <p className="text-[#737373] text-sm mb-8 leading-relaxed">
+        <p className="text-muted text-sm mb-8 leading-relaxed">
           {t('notfound.description')}
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link href="/home" className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors">
+          <Link href="/explore" className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors">
             {t('notfound.explore')}
           </Link>
           <Link href="/" className="bg-[#141414] border border-[#262626] hover:border-[#3a3a3a] text-white px-5 py-2.5 rounded-xl text-sm transition-colors">
@@ -35,7 +35,7 @@ export default function NotFound() {
           </Link>
         </div>
 
-        <div className="mt-8 flex flex-wrap justify-center gap-4 text-xs text-[#404040]">
+        <div className="mt-8 flex flex-wrap justify-center gap-4 text-xs text-muted2">
           <Link href="/chat" className="hover:text-white transition-colors">{t('notfound.chat')}</Link>
           <Link href="/study" className="hover:text-white transition-colors">{t('notfound.studydesk')}</Link>
           <Link href="/devtools" className="hover:text-white transition-colors">{t('notfound.devtools')}</Link>

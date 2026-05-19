@@ -13,7 +13,7 @@ export default function TermsPage() {
       <div className="max-w-3xl mx-auto px-4 py-14">
         <div className="mb-10">
           <h1 className="text-3xl font-semibold tracking-tight mb-3">Terms of Service</h1>
-          <p className="text-[#737373] text-sm">Last updated: {LAST_UPDATED}</p>
+          <p className="text-muted text-sm">Last updated: {LAST_UPDATED}</p>
         </div>
 
         <div className="space-y-8 text-[#d4d4d4] text-sm leading-relaxed">
@@ -90,7 +90,7 @@ export default function TermsPage() {
 
         </div>
 
-        <div className="mt-12 pt-8 border-t border-[#141414] flex gap-4 text-xs text-[#737373]">
+        <div className="mt-12 pt-8 border-t border-[#141414] flex gap-4 text-xs text-muted">
           <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
           <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
           <Link href="/home" className="hover:text-white transition-colors">Back to app</Link>
@@ -103,7 +103,7 @@ export default function TermsPage() {
 function Section({ title, children }) {
   return (
     <div>
-      <h2 className="text-[#737373] font-semibold text-base mb-3 tracking-tight">{title}</h2>
+      <h2 className="text-muted font-semibold text-base mb-3 tracking-tight">{title}</h2>
       <div className="space-y-3">{children}</div>
     </div>
   )
