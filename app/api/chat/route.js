@@ -5,6 +5,38 @@ import { rateLimit } from '@/lib/ratelimit'
 
 const ALLOWED_MODEL_IDS = ALLOWED_MODELS.map(m => m.id)
 
+const TAVILY_API_KEY = process.env.TAVILY_API_KEY || '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'
+
+const tools = [
+  {
+    type: 'function',
+    function: {
+      name: 'web_search',
+      description: 'Search the web for current information, real-time data, news, prices, facts, or anything that requires up-to-date knowledge. Use this when the user asks about current events, prices, recent news, weather, or any time-sensitive information.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'The search query to find relevant information'
+          }
+        },
+        required: ['query']
+      }
+    }
+  }
+]
+
+const SEARCH_TOOL_INSTRUCTION = `
+
+You have access to a web_search tool. USE IT when the user asks about:
+- Current prices, exchange rates, stock prices
+- Recent news or events
+- Weather, sports results
+- Anything that changes over time
+- Comparisons of current tools/software/pricing
+DO NOT use search for general knowledge, coding help, math, or creative writing.`
+
 export async function POST(req) {
   const ip = req.headers.get('x-forwarded-for') || 'unknown'
   if (!rateLimit(ip).ok) {
@@ -112,18 +144,123 @@ FORMATTING RULES — use rich markdown to make responses clear and scannable:
 - Use ## and ### headings to break long responses into clear sections
 - Use horizontal rules (---) to separate major sections in long responses
 - For tool recommendations, include a table with columns: Tool, Cost, Best For
-${wikiContext ? `\nRelevant platform knowledge:\n${wikiContext}` : ''}`
+${wikiContext ? `\nRelevant platform knowledge:\n${wikiContext}` : ''}${SEARCH_TOOL_INSTRUCTION}`
         },
         ...messages.slice(-12)
       ]
     }
 
+    // For image messages, don't use tools (vision model doesn't support them)
+    const useTools = !hasImage
+
     const chat = await groqChat({
       model,
-      messages: apiMessages
+      messages: apiMessages,
+      ...(useTools ? { tools, tool_choice: 'auto' } : {})
     })
 
-    const reply = chat.choices[0].message.content
+    const message = chat.choices[0].message
+
+    // Handle tool calls — AI decides when to search
+    if (useTools && message.tool_calls && message.tool_calls.length > 0) {
+      let searchResults = null
+      let searchQuery = ''
+
+      for (const toolCall of message.tool_calls) {
+        if (toolCall.function.name === 'web_search') {
+          const args = JSON.parse(toolCall.function.arguments)
+          searchQuery = args.query
+
+          // Call Tavily search
+          try {
+            const searchResponse = await fetch('https://api.tavily.com/search', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${TAVILY_API_KEY}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                query: args.query,
+                search_depth: 'basic',
+                include_answer: true,
+                max_results: 5
+              })
+            })
+
+            if (searchResponse.ok) {
+              searchResults = await searchResponse.json()
+            }
+          } catch (searchErr) {
+            console.error('[chat] Tavily search error:', searchErr)
+          }
+        }
+      }
+
+      // Build tool response message
+      const toolMessages = [
+        message,  // The assistant's tool_call message
+        {
+          role: 'tool',
+          tool_call_id: message.tool_calls[0].id,
+          content: searchResults
+            ? JSON.stringify({
+                answer: searchResults.answer,
+                results: searchResults.results?.map(r => ({
+                  title: r.title,
+                  url: r.url,
+                  content: r.content?.slice(0, 500)
+                }))
+              })
+            : 'Search failed. Respond based on your existing knowledge.'
+        }
+      ]
+
+      // Make a second call with the search results
+      const finalChat = await groqChat({
+        model,
+        messages: [...apiMessages, ...toolMessages],
+        tools,
+        tool_choice: 'none'  // Force the model to respond, not call more tools
+      })
+
+      const reply = finalChat.choices[0].message.content
+
+      // Save session if logged in — store only the final reply (no tool_call messages)
+      if (userId && sessionId) {
+        try {
+          const { data: session } = await admin
+            .from('chat_sessions')
+            .select('messages')
+            .eq('id', sessionId)
+            .eq('user_id', userId)
+            .single()
+
+          const storedUserMsg = { ...messages.slice(-1)[0] }
+
+          await admin.from('chat_sessions').upsert({
+            id: sessionId,
+            user_id: userId,
+            messages: [
+              ...(session?.messages || []),
+              storedUserMsg,
+              { role: 'assistant', content: reply }
+            ],
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' })
+        } catch (_) {}
+      }
+
+      // Return with search metadata so the UI can show a search indicator
+      return Response.json({
+        reply,
+        model,
+        searchUsed: true,
+        searchQuery
+      })
+    }
+
+    // Normal response, no search needed
+    const reply = message.content
 
     // Save session if logged in — store the original user message format (without base64 for images)
     if (userId && sessionId) {
@@ -156,7 +293,7 @@ ${wikiContext ? `\nRelevant platform knowledge:\n${wikiContext}` : ''}`
       } catch (_) {}
     }
 
-    return Response.json({ reply, model })
+    return Response.json({ reply, model, searchUsed: false })
   } catch (err) {
     console.error('[chat]', err)
     return Response.json({ error: err.message || 'Server error' }, { status: 500 })

@@ -160,7 +160,14 @@ export default function ChatClient() {
   const [settingsPromptSaved, setSettingsPromptSaved] = useState(false)
   const [settingsExported, setSettingsExported] = useState(false)
 
+  // ── Live Terminal Mode ──
+  const [terminalMode, setTerminalMode] = useState(false)
+  const [terminalHistory, setTerminalHistory] = useState([]) // {type: 'input'|'output'|'ai-suggest', content: string}
+  const [termInput, setTermInput] = useState('')
+  const [aiSuggestion, setAiSuggestion] = useState(null) // pending command from AI
+
   const bottomRef = useRef(null)
+  const termOutputRef = useRef(null)
   const textareaRef = useRef(null)
   const collapsedInputRef = useRef(null)
   const historyRef = useRef(null)
@@ -523,7 +530,12 @@ export default function ChatClient() {
         })
       })
       const data = await res.json()
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply || data.error || t('chat.error.general') }])
+      const assistantMsg = { role: 'assistant', content: data.reply || data.error || t('chat.error.general') }
+      if (data.searchUsed) {
+        assistantMsg.searchUsed = true
+        assistantMsg.searchQuery = data.searchQuery || ''
+      }
+      setMessages(prev => [...prev, assistantMsg])
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: t('chat.error.network') }])
     }
@@ -686,6 +698,101 @@ export default function ChatClient() {
   const hasInput = input.trim().length > 0 || attachedFile
 
   const currentModel = MODELS.find(m => m.id === model) || MODELS[0]
+
+  // ── Live Terminal Handlers ──
+  const executeCommand = async (cmd) => {
+    setTerminalHistory(prev => [...prev, { type: 'input', content: cmd }])
+
+    try {
+      const res = await fetch('/api/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_code: cmd, language_id: 46 }) // Bash
+      })
+      const data = await res.json()
+
+      let output = ''
+      if (data.stdout) output += data.stdout
+      if (data.stderr) output += (output ? '\n' : '') + data.stderr
+      if (!output) output = '(no output)'
+      if (data.exit_code && data.exit_code !== 0) output += `\n[Exit code: ${data.exit_code}]`
+
+      setTerminalHistory(prev => [...prev, { type: 'output', content: output }])
+    } catch {
+      setTerminalHistory(prev => [...prev, { type: 'output', content: 'Execution failed.' }])
+    }
+
+    // Auto-scroll
+    setTimeout(() => {
+      termOutputRef.current?.scrollTo({ top: termOutputRef.current.scrollHeight })
+    }, 50)
+  }
+
+  const askAIForCommand = async (query) => {
+    setTerminalHistory(prev => [...prev, { type: 'input', content: `# ${query}` }])
+
+    try {
+      const messages = [{ role: 'user', content: `I need a shell command for: ${query}\n\nRespond with ONLY the command, no explanation, no markdown, no code blocks. Just the raw command that can be pasted into a terminal.` }]
+
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages, model: 'llama-3.1-8b-instant' }) // Use fast model for terminal
+      })
+      const data = await res.json()
+
+      if (data.reply) {
+        // Clean up the reply — strip markdown code blocks if present
+        let cmd = data.reply.trim()
+        cmd = cmd.replace(/^```(?:bash|sh|shell)?\n?/, '').replace(/\n?```$/, '').trim()
+        cmd = cmd.replace(/^`|`$/g, '').trim()
+
+        if (cmd) {
+          setAiSuggestion(cmd)
+        }
+      }
+    } catch {
+      setTerminalHistory(prev => [...prev, { type: 'output', content: 'AI request failed.' }])
+    }
+
+    // Auto-scroll
+    setTimeout(() => {
+      termOutputRef.current?.scrollTo({ top: termOutputRef.current.scrollHeight })
+    }, 50)
+  }
+
+  const handleTerminalInput = async (e) => {
+    if (e.key === 'Escape') {
+      setAiSuggestion(null)
+      return
+    }
+
+    if (e.key !== 'Enter') return
+    const cmd = termInput.trim()
+    if (!cmd) return
+    setTermInput('')
+
+    // If there's an AI suggestion pending and user presses Enter, execute it
+    if (aiSuggestion) {
+      const suggestion = aiSuggestion
+      setAiSuggestion(null)
+      await executeCommand(suggestion)
+      return
+    }
+
+    // Check if this looks like a shell command (starts with common command prefixes)
+    const isCommand = /^[a-z]/.test(cmd) && (
+      /^(ls|cd|pwd|cat|echo|mkdir|rm|cp|mv|grep|find|curl|wget|npm|npx|node|python|pip|git|docker|make|chmod|chown|export|source|sudo|apt|yum|brew|which|whoami|uname|df|du|ps|top|kill|clear|history)/.test(cmd)
+    )
+
+    if (isCommand) {
+      // Execute directly
+      await executeCommand(cmd)
+    } else {
+      // Natural language — ask AI for a command suggestion
+      await askAIForCommand(cmd)
+    }
+  }
 
   return (
     <main className="h-dvh flex bg-[#0a0a0a] overflow-hidden">
@@ -955,9 +1062,81 @@ export default function ChatClient() {
               <path d="M2 4v7a1 1 0 001 1h7a1 1 0 001-1V7"/>
             </svg>
           </button>
+          {/* Terminal mode toggle */}
+          <button
+            onClick={() => { setTerminalMode(!terminalMode); setAiSuggestion(null) }}
+            className={`w-8 h-8 flex items-center justify-center rounded-full transition-all duration-200 ${
+              terminalMode
+                ? 'text-green-400 bg-green-400/10'
+                : 'text-[#525252] hover:text-[#e2e2e2] hover:bg-white/[0.04]'
+            }`}
+            aria-label="Toggle terminal mode"
+            title={terminalMode ? 'Switch to AI Chat' : 'Switch to Live Terminal'}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="4 17 10 11 4 5"/>
+              <line x1="12" y1="19" x2="20" y2="19"/>
+            </svg>
+          </button>
         </div>
 
-        {/* Messages area */}
+        {/* Messages area / Terminal area */}
+        {terminalMode ? (
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Terminal header */}
+            <div className="flex items-center gap-2 px-4 py-2 border-b border-white/[0.06]">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-[12px] font-mono text-[#737373] uppercase tracking-wider">Live Terminal</span>
+            </div>
+
+            {/* Terminal output */}
+            <div className="flex-1 overflow-y-auto bg-[#0d0d0d] p-4 font-mono text-[13px] leading-[1.6] terminal-output" ref={termOutputRef}>
+              {terminalHistory.length === 0 && !aiSuggestion && (
+                <div className="text-[#404040] text-[12px]">
+                  <div className="text-green-400/60 mb-2">Welcome to Live Terminal</div>
+                  <div>Type a shell command to execute it directly.</div>
+                  <div>Or type a natural language query and AI will suggest a command.</div>
+                </div>
+              )}
+              {terminalHistory.map((entry, i) => (
+                <div key={i} className={entry.type === 'input' ? 'text-[#737373]' : entry.type === 'output' ? 'text-[#d4d4d4] whitespace-pre-wrap break-all' : 'text-yellow-400'}>
+                  {entry.type === 'input' && entry.content.startsWith('#') ? (
+                    <><span className="text-[#525252]"># </span><span className="text-[#737373]">{entry.content.slice(2)}</span></>
+                  ) : entry.type === 'input' ? (
+                    <><span className="text-green-400">$ </span>{entry.content}</>
+                  ) : entry.type === 'ai-suggest' ? (
+                    <><span className="text-yellow-400">AI suggests: </span>{entry.content}</>
+                  ) : (
+                    entry.content
+                  )}
+                </div>
+              ))}
+
+              {/* AI suggestion pending */}
+              {aiSuggestion && (
+                <div className="mt-2">
+                  <div className="text-yellow-400 text-[12px]">AI suggests:</div>
+                  <div className="text-[#e2e2e2] bg-yellow-400/[0.06] border border-yellow-400/20 rounded-md px-3 py-1.5 mt-1 inline-block">{aiSuggestion}</div>
+                  <div className="text-[11px] text-[#525252] mt-1.5">Press <span className="text-[#737373]">Enter</span> to run · <span className="text-[#737373]">Esc</span> to dismiss</div>
+                </div>
+              )}
+            </div>
+
+            {/* Terminal input */}
+            <div className="flex items-center gap-2 px-4 py-3 border-t border-white/[0.06] bg-[#0d0d0d]">
+              <span className="text-green-400 font-mono text-[13px]">$</span>
+              <input
+                type="text"
+                value={termInput}
+                onChange={e => setTermInput(e.target.value)}
+                onKeyDown={handleTerminalInput}
+                className="flex-1 bg-transparent border-none outline-none font-mono text-[13px] text-[#d4d4d4] placeholder-[#404040] terminal-input"
+                placeholder="Type a command or ask AI..."
+                autoFocus
+              />
+            </div>
+          </div>
+        ) : (
         <div className="flex-1 overflow-y-auto overscroll-behavior-contain">
           <div className="max-w-[720px] mx-auto px-[min(5vw,48px)] py-8 space-y-6">
             {messages.length === 0 && (
@@ -1035,6 +1214,14 @@ export default function ChatClient() {
                         </div>
                       </div>
                     )}
+                    {msg.role === 'assistant' && msg.searchUsed && (
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#525252" strokeWidth="1.25" strokeLinecap="round">
+                          <circle cx="7" cy="7" r="5"/><path d="M11 11l3 3"/>
+                        </svg>
+                        <span className="text-[11px] text-[#525252]">Searched: &quot;{msg.searchQuery}&quot;</span>
+                      </div>
+                    )}
                     {msg.role === 'assistant' ? (
                       <MarkdownRenderer content={msg.content} />
                     ) : (
@@ -1072,8 +1259,10 @@ export default function ChatClient() {
             <div ref={bottomRef} />
           </div>
         </div>
+        )}
 
-        {/* ── Expandable Chat Bar ────────────────────── */}
+        {/* ── Expandable Chat Bar (hidden in terminal mode) ────────────────────── */}
+        {!terminalMode && (
         <div className="shrink-0 px-[min(5vw,48px)] pb-4 pt-2" style={{ overflow: 'visible' }}>
           <div className="max-w-[720px] mx-auto" style={{ overflow: 'visible' }}>
             {/* Voice toast notification */}
@@ -1368,6 +1557,7 @@ export default function ChatClient() {
 
           </div>
         </div>
+        )}
       </div>
 
       {/* ── Microphone Permission Modal ── */}
@@ -2096,6 +2286,25 @@ export default function ChatClient() {
           .chat-model-dropdown {
             animation: dropUpRight 0.15s ease-out;
           }
+        }
+
+        /* ═══════════════════════════════════════
+           LIVE TERMINAL
+           ═══════════════════════════════════════ */
+        .terminal-output {
+          overscroll-behavior: contain;
+          font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+        }
+        .terminal-output::-webkit-scrollbar { width: 3px; }
+        .terminal-output::-webkit-scrollbar-thumb { background: #262626; border-radius: 2px; }
+        .terminal-output::-webkit-scrollbar-track { background: transparent; }
+        .terminal-input {
+          font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+        }
+        .terminal-input:focus {
+          outline: none;
+          border: none;
+          box-shadow: none;
         }
       `}</style>
     </main>

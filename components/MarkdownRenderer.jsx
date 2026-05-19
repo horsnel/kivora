@@ -2,6 +2,7 @@
 import { useState, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { IconSpinner } from '@/components/Icons'
 
 /* ─── Copy Button for Code Blocks ──────────────────────────────── */
 function CopyButton({ text }) {
@@ -47,6 +48,106 @@ function getLangLabel(className) {
   const match = className.match(/language-(\w+)/)
   if (!match) return null
   return LANG_LABELS[match[1].toLowerCase()] || match[1].charAt(0).toUpperCase() + match[1].slice(1)
+}
+
+/* ─── Language ID Mapping (Judge0) ─────────────────────────────── */
+function getLangId(className) {
+  if (!className) return null
+  const match = className.match(/language-(\w+)/)
+  if (!match) return null
+  const lang = match[1].toLowerCase()
+  const map = {
+    js: 63, javascript: 63, jsx: 63,
+    ts: 74, typescript: 74, tsx: 74,
+    py: 71, python: 71,
+    java: 62, cpp: 54, c: 50,
+    go: 60, rust: 73,
+    rb: 72, ruby: 72,
+    php: 68,
+    bash: 46, sh: 46, shell: 46,
+    sql: 82,
+  }
+  return map[lang] || null
+}
+
+/* ─── Code Block with Run Button ───────────────────────────────── */
+function CodeBlock({ langLabel, codeText, codeClassName, children }) {
+  const [runResult, setRunResult] = useState(null) // { stdout, stderr, exit_code, time, memory, status }
+  const [running, setRunning] = useState(false)
+
+  const langId = getLangId(codeClassName)
+
+  const handleRun = async () => {
+    if (!langId) return
+    setRunning(true)
+    try {
+      const res = await fetch('/api/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_code: codeText, language_id: langId })
+      })
+      const data = await res.json()
+      setRunResult(data)
+    } catch {
+      setRunResult({ stderr: 'Execution failed. Try again.' })
+    }
+    setRunning(false)
+  }
+
+  return (
+    <div className="my-4 rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
+      {/* Header bar with language label + Run + Copy */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06] bg-white/[0.02]">
+        <span className="text-[11px] font-mono text-[#525252] uppercase tracking-wider">{langLabel || 'Code'}</span>
+        <div className="flex items-center gap-3">
+          {langId ? (
+            <button
+              onClick={handleRun}
+              disabled={running}
+              className="flex items-center gap-1.5 text-[11px] text-[#525252] hover:text-[#a3a3a3] transition-colors font-mono disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Run code"
+            >
+              {running ? <IconSpinner size={12} /> : <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6V2z"/></svg>}
+              {running ? 'Running...' : 'Run'}
+            </button>
+          ) : (
+            <button
+              disabled
+              className="flex items-center gap-1.5 text-[11px] text-[#333] font-mono cursor-not-allowed"
+              title="Language not supported for execution"
+              aria-label="Language not supported for execution"
+            >
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6V2z"/></svg>
+              Run
+            </button>
+          )}
+          <CopyButton text={codeText} />
+        </div>
+      </div>
+      {/* Scroll wrapper — div handles overflow, code handles whitespace */}
+      <div className="overflow-x-auto p-4 overscroll-behavior-contain">
+        {children}
+      </div>
+      {/* Execution output */}
+      {runResult && (
+        <div className="border-t border-white/[0.06] bg-[#0d0d0d]">
+          <div className="flex items-center justify-between px-4 py-1.5">
+            <span className="text-[10px] font-mono text-[#525252] uppercase tracking-wider">Output</span>
+            <button onClick={() => setRunResult(null)} className="text-[10px] font-mono text-[#525252] hover:text-[#a3a3a3] transition-colors">Clear</button>
+          </div>
+          <div className="px-4 pb-3 font-mono text-[13px] leading-[1.5] overflow-x-auto whitespace-pre">
+            {runResult.stdout && <span className="text-[#d4d4d4]">{runResult.stdout}</span>}
+            {runResult.stderr && <span className="text-red-400">{runResult.stderr}</span>}
+            {runResult.exit_code != null && (
+              <span className="text-[10px] text-[#525252] block mt-1.5">
+                Exit code: {runResult.exit_code}{runResult.time ? ` · ${runResult.time}s` : ''}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 /* ─── Main Component ───────────────────────────────────────────── */
@@ -169,7 +270,7 @@ export default function MarkdownRenderer({ content, className = '' }) {
             )
           },
 
-          /* ── Code Block — ChatGPT/Claude-style container ─── */
+          /* ── Code Block — ChatGPT/Claude-style container with Run ─── */
           pre: ({ children }) => {
             const codeEl = children?.props?.children
             const codeText = typeof codeEl === 'string'
@@ -181,17 +282,9 @@ export default function MarkdownRenderer({ content, className = '' }) {
             const langLabel = getLangLabel(codeClassName)
 
             return (
-              <div className="my-4 rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
-                {/* Header bar with language label + copy */}
-                <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06] bg-white/[0.02]">
-                  <span className="text-[11px] font-mono text-[#525252] uppercase tracking-wider">{langLabel || 'Code'}</span>
-                  <CopyButton text={codeText} />
-                </div>
-                {/* Scroll wrapper — div handles overflow, code handles whitespace */}
-                <div className="overflow-x-auto p-4 overscroll-behavior-contain">
-                  {children}
-                </div>
-              </div>
+              <CodeBlock langLabel={langLabel} codeText={codeText} codeClassName={codeClassName}>
+                {children}
+              </CodeBlock>
             )
           },
 
