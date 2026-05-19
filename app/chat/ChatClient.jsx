@@ -712,14 +712,24 @@ export default function ChatClient() {
       const data = await res.json()
 
       let output = ''
-      if (data.stdout) output += data.stdout
-      if (data.stderr) output += (output ? '\n' : '') + data.stderr
-      if (!output) output = '(no output)'
-      if (data.exit_code && data.exit_code !== 0) output += `\n[Exit code: ${data.exit_code}]`
+      // API-level error (rate limit, bad request, etc.)
+      if (data.error && !data.status) {
+        output = data.error
+      } else {
+        if (data.stdout) output += data.stdout
+        if (data.compile_output) output += (output ? '\n' : '') + data.compile_output
+        if (data.stderr) output += (output ? '\n' : '') + data.stderr
+        if (!output) output = '(no output)'
+        if (data.exit_code && data.exit_code !== 0) output += `\n[Exit code: ${data.exit_code}]`
+        // Show status if not "Accepted"
+        if (data.status?.id && data.status.id !== 3 && data.status.id !== 4) {
+          output += `\n[${data.status.description}]`
+        }
+      }
 
       setTerminalHistory(prev => [...prev, { type: 'output', content: output }])
     } catch {
-      setTerminalHistory(prev => [...prev, { type: 'output', content: 'Execution failed.' }])
+      setTerminalHistory(prev => [...prev, { type: 'output', content: 'Execution failed. Check your connection.' }])
     }
 
     // Auto-scroll

@@ -23,7 +23,7 @@ export async function POST(req) {
 
     if (!VALID_LANGUAGE_IDS.includes(language_id)) {
       return Response.json(
-        { error: `Invalid language_id. Valid IDs: ${VALID_LANGUAGE_IDS.join(', ')}` },
+        { error: `Unsupported language. Supported IDs: ${VALID_LANGUAGE_IDS.join(', ')}` },
         { status: 400 }
       )
     }
@@ -53,14 +53,22 @@ export async function POST(req) {
     }
 
     const data = await response.json()
-    return Response.json({
+
+    // Build the full result — include ALL output fields
+    const result = {
       stdout: data.stdout || null,
       stderr: data.stderr || null,
+      compile_output: data.compile_output || null,
+      status: {
+        id: data.status?.id || null,
+        description: data.status?.description || 'Unknown'
+      },
       exit_code: data.exit_code ?? null,
-      status: data.status?.description || data.status?.id?.toString() || 'unknown',
       time: data.time || null,
       memory: data.memory || null
-    })
+    }
+
+    return Response.json(result)
   } catch (err) {
     console.error('[execute]', err)
     return Response.json({ error: err.message || 'Execution failed' }, { status: 500 })

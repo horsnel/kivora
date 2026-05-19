@@ -78,6 +78,17 @@ function extractTextFromNode(node) {
   return ''
 }
 
+/* ─── Judge0 status helpers ────────────────────────────────────── */
+const STATUS_OK = new Set([3, 4]) // Accepted, Wrong Answer — code ran
+const STATUS_PARTIAL = new Set([5]) // Time Limit Exceeded — partial output possible
+
+function statusColor(statusId) {
+  if (!statusId) return '#525252'
+  if (STATUS_OK.has(statusId)) return '#4ade80'      // green — ran successfully
+  if (STATUS_PARTIAL.has(statusId)) return '#facc15' // yellow — ran but hit limit
+  return '#f87171'                                    // red — compile/error
+}
+
 /* ─── Code Block with Run Button ───────────────────────────────── */
 function CodeBlock({ langLabel, codeText, codeClassName, children }) {
   const [runResult, setRunResult] = useState(null)
@@ -88,6 +99,7 @@ function CodeBlock({ langLabel, codeText, codeClassName, children }) {
   const handleRun = async () => {
     if (!langId) return
     setRunning(true)
+    setRunResult(null)
     try {
       const res = await fetch('/api/execute', {
         method: 'POST',
@@ -95,16 +107,42 @@ function CodeBlock({ langLabel, codeText, codeClassName, children }) {
         body: JSON.stringify({ source_code: codeText, language_id: langId })
       })
       const data = await res.json()
-      if (data.error && !data.stdout && !data.stderr) {
-        setRunResult({ stderr: data.error })
+
+      // API-level error (rate limit, bad request, etc.)
+      if (data.error && !data.status) {
+        setRunResult({
+          status: { id: null, description: 'Error' },
+          stderr: data.error,
+          stdout: null,
+          compile_output: data.details || null,
+          exit_code: null,
+          time: null,
+          memory: null
+        })
       } else {
         setRunResult(data)
       }
     } catch {
-      setRunResult({ stderr: 'Execution failed. Check your connection and try again.' })
+      setRunResult({
+        status: { id: null, description: 'Network Error' },
+        stderr: 'Could not reach the execution server. Please check your connection and try again.',
+        stdout: null,
+        compile_output: null,
+        exit_code: null,
+        time: null,
+        memory: null
+      })
     }
     setRunning(false)
   }
+
+  // Derive output parts for display
+  const hasOutput = runResult && (
+    runResult.stdout || runResult.stderr || runResult.compile_output
+  )
+  const statusId = runResult?.status?.id
+  const statusDesc = runResult?.status?.description
+  const isOk = STATUS_OK.has(statusId)
 
   return (
     <div className="my-4 rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
@@ -144,20 +182,59 @@ function CodeBlock({ langLabel, codeText, codeClassName, children }) {
       </div>
       {/* Execution output */}
       {runResult && (
-        <div className="border-t border-white/[0.06] bg-[#0d0d0d]">
+        <div className={`border-t ${isOk ? 'border-emerald-500/20' : 'border-red-500/20'} bg-[#0d0d0d]`}>
+          {/* Status bar */}
           <div className="flex items-center justify-between px-4 py-1.5">
-            <span className="text-[10px] font-mono text-[#525252] uppercase tracking-wider">Output</span>
-            <button onClick={() => setRunResult(null)} className="text-[10px] font-mono text-[#525252] hover:text-[#a3a3a3] transition-colors">Clear</button>
-          </div>
-          <div className="px-4 pb-3 font-mono text-[13px] leading-[1.5] overflow-x-auto whitespace-pre">
-            {runResult.stdout && <span className="text-[#d4d4d4]">{runResult.stdout}</span>}
-            {runResult.stderr && <span className="text-red-400">{runResult.stderr}</span>}
-            {runResult.exit_code != null && (
-              <span className="text-[10px] text-[#525252] block mt-1.5">
-                Exit code: {runResult.exit_code}{runResult.time ? ` · ${runResult.time}s` : ''}
+            <div className="flex items-center gap-2">
+              {/* Status dot */}
+              <span
+                className="inline-block w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: statusColor(statusId) }}
+              />
+              <span
+                className="text-[10px] font-mono uppercase tracking-wider"
+                style={{ color: statusColor(statusId) }}
+              >
+                {statusDesc || 'Output'}
               </span>
-            )}
+            </div>
+            <div className="flex items-center gap-3">
+              {runResult.time && (
+                <span className="text-[10px] font-mono text-[#525252]">{runResult.time}s</span>
+              )}
+              {runResult.memory && (
+                <span className="text-[10px] font-mono text-[#525252]">{(runResult.memory / 1024).toFixed(0)}KB</span>
+              )}
+              <button onClick={() => setRunResult(null)} className="text-[10px] font-mono text-[#525252] hover:text-[#a3a3a3] transition-colors">Clear</button>
+            </div>
           </div>
+          {/* Output content */}
+          {hasOutput ? (
+            <div className="px-4 pb-3 font-mono text-[13px] leading-[1.5] overflow-x-auto whitespace-pre">
+              {/* Standard output */}
+              {runResult.stdout && (
+                <span className="text-[#d4d4d4]">{runResult.stdout}</span>
+              )}
+              {/* Standard error */}
+              {runResult.stderr && (
+                <span className={runResult.stdout ? 'text-yellow-400' : 'text-red-400'}>{runResult.stderr}</span>
+              )}
+              {/* Compilation output (Java, C++, etc.) */}
+              {runResult.compile_output && (
+                <span className={runResult.stdout ? 'text-yellow-400' : 'text-red-400'}>{runResult.compile_output}</span>
+              )}
+              {/* Exit code (only show for non-zero) */}
+              {runResult.exit_code != null && runResult.exit_code !== 0 && (
+                <span className="text-[10px] text-red-400/70 block mt-1.5">
+                  Exit code: {runResult.exit_code}
+                </span>
+              )}
+            </div>
+          ) : (
+            <div className="px-4 pb-3 font-mono text-[12px] text-[#525252] italic">
+              No output
+            </div>
+          )}
         </div>
       )}
     </div>
