@@ -157,6 +157,12 @@ export default function ChatClient() {
   const [morphIndex, setMorphIndex] = useState(0) // 0 = chat bubble (resting), settles on typing
   const [morphActive, setMorphActive] = useState(true)
 
+  // ── Image Generation ──
+  const [imageMode, setImageMode] = useState(false) // Toggle between chat & image generation
+  const [imageGenLoading, setImageGenLoading] = useState(false)
+  const [imageSize, setImageSize] = useState('1024x1024')
+  const [image3dMode, setImage3dMode] = useState(false) // 3D stub
+
   // Chat sidebar settings panel
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsExportFormat, setSettingsExportFormat] = useState('md')
@@ -458,50 +464,61 @@ export default function ChatClient() {
   }
 
   // ── Feature #2: Chat Export ──
-  function exportChat(format) {
+  async function exportChat(format) {
     if (messages.length === 0) return
     const now = new Date()
     const dateStr = now.toISOString().split('T')[0]
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     const currentModel = MODELS.find(m => m.id === model)
+    const modelName = currentModel?.name || model
 
-    let content = ''
+    try {
+      const { exportChatAsPDF, exportChatAsDOCX, downloadBlob } = await import('@/lib/fileExportHeavy')
+      const { exportChatAsHTML } = await import('@/lib/fileExportClient')
 
-    if (format === 'md') {
-      content = `# Kivora AI Chat Export\n\n`
-      content += `**Date:** ${dateStr} ${timeStr}\n`
-      content += `**Model:** ${currentModel?.name || model}\n\n`
-      content += `---\n\n`
-      messages.forEach(msg => {
-        if (msg.role === 'user') {
-          content += `### 👤 User\n\n${msg.content}\n\n`
+      if (format === 'pdf') {
+        const blob = await exportChatAsPDF(messages, modelName)
+        downloadBlob(blob, `kivora-chat-${dateStr}.pdf`)
+      } else if (format === 'docx') {
+        const blob = await exportChatAsDOCX(messages, modelName)
+        downloadBlob(blob, `kivora-chat-${dateStr}.docx`)
+      } else if (format === 'html') {
+        const blob = exportChatAsHTML(messages, modelName)
+        downloadBlob(blob, `kivora-chat-${dateStr}.html`)
+      } else {
+        // MD and TXT — no external deps needed
+        let content = ''
+        if (format === 'md') {
+          content = `# Kivora AI Chat Export\n\n`
+          content += `**Date:** ${dateStr} ${timeStr}\n`
+          content += `**Model:** ${modelName}\n\n`
+          content += `---\n\n`
+          messages.forEach(msg => {
+            if (msg.role === 'user') {
+              content += `### 👤 User\n\n${msg.content}\n\n`
+            } else {
+              content += `### 🤖 Assistant\n\n${msg.content}\n\n`
+            }
+          })
         } else {
-          content += `### 🤖 Assistant\n\n${msg.content}\n\n`
+          content = `Kivora AI Chat Export\n`
+          content += `Date: ${dateStr} ${timeStr}\n`
+          content += `Model: ${modelName}\n`
+          content += `${'='.repeat(50)}\n\n`
+          messages.forEach(msg => {
+            if (msg.role === 'user') {
+              content += `[User]\n${msg.content}\n\n`
+            } else {
+              content += `[Assistant]\n${msg.content}\n\n`
+            }
+          })
         }
-      })
-    } else {
-      content = `Kivora AI Chat Export\n`
-      content += `Date: ${dateStr} ${timeStr}\n`
-      content += `Model: ${currentModel?.name || model}\n`
-      content += `${'='.repeat(50)}\n\n`
-      messages.forEach(msg => {
-        if (msg.role === 'user') {
-          content += `[User]\n${msg.content}\n\n`
-        } else {
-          content += `[Assistant]\n${msg.content}\n\n`
-        }
-      })
+        const blob = new Blob([content], { type: format === 'md' ? 'text/markdown' : 'text/plain' })
+        downloadBlob(blob, `kivora-chat-${dateStr}.${format}`)
+      }
+    } catch (err) {
+      console.error('Export failed:', err)
     }
-
-    const blob = new Blob([content], { type: format === 'md' ? 'text/markdown' : 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `kivora-chat-${dateStr}.${format}`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
   }
 
   async function send() {
@@ -568,6 +585,62 @@ export default function ChatClient() {
       setMessages(prev => [...prev, { role: 'assistant', content: t('chat.error.network') }])
     }
     setLoading(false)
+  }
+
+  // ── Image Generation ──
+  async function sendImageGeneration() {
+    const q = input.trim()
+    if (!q || imageGenLoading) return
+
+    const userMsg = { role: 'user', content: q, isImagePrompt: true }
+    setMessages(prev => [...prev, userMsg])
+    setInput('')
+    setImageGenLoading(true)
+
+    try {
+      const res = await fetch('/api/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: q, size: imageSize })
+      })
+      const data = await res.json()
+
+      if (data.error) {
+        setMessages(prev => [...prev, { role: 'assistant', content: `Image generation failed: ${data.error}` }])
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: `![Generated Image](${q})`, isImage: true, imageData: data.image, imageSize: data.size || imageSize }])
+      }
+    } catch {
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Image generation failed. Please try again.' }])
+    }
+    setImageGenLoading(false)
+  }
+
+  // ── 3D Generation Stub ──
+  async function send3DGeneration() {
+    const q = input.trim()
+    if (!q || imageGenLoading) return
+
+    const userMsg = { role: 'user', content: q, is3DPrompt: true }
+    setMessages(prev => [...prev, userMsg])
+    setInput('')
+
+    try {
+      const res = await fetch('/api/image3d', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: q, mode: 'preview' })
+      })
+      const data = await res.json()
+
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: '3D generation is coming soon in Pro mode! 🔮\n\nFor now, I can help you with 2D image generation or describe what the 3D model would look like.',
+        is3DStub: true
+      }])
+    } catch {
+      setMessages(prev => [...prev, { role: 'assistant', content: '3D generation service unavailable.' }])
+    }
   }
 
   function copy(content, i) {
@@ -997,30 +1070,29 @@ export default function ChatClient() {
                   <p className="text-[10px] text-muted2">No conversation to export</p>
                 ) : (
                   <>
-                    <div className="flex gap-1.5 mb-2">
-                      <button
-                        onClick={() => setSettingsExportFormat('md')}
-                        className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors ${
-                          settingsExportFormat === 'md'
-                            ? 'bg-[#262626] text-white'
-                            : 'text-[#525252] hover:text-white hover:bg-[#262626]'
-                        }`}
-                      >
-                        <IconFile size={9} /> MD
-                      </button>
-                      <button
-                        onClick={() => setSettingsExportFormat('txt')}
-                        className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors ${
-                          settingsExportFormat === 'txt'
-                            ? 'bg-[#262626] text-white'
-                            : 'text-[#525252] hover:text-white hover:bg-[#262626]'
-                        }`}
-                      >
-                        <IconFile size={9} /> TXT
-                      </button>
+                    <div className="grid grid-cols-3 gap-1.5 mb-2">
+                      {[
+                        { id: 'pdf', label: 'PDF', icon: '📄' },
+                        { id: 'docx', label: 'DOCX', icon: '📝' },
+                        { id: 'html', label: 'HTML', icon: '🌐' },
+                        { id: 'md', label: 'MD', icon: '📋' },
+                        { id: 'txt', label: 'TXT', icon: '📃' },
+                      ].map(fmt => (
+                        <button
+                          key={fmt.id}
+                          onClick={() => setSettingsExportFormat(fmt.id)}
+                          className={`flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors ${
+                            settingsExportFormat === fmt.id
+                              ? 'bg-[#262626] text-white'
+                              : 'text-[#525252] hover:text-white hover:bg-[#262626]'
+                          }`}
+                        >
+                          <span className="text-[9px]">{fmt.icon}</span> {fmt.label}
+                        </button>
+                      ))}
                     </div>
                     <button
-                      onClick={() => { exportChat(settingsExportFormat); setSettingsExported(true); setTimeout(() => setSettingsExported(false), 2000) }}
+                      onClick={async () => { await exportChat(settingsExportFormat); setSettingsExported(true); setTimeout(() => setSettingsExported(false), 2000) }}
                       className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-semibold transition-colors ${
                         settingsExported
                           ? 'bg-emerald-600 text-white'
@@ -1030,7 +1102,7 @@ export default function ChatClient() {
                       {settingsExported ? (
                         <><IconCheck size={11} /> Exported</>
                       ) : (
-                        <><IconDownload size={11} /> {settingsExportFormat === 'md' ? (t('chat.export.md') || 'Export as Markdown') : (t('chat.export.txt') || 'Export as Text')}</>
+                        <><IconDownload size={11} /> Export as {settingsExportFormat.toUpperCase()}</>
                       )}
                     </button>
                   </>
@@ -1239,7 +1311,29 @@ export default function ChatClient() {
                       </div>
                     )}
                     {msg.role === 'assistant' ? (
-                      <MarkdownRenderer content={msg.content} />
+                      msg.isImage && msg.imageData ? (
+                        <div className="space-y-2">
+                          <div className="rounded-xl overflow-hidden border border-white/[0.06] max-w-md">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={msg.imageData} alt="AI Generated" className="w-full h-auto" />
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[10px] text-muted">
+                            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1.5"/><path d="M2 11l3.5-3.5 2.5 2.5 2-2L14 11"/></svg>
+                            <span>AI Generated &middot; {msg.imageSize}</span>
+                          </div>
+                        </div>
+                      ) : msg.is3DStub ? (
+                        <div className="space-y-2">
+                          <div className="bg-gradient-to-br from-purple-500/10 to-red-500/10 border border-purple-500/20 rounded-xl p-4 text-center max-w-sm">
+                            <div className="text-2xl mb-1">🔮</div>
+                            <p className="text-xs text-purple-300 font-medium">3D Generation</p>
+                            <p className="text-[11px] text-muted mt-1">Coming soon in Pro mode</p>
+                          </div>
+                          <MarkdownRenderer content={msg.content} />
+                        </div>
+                      ) : (
+                        <MarkdownRenderer content={msg.content} />
+                      )
                     ) : (
                       <div className="rounded-2xl px-5 py-3.5 bg-white/[0.04] text-[#e2e2e2] border border-white/[0.06] rounded-tr-sm leading-[1.65]">
                         <span>{displayContent}</span>
@@ -1405,13 +1499,17 @@ export default function ChatClient() {
 
                 {/* Send button */}
                 <button
-                  onClick={send}
-                  disabled={loading || !hasInput}
+                  onClick={imageMode ? sendImageGeneration : image3dMode ? send3DGeneration : send}
+                  disabled={loading || imageGenLoading || !hasInput}
                   className={`chat-collapsed-send ${hasInput ? 'chat-collapsed-send-active' : ''}`}
-                  aria-label="Send message"
+                  aria-label={imageMode ? 'Generate image' : image3dMode ? 'Generate 3D' : 'Send message'}
                 >
-                  {loading ? (
+                  {loading || imageGenLoading ? (
                     <IconSpinner size={16} />
+                  ) : imageMode ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                  ) : image3dMode ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z"/><path d="M12 12l9-4.5"/><path d="M12 12v9"/><path d="M12 12L3 7.5"/></svg>
                   ) : hasInput ? (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                   ) : (
@@ -1429,12 +1527,36 @@ export default function ChatClient() {
                   ref={textareaRef}
                   rows={1}
                   className="chat-textarea-expanded scrollbar-none"
-                  placeholder={t('chat.placeholder')}
+                  placeholder={imageMode ? 'Describe the image you want to generate...' : image3dMode ? 'Describe the 3D model you want to create...' : t('chat.placeholder')}
                   value={input}
                   onChange={e => { setInput(e.target.value); autoResize(e.target) }}
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); imageMode ? sendImageGeneration() : image3dMode ? send3DGeneration() : send() } }}
                   autoFocus
                 />
+
+                {/* Image/3D mode indicator */}
+                {(imageMode || image3dMode) && (
+                  <div className="flex items-center gap-1.5 px-1 pt-1">
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${imageMode ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'}`}>
+                      {imageMode ? '🖼 Image Mode' : '🔮 3D Mode (Pro)'}
+                    </span>
+                    {imageMode && (
+                      <select
+                        value={imageSize}
+                        onChange={e => setImageSize(e.target.value)}
+                        className="text-[10px] bg-[#0a0a0a] border border-[#262626] rounded px-1 py-0.5 text-[#a3a3a3] outline-none"
+                      >
+                        <option value="1024x1024">1:1</option>
+                        <option value="1344x768">16:9</option>
+                        <option value="1152x864">4:3</option>
+                        <option value="864x1152">3:4</option>
+                        <option value="768x1344">9:16</option>
+                        <option value="1440x720">2:1</option>
+                        <option value="720x1440">1:2</option>
+                      </select>
+                    )}
+                  </div>
+                )}
 
                 {/* Toolbar */}
                 <div className="chat-toolbar-expanded">
@@ -1495,6 +1617,29 @@ export default function ChatClient() {
                       ) : (
                         <IconMicrophone size={16} />
                       )}
+                    </button>
+
+                    {/* Image generation mode */}
+                    <button
+                      className={`chat-toolbar-btn ${imageMode ? 'chat-toolbar-btn-active' : ''}`}
+                      onClick={() => { setImageMode(!imageMode); if (image3dMode) setImage3dMode(false) }}
+                      title={imageMode ? 'Switch to chat mode' : 'Generate image'}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>
+                      </svg>
+                    </button>
+
+                    {/* 3D generation mode (Pro stub) */}
+                    <button
+                      className={`chat-toolbar-btn ${image3dMode ? 'chat-toolbar-btn-active' : ''}`}
+                      onClick={() => { setImage3dMode(!image3dMode); if (imageMode) setImageMode(false) }}
+                      title="3D generation (Pro)"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z"/><path d="M12 12l9-4.5"/><path d="M12 12v9"/><path d="M12 12L3 7.5"/>
+                      </svg>
+                      <span className="text-[8px] font-bold text-red-500 absolute -top-0.5 -right-0.5 bg-[#0a0a0a] px-0.5 rounded">PRO</span>
                     </button>
 
                     {/* Model chip — model selector dropdown (logged in only) */}
@@ -1579,13 +1724,17 @@ export default function ChatClient() {
 
                     {/* Submit button */}
                     <button
-                      onClick={send}
-                      disabled={loading || !hasInput}
+                      onClick={imageMode ? sendImageGeneration : image3dMode ? send3DGeneration : send}
+                      disabled={loading || imageGenLoading || !hasInput}
                       className={`chat-submit-btn ${hasInput ? 'chat-submit-btn-active' : ''}`}
-                      aria-label="Send message"
+                      aria-label={imageMode ? 'Generate image' : image3dMode ? 'Generate 3D' : 'Send message'}
                     >
-                      {loading ? (
+                      {loading || imageGenLoading ? (
                         <IconSpinner size={16} />
+                      ) : imageMode ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                      ) : image3dMode ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z"/><path d="M12 12l9-4.5"/><path d="M12 12v9"/><path d="M12 12L3 7.5"/></svg>
                       ) : (
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                       )}

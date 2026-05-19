@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCurrency } from '@/components/CurrencyToggle'
 import { useTranslation } from '@/components/LanguageProvider'
-import { IconMoney, IconLightning, IconTool, IconSearch, IconFilter, IconEye, IconArrowRight, IconSpinner, IconPlus, IconCheck, IconClose, IconTrending } from '@/components/Icons'
+import { IconMoney, IconLightning, IconTool, IconSearch, IconFilter, IconEye, IconArrowRight, IconSpinner, IconPlus, IconCheck, IconClose, IconTrending, IconDownload } from '@/components/Icons'
 
 const CATEGORY_KEYS = ['all','automation','content','youtube','ecommerce','affiliate','freelance','saas','finance','education','africa','developer']
 
@@ -222,6 +222,27 @@ export default function OpportunitiesPage() {
         <div className="mb-6 animate-fade-up">
           <h1 className="text-display font-semibold mb-2 tracking-tight">{t('opportunities.title').slice(0, parseInt(t('opportunities.split')))}<span className="text-red-500">{t('opportunities.title').slice(parseInt(t('opportunities.split')))}</span></h1>
           <p className="text-muted text-body-sm mt-0.5">{t('opportunities.browse', { count: opps.length })}</p>
+          {opps.length > 0 && (
+            <button
+              onClick={async () => {
+                const { exportOpportunitiesAsCSV, downloadBlob } = await import('@/lib/fileExportClient')
+                const csvOpps = opps.map(o => ({
+                  title: o.result?.title || o.query || '',
+                  type: o.result?.type || o.category || '',
+                  income_min: o.result?.income_min || 0,
+                  income_max: o.result?.income_max || 0,
+                  income_period: o.result?.income_period || 'mo',
+                  start_days: o.result?.start_days || 0,
+                  monthly_cost: o.result?.monthly_cost || 0,
+                }))
+                const blob = exportOpportunitiesAsCSV(csvOpps)
+                downloadBlob(blob, `kivora-opportunities-${new Date().toISOString().split('T')[0]}.csv`)
+              }}
+              className="mt-2 flex items-center gap-1.5 text-[11px] text-muted hover:text-white transition-colors"
+            >
+              <IconDownload size={12} /> Export as CSV
+            </button>
+          )}
         </div>
 
         {/* Generate new */}
