@@ -162,8 +162,7 @@ export default function HomePage() {
             {/* Typewriter placeholder overlay */}
             {input.length === 0 && !focused && (
               <div className="chat-typewriter-placeholder" onClick={() => textareaRef.current?.focus()}>
-                <span>{placeholderText}</span>
-                <span className="typewriter-cursor" />
+                {placeholderText}
               </div>
             )}
 
@@ -343,19 +342,6 @@ export default function HomePage() {
           line-height: 1.6;
           pointer-events: auto;
           cursor: text;
-        }
-        .typewriter-cursor {
-          display: inline-block;
-          width: 1.5px;
-          height: 0.9em;
-          background: #525252;
-          margin-left: 1px;
-          vertical-align: baseline;
-          animation: blink 1s step-end infinite;
-        }
-        @keyframes blink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0; }
         }
 
         .starter-pills-row {
