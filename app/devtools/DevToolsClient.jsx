@@ -40,7 +40,7 @@ const CATEGORIES = [
   {
     id: 'code',
     labelKey: 'devtools.cat.code',
-    color: '#dc2626',
+    color: '#3b82f6',
     tools: [
       { id: 'code_explainer', labelKey: 'devtools.code_explainer',    Icon: (p) => <IconCode {...p} />,      descKey: 'devtools.code_explainer.desc' },
       { id: 'code_reviewer',  labelKey: 'devtools.code_reviewer',     Icon: (p) => <I.Shield {...p} />,      descKey: 'devtools.code_reviewer.desc' },
@@ -55,7 +55,7 @@ const CATEGORIES = [
   {
     id: 'data',
     labelKey: 'devtools.cat.data',
-    color: '#ef4444',
+    color: '#a855f7',
     tools: [
       { id: 'json_formatter', labelKey: 'devtools.json_formatter',    Icon: (p) => <I.Braces {...p} />,      descKey: 'devtools.json_formatter.desc' },
       { id: 'csv_analyser',   labelKey: 'devtools.csv_analyser',      Icon: (p) => <I.Diff {...p} />,        descKey: 'devtools.csv_analyser.desc' },
@@ -70,7 +70,7 @@ const CATEGORIES = [
   {
     id: 'content',
     labelKey: 'devtools.cat.content',
-    color: '#f87171',
+    color: '#16a34a',
     tools: [
       { id: 'readme',         labelKey: 'devtools.readme',            Icon: (p) => <IconBook {...p} />,      descKey: 'devtools.readme.desc' },
       { id: 'email_writer',   labelKey: 'devtools.email_writer',      Icon: (p) => <I.Mail {...p} />,        descKey: 'devtools.email_writer.desc' },
@@ -82,7 +82,7 @@ const CATEGORIES = [
   {
     id: 'business',
     labelKey: 'devtools.cat.business',
-    color: '#b91c1c',
+    color: '#f59e0b',
     tools: [
       { id: 'pitch_writer',   labelKey: 'devtools.pitch_writer',      Icon: (p) => <I.Zap {...p} />,         descKey: 'devtools.pitch_writer.desc' },
       { id: 'job_desc',       labelKey: 'devtools.job_desc',          Icon: (p) => <I.FileText {...p} />,    descKey: 'devtools.job_desc.desc' },
@@ -93,7 +93,7 @@ const CATEGORIES = [
   {
     id: 'education',
     labelKey: 'devtools.cat.education',
-    color: '#991b1b',
+    color: '#06b6d4',
     tools: [
       { id: 'math_solver',    labelKey: 'devtools.math_solver',       Icon: (p) => <I.Calc {...p} />,        descKey: 'devtools.math_solver.desc' },
     ]
