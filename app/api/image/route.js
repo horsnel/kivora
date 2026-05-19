@@ -5,6 +5,8 @@ export const runtime = 'edge'
 // Simple GET endpoint: https://image.pollinations.ai/prompt/{encoded_prompt}
 // Supports: flux, gptimage, seedream, grok-imagine, and more
 // No API key required for basic usage. CORS-enabled. Runs on Cloudflare.
+//
+// Rate limit: 1 concurrent request per IP. 402 = queue full, retry with backoff.
 
 const VALID_SIZES = [
   '1024x1024',
@@ -21,8 +23,39 @@ const DEFAULT_SIZE = '1024x1024'
 // Professional quality model — Flux produces stunning, detailed images
 const DEFAULT_MODEL = 'flux'
 
+// Retry config for 402 (queue full) errors
+const MAX_RETRIES = 3
+const RETRY_BASE_MS = 2000  // 2s base, doubles each retry
+
 // Optional Pollinations API key for higher rate limits (set as Cloudflare secret)
 const POLLINATIONS_API_KEY = process.env.POLLINATIONS_API_KEY || ''
+
+/**
+ * Fetch with retry for Pollinations 402 (queue full) errors.
+ * Pollinations enforces 1 concurrent request per IP — a 402 means the queue
+ * is full and we need to wait and retry.
+ */
+async function fetchWithRetry(url, retries = MAX_RETRIES) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'image/*' },
+    })
+
+    if (res.ok) return res
+
+    // 402 = queue full — retry with exponential backoff
+    if (res.status === 402 && attempt < retries) {
+      const delay = RETRY_BASE_MS * Math.pow(2, attempt)
+      console.warn(`[image] Pollinations 402 (queue full), retry ${attempt + 1}/${retries} in ${delay}ms`)
+      await new Promise(r => setTimeout(r, delay))
+      continue
+    }
+
+    // Non-retryable error or out of retries
+    return res
+  }
+}
 
 export async function POST(req) {
   try {
@@ -50,7 +83,8 @@ export async function POST(req) {
       height: String(height),
       model: DEFAULT_MODEL,
       nologo: 'true',
-      enhance: 'true',  // AI prompt enhancement for better results
+      // NOTE: omit enhance param — our own enhancePrompt() already enriches the text,
+      // and enhance=true adds server-side processing that increases 402 risk
     })
 
     // Add API key if available (for higher rate limits)
@@ -60,13 +94,8 @@ export async function POST(req) {
 
     const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?${params.toString()}`
 
-    // Fetch the generated image
-    const imgResponse = await fetch(imageUrl, {
-      method: 'GET',
-      headers: {
-        'Accept': 'image/*',
-      },
-    })
+    // Fetch the generated image (with retry for 402 queue-full errors)
+    const imgResponse = await fetchWithRetry(imageUrl)
 
     if (!imgResponse.ok) {
       const errorBody = await imgResponse.text()

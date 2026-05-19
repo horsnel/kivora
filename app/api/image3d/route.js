@@ -49,6 +49,36 @@ async function pollTask(taskId, phase = 'generation') {
   throw new Error(`Tripo3D ${phase} timed out after ${MAX_POLL_TIME / 1000}s`)
 }
 
+// Retry config for Pollinations 402 (queue full) errors
+const POLL_RETRIES = 2
+const POLL_RETRY_BASE_MS = 2000
+
+/**
+ * Fetch with retry for Pollinations 402 (queue full) errors.
+ * Pollinations enforces 1 concurrent request per IP.
+ */
+async function fetchWithRetry(url, retries = POLL_RETRIES) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'image/*' },
+      signal: AbortSignal.timeout(30000),
+    })
+
+    if (res.ok) return res
+
+    // 402 = queue full — retry with exponential backoff
+    if (res.status === 402 && attempt < retries) {
+      const delay = POLL_RETRY_BASE_MS * Math.pow(2, attempt)
+      console.warn(`[image3d] Pollinations 402 (queue full), retry ${attempt + 1}/${retries} in ${delay}ms`)
+      await new Promise(r => setTimeout(r, delay))
+      continue
+    }
+
+    return res
+  }
+}
+
 /**
  * Generate a high-quality preview image using Pollinations AI.
  * This gives us a beautiful 2D render while the 3D model generates.
@@ -63,15 +93,12 @@ async function generatePreviewImage(prompt) {
       height: '1024',
       model: 'flux',
       nologo: 'true',
-      enhance: 'true',
+      // NOTE: omit enhance param — our prompt is already enhanced with quality words,
+      // and enhance=true adds server-side processing that increases 402 risk
     })
     const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?${params.toString()}`
 
-    const imgResponse = await fetch(imageUrl, {
-      method: 'GET',
-      headers: { 'Accept': 'image/*' },
-      signal: AbortSignal.timeout(30000), // 30s timeout for preview
-    })
+    const imgResponse = await fetchWithRetry(imageUrl)
 
     if (imgResponse.ok) {
       const imgBuffer = await imgResponse.arrayBuffer()
@@ -83,6 +110,9 @@ async function generatePreviewImage(prompt) {
       }
       const base64 = btoa(binary)
       return `data:${contentType};base64,${base64}`
+    } else {
+      const status = imgResponse.status
+      console.warn(`[image3d] Preview image failed (${status}), falling back to Tripo thumbnail`)
     }
   } catch (err) {
     console.warn('[image3d] Preview image generation failed:', err.message)
