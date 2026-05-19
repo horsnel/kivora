@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, createPortal } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Highlight, themes } from 'prism-react-renderer'
@@ -201,7 +201,7 @@ function CodeModal({ code, language, langLabel, langId, onClose }) {
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] flex flex-col" style={{ background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(10px)' }}>
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] shrink-0">
@@ -341,7 +341,8 @@ function CodeModal({ code, language, langLabel, langId, onClose }) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
