@@ -1263,28 +1263,23 @@ export default function ChatClient() {
 
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl rounded-tl-sm px-5 py-4">
-                  <div className="ai-thinking-indicator">
-                    <div className="ai-thinking-orb">
-                      <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
-                        <circle cx="16" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" className="ai-orb-node ai-orb-top" />
-                        <circle cx="7" cy="24" r="3" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" className="ai-orb-node ai-orb-left" />
-                        <circle cx="25" cy="24" r="3" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" className="ai-orb-node ai-orb-right" />
-                        <line x1="16" y1="11.5" x2="7" y2="21" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" className="ai-orb-line" />
-                        <line x1="16" y1="11.5" x2="25" y2="21" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" className="ai-orb-line" />
-                        <line x1="7" y1="24" x2="25" y2="24" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" className="ai-orb-line" />
-                      </svg>
-                      <div className="ai-thinking-pulse" />
-                    </div>
-                    <div className="ai-thinking-text">
-                      <span className="ai-thinking-label">Thinking</span>
-                      <span className="ai-thinking-dots">
-                        <span className="ai-dot" />
-                        <span className="ai-dot" />
-                        <span className="ai-dot" />
-                      </span>
-                    </div>
+                <div className="ai-thinking-indicator">
+                  <div className="ai-thinking-orb">
+                    <svg width="16" height="16" viewBox="0 0 32 32" fill="none">
+                      <circle cx="16" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" className="ai-orb-node ai-orb-top" />
+                      <circle cx="7" cy="24" r="3" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" className="ai-orb-node ai-orb-left" />
+                      <circle cx="25" cy="24" r="3" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" className="ai-orb-node ai-orb-right" />
+                      <line x1="16" y1="11.5" x2="7" y2="21" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" className="ai-orb-line" />
+                      <line x1="16" y1="11.5" x2="25" y2="21" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" className="ai-orb-line" />
+                      <line x1="7" y1="24" x2="25" y2="24" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" className="ai-orb-line" />
+                    </svg>
                   </div>
+                  <span className="ai-thinking-label">Thinking</span>
+                  <span className="ai-thinking-dots">
+                    <span className="ai-dot" />
+                    <span className="ai-dot" />
+                    <span className="ai-dot" />
+                  </span>
                 </div>
               </div>
             )}
@@ -2282,11 +2277,15 @@ export default function ChatClient() {
           100% { stroke-dashoffset: 0; }
         }
 
-        /* ── AI Thinking Indicator — Claude/Replit-style ── */
+        /* ── AI Thinking Indicator — Compact Claude/Replit-style ── */
         .ai-thinking-indicator {
-          display: flex;
+          display: inline-flex;
           align-items: center;
-          gap: 12px;
+          gap: 6px;
+          padding: 6px 10px;
+          border-radius: 16px;
+          background: rgba(255,255,255,0.02);
+          border: 1px solid rgba(255,255,255,0.05);
         }
         .ai-thinking-orb {
           position: relative;
@@ -2294,49 +2293,37 @@ export default function ChatClient() {
           align-items: center;
           justify-content: center;
           color: #525252;
+          animation: aiOrbSpin 3s linear infinite;
         }
-        .ai-thinking-pulse {
-          position: absolute;
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(220,38,38,0.08) 0%, transparent 70%);
-          animation: aiPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-        @keyframes aiPulse {
-          0%, 100% { transform: scale(0.8); opacity: 0.4; }
-          50% { transform: scale(1.3); opacity: 0.8; }
+        @keyframes aiOrbSpin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
         .ai-orb-node {
-          animation: aiOrbGlow 2s ease-in-out infinite;
+          animation: aiOrbGlow 1.2s ease-in-out infinite;
         }
         .ai-orb-top { animation-delay: 0s; }
-        .ai-orb-left { animation-delay: 0.6s; }
-        .ai-orb-right { animation-delay: 1.2s; }
+        .ai-orb-left { animation-delay: 0.15s; }
+        .ai-orb-right { animation-delay: 0.3s; }
         @keyframes aiOrbGlow {
           0%, 100% { stroke: #525252; }
           50% { stroke: #dc2626; }
         }
         .ai-orb-line {
-          animation: aiLinePulse 2s ease-in-out infinite;
+          animation: aiLinePulse 1.2s ease-in-out infinite;
         }
-        .ai-orb-line:nth-child(4) { animation-delay: 0.3s; }
-        .ai-orb-line:nth-child(5) { animation-delay: 0.6s; }
-        .ai-orb-line:nth-child(6) { animation-delay: 0.9s; }
+        .ai-orb-line:nth-child(4) { animation-delay: 0.1s; }
+        .ai-orb-line:nth-child(5) { animation-delay: 0.2s; }
+        .ai-orb-line:nth-child(6) { animation-delay: 0.3s; }
         @keyframes aiLinePulse {
-          0%, 100% { opacity: 0.3; }
-          50% { opacity: 0.9; }
-        }
-        .ai-thinking-text {
-          display: flex;
-          align-items: baseline;
-          gap: 3px;
+          0%, 100% { opacity: 0.2; }
+          50% { opacity: 0.7; }
         }
         .ai-thinking-label {
-          font-size: 13px;
+          font-size: 11px;
           font-weight: 500;
-          color: #737373;
-          letter-spacing: -0.01em;
+          color: #525252;
+          letter-spacing: 0.01em;
         }
         .ai-thinking-dots {
           display: inline-flex;
@@ -2344,18 +2331,18 @@ export default function ChatClient() {
           margin-left: 1px;
         }
         .ai-dot {
-          width: 3px;
-          height: 3px;
+          width: 2px;
+          height: 2px;
           border-radius: 50%;
           background: #525252;
-          animation: aiDotBounce 1.4s ease-in-out infinite;
+          animation: aiDotBounce 0.9s ease-in-out infinite;
         }
         .ai-dot:nth-child(1) { animation-delay: 0s; }
-        .ai-dot:nth-child(2) { animation-delay: 0.2s; }
-        .ai-dot:nth-child(3) { animation-delay: 0.4s; }
+        .ai-dot:nth-child(2) { animation-delay: 0.12s; }
+        .ai-dot:nth-child(3) { animation-delay: 0.24s; }
         @keyframes aiDotBounce {
-          0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
-          30% { opacity: 1; transform: translateY(-3px); background: #dc2626; }
+          0%, 60%, 100% { opacity: 0.2; transform: translateY(0); }
+          30% { opacity: 1; transform: translateY(-2px); background: #dc2626; }
         }
 
         /* ═══════════════════════════════════════
