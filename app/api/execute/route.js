@@ -2,8 +2,6 @@ export const runtime = 'edge'
 
 import { rateLimit } from '@/lib/ratelimit'
 
-const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || 'b52bc7c2acmsh2b1e9f2ec066e18p1b3b95jsn6f11057ed310'
-
 const VALID_LANGUAGE_IDS = [71, 63, 74, 62, 54, 50, 60, 73, 72, 68, 46, 82]
 
 export async function POST(req) {
@@ -31,12 +29,10 @@ export async function POST(req) {
     }
 
     const response = await fetch(
-      'https://judge0-ce.p.rapidapi.com/submissions?base64_encoded=false&wait=true',
+      'https://ce.judge0.com/submissions?base64_encoded=false&wait=true',
       {
         method: 'POST',
         headers: {
-          'X-RapidAPI-Key': RAPIDAPI_KEY,
-          'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com',
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({

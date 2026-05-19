@@ -87,9 +87,13 @@ function CodeBlock({ langLabel, codeText, codeClassName, children }) {
         body: JSON.stringify({ source_code: codeText, language_id: langId })
       })
       const data = await res.json()
-      setRunResult(data)
+      if (data.error && !data.stdout && !data.stderr) {
+        setRunResult({ stderr: data.error })
+      } else {
+        setRunResult(data)
+      }
     } catch {
-      setRunResult({ stderr: 'Execution failed. Try again.' })
+      setRunResult({ stderr: 'Execution failed. Check your connection and try again.' })
     }
     setRunning(false)
   }
