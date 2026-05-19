@@ -1,5 +1,11 @@
 export const runtime = 'edge'
 
+// ── Pollinations AI — Free, Open-Source Image Generation ──
+// Docs: https://pollinations.ai
+// Simple GET endpoint: https://image.pollinations.ai/prompt/{encoded_prompt}
+// Supports: flux, gptimage, seedream, grok-imagine, and more
+// No API key required for basic usage. CORS-enabled. Runs on Cloudflare.
+
 const VALID_SIZES = [
   '1024x1024',
   '768x1344',
@@ -12,12 +18,11 @@ const VALID_SIZES = [
 
 const DEFAULT_SIZE = '1024x1024'
 
-// z-ai-web-dev-sdk config — read from Cloudflare secrets
-const ZAI_BASE_URL = process.env.ZAI_BASE_URL || ''
-const ZAI_API_KEY = process.env.ZAI_API_KEY || ''
-const ZAI_CHAT_ID = process.env.ZAI_CHAT_ID || ''
-const ZAI_USER_ID = process.env.ZAI_USER_ID || ''
-const ZAI_TOKEN = process.env.ZAI_TOKEN || ''
+// Professional quality model — Flux produces stunning, detailed images
+const DEFAULT_MODEL = 'flux'
+
+// Optional Pollinations API key for higher rate limits (set as Cloudflare secret)
+const POLLINATIONS_API_KEY = process.env.POLLINATIONS_API_KEY || ''
 
 export async function POST(req) {
   try {
@@ -31,73 +36,85 @@ export async function POST(req) {
       )
     }
 
-    if (!ZAI_BASE_URL || !ZAI_API_KEY) {
-      return Response.json(
-        { error: 'Image generation is not configured. Set ZAI_BASE_URL and ZAI_API_KEY.' },
-        { status: 503 }
-      )
-    }
-
     const resolvedSize = VALID_SIZES.includes(size) ? size : DEFAULT_SIZE
+    const [width, height] = resolvedSize.split('x').map(Number)
 
-    // Call the z-ai image generation API (same as z-ai-web-dev-sdk but edge-compatible)
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${ZAI_API_KEY}`,
-      'X-Z-AI-From': 'Z',
-    }
-    if (ZAI_CHAT_ID) headers['X-Chat-Id'] = ZAI_CHAT_ID
-    if (ZAI_USER_ID) headers['X-User-Id'] = ZAI_USER_ID
-    if (ZAI_TOKEN) headers['X-Token'] = ZAI_TOKEN
+    // Enhance the prompt for professional quality output
+    const enhancedPrompt = enhancePrompt(prompt.trim())
 
-    const apiUrl = `${ZAI_BASE_URL}/images/generations`
-
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        prompt: prompt.trim(),
-        size: resolvedSize,
-      }),
+    // Build the Pollinations URL
+    // The GET endpoint returns the image directly — no JSON wrapping needed
+    const encodedPrompt = encodeURIComponent(enhancedPrompt)
+    const params = new URLSearchParams({
+      width: String(width),
+      height: String(height),
+      model: DEFAULT_MODEL,
+      nologo: 'true',
+      enhance: 'true',  // AI prompt enhancement for better results
     })
 
-    if (!response.ok) {
-      const errorBody = await response.text()
-      console.error(`[image] API returned ${response.status}:`, errorBody)
+    // Add API key if available (for higher rate limits)
+    if (POLLINATIONS_API_KEY) {
+      params.set('key', POLLINATIONS_API_KEY)
+    }
+
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?${params.toString()}`
+
+    // Fetch the generated image
+    const imgResponse = await fetch(imageUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'image/*',
+      },
+    })
+
+    if (!imgResponse.ok) {
+      const errorBody = await imgResponse.text()
+      console.error(`[image] Pollinations returned ${imgResponse.status}:`, errorBody.slice(0, 300))
       return Response.json(
-        { error: `Image generation API error (${response.status})` },
-        { status: response.status >= 500 ? 502 : response.status }
+        { error: `Image generation failed (${imgResponse.status}). Please try again.` },
+        { status: imgResponse.status >= 500 ? 502 : imgResponse.status }
       )
     }
 
-    const result = await response.json()
+    // Convert the image to base64 for embedding in the chat
+    const imgBuffer = await imgResponse.arrayBuffer()
+    const contentType = imgResponse.headers.get('content-type') || 'image/jpeg'
 
-    // The API returns data with either base64 or url
-    const item = result?.data?.[0]
-    if (!item) {
-      return Response.json({ error: 'No image data returned.' }, { status: 502 })
+    // Use btoa for edge runtime compatibility
+    const bytes = new Uint8Array(imgBuffer)
+    let binary = ''
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i])
     }
-
-    let imageData
-    if (item.base64) {
-      imageData = `data:image/png;base64,${item.base64}`
-    } else if (item.url) {
-      // Fetch the URL and convert to base64
-      const imgRes = await fetch(item.url)
-      const imgBuffer = await imgRes.arrayBuffer()
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)))
-      imageData = `data:image/png;base64,${base64}`
-    } else {
-      return Response.json({ error: 'No image data in response.' }, { status: 502 })
-    }
+    const base64 = btoa(binary)
+    const imageData = `data:${contentType};base64,${base64}`
 
     return Response.json({
       image: imageData,
+      imageUrl,  // Also return the URL so user can view/download the full-res version
       size: resolvedSize,
+      model: DEFAULT_MODEL,
     })
   } catch (err) {
     console.error('[image] Generation failed:', err)
     const message = err?.message || 'Image generation failed.'
     return Response.json({ error: message }, { status: 500 })
   }
+}
+
+/**
+ * Enhance the user's prompt for professional quality output.
+ * Adds quality boosters and style guidance without changing the core intent.
+ */
+function enhancePrompt(rawPrompt) {
+  // If the prompt already has quality descriptors, don't over-enhance
+  const hasQualityWords = /professional|high.quality|detailed|4k|8k|ultra|cinematic|studio/i.test(rawPrompt)
+
+  if (hasQualityWords) {
+    return rawPrompt
+  }
+
+  // Add professional quality enhancements
+  return `${rawPrompt}, professional quality, highly detailed, sharp focus, studio lighting`
 }

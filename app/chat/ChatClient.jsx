@@ -610,7 +610,15 @@ export default function ChatClient() {
       if (data.error) {
         setMessages(prev => [...prev, { role: 'assistant', content: `Image generation failed: ${data.error}` }])
       } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: `![Generated Image](${q})`, isImage: true, imageData: data.image, imageSize: data.size || imageSize }])
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `Generated image: **${q}**`,
+          isImage: true,
+          imageData: data.image,
+          imageUrl: data.imageUrl || null,
+          imageSize: data.size || imageSize,
+          imageModel: data.model || 'flux',
+        }])
       }
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Image generation failed. Please try again.' }])
@@ -676,7 +684,9 @@ export default function ChatClient() {
           is3DModel: true,
           glbUrl: data.glbUrl,
           thumbnailUrl: data.thumbnailUrl,
+          tripoThumbnail: data.tripoThumbnail || null,
           hasTexture: data.hasTexture,
+          isPollinationsPreview: data.isPollinationsPreview || false,
         } : m
       ))
     } catch {
@@ -1369,8 +1379,20 @@ export default function ChatClient() {
                           </div>
                           <div className="flex items-center gap-1.5 text-[10px] text-muted">
                             <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1.5"/><path d="M2 11l3.5-3.5 2.5 2.5 2-2L14 11"/></svg>
-                            <span>AI Generated &middot; {msg.imageSize}</span>
+                            <span>AI Generated &middot; {msg.imageSize} &middot; {msg.imageModel || 'Flux'}</span>
                           </div>
+                          {msg.imageUrl && (
+                            <a
+                              href={msg.imageUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download
+                              className="inline-flex items-center gap-1 text-[10px] text-red-400 hover:text-red-300 transition-colors"
+                            >
+                              <IconDownload size={10} />
+                              Download Full Resolution
+                            </a>
+                          )}
                         </div>
                       ) : msg.is3DLoading ? (
                         <div className="space-y-2">
@@ -1390,7 +1412,7 @@ export default function ChatClient() {
                         </div>
                       ) : msg.is3DModel ? (
                         <div className="space-y-2">
-                          {/* Thumbnail preview image (always visible) */}
+                          {/* High-quality preview image (Pollinations or Tripo3D thumbnail) */}
                           {msg.thumbnailUrl && (
                             <div className="rounded-xl overflow-hidden border border-purple-500/20 max-w-md bg-[#111]">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1398,23 +1420,28 @@ export default function ChatClient() {
                                 src={msg.thumbnailUrl}
                                 alt={msg.prompt3d || '3D Model preview'}
                                 className="w-full h-auto object-cover"
-                                style={{ maxHeight: '320px' }}
+                                style={{ maxHeight: '400px' }}
                               />
+                              {msg.isPollinationsPreview && (
+                                <div className="px-2 py-1 bg-purple-500/10 border-t border-purple-500/20 text-[9px] text-purple-300/70 text-center">
+                                  AI Preview &middot; Interactive 3D viewer below
+                                </div>
+                              )}
                             </div>
                           )}
                           {/* Interactive 3D viewer (if GLB URL available and model-viewer loaded) */}
                           {msg.glbUrl && modelViewerLoaded && (
                             <div className="rounded-xl overflow-hidden border border-purple-500/20 max-w-md bg-[#111]">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
                               <model-viewer
                                 src={msg.glbUrl}
                                 alt={msg.prompt3d || '3D Model'}
                                 auto-rotate
                                 camera-controls
                                 shadow-intensity="1"
-                                exposure="1"
+                                exposure="1.2"
                                 environment-image="neutral"
-                                style={{ width: '100%', height: '320px', backgroundColor: '#111' }}
+                                interaction-prompt="auto"
+                                style={{ width: '100%', height: '360px', backgroundColor: '#111' }}
                               />
                             </div>
                           )}
@@ -1440,7 +1467,7 @@ export default function ChatClient() {
                                 Download GLB
                               </a>
                             )}
-                            {msg.thumbnailUrl && (
+                            {msg.thumbnailUrl && !msg.isPollinationsPreview && (
                               <a
                                 href={msg.thumbnailUrl}
                                 download

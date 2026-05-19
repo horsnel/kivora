@@ -49,6 +49,47 @@ async function pollTask(taskId, phase = 'generation') {
   throw new Error(`Tripo3D ${phase} timed out after ${MAX_POLL_TIME / 1000}s`)
 }
 
+/**
+ * Generate a high-quality preview image using Pollinations AI.
+ * This gives us a beautiful 2D render while the 3D model generates.
+ * Falls back gracefully if Pollinations is unavailable.
+ */
+async function generatePreviewImage(prompt) {
+  try {
+    const enhancedPrompt = `${prompt}, 3D render, professional product photography, studio lighting, clean background, isometric view, high detail`
+    const encodedPrompt = encodeURIComponent(enhancedPrompt)
+    const params = new URLSearchParams({
+      width: '1024',
+      height: '1024',
+      model: 'flux',
+      nologo: 'true',
+      enhance: 'true',
+    })
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?${params.toString()}`
+
+    const imgResponse = await fetch(imageUrl, {
+      method: 'GET',
+      headers: { 'Accept': 'image/*' },
+      signal: AbortSignal.timeout(30000), // 30s timeout for preview
+    })
+
+    if (imgResponse.ok) {
+      const imgBuffer = await imgResponse.arrayBuffer()
+      const contentType = imgResponse.headers.get('content-type') || 'image/jpeg'
+      const bytes = new Uint8Array(imgBuffer)
+      let binary = ''
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i])
+      }
+      const base64 = btoa(binary)
+      return `data:${contentType};base64,${base64}`
+    }
+  } catch (err) {
+    console.warn('[image3d] Preview image generation failed:', err.message)
+  }
+  return null
+}
+
 export async function POST(req) {
   try {
     const body = await req.json()
@@ -112,7 +153,11 @@ export async function POST(req) {
       return Response.json({ error: 'No task ID returned from Tripo3D.' }, { status: 502 })
     }
 
-    // ── Step 2: Poll until model is generated ──
+    // ── Step 2: Generate a quick 2D preview while the 3D model processes ──
+    // This gives the user something beautiful to look at immediately
+    const previewBase64 = await generatePreviewImage(prompt.trim())
+
+    // ── Step 3: Poll until model is generated ──
     const modelTask = await pollTask(taskId, 'model generation')
 
     // Parse the output — Tripo3D returns:
@@ -122,7 +167,10 @@ export async function POST(req) {
     //   thumbnail              → same as rendered_image
     const output = modelTask.output || {}
     const glbUrl = output.pbr_model || null
-    const thumbnailUrl = modelTask.thumbnail || output.rendered_image || output.generated_image || null
+    // Prefer our Pollinations preview (higher quality) over Tripo3D's thumbnail
+    const tripoThumbnail = modelTask.thumbnail || output.rendered_image || output.generated_image || null
+    const thumbnailUrl = previewBase64 || tripoThumbnail
+    const isPollinationsPreview = !!previewBase64
 
     if (!glbUrl) {
       // Model generated but no GLB URL — return preview image if available
@@ -130,8 +178,10 @@ export async function POST(req) {
         return Response.json({
           glbUrl: null,
           thumbnailUrl,
+          tripoThumbnail,
           prompt: prompt.trim(),
           hasTexture: false,
+          isPollinationsPreview,
           error: '3D model generated but GLB download unavailable. Showing preview image.',
         })
       }
@@ -143,8 +193,10 @@ export async function POST(req) {
     return Response.json({
       glbUrl,
       thumbnailUrl,
+      tripoThumbnail,
       prompt: prompt.trim(),
       hasTexture: !!output.pbr_model,
+      isPollinationsPreview,
     })
   } catch (err) {
     console.error('[image3d] Error:', err)
