@@ -70,9 +70,17 @@ function getLangId(className) {
   return map[lang] || null
 }
 
+/* ─── Extract text from HAST node (react-markdown v10) ─────────── */
+function extractTextFromNode(node) {
+  if (!node) return ''
+  if (node.type === 'text') return node.value || ''
+  if (node.children) return node.children.map(extractTextFromNode).join('')
+  return ''
+}
+
 /* ─── Code Block with Run Button ───────────────────────────────── */
 function CodeBlock({ langLabel, codeText, codeClassName, children }) {
-  const [runResult, setRunResult] = useState(null) // { stdout, stderr, exit_code, time, memory, status }
+  const [runResult, setRunResult] = useState(null)
   const [running, setRunning] = useState(false)
 
   const langId = getLangId(codeClassName)
@@ -108,7 +116,7 @@ function CodeBlock({ langLabel, codeText, codeClassName, children }) {
             <button
               onClick={handleRun}
               disabled={running}
-              className="flex items-center gap-1.5 text-[11px] text-[#525252] hover:text-[#a3a3a3] transition-colors font-mono disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 text-[11px] text-[#525252] hover:text-[#4ade80] transition-colors font-mono disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Run code"
             >
               {running ? <IconSpinner size={12} /> : <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6V2z"/></svg>}
@@ -128,9 +136,11 @@ function CodeBlock({ langLabel, codeText, codeClassName, children }) {
           <CopyButton text={codeText} />
         </div>
       </div>
-      {/* Scroll wrapper — div handles overflow, code handles whitespace */}
+      {/* Code content */}
       <div className="overflow-x-auto p-4 overscroll-behavior-contain">
-        {children}
+        <code className={`${codeClassName || ''} font-mono text-[13px] leading-[1.65] text-[#d4d4d4] whitespace-pre block min-w-fit`}>
+          {children}
+        </code>
       </div>
       {/* Execution output */}
       {runResult && (
@@ -195,7 +205,6 @@ export default function MarkdownRenderer({ content, className = '' }) {
 
           /* ── Blockquote — tip callout with left accent ── */
           blockquote: ({ children }) => {
-            // Check if first child is a paragraph starting with [!TYPE]
             const firstChild = children?.[0]
             let calloutType = null
             let filteredChildren = children
@@ -217,7 +226,6 @@ export default function MarkdownRenderer({ content, className = '' }) {
               }
             }
 
-            // [!tip] or bare blockquote starting with [tip] — render as callout
             if (calloutType === 'tip') {
               return (
                 <div className="border-l-[3px] border-l-[#dc2626] bg-[#dc2626]/[0.06] rounded-r-lg px-4 py-3 my-4">
@@ -226,7 +234,6 @@ export default function MarkdownRenderer({ content, className = '' }) {
               )
             }
 
-            // Any other callout type — same red accent style
             if (calloutType) {
               return (
                 <div className="border-l-[3px] border-l-[#dc2626] bg-[#dc2626]/[0.06] rounded-r-lg px-4 py-3 my-4">
@@ -235,7 +242,6 @@ export default function MarkdownRenderer({ content, className = '' }) {
               )
             }
 
-            // Regular blockquote — also gets the left-border callout treatment
             return (
               <div className="border-l-[3px] border-l-[#333] bg-white/[0.02] rounded-r-lg px-4 py-3 my-4">
                 <div className="text-[14px] text-[#a3a3a3] leading-relaxed">{children}</div>
@@ -258,36 +264,42 @@ export default function MarkdownRenderer({ content, className = '' }) {
           em: ({ children }) => <em className="italic text-[#e5e5e5]">{children}</em>,
 
           /* ── Inline Code — monospace pill ──────────────── */
-          code: ({ inline, className: codeClassName, children }) => {
-            if (inline) {
-              return (
-                <code className="font-mono bg-white/[0.08] text-[#e2e2e2] px-1.5 py-0.5 rounded-[4px] text-[0.9em]">
-                  {children}
-                </code>
-              )
+          /* react-markdown v10: no `inline` prop. Check node.parent to tell */
+          code: ({ className: codeClassName, children, node }) => {
+            // If parent is <pre>, this is block code — let the pre component handle rendering
+            const isBlockCode = node?.position?.start?.line !== node?.position?.end?.line || 
+                                node?.properties?.className?.length > 0 ||
+                                codeClassName
+            // More reliable: if inside a <pre>, the code component just passes children through
+            // The pre component will wrap it in the CodeBlock with proper styling
+            // For inline code (NOT inside pre), render as pill
+            const parentIsPre = node?.parent?.tagName === 'pre'
+            if (parentIsPre) {
+              // Block code inside <pre> — just render raw text, the pre/CodeBlock handles styling
+              return <>{children}</>
             }
-            // Block code — single-color monospace, no wrapping
+            // Inline code
             return (
-              <code className={`${codeClassName || ''} font-mono text-[13px] leading-[1.65] text-[#d4d4d4] whitespace-pre block min-w-fit`}>
+              <code className="font-mono bg-white/[0.08] text-[#e2e2e2] px-1.5 py-0.5 rounded-[4px] text-[0.9em]">
                 {children}
               </code>
             )
           },
 
-          /* ── Code Block — ChatGPT/Claude-style container with Run ─── */
-          pre: ({ children }) => {
-            const codeEl = children?.props?.children
-            const codeText = typeof codeEl === 'string'
-              ? codeEl
-              : Array.isArray(codeEl)
-                ? codeEl.filter(c => typeof c === 'string').join('')
-                : ''
-            const codeClassName = children?.props?.className || ''
+          /* ── Code Block — uses node to extract code text reliably ─── */
+          pre: ({ children, node }) => {
+            // In react-markdown v10, node is the HAST element with the code child
+            // Extract the code element from the HAST tree for reliable text extraction
+            const codeNode = node?.children?.[0]
+            const codeClassName = codeNode?.properties?.className?.[0] || ''
             const langLabel = getLangLabel(codeClassName)
+            // Extract text from the HAST code node (most reliable method)
+            const codeText = extractTextFromNode(codeNode)
 
             return (
               <CodeBlock langLabel={langLabel} codeText={codeText} codeClassName={codeClassName}>
-                {children}
+                {typeof children === 'string' ? children : 
+                 children?.props?.children ?? children}
               </CodeBlock>
             )
           },
