@@ -161,7 +161,9 @@ export default function ChatClient() {
   const [imageMode, setImageMode] = useState(false) // Toggle between chat & image generation
   const [imageGenLoading, setImageGenLoading] = useState(false)
   const [imageSize, setImageSize] = useState('1024x1024')
-  const [image3dMode, setImage3dMode] = useState(false) // 3D stub
+  const [image3dMode, setImage3dMode] = useState(false)
+  const [image3dLoading, setImage3dLoading] = useState(false)
+  const [modelViewerLoaded, setModelViewerLoaded] = useState(false)
 
   // Chat sidebar settings panel
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -616,31 +618,79 @@ export default function ChatClient() {
     setImageGenLoading(false)
   }
 
-  // ── 3D Generation Stub ──
+  // ── 3D Generation ──
+  // Lazy-load the <model-viewer> web component
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (customElements.get('model-viewer')) { setModelViewerLoaded(true); return }
+    const script = document.createElement('script')
+    script.type = 'module'
+    script.src = 'https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js'
+    script.onload = () => setModelViewerLoaded(true)
+    script.onerror = () => console.warn('[3D] model-viewer failed to load')
+    document.head.appendChild(script)
+  }, [])
+
   async function send3DGeneration() {
     const q = input.trim()
-    if (!q || imageGenLoading) return
+    if (!q || image3dLoading || imageGenLoading) return
 
     const userMsg = { role: 'user', content: q, is3DPrompt: true }
     setMessages(prev => [...prev, userMsg])
     setInput('')
+    setImage3dLoading(true)
+
+    // Show a loading message immediately
+    const loadingMsg = { role: 'assistant', content: '', is3DLoading: true, prompt3d: q }
+    setMessages(prev => [...prev, loadingMsg])
 
     try {
       const res = await fetch('/api/image3d', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: q, mode: 'preview' })
+        body: JSON.stringify({ prompt: q })
       })
       const data = await res.json()
 
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: '3D generation is coming soon in Pro mode! 🔮\n\nFor now, I can help you with 2D image generation or describe what the 3D model would look like.',
-        is3DStub: true
-      }])
+      if (!res.ok || data.error) {
+        setMessages(prev => prev.map(m =>
+          m.is3DLoading ? {
+            ...m,
+            is3DLoading: false,
+            role: 'assistant',
+            content: data.error || '3D generation failed. Please try again.',
+            is3DStub: true
+          } : m
+        ))
+        setImage3dLoading(false)
+        return
+      }
+
+      // Replace loading message with actual 3D model
+      setMessages(prev => prev.map(m =>
+        m.is3DLoading ? {
+          ...m,
+          is3DLoading: false,
+          role: 'assistant',
+          content: `Generated 3D model: **${q}**`,
+          is3DModel: true,
+          glbUrl: data.glbUrl,
+          thumbnailUrl: data.thumbnailUrl,
+          hasTexture: data.hasTexture,
+        } : m
+      ))
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: '3D generation service unavailable.' }])
+      setMessages(prev => prev.map(m =>
+        m.is3DLoading ? {
+          ...m,
+          is3DLoading: false,
+          role: 'assistant',
+          content: '3D generation service unavailable. Please try again.',
+          is3DStub: true
+        } : m
+      ))
     }
+    setImage3dLoading(false)
   }
 
   function copy(content, i) {
@@ -1322,12 +1372,65 @@ export default function ChatClient() {
                             <span>AI Generated &middot; {msg.imageSize}</span>
                           </div>
                         </div>
+                      ) : msg.is3DLoading ? (
+                        <div className="space-y-2">
+                          <div className="bg-gradient-to-br from-purple-500/10 to-red-500/10 border border-purple-500/20 rounded-xl p-5 text-center max-w-sm">
+                            <div className="inline-flex items-center justify-center w-10 h-10 mb-2">
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-purple-400 animate-spin" style={{ animationDuration: '3s' }}>
+                                <path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z"/><path d="M12 12l9-4.5"/><path d="M12 12v9"/><path d="M12 12L3 7.5"/>
+                              </svg>
+                            </div>
+                            <p className="text-xs text-purple-300 font-medium">Generating 3D Model</p>
+                            <p className="text-[11px] text-muted mt-1">{msg.prompt3d}</p>
+                            <div className="mt-3 w-full bg-white/[0.04] rounded-full h-1 overflow-hidden">
+                              <div className="h-full bg-gradient-to-r from-purple-500 to-red-500 rounded-full animate-pulse" style={{ width: '60%' }} />
+                            </div>
+                            <p className="text-[10px] text-muted mt-2">This may take 1-2 minutes...</p>
+                          </div>
+                        </div>
+                      ) : msg.is3DModel && msg.glbUrl ? (
+                        <div className="space-y-2">
+                          <div className="rounded-xl overflow-hidden border border-purple-500/20 max-w-md bg-[#111]">
+                            {modelViewerLoaded ? (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <model-viewer
+                                src={msg.glbUrl}
+                                alt={msg.prompt3d || '3D Model'}
+                                auto-rotate
+                                camera-controls
+                                shadow-intensity="1"
+                                exposure="1"
+                                environment-image="neutral"
+                                style={{ width: '100%', height: '320px', backgroundColor: '#111' }}
+                              />
+                            ) : (
+                              <div className="w-full h-80 flex items-center justify-center text-muted text-xs">
+                                Loading 3D viewer...
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] text-muted">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z"/><path d="M12 12l9-4.5"/><path d="M12 12v9"/><path d="M12 12L3 7.5"/>
+                            </svg>
+                            <span>3D Model &middot; {msg.hasTexture ? 'Textured' : 'Preview'} &middot; Drag to rotate</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <a
+                              href={msg.glbUrl}
+                              download
+                              className="inline-flex items-center gap-1 text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
+                            >
+                              <IconDownload size={10} />
+                              Download GLB
+                            </a>
+                          </div>
+                        </div>
                       ) : msg.is3DStub ? (
                         <div className="space-y-2">
-                          <div className="bg-gradient-to-br from-purple-500/10 to-red-500/10 border border-purple-500/20 rounded-xl p-4 text-center max-w-sm">
-                            <div className="text-2xl mb-1">🔮</div>
-                            <p className="text-xs text-purple-300 font-medium">3D Generation</p>
-                            <p className="text-[11px] text-muted mt-1">Coming soon in Pro mode</p>
+                          <div className="bg-gradient-to-br from-red-500/10 to-orange-500/10 border border-red-500/20 rounded-xl p-4 text-center max-w-sm">
+                            <div className="text-2xl mb-1">⚠️</div>
+                            <p className="text-xs text-red-300 font-medium">3D Generation Error</p>
                           </div>
                           <MarkdownRenderer content={msg.content} />
                         </div>
@@ -1500,11 +1603,11 @@ export default function ChatClient() {
                 {/* Send button */}
                 <button
                   onClick={imageMode ? sendImageGeneration : image3dMode ? send3DGeneration : send}
-                  disabled={loading || imageGenLoading || !hasInput}
+                  disabled={loading || imageGenLoading || image3dLoading || !hasInput}
                   className={`chat-collapsed-send ${hasInput ? 'chat-collapsed-send-active' : ''}`}
                   aria-label={imageMode ? 'Generate image' : image3dMode ? 'Generate 3D' : 'Send message'}
                 >
-                  {loading || imageGenLoading ? (
+                  {loading || imageGenLoading || image3dLoading ? (
                     <IconSpinner size={16} />
                   ) : imageMode ? (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
@@ -1538,7 +1641,7 @@ export default function ChatClient() {
                 {(imageMode || image3dMode) && (
                   <div className="flex items-center gap-1.5 px-1 pt-1">
                     <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${imageMode ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'}`}>
-                      {imageMode ? '🖼 Image Mode' : '🔮 3D Mode (Pro)'}
+                      {imageMode ? 'Image Mode' : '3D Mode'}
                     </span>
                     {imageMode && (
                       <select
@@ -1630,16 +1733,15 @@ export default function ChatClient() {
                       </svg>
                     </button>
 
-                    {/* 3D generation mode (Pro stub) */}
+                    {/* 3D generation mode */}
                     <button
                       className={`chat-toolbar-btn ${image3dMode ? 'chat-toolbar-btn-active' : ''}`}
                       onClick={() => { setImage3dMode(!image3dMode); if (imageMode) setImageMode(false) }}
-                      title="3D generation (Pro)"
+                      title="3D generation"
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z"/><path d="M12 12l9-4.5"/><path d="M12 12v9"/><path d="M12 12L3 7.5"/>
                       </svg>
-                      <span className="text-[8px] font-bold text-red-500 absolute -top-0.5 -right-0.5 bg-[#0a0a0a] px-0.5 rounded">PRO</span>
                     </button>
 
                     {/* Model chip — model selector dropdown (logged in only) */}
@@ -1725,11 +1827,11 @@ export default function ChatClient() {
                     {/* Submit button */}
                     <button
                       onClick={imageMode ? sendImageGeneration : image3dMode ? send3DGeneration : send}
-                      disabled={loading || imageGenLoading || !hasInput}
+                      disabled={loading || imageGenLoading || image3dLoading || !hasInput}
                       className={`chat-submit-btn ${hasInput ? 'chat-submit-btn-active' : ''}`}
                       aria-label={imageMode ? 'Generate image' : image3dMode ? 'Generate 3D' : 'Send message'}
                     >
-                      {loading || imageGenLoading ? (
+                      {loading || imageGenLoading || image3dLoading ? (
                         <IconSpinner size={16} />
                       ) : imageMode ? (
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
