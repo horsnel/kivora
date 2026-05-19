@@ -1177,16 +1177,16 @@ export default function ChatClient() {
                     </div>
                   </div>
                 </div>
-                {/* Suggestion rows */}
-                <div className="flex flex-col gap-7 w-full max-w-md mx-auto mb-4 pb-4">
+                {/* Suggestion pills */}
+                <div className="flex flex-wrap gap-2 w-full max-w-md mx-auto mb-4 pb-4 animate-fade-up">
                   {STARTERS.map(({ labelKey, icon: Icon }) => (
                     <button
                       key={labelKey}
                       onClick={() => setInput(t(labelKey))}
-                      className="flex items-center gap-4 bg-transparent border-none px-0 py-0 text-[#a3a3a3] hover:text-[#e2e2e2] text-left transition-colors duration-150"
+                      className="flex items-center gap-2 bg-transparent border border-[#1f1f1f] text-[#737373] hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px px-4 py-2 rounded-full text-[13px] font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em]"
                     >
-                      <Icon size={16} className="text-[#525252] shrink-0" />
-                      <span className="text-[16px] whitespace-nowrap">{t(labelKey)}</span>
+                      <Icon size={13} className="shrink-0" />
+                      <span className="whitespace-nowrap">{t(labelKey)}</span>
                     </button>
                   ))}
                 </div>
