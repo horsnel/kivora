@@ -3,43 +3,25 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/LanguageProvider'
 import { supabasePublic } from '@/lib/supabase'
+import { IconCode, IconLightning, IconBulb } from '@/components/Icons'
 
-const MODELS = [
-  { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', tag: 'Default · Fastest', short: '3.3 70B' },
-  { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B', tag: 'Quick responses', short: '3.1 8B' },
-  { id: 'llama3-70b-8192', name: 'Llama 3 70B', tag: 'Detailed', short: '3 70B' },
-  { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', tag: 'Long context', short: 'Mixtral' },
-  { id: 'gemma2-9b-it', name: 'Gemma 2 9B', tag: 'Efficient', short: 'Gemma 2' },
+const STARTERS = [
+  { labelKey: 'chat.starter.build', icon: IconCode },
+  { labelKey: 'chat.starter.earn', icon: IconLightning },
+  { labelKey: 'chat.starter.learn', icon: IconBulb },
 ]
-
-const DEFAULT_MODEL = 'llama-3.3-70b-versatile'
 
 export default function HomePage() {
   const router = useRouter()
   const { t } = useTranslation()
   const [user, setUser] = useState(null)
   const [input, setInput] = useState('')
-  const [model, setModel] = useState(DEFAULT_MODEL)
-  const [modelDropdownOpen, setModelDropdownOpen] = useState(false)
-  const modelDropdownRef = useRef(null)
   const textareaRef = useRef(null)
 
   useEffect(() => {
     if (!supabasePublic) return
     supabasePublic.auth.getUser().then(({ data: { user } }) => setUser(user))
   }, [])
-
-  // Close model dropdown on click outside
-  useEffect(() => {
-    if (!modelDropdownOpen) return
-    function handleClick(e) {
-      if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target)) {
-        setModelDropdownOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [modelDropdownOpen])
 
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || null
 
@@ -59,11 +41,9 @@ export default function HomePage() {
     const q = input.trim()
     if (!q) return
     const params = new URLSearchParams({ q })
-    if (model !== DEFAULT_MODEL) params.set('model', model)
     router.push(`/chat?${params.toString()}`)
   }
 
-  const currentModel = MODELS.find(m => m.id === model) || MODELS[0]
   const hasInput = input.trim().length > 0
 
   return (
@@ -104,39 +84,6 @@ export default function HomePage() {
                     <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
                   </svg>
                 </button>
-
-                {/* Model chip */}
-                <div className="relative" ref={modelDropdownRef}>
-                  <button
-                    className="chat-model-chip"
-                    onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-                    title={`Model: ${currentModel.name}`}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10A15 15 0 0 1 12 2z"/></svg>
-                    <span>{currentModel.short}</span>
-                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M3 5l3 3 3-3"/></svg>
-                  </button>
-
-                  {modelDropdownOpen && (
-                    <div className="chat-model-dropdown">
-                      {MODELS.map(m => (
-                        <button
-                          key={m.id}
-                          onClick={() => { setModel(m.id); setModelDropdownOpen(false) }}
-                          className={`chat-model-option ${m.id === model ? 'chat-model-option-active' : ''}`}
-                        >
-                          <div>
-                            <div className="chat-model-name">{m.name}</div>
-                            <div className="chat-model-tag">{m.tag}</div>
-                          </div>
-                          {m.id === model && (
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
               </div>
 
               {/* Right actions */}
@@ -154,6 +101,19 @@ export default function HomePage() {
             </div>
           </div>
 
+          {/* Starter pills */}
+          <div className="flex items-center justify-center gap-2 mt-4">
+            {STARTERS.map(({ labelKey, icon: Icon }) => (
+              <button
+                key={labelKey}
+                onClick={() => setInput(t(labelKey))}
+                className="flex items-center gap-2 bg-transparent border border-[#1f1f1f] text-[#737373] hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px px-4 py-2 rounded-full text-[13px] font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em] whitespace-nowrap shrink-0"
+              >
+                <Icon size={13} className="shrink-0" />
+                <span>{t(labelKey)}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -242,82 +202,6 @@ export default function HomePage() {
         .chat-toolbar-btn:hover {
           background-color: rgba(255,255,255,0.06);
           color: #e2e2e2;
-        }
-
-        .chat-model-chip {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          padding: 4px 10px;
-          border-radius: 20px;
-          border: 1px solid rgba(255,255,255,0.06);
-          background: rgba(255,255,255,0.04);
-          color: #737373;
-          cursor: pointer;
-          font-size: 12px;
-          font-weight: 500;
-          font-family: inherit;
-          transition: all 0.15s ease;
-          white-space: nowrap;
-        }
-        .chat-model-chip:hover {
-          border-color: rgba(255,255,255,0.12);
-          color: #e2e2e2;
-          background: rgba(255,255,255,0.06);
-        }
-        .chat-model-chip span {
-          line-height: 1;
-        }
-
-        .chat-model-dropdown {
-          position: absolute;
-          bottom: calc(100% + 8px);
-          left: 50%;
-          transform: translateX(-50%);
-          width: 220px;
-          background: #0f0f0f;
-          border: 1px solid rgba(255,255,255,0.06);
-          border-radius: 12px;
-          box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-          z-index: 100;
-          padding: 4px 0;
-          animation: dropUp 0.15s ease-out;
-        }
-        @keyframes dropUp {
-          from { opacity: 0; transform: translateX(-50%) translateY(4px); }
-          to { opacity: 1; transform: translateX(-50%) translateY(0); }
-        }
-        .chat-model-option {
-          width: 100%;
-          text-align: left;
-          padding: 8px 12px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          transition: background 0.15s;
-          border: none;
-          background: none;
-          cursor: pointer;
-          font-family: inherit;
-        }
-        .chat-model-option:hover {
-          background: rgba(255,255,255,0.04);
-        }
-        .chat-model-option-active {
-          background: rgba(255,255,255,0.04) !important;
-        }
-        .chat-model-name {
-          font-size: 13px;
-          font-weight: 500;
-          color: #e2e2e2;
-        }
-        .chat-model-option:not(.chat-model-option-active) .chat-model-name {
-          color: #a3a3a3;
-        }
-        .chat-model-tag {
-          font-size: 11px;
-          color: #525252;
-          margin-top: 1px;
         }
 
         .chat-submit-btn {
