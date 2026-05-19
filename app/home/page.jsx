@@ -6,30 +6,11 @@ import { useCurrency } from '@/components/CurrencyToggle'
 import { useTranslation } from '@/components/LanguageProvider'
 import { supabasePublic } from '@/lib/supabase'
 import {
-  IconTarget, IconFlame, IconLightning, IconTrending, IconSearch,
+  IconTarget, IconLightning, IconTrending, IconSearch,
   IconArrowRight, IconCheck, IconClose, IconPlus, IconSpinner,
   IconMoney, IconTool, IconBookmark, IconBookmarkFill,
   IconEye, IconStar, IconGlobe
 } from '@/components/Icons'
-
-// ── "Did You Know?" fact library ──
-const FACTS = [
-  'The Gates Millennium Scholarship has funded over 20,000 scholars since 1999, covering full graduate and undergraduate costs.',
-  'Most internship applications close 3–4 months before the start date, start searching in October for summer roles.',
-  'Over 60% of freelance developers found their first client through personal networks, not job boards.',
-  'The average Fulbright Scholar receives $35,000+ in funding for a year of research or study abroad.',
-  'Remote work listings have increased by 350% since 2020, with tech and marketing leading the way.',
-  'Chevening Scholarships fund over 1,500 leaders from 160 countries each year for UK-based master\'s degrees.',
-  'Only 12% of scholarship applicants follow up after submitting, doing so can double your chances.',
-  'The top 5% of Etsy sellers earn over $50,000/year from digital products alone.',
-  'FreeCodeCamp certifications are recognized by employers at Google, Apple, and Microsoft for entry-level roles.',
-  'DAAD scholarships fund over 100,000 international students annually for study in Germany, many programs are in English.',
-  'Building a portfolio with 3 strong projects is more impactful than a resume with 10 shallow ones.',
-  'The Rhodes Scholarship covers all expenses for 2–3 years of study at Oxford, and accepts applicants under 24 from 60+ countries.',
-  'Side projects that solve a real problem are 4x more likely to get you hired than traditional applications.',
-  'Most Y Combinator startups are founded by people who met in university or at previous jobs.',
-  'GitHub Sponsors and Open Collective let you earn from open-source work, some developers make $5,000+/month.',
-]
 
 // ── Goal templates ──
 const GOAL_TEMPLATES = [
@@ -52,9 +33,6 @@ export default function DiscoverPage() {
   // ── Data ──
   const [opportunities, setOpportunities] = useState([])
   const [dataLoading, setDataLoading] = useState(true)
-
-  // ── Did You Know ──
-  const [factIndex, setFactIndex] = useState(0)
 
   // ── Goals ──
   const [goals, setGoals] = useState([])
@@ -112,14 +90,6 @@ export default function DiscoverPage() {
   useEffect(() => {
     try { localStorage.setItem('kv_discover_saved_opps', JSON.stringify(savedOpps)) } catch (_) {}
   }, [savedOpps])
-
-  // ── Rotate facts ──
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setFactIndex(prev => (prev + 1) % FACTS.length)
-    }, 12000)
-    return () => clearInterval(timer)
-  }, [])
 
   const { t } = useTranslation()
 
@@ -242,9 +212,6 @@ export default function DiscoverPage() {
     ? opportunities[new Date().getDate() % opportunities.length]
     : null
 
-  // ── Featured (top 8) ──
-  const featured = opportunities.slice(0, 8)
-
   // ── Progress ring stats ──
   const profileCompletion = user ? 65 : 0
   const goalsProgress = goals.length > 0
@@ -257,10 +224,10 @@ export default function DiscoverPage() {
     <main className="min-h-screen bg-[#0a0a0a] pb-12">
 
       {/* ═══════════════════════════════════════════════
-          Section 1: Greeting + Did You Know
+          Section 1: Greeting
       ═══════════════════════════════════════════════ */}
       <section className="max-w-4xl mx-auto px-4 pt-6 pb-2 animate-fade-up">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-display font-semibold mb-2 tracking-tight">
               {getGreeting()}, <span className="text-red-500">{displayName}</span>
@@ -270,69 +237,6 @@ export default function DiscoverPage() {
           <div className="flex items-center gap-2 text-xs text-muted shrink-0">
             <span className="w-1.5 h-1.5 bg-red-500 rounded-full pulse-dot" />
             <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
-          </div>
-        </div>
-
-        {/* Did You Know? — Cinematic carousel */}
-        <div className="relative rounded-2xl overflow-hidden group" style={{ minHeight: 280 }}>
-          {/* Atmospheric background layers */}
-          <div className="absolute inset-0 bg-[#0c0c0c]" />
-          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(220,38,38,0.08)_0%,transparent_50%,rgba(220,38,38,0.04)_100%)]" />
-          {/* Cinematic bottom fade for text readability */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_top,#0c0c0c_0%,#0c0c0ced_20%,#0c0c0c66_50%,transparent_100%)]" />
-          {/* Subtle horizontal panel lines */}
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-red-500/20 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-red-500/10 to-transparent" />
-
-          {/* Header — icon + label pinned top-left */}
-          <div className="relative px-8 sm:px-10 pt-6 sm:pt-7 flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 bg-red-500/10 border border-red-500/20">
-              <svg width={14} height={14} viewBox="0 0 16 16" fill="none" className="text-red-400">
-                <path d="M6 5.5C6 4.12 7.12 3 8 3s2 1.12 2 2.5c0 1.2-.88 1.75-1.5 2.15-.3.19-.5.52-.5.85v.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
-                <circle cx="8" cy="11.5" r="1" fill="currentColor"/>
-              </svg>
-            </div>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-red-400/80 font-semibold">{t('discover.didyouknow')}</p>
-          </div>
-
-          {/* Fact text — centered vertically in remaining space */}
-          <div className="relative px-8 sm:px-10 flex items-center" style={{ minHeight: 190 }}>
-            <p key={factIndex} className="text-base sm:text-lg text-[#d4d4d4] leading-relaxed max-w-2xl" style={{ animation: 'fadeIn 0.6s ease forwards' }}>{FACTS[factIndex]}</p>
-          </div>
-
-          {/* Navigation — sleek arrows + minimal dots */}
-          <div className="absolute inset-y-0 left-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <button
-              onClick={() => setFactIndex(prev => (prev - 1 + FACTS.length) % FACTS.length)}
-              className="ml-2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-white/[0.06] flex items-center justify-center text-muted hover:text-white hover:bg-black/60 hover:border-white/10 transition-all duration-300"
-              style={{ boxShadow: '0 0 12px rgba(0,0,0,0.5)' }}
-            >
-              <svg width={14} height={14} viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </button>
-          </div>
-          <div className="absolute inset-y-0 right-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <button
-              onClick={() => setFactIndex(prev => (prev + 1) % FACTS.length)}
-              className="mr-2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-white/[0.06] flex items-center justify-center text-muted hover:text-white hover:bg-black/60 hover:border-white/10 transition-all duration-300"
-              style={{ boxShadow: '0 0 12px rgba(0,0,0,0.5)' }}
-            >
-              <svg width={14} height={14} viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </button>
-          </div>
-
-          {/* Minimal pagination dots */}
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center justify-center gap-1 z-10">
-            {FACTS.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setFactIndex(i)}
-                className={`h-1 rounded-full transition-all duration-500 ${
-                  i === factIndex
-                    ? 'w-6 bg-red-500 shadow-[0_0_6px_rgba(220,38,38,0.4)]'
-                    : 'w-1 bg-white/20 hover:bg-white/40'
-                }`}
-              />
-            ))}
           </div>
         </div>
       </section>
@@ -618,56 +522,7 @@ export default function DiscoverPage() {
       )}
 
       {/* ═══════════════════════════════════════════════
-          Section 5: Featured Opportunities Carousel
-      ═══════════════════════════════════════════════ */}
-      {featured.length > 0 && (
-        <section className="max-w-4xl mx-auto px-4 py-5 animate-fade-up animate-fade-up-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <IconFlame size={14} className="text-red-500" />
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted">{t('discover.featured')}</span>
-            </div>
-            <Link href="/opportunities" className="text-xs text-red-500 hover:text-red-400 transition-colors flex items-center gap-1">
-              {t('discover.opp.view_all')} <IconArrowRight size={11} />
-            </Link>
-          </div>
-          <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory -mx-4 px-4">
-            {featured.map(opp => (
-              <button
-                key={opp.slug}
-                onClick={() => router.push(`/explore/${opp.slug}`)}
-                className="bg-[#141414] border border-white/[0.06] rounded-xl p-5 sm:p-6 text-left transition-all group hover:bg-[#1a1a1a] min-w-[200px] sm:min-w-[220px] snap-start shrink-0"
-              >
-                <h4 className="font-semibold text-sm mb-2 group-hover:text-red-400 transition-colors line-clamp-2 leading-snug tracking-tight text-muted">
-                  {opp.result?.title || opp.query}
-                </h4>
-                {opp.result && (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-1.5 text-[#d4d4d4] text-body font-medium">
-                      <IconMoney size={14} />
-                      {format(opp.result.income_min || 0)}–{format(opp.result.income_max || 0)}
-                      <span className="text-muted2 text-caption font-normal">/{opp.result.income_period || 'mo'}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-caption text-muted2">
-                      <span className="flex items-center gap-1"><IconLightning size={12} />{opp.result.start_days}d</span>
-                      <span className="flex items-center gap-1"><IconTool size={12} />{format(opp.result.monthly_cost || 0)}/mo</span>
-                      <span className="flex items-center gap-1"><IconEye size={12} />{(opp.views || 0).toLocaleString()}</span>
-                    </div>
-                  </div>
-                )}
-                <div className="flex flex-wrap gap-1 mt-3">
-                  {(opp.result?.tags || []).slice(0, 2).map(tag => (
-                    <span key={tag} className="text-caption text-muted2 bg-[#0a0a0a] px-2 py-0.5 rounded-full font-mono">#{tag}</span>
-                  ))}
-                </div>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ═══════════════════════════════════════════════
-          Section 6: Swipe Discovery
+          Section 5: Swipe Discovery
       ═══════════════════════════════════════════════ */}
       <section className="max-w-4xl mx-auto px-4 py-5 animate-fade-up animate-fade-up-5">
         <div className="flex items-center gap-2 mb-3">
