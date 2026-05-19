@@ -80,19 +80,13 @@ function extractTextFromNode(node) {
 
 /* ─── Judge0 status helpers ────────────────────────────────────── */
 const STATUS_OK = new Set([3, 4]) // Accepted, Wrong Answer — code ran
-const STATUS_PARTIAL = new Set([5]) // Time Limit Exceeded — partial output possible
-
-function statusColor(statusId) {
-  if (!statusId) return '#525252'
-  if (STATUS_OK.has(statusId)) return '#4ade80'      // green — ran successfully
-  if (STATUS_PARTIAL.has(statusId)) return '#facc15' // yellow — ran but hit limit
-  return '#f87171'                                    // red — compile/error
-}
+const STATUS_ERROR = new Set([6, 7, 8, 9, 10, 11, 12, 13, 14]) // Compile/Error
 
 /* ─── Code Block with Run Button ───────────────────────────────── */
 function CodeBlock({ langLabel, codeText, codeClassName, children }) {
   const [runResult, setRunResult] = useState(null)
   const [running, setRunning] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   const langId = getLangId(codeClassName)
 
@@ -100,6 +94,7 @@ function CodeBlock({ langLabel, codeText, codeClassName, children }) {
     if (!langId) return
     setRunning(true)
     setRunResult(null)
+    setDetailsOpen(false)
     try {
       const res = await fetch('/api/execute', {
         method: 'POST',
@@ -136,13 +131,34 @@ function CodeBlock({ langLabel, codeText, codeClassName, children }) {
     setRunning(false)
   }
 
-  // Derive output parts for display
-  const hasOutput = runResult && (
-    runResult.stdout || runResult.stderr || runResult.compile_output
-  )
+  // Derive what to show in the main output area
   const statusId = runResult?.status?.id
-  const statusDesc = runResult?.status?.description
-  const isOk = STATUS_OK.has(statusId)
+  const hasError = runResult && STATUS_ERROR.has(statusId)
+  const hasOutput = runResult && (runResult.stdout || runResult.stderr || runResult.compile_output)
+
+  // Build the primary output text — just like a terminal
+  // Success: show stdout only
+  // Error: show the error trace (stderr or compile_output) like a real terminal
+  let primaryOutput = ''
+  if (runResult) {
+    if (hasError) {
+      // Show the error like a terminal would — compile_output first, then stderr
+      if (runResult.compile_output) primaryOutput += runResult.compile_output
+      if (runResult.stderr) primaryOutput += (primaryOutput ? '\n' : '') + runResult.stderr
+    } else {
+      // Success — just stdout, clean and simple
+      if (runResult.stdout) primaryOutput = runResult.stdout
+      if (runResult.stderr) primaryOutput += (primaryOutput ? '\n' : '') + runResult.stderr
+    }
+  }
+
+  // Build developer details object
+  const hasDetails = runResult && (
+    runResult.status?.description ||
+    runResult.exit_code != null ||
+    runResult.time ||
+    runResult.memory
+  )
 
   return (
     <div className="my-4 rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
@@ -180,59 +196,96 @@ function CodeBlock({ langLabel, codeText, codeClassName, children }) {
           {children}
         </code>
       </div>
-      {/* Execution output */}
+      {/* Execution output — terminal-style, minimal */}
       {runResult && (
-        <div className={`border-t ${isOk ? 'border-emerald-500/20' : 'border-red-500/20'} bg-[#0d0d0d]`}>
-          {/* Status bar */}
-          <div className="flex items-center justify-between px-4 py-1.5">
-            <div className="flex items-center gap-2">
-              {/* Status dot */}
-              <span
-                className="inline-block w-1.5 h-1.5 rounded-full"
-                style={{ backgroundColor: statusColor(statusId) }}
-              />
-              <span
-                className="text-[10px] font-mono uppercase tracking-wider"
-                style={{ color: statusColor(statusId) }}
-              >
-                {statusDesc || 'Output'}
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              {runResult.time && (
-                <span className="text-[10px] font-mono text-[#525252]">{runResult.time}s</span>
-              )}
-              {runResult.memory && (
-                <span className="text-[10px] font-mono text-[#525252]">{(runResult.memory / 1024).toFixed(0)}KB</span>
-              )}
-              <button onClick={() => setRunResult(null)} className="text-[10px] font-mono text-[#525252] hover:text-[#a3a3a3] transition-colors">Clear</button>
-            </div>
+        <div className="border-t border-white/[0.06]">
+          {/* Output area — looks like a real terminal */}
+          <div className="bg-[#0d0d0d] px-4 py-3 font-mono text-[13px] leading-[1.5] overflow-x-auto whitespace-pre">
+            {hasOutput ? (
+              <>
+                {/* Success output — clean white text */}
+                {runResult.stdout && !hasError && (
+                  <span className="text-[#d4d4d4]">{runResult.stdout}</span>
+                )}
+                {/* Error output — looks like a real terminal error */}
+                {hasError ? (
+                  <span className="text-[#f87171]">{primaryOutput}</span>
+                ) : (
+                  runResult.stderr && (
+                    <span className="text-[#facc15]">{runResult.stderr}</span>
+                  )
+                )}
+              </>
+            ) : (
+              <span className="text-[#525252]">{'(no output)'}</span>
+            )}
           </div>
-          {/* Output content */}
-          {hasOutput ? (
-            <div className="px-4 pb-3 font-mono text-[13px] leading-[1.5] overflow-x-auto whitespace-pre">
-              {/* Standard output */}
-              {runResult.stdout && (
-                <span className="text-[#d4d4d4]">{runResult.stdout}</span>
-              )}
-              {/* Standard error */}
-              {runResult.stderr && (
-                <span className={runResult.stdout ? 'text-yellow-400' : 'text-red-400'}>{runResult.stderr}</span>
-              )}
-              {/* Compilation output (Java, C++, etc.) */}
-              {runResult.compile_output && (
-                <span className={runResult.stdout ? 'text-yellow-400' : 'text-red-400'}>{runResult.compile_output}</span>
-              )}
-              {/* Exit code (only show for non-zero) */}
-              {runResult.exit_code != null && runResult.exit_code !== 0 && (
-                <span className="text-[10px] text-red-400/70 block mt-1.5">
-                  Exit code: {runResult.exit_code}
-                </span>
-              )}
+
+          {/* Footer — View Error Details + Clear */}
+          {(hasDetails || hasError) && (
+            <div className="flex items-center justify-between px-4 py-1.5 bg-[#0d0d0d] border-t border-white/[0.03]">
+              <button
+                onClick={() => setDetailsOpen(!detailsOpen)}
+                className="flex items-center gap-1 text-[11px] font-mono text-[#525252] hover:text-[#a3a3a3] transition-colors"
+              >
+                <svg
+                  width="10" height="10" viewBox="0 0 16 16"
+                  fill="none" stroke="currentColor" strokeWidth="1.5"
+                  strokeLinecap="round" strokeLinejoin="round"
+                  className={`transition-transform ${detailsOpen ? 'rotate-90' : ''}`}
+                >
+                  <path d="M6 4l4 4-4 4" />
+                </svg>
+                {hasError ? 'View Error Details' : 'View Details'}
+              </button>
+              <button
+                onClick={() => { setRunResult(null); setDetailsOpen(false) }}
+                className="text-[10px] font-mono text-[#525252] hover:text-[#a3a3a3] transition-colors"
+              >
+                Clear
+              </button>
             </div>
-          ) : (
-            <div className="px-4 pb-3 font-mono text-[12px] text-[#525252] italic">
-              No output
+          )}
+
+          {/* Expandable developer details */}
+          {detailsOpen && hasDetails && (
+            <div className="bg-[#0a0a0a] border-t border-white/[0.03] px-4 py-2.5">
+              <div className="space-y-1">
+                {runResult.status?.description && (
+                  <div className="flex items-center gap-2 text-[11px] font-mono">
+                    <span className="text-[#525252] shrink-0">Status</span>
+                    <span className={hasError ? 'text-[#f87171]' : STATUS_OK.has(statusId) ? 'text-[#4ade80]' : 'text-[#facc15]'}>
+                      {runResult.status.description}
+                    </span>
+                  </div>
+                )}
+                {runResult.exit_code != null && (
+                  <div className="flex items-center gap-2 text-[11px] font-mono">
+                    <span className="text-[#525252] shrink-0">Exit Code</span>
+                    <span className={runResult.exit_code !== 0 ? 'text-[#f87171]' : 'text-[#d4d4d4]'}>
+                      {runResult.exit_code}
+                    </span>
+                  </div>
+                )}
+                {runResult.time && (
+                  <div className="flex items-center gap-2 text-[11px] font-mono">
+                    <span className="text-[#525252] shrink-0">Time</span>
+                    <span className="text-[#d4d4d4]">{runResult.time}s</span>
+                  </div>
+                )}
+                {runResult.memory && (
+                  <div className="flex items-center gap-2 text-[11px] font-mono">
+                    <span className="text-[#525252] shrink-0">Memory</span>
+                    <span className="text-[#d4d4d4]">{(runResult.memory / 1024).toFixed(1)} KB</span>
+                  </div>
+                )}
+                {runResult.compile_output && !hasError && (
+                  <div className="mt-1.5 pt-1.5 border-t border-white/[0.04]">
+                    <span className="text-[10px] font-mono text-[#525252] block mb-1">Compiler Output</span>
+                    <pre className="text-[11px] font-mono text-[#facc15] whitespace-pre overflow-x-auto leading-[1.4]">{runResult.compile_output}</pre>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
