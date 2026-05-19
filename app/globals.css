@@ -264,3 +264,23 @@ input, textarea, select {
   background: transparent;
   border: none;
 }
+
+/* ── Code block responsive — < 480px ── */
+@media (max-width: 479px) {
+  .prose-kivora [style*="border-radius: 16px"] {
+    border-radius: 12px !important;
+  }
+  .prose-kivora [style*="min-height: 48px"] {
+    min-height: 44px !important;
+  }
+  .prose-kivora [style*="padding: 0 16px"] {
+    padding: 0 12px !important;
+  }
+  .prose-kivora [style*="padding: 16px"] {
+    padding: 12px !important;
+  }
+  .prose-kivora pre,
+  .prose-kivora [class*="font-['SF_Mono"] {
+    font-size: 13px !important;
+  }
+}
