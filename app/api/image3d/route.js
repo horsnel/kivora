@@ -11,7 +11,14 @@ const MAX_POLLS = Math.ceil(MAX_POLL_TIME / POLL_INTERVAL)
 
 /**
  * Poll a Tripo3D task until it reaches a terminal state.
- * Returns the task object on success, throws on failure or timeout.
+ * Returns the task data object on success, throws on failure or timeout.
+ *
+ * Tripo3D task response shape:
+ *   { code: 0, data: { task_id, status, output: { pbr_model, rendered_image, generated_image }, ... } }
+ *   status: queued | running | success | failed
+ *   output.pbr_model = GLB download URL  (type: "glb")
+ *   output.rendered_image = webp preview (type: "webp")
+ *   output.generated_image = text2image preview
  */
 async function pollTask(taskId, phase = 'generation') {
   for (let i = 0; i < MAX_POLLS; i++) {
@@ -97,87 +104,47 @@ export async function POST(req) {
     }
 
     const createData = await createRes.json()
-    const taskId = createData.data?.id
+    // Tripo3D returns { data: { task_id: "..." } } — NOT data.id
+    const taskId = createData.data?.task_id || createData.data?.id
 
     if (!taskId) {
+      console.error('[image3d] Unexpected create response:', JSON.stringify(createData))
       return Response.json({ error: 'No task ID returned from Tripo3D.' }, { status: 502 })
     }
 
     // ── Step 2: Poll until model is generated ──
     const modelTask = await pollTask(taskId, 'model generation')
 
-    // The model output contains various format URLs
-    const modelData = modelTask.output
-    let glbUrl = null
-    let thumbnailUrl = modelTask.thumbnail || null
-
-    if (modelData) {
-      // Tripo3D returns model URLs — try GLB first
-      glbUrl = modelData.model || modelData.glb || modelData.rendered_image
-      // If there's a PBR model, prefer it
-      if (modelData.pbr_model) {
-        glbUrl = modelData.pbr_model
-      }
-    }
+    // Parse the output — Tripo3D returns:
+    //   output.pbr_model       → GLB file URL (already textured)
+    //   output.rendered_image  → webp preview image
+    //   output.generated_image → text-to-image preview
+    //   thumbnail              → same as rendered_image
+    const output = modelTask.output || {}
+    const glbUrl = output.pbr_model || null
+    const thumbnailUrl = modelTask.thumbnail || output.rendered_image || output.generated_image || null
 
     if (!glbUrl) {
-      // Fallback: check if rendered_image exists (preview)
-      if (modelData?.rendered_image) {
+      // Model generated but no GLB URL — return preview image if available
+      if (thumbnailUrl) {
         return Response.json({
           glbUrl: null,
-          thumbnailUrl: modelData.rendered_image,
+          thumbnailUrl,
           prompt: prompt.trim(),
           hasTexture: false,
-          error: '3D model generated but GLB URL unavailable. Showing preview image.',
+          error: '3D model generated but GLB download unavailable. Showing preview image.',
         })
       }
       return Response.json({ error: 'No 3D model data returned.' }, { status: 502 })
     }
 
-    // ── Step 3: Try to convert to textured GLB (if not already PBR) ──
-    // Tripo3D's text_to_model may return untextured model.
-    // We can request a texture conversion for better quality.
-    let finalGlbUrl = glbUrl
-    let hasTexture = !!modelData.pbr_model
-
-    if (!hasTexture && modelData.model) {
-      try {
-        const textureRes = await fetch(`${TRIPO_API_BASE}/task`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${TRIPO_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            type: 'convert_model',
-            model: modelData.model,
-            format: 'GLB',
-          }),
-        })
-
-        if (textureRes.ok) {
-          const textureData = await textureRes.json()
-          const textureTaskId = textureData.data?.id
-          if (textureTaskId) {
-            const textureTask = await pollTask(textureTaskId, 'texturing')
-            if (textureTask.output?.model) {
-              finalGlbUrl = textureTask.output.model
-              hasTexture = true
-            }
-          }
-        }
-      } catch (texErr) {
-        // Texture step failed — still return the model (untextured)
-        console.warn('[image3d] Texturing step failed:', texErr.message)
-      }
-    }
-
     // ── Return result ──
+    // text_to_model already produces a PBR-textured GLB, no separate convert step needed
     return Response.json({
-      glbUrl: finalGlbUrl,
+      glbUrl,
       thumbnailUrl,
       prompt: prompt.trim(),
-      hasTexture,
+      hasTexture: !!output.pbr_model,
     })
   } catch (err) {
     console.error('[image3d] Error:', err)
