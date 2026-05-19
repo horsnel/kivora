@@ -11,13 +11,58 @@ const STARTERS = [
   { labelKey: 'chat.starter.learn', icon: IconBulb },
 ]
 
+const TYPEWRITER_PHRASES = [
+  'Ask anything...',
+  'Explain quantum computing simply',
+  'Write a Python web scraper',
+  'Help me debug my React app',
+  'Create a business plan for a startup',
+  'Summarize this article for me',
+  'Translate this to French',
+]
+
 export default function HomePage() {
   const router = useRouter()
   const { t } = useTranslation()
   const [user, setUser] = useState(null)
   const [input, setInput] = useState('')
+  const [focused, setFocused] = useState(false)
+  const [placeholderText, setPlaceholderText] = useState('')
   const textareaRef = useRef(null)
   const pillsRef = useRef(null)
+  const typewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
+
+  // Typewriter placeholder animation
+  useEffect(() => {
+    const tw = typewriterRef.current
+    function tick() {
+      const phrase = TYPEWRITER_PHRASES[tw.phraseIdx]
+      if (!tw.deleting) {
+        // Typing forward
+        tw.charIdx++
+        setPlaceholderText(phrase.slice(0, tw.charIdx))
+        if (tw.charIdx >= phrase.length) {
+          // Pause at end, then start deleting
+          tw.timeout = setTimeout(() => { tw.deleting = true; tick() }, 2000)
+          return
+        }
+        tw.timeout = setTimeout(tick, 50 + Math.random() * 40)
+      } else {
+        // Deleting
+        tw.charIdx--
+        setPlaceholderText(phrase.slice(0, tw.charIdx))
+        if (tw.charIdx <= 0) {
+          tw.deleting = false
+          tw.phraseIdx = (tw.phraseIdx + 1) % TYPEWRITER_PHRASES.length
+          tw.timeout = setTimeout(tick, 400)
+          return
+        }
+        tw.timeout = setTimeout(tick, 25)
+      }
+    }
+    tick()
+    return () => clearTimeout(tw.timeout)
+  }, [])
 
   // Prevent page scroll when swiping pills horizontally
   useEffect(() => {
@@ -107,12 +152,20 @@ export default function HomePage() {
               ref={textareaRef}
               rows={1}
               className="chat-textarea-expanded scrollbar-none"
-              placeholder={t('chat.placeholder')}
               value={input}
               onChange={e => { setInput(e.target.value); autoResize(e.target) }}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
               autoFocus
             />
+            {/* Typewriter placeholder overlay */}
+            {input.length === 0 && !focused && (
+              <div className="chat-typewriter-placeholder" onClick={() => textareaRef.current?.focus()}>
+                <span>{placeholderText}</span>
+                <span className="typewriter-cursor" />
+              </div>
+            )}
 
             {/* Toolbar */}
             <div className="chat-toolbar-expanded">
@@ -161,6 +214,7 @@ export default function HomePage() {
       <style jsx>{`
         .chat-container-expanded {
           width: 100%;
+          position: relative;
           background-color: rgba(255,255,255,0.03);
           border: 1px solid rgba(255,255,255,0.06);
           border-radius: 20px;
@@ -275,6 +329,34 @@ export default function HomePage() {
           transform: scale(0.95);
         }
 
+        .chat-typewriter-placeholder {
+          position: absolute;
+          top: 20px;
+          left: 18px;
+          right: 18px;
+          color: #525252;
+          font-size: 16px;
+          line-height: 1.6;
+          pointer-events: auto;
+          cursor: text;
+          display: flex;
+          align-items: flex-start;
+        }
+        .typewriter-cursor {
+          display: inline-block;
+          width: 2px;
+          height: 1.1em;
+          background: #525252;
+          margin-left: 1px;
+          animation: blink 1s step-end infinite;
+          vertical-align: text-bottom;
+          flex-shrink: 0;
+        }
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+
         .starter-pills-row {
           display: flex;
           align-items: center;
@@ -283,16 +365,11 @@ export default function HomePage() {
           overflow-y: hidden;
           -webkit-overflow-scrolling: touch;
           overscroll-behavior-x: contain;
-          scroll-snap-type: x proximity;
           scrollbar-width: none;
-          padding: 4px 0;
-          justify-content: center;
+          padding: 4px 4px 4px 0;
         }
         .starter-pills-row::-webkit-scrollbar {
           display: none;
-        }
-        .starter-pills-row > button {
-          scroll-snap-align: start;
         }
       `}</style>
     </main>
