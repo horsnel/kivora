@@ -151,7 +151,7 @@ export default function HomePage() {
             <textarea
               ref={textareaRef}
               rows={1}
-              className="chat-textarea-expanded scrollbar-none"
+              className={`chat-textarea-expanded scrollbar-none${input.length === 0 && !focused ? ' no-caret' : ''}`}
               value={input}
               onChange={e => { setInput(e.target.value); autoResize(e.target) }}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
@@ -244,6 +244,10 @@ export default function HomePage() {
           font-family: inherit;
           padding: 4px 2px;
           margin-bottom: 12px;
+          caret-color: #e2e2e2;
+        }
+        .chat-textarea-expanded.no-caret {
+          caret-color: transparent;
         }
         .chat-textarea-expanded:focus {
           border: none !important;
@@ -339,18 +343,15 @@ export default function HomePage() {
           line-height: 1.6;
           pointer-events: auto;
           cursor: text;
-          display: flex;
-          align-items: flex-start;
         }
         .typewriter-cursor {
           display: inline-block;
-          width: 2px;
-          height: 1.1em;
+          width: 1.5px;
+          height: 0.9em;
           background: #525252;
           margin-left: 1px;
+          vertical-align: baseline;
           animation: blink 1s step-end infinite;
-          vertical-align: text-bottom;
-          flex-shrink: 0;
         }
         @keyframes blink {
           0%, 100% { opacity: 1; }
