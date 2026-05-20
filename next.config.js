@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
-  serverExternalPackages: ['groq-sdk', 'z-ai-web-dev-sdk', 'pptxgenjs', 'jszip', 'jspdf', 'docx'],
+  serverExternalPackages: ['groq-sdk', 'pptxgenjs', 'jszip', 'jspdf', 'docx'],
   eslint: {
     ignoreDuringBuilds: true
   },
