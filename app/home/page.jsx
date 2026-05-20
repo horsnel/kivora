@@ -15,29 +15,29 @@ const TYPEWRITER_PHRASES = [
   'Write Python code to scrape data',
 ]
 
-// ── Real image prompts for gallery ──
+// ── Pre-generated real AI images for gallery ──
 const SAMPLE_IMAGES = [
-  { prompt: 'A stunning sunset over Lagos skyline with golden light reflecting on the water', seed: 'lagos-sunset-2' },
-  { prompt: 'Afrofuturist city concept art with neon lights and towering architecture', seed: 'afro-city-2' },
-  { prompt: 'Minimalist tech startup logo design on dark background', seed: 'tech-logo-2' },
-  { prompt: 'Colorful African Ankara patterns and textile art', seed: 'african-pattern-2' },
-  { prompt: 'Modern workspace design with dual monitors and plants', seed: 'workspace-2' },
-  { prompt: 'Neon cyberpunk portrait of a woman with glowing eyes', seed: 'cyberpunk-2' },
-  { prompt: 'A peaceful mountain landscape with aurora borealis', seed: 'aurora-mountain' },
-  { prompt: 'Steampunk mechanical clock with golden gears closeup', seed: 'steampunk-clock' },
-  { prompt: 'Underwater coral reef with tropical fish in sunlight', seed: 'coral-reef' },
-  { prompt: 'Japanese cherry blossom garden with a red bridge', seed: 'cherry-blossom' },
-  { prompt: 'Futuristic space station orbiting Earth at sunset', seed: 'space-station' },
-  { prompt: 'Watercolor painting of a cozy European village', seed: 'watercolor-village' },
+  { prompt: 'Sunset over Lagos skyline', src: '/images/lagos-sunset.png' },
+  { prompt: 'Afrofuturist city concept', src: '/images/afro-city.png' },
+  { prompt: 'Tech startup logo design', src: '/images/tech-logo.png' },
+  { prompt: 'African Ankara patterns', src: '/images/african-pattern.png' },
+  { prompt: 'Modern workspace design', src: '/images/workspace.png' },
+  { prompt: 'Neon cyberpunk portrait', src: '/images/cyberpunk.png' },
+  { prompt: 'Mountain aurora borealis', src: '/images/aurora-mountain.png' },
+  { prompt: 'Steampunk golden clock', src: '/images/steampunk-clock.png' },
+  { prompt: 'Underwater coral reef', src: '/images/coral-reef.png' },
+  { prompt: 'Cherry blossom garden', src: '/images/cherry-blossom.png' },
+  { prompt: 'Space station orbiting Earth', src: '/images/space-station.png' },
+  { prompt: 'Watercolor European village', src: '/images/watercolor-village.png' },
 ]
 
 const SAMPLE_WEBSITES = [
-  { title: 'SaaS Landing Page', desc: 'Modern pricing page with gradient hero', prompt: 'Build a SaaS landing page' },
-  { title: 'Analytics Dashboard', desc: 'Data visualization with charts and metrics', prompt: 'Build an analytics dashboard' },
-  { title: 'Portfolio Site', desc: 'Minimal developer portfolio with projects', prompt: 'Build a portfolio website' },
-  { title: 'E-commerce Store', desc: 'Product catalog with shopping cart', prompt: 'Build an e-commerce store' },
-  { title: 'Blog Template', desc: 'Clean reading experience with categories', prompt: 'Build a blog template' },
-  { title: 'Chat Interface', desc: 'Real-time messaging UI with threads', prompt: 'Build a chat interface' },
+  { title: 'SaaS Landing Page', desc: 'Modern pricing page with gradient hero', prompt: 'Build a SaaS landing page', src: '/images/websites/saas-landing.png' },
+  { title: 'Analytics Dashboard', desc: 'Data visualization with charts and metrics', prompt: 'Build an analytics dashboard', src: '/images/websites/analytics-dashboard.png' },
+  { title: 'Portfolio Site', desc: 'Minimal developer portfolio with projects', prompt: 'Build a portfolio website', src: '/images/websites/portfolio.png' },
+  { title: 'E-commerce Store', desc: 'Product catalog with shopping cart', prompt: 'Build an e-commerce store', src: '/images/websites/ecommerce.png' },
+  { title: 'Blog Template', desc: 'Clean reading experience with categories', prompt: 'Build a blog template', src: '/images/websites/blog.png' },
+  { title: 'Chat Interface', desc: 'Real-time messaging UI with threads', prompt: 'Build a chat interface', src: '/images/websites/chat-interface.png' },
 ]
 
 const FILE_TYPES = [
@@ -214,13 +214,14 @@ export default function HomePage() {
           >
             {SAMPLE_IMAGES.map((img, i) => (
               <button
-                key={img.seed}
+                key={img.src}
                 onClick={() => { setInput(`Generate an image: ${img.prompt}`); textareaRef.current?.focus() }}
                 className="group relative shrink-0 w-[200px] h-[200px] rounded-xl overflow-hidden bg-[#111] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer"
                 style={{ scrollSnapAlign: 'start' }}
               >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`https://image.pollinations.ai/prompt/${encodeURIComponent(img.prompt)}?width=400&height=400&nologo=true&seed=${img.seed}&model=flux`}
+                  src={img.src}
                   alt={img.prompt}
                   className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-300"
                   loading="lazy"
@@ -273,10 +274,11 @@ export default function HomePage() {
               >
                 {/* Rectangular preview thumbnail */}
                 <div className="w-full h-[120px] bg-gradient-to-br from-emerald-500/10 to-teal-500/10 overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={`https://image.pollinations.ai/prompt/${encodeURIComponent(site.title + ' website screenshot minimal clean design')}${'&width=520&height=240&nologo=true&seed=' + site.title.replace(/\s/g, '-')}`}
+                    src={site.src}
                     alt={site.title}
-                    className="w-full h-full object-cover opacity-60 group-hover:opacity-80 group-hover:scale-105 transition-all duration-300"
+                    className="w-full h-full object-cover opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-300"
                     loading="lazy"
                   />
                 </div>
