@@ -6,8 +6,21 @@ import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClo
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
+import ArtifactViewer from '@/components/ArtifactViewer'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
+
+// ── System Templates (Google AI Studio-style) ──
+const SYSTEM_TEMPLATES = [
+  { id: 'summarize', label: 'Summarize', icon: '📋', prompt: 'Summarize the following content concisely, highlighting key points:' },
+  { id: 'translate', label: 'Translate', icon: '🌍', prompt: 'Translate the following to' },
+  { id: 'code-review', label: 'Code Review', icon: '🔍', prompt: 'Review this code for bugs, performance issues, and best practices:' },
+  { id: 'explain', label: 'Explain', icon: '💡', prompt: 'Explain the following in simple terms:' },
+  { id: 'rewrite', label: 'Rewrite', icon: '✏️', prompt: 'Rewrite the following to be more clear and professional:' },
+  { id: 'debug', label: 'Debug', icon: '🐛', prompt: 'Debug this code. Find and fix all errors:' },
+  { id: 'compare', label: 'Compare', icon: '⚖️', prompt: 'Compare the following options with a table showing pros, cons, and best use cases:' },
+  { id: 'extract', label: 'Extract Data', icon: '📊', prompt: 'Extract and organize all key data points from the following:' },
+]
 
 const MODELS = [
   { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', tag: 'Default · Fastest', short: '3.3 70B' },
@@ -173,6 +186,13 @@ export default function ChatClient() {
   const [settingsExportFormat, setSettingsExportFormat] = useState('md')
   const [settingsPromptSaved, setSettingsPromptSaved] = useState(false)
   const [settingsExported, setSettingsExported] = useState(false)
+
+  // ── Artifacts (Claude-style side panel) ──
+  const [activeArtifact, setActiveArtifact] = useState(null) // { type, title, code }
+  const [artifactPanelOpen, setArtifactPanelOpen] = useState(false)
+
+  // ── System Templates ──
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
 
   // ── Live Terminal Mode ──
   const [terminalMode, setTerminalMode] = useState(false)
@@ -587,6 +607,20 @@ export default function ChatClient() {
       }
       if (data.codeExecuted) {
         assistantMsg.codeExecuted = true
+      }
+      if (data.urlRead) {
+        assistantMsg.urlRead = true
+        assistantMsg.urlReadSource = data.urlReadSource || ''
+      }
+      if (data.imageGenerated) {
+        assistantMsg.isImage = true
+        assistantMsg.imageData = data.imageData
+        assistantMsg.imagePrompt = data.imagePrompt
+        assistantMsg.imageModel = 'flux'
+        assistantMsg.imageSize = '1024x1024'
+      }
+      if (data.artifacts && data.artifacts.length > 0) {
+        assistantMsg.artifacts = data.artifacts
       }
       setMessages(prev => [...prev, assistantMsg])
     } catch {
@@ -1019,6 +1053,27 @@ export default function ChatClient() {
 
   return (
     <main className="h-dvh flex bg-[#0a0a0a] overflow-hidden">
+      {/* ── Artifact Side Panel (desktop) ── */}
+      {artifactPanelOpen && activeArtifact && (
+        <div className="w-[480px] shrink-0 hidden lg:block">
+          <ArtifactViewer
+            artifact={activeArtifact}
+            onClose={() => { setArtifactPanelOpen(false); setActiveArtifact(null) }}
+          />
+        </div>
+      )}
+      {/* ── Artifact Side Panel (mobile overlay) ── */}
+      {artifactPanelOpen && activeArtifact && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-black/60" onClick={() => { setArtifactPanelOpen(false); setActiveArtifact(null) }} />
+          <div className="absolute inset-x-0 bottom-0 top-12 bg-[#0f0f0f] border-t border-[#181818] rounded-t-2xl overflow-hidden">
+            <ArtifactViewer
+              artifact={activeArtifact}
+              onClose={() => { setArtifactPanelOpen(false); setActiveArtifact(null) }}
+            />
+          </div>
+        </div>
+      )}
       {/* ── Chat Sidebar ── */}
       {historyOpen && (
         <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setHistoryOpen(false)} />
@@ -1428,6 +1483,29 @@ export default function ChatClient() {
                           <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
                         </svg>
                         <span className="text-[11px] text-[#4ade80]/70">Code executed</span>
+                      </div>
+                    )}
+                    {msg.role === 'assistant' && msg.urlRead && (
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                        </svg>
+                        <span className="text-[11px] text-[#60a5fa]/70">Read URL via {msg.urlReadSource || 'Jina'}</span>
+                      </div>
+                    )}
+                    {msg.role === 'assistant' && msg.artifacts && msg.artifacts.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-1.5">
+                        {msg.artifacts.map((artifact, aIdx) => (
+                          <button
+                            key={aIdx}
+                            onClick={() => { setActiveArtifact(artifact); setArtifactPanelOpen(true) }}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-red-500/10 to-rose-500/10 border border-red-500/20 hover:border-red-500/40 text-[11px] text-red-300 hover:text-red-200 transition-colors cursor-pointer"
+                          >
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                            <span>View {artifact.type.toUpperCase()} Artifact</span>
+                            <span className="text-red-400/50">&middot; {artifact.title}</span>
+                          </button>
+                        ))}
                       </div>
                     )}
                     {msg.role === 'assistant' ? (
@@ -1919,6 +1997,34 @@ export default function ChatClient() {
                         <path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z"/><path d="M12 12l9-4.5"/><path d="M12 12v9"/><path d="M12 12L3 7.5"/>
                       </svg>
                     </button>
+
+                    {/* System Templates picker */}
+                    <div className="relative">
+                      <button
+                        className={`chat-toolbar-btn ${templatePickerOpen ? 'chat-toolbar-btn-active' : ''}`}
+                        onClick={() => setTemplatePickerOpen(!templatePickerOpen)}
+                        title="Templates"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+                        </svg>
+                      </button>
+                      {templatePickerOpen && (
+                        <div className="absolute bottom-full left-0 mb-2 w-56 bg-[#1a1a1a] border border-[#262626] rounded-xl shadow-2xl p-2 z-50">
+                          <p className="text-[10px] text-[#525252] uppercase tracking-wider font-medium px-2 pb-1.5">Templates</p>
+                          {SYSTEM_TEMPLATES.map(template => (
+                            <button
+                              key={template.id}
+                              onClick={() => { setInput(template.prompt + ' '); setTemplatePickerOpen(false); textareaRef.current?.focus() }}
+                              className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12px] text-[#a1a1a1] hover:text-white hover:bg-[#262626] transition-colors text-left"
+                            >
+                              <span className="text-sm">{template.icon}</span>
+                              <span>{template.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
                     {/* Terminal mode toggle */}
                     <button

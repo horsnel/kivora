@@ -3,23 +3,70 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/LanguageProvider'
 import { supabasePublic } from '@/lib/supabase'
-import { IconCode, IconLightning, IconBulb } from '@/components/Icons'
-
-const STARTERS = [
-  { labelKey: 'chat.starter.build', icon: IconCode },
-  { labelKey: 'chat.starter.earn', icon: IconLightning },
-  { labelKey: 'chat.starter.learn', icon: IconBulb },
-]
 
 const TYPEWRITER_PHRASES = [
   'Ask anything...',
-  'Explain quantum computing simply',
-  'Write a Python web scraper',
-  'Help me debug my React app',
-  'Create a business plan for a startup',
-  'Summarize this article for me',
-  'Translate this to French',
+  'Generate a logo for my startup',
+  'Build a landing page',
+  'Convert my notes to PDF',
+  'Analyze this image',
+  'Summarize this article',
+  'Create a dashboard',
+  'Write Python code to scrape data',
 ]
+
+// ── Sample gallery data (would be dynamic from DB in production) ──
+const SAMPLE_IMAGES = [
+  { prompt: 'Sunset over Lagos skyline', seed: 'lagos-sunset' },
+  { prompt: 'Afrofuturist city concept', seed: 'afro-city' },
+  { prompt: 'Minimalist tech startup logo', seed: 'tech-logo' },
+  { prompt: 'Colorful African patterns', seed: 'african-pattern' },
+  { prompt: 'Modern workspace design', seed: 'workspace' },
+  { prompt: 'Neon cyberpunk portrait', seed: 'cyberpunk' },
+]
+
+const SAMPLE_WEBSITES = [
+  { title: 'SaaS Landing Page', desc: 'Modern pricing page with gradient hero', icon: 'Layout' },
+  { title: 'Analytics Dashboard', desc: 'Data visualization with charts', icon: 'BarChart3' },
+  { title: 'Portfolio Site', desc: 'Minimal developer portfolio', icon: 'User' },
+  { title: 'E-commerce Store', desc: 'Product catalog with cart', icon: 'ShoppingCart' },
+  { title: 'Blog Template', desc: 'Clean reading experience', icon: 'FileText' },
+  { title: 'Chat Interface', desc: 'Real-time messaging UI', icon: 'MessageSquare' },
+]
+
+const FILE_TYPES = [
+  { id: 'pdf', label: 'PDF', color: '#ef4444', icon: 'FileText', from: ['markdown', 'html', 'text'] },
+  { id: 'docx', label: 'DOCX', color: '#3b82f6', icon: 'FileText', from: ['markdown', 'text'] },
+  { id: 'xlsx', label: 'XLSX', color: '#22c55e', icon: 'Table', from: ['csv', 'json'] },
+  { id: 'csv', label: 'CSV', color: '#f59e0b', icon: 'Table2', from: ['json'] },
+  { id: 'json', label: 'JSON', color: '#a855f7', icon: 'Braces', from: ['csv'] },
+  { id: 'html', label: 'HTML', color: '#f97316', icon: 'Code', from: ['markdown', 'text'] },
+  { id: 'md', label: 'Markdown', color: '#6b7280', icon: 'Hash', from: ['html'] },
+  { id: 'yaml', label: 'YAML', color: '#ec4899', icon: 'FileJson', from: ['json'] },
+]
+
+// ── SVG Icon Components ──
+function ImageIcon({ size = 20 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+}
+function LayoutIcon({ size = 20 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+}
+function FileConvertIcon({ size = 20 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m12 18-2-2 2-2"/><path d="m16 14 2 2-2 2"/></svg>
+}
+function ArrowRightIcon({ size = 16 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+}
+function SparkIcon({ size = 16 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+}
+function WebIcon({ size = 20 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+}
+function FileIcon({ size = 20 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+}
 
 export default function HomePage() {
   const router = useRouter()
@@ -29,26 +76,22 @@ export default function HomePage() {
   const [focused, setFocused] = useState(false)
   const [placeholderText, setPlaceholderText] = useState('')
   const textareaRef = useRef(null)
-  const pillsRef = useRef(null)
   const typewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
 
-  // Typewriter placeholder animation
+  // Typewriter animation
   useEffect(() => {
     const tw = typewriterRef.current
     function tick() {
       const phrase = TYPEWRITER_PHRASES[tw.phraseIdx]
       if (!tw.deleting) {
-        // Typing forward
         tw.charIdx++
         setPlaceholderText(phrase.slice(0, tw.charIdx))
         if (tw.charIdx >= phrase.length) {
-          // Pause at end, then start deleting
           tw.timeout = setTimeout(() => { tw.deleting = true; tick() }, 2000)
           return
         }
         tw.timeout = setTimeout(tick, 50 + Math.random() * 40)
       } else {
-        // Deleting
         tw.charIdx--
         setPlaceholderText(phrase.slice(0, tw.charIdx))
         if (tw.charIdx <= 0) {
@@ -62,45 +105,6 @@ export default function HomePage() {
     }
     tick()
     return () => clearTimeout(tw.timeout)
-  }, [])
-
-  // Prevent page scroll when swiping pills horizontally
-  useEffect(() => {
-    const el = pillsRef.current
-    if (!el) return
-    function handleTouch(e) {
-      const atStart = el.scrollLeft <= 0
-      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1
-      if ((atStart && atEnd) || (atStart && e.touches[0]?.clientX > el._touchStartX) || (atEnd && e.touches[0]?.clientX < el._touchStartX)) {
-        return // allow page scroll if can't scroll further in that direction
-      }
-      // If pills can scroll, stop page from scrolling
-      if (!atStart || !atEnd) {
-        e.stopPropagation()
-      }
-    }
-    function saveStart(e) {
-      el._touchStartX = e.touches[0]?.clientX
-    }
-    // On desktop: convert vertical wheel scroll to horizontal scroll on pills
-    function handleWheel(e) {
-      const hasScroll = el.scrollWidth > el.clientWidth
-      if (!hasScroll) return
-      const atStart = el.scrollLeft <= 0
-      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1
-      if (atStart && atEnd) return
-      e.preventDefault()
-      e.stopPropagation()
-      el.scrollLeft += e.deltaY !== 0 ? e.deltaY : e.deltaX
-    }
-    el.addEventListener('touchstart', saveStart, { passive: true })
-    el.addEventListener('touchmove', handleTouch, { passive: false })
-    el.addEventListener('wheel', handleWheel, { passive: false })
-    return () => {
-      el.removeEventListener('touchstart', saveStart)
-      el.removeEventListener('touchmove', handleTouch)
-      el.removeEventListener('wheel', handleWheel)
-    }
   }, [])
 
   useEffect(() => {
@@ -132,9 +136,9 @@ export default function HomePage() {
   const hasInput = input.trim().length > 0
 
   return (
-    <main className="h-full flex flex-col bg-[#0a0a0a]">
-      {/* Centered content */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 pb-8 -mt-8">
+    <main className="min-h-screen bg-[#0a0a0a] text-white overflow-y-auto">
+      {/* ── Hero Section ── */}
+      <div className="flex flex-col items-center pt-16 sm:pt-24 pb-8 px-4">
         {/* Greeting */}
         {displayName && (
           <div className="text-center mb-8 animate-fade-up">
@@ -144,10 +148,9 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Chat bar — exact same design as ChatClient expanded bar */}
+        {/* ── Chat Bar ── */}
         <div className="w-full max-w-2xl animate-fade-up">
           <div className="chat-container-expanded">
-            {/* Textarea */}
             <textarea
               ref={textareaRef}
               rows={1}
@@ -159,28 +162,20 @@ export default function HomePage() {
               onBlur={() => setFocused(false)}
               autoFocus
             />
-            {/* Typewriter placeholder overlay */}
             {input.length === 0 && !focused && (
               <div className="chat-typewriter-placeholder" onClick={() => textareaRef.current?.focus()}>
                 {placeholderText}
               </div>
             )}
-
-            {/* Toolbar */}
             <div className="chat-toolbar-expanded">
-              {/* Left actions */}
               <div className="chat-toolbar-left">
-                {/* Attach file (visual only) */}
                 <button className="chat-toolbar-btn" title="Attach file">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
                   </svg>
                 </button>
               </div>
-
-              {/* Right actions */}
               <div className="chat-toolbar-right">
-                {/* Submit button */}
                 <button
                   onClick={handleSubmit}
                   disabled={!hasInput}
@@ -192,24 +187,187 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-
-          {/* Starter pills — horizontally scrollable */}
-          <div className="starter-pills-row mt-4" ref={pillsRef}>
-            {STARTERS.map(({ labelKey, icon: Icon }) => (
-              <button
-                key={labelKey}
-                onClick={() => setInput(t(labelKey))}
-                className="flex items-center gap-2 bg-transparent border border-[#1f1f1f] text-[#737373] hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px px-4 py-2 rounded-full text-[13px] font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em] whitespace-nowrap shrink-0"
-              >
-                <Icon size={13} className="shrink-0" />
-                <span>{t(labelKey)}</span>
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
-      {/* ChatClient CSS — exact same styles */}
+      {/* ── Capability Sections ── */}
+      <div className="max-w-5xl mx-auto px-4 pb-16 space-y-12">
+
+        {/* ── Section 1: Generate Images ── */}
+        <section>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center text-purple-400">
+              <ImageIcon size={18} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight text-white">Generate Images</h2>
+              <p className="text-sm text-[#737373]">Create stunning visuals from text descriptions</p>
+            </div>
+          </div>
+
+          {/* Image Gallery Row */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {SAMPLE_IMAGES.map((img, i) => (
+              <button
+                key={img.seed}
+                onClick={() => { setInput(`Generate an image: ${img.prompt}`); textareaRef.current?.focus() }}
+                className="group relative aspect-square rounded-xl overflow-hidden bg-[#111] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer"
+              >
+                <img
+                  src={`https://image.pollinations.ai/prompt/${encodeURIComponent(img.prompt)}?width=400&height=400&nologo=true&seed=${img.seed}&model=flux`}
+                  alt={img.prompt}
+                  className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-300"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                  <p className="text-xs text-white/90 font-medium line-clamp-2">{img.prompt}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Quick prompts */}
+          <div className="flex flex-wrap gap-2 mt-4">
+            {['Landscape', 'Portrait', 'Logo', 'Icon', 'Illustration'].map(tag => (
+              <button
+                key={tag}
+                onClick={() => { setInput(`Generate a ${tag.toLowerCase()}: `); textareaRef.current?.focus() }}
+                className="px-3 py-1.5 rounded-full text-xs font-medium bg-[#111] border border-[#1f1f1f] text-[#737373] hover:bg-[#1a1a1a] hover:border-[#2a2a2a] hover:text-white transition-all duration-200"
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Section 2: Build Websites ── */}
+        <section>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center text-emerald-400">
+              <WebIcon size={18} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight text-white">Build Websites</h2>
+              <p className="text-sm text-[#737373]">Generate complete web pages with live preview</p>
+            </div>
+          </div>
+
+          {/* Website Preview Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {SAMPLE_WEBSITES.map((site, i) => (
+              <button
+                key={site.title}
+                onClick={() => { setInput(`Build a ${site.title.toLowerCase()}: ${site.desc}`); textareaRef.current?.focus() }}
+                className="group p-4 rounded-xl bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer text-left"
+              >
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/10 to-teal-500/10 flex items-center justify-center text-emerald-500/60 mb-3">
+                  <LayoutIcon size={16} />
+                </div>
+                <h3 className="text-sm font-medium text-white/90 mb-1 group-hover:text-white transition-colors">{site.title}</h3>
+                <p className="text-xs text-[#525252] leading-relaxed">{site.desc}</p>
+                <div className="mt-3 flex items-center gap-1 text-[10px] text-emerald-500/60 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <SparkIcon size={10} />
+                  <span>Generate with AI</span>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Quick prompts */}
+          <div className="flex flex-wrap gap-2 mt-4">
+            {['Landing page', 'Dashboard', 'Portfolio', 'Blog', 'E-commerce'].map(tag => (
+              <button
+                key={tag}
+                onClick={() => { setInput(`Build a ${tag.toLowerCase()}: `); textareaRef.current?.focus() }}
+                className="px-3 py-1.5 rounded-full text-xs font-medium bg-[#111] border border-[#1f1f1f] text-[#737373] hover:bg-[#1a1a1a] hover:border-[#2a2a2a] hover:text-white transition-all duration-200"
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Section 3: Convert to File ── */}
+        <section>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center text-amber-400">
+              <FileConvertIcon size={18} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight text-white">Convert to File</h2>
+              <p className="text-sm text-[#737373]">Transform content between formats instantly</p>
+            </div>
+          </div>
+
+          {/* File Type Icons Row */}
+          <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
+            {FILE_TYPES.map(ft => (
+              <button
+                key={ft.id}
+                onClick={() => { setInput(`Convert my text to ${ft.label} format: `); textareaRef.current?.focus() }}
+                className="group flex flex-col items-center gap-2 p-3 rounded-xl bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer"
+              >
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center transition-transform duration-200 group-hover:scale-110"
+                  style={{ backgroundColor: `${ft.color}15` }}
+                >
+                  <FileIcon size={18} style={{ color: ft.color }} />
+                </div>
+                <span className="text-[11px] font-medium text-[#737373] group-hover:text-white transition-colors">{ft.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Quick conversion prompts */}
+          <div className="flex flex-wrap gap-2 mt-4">
+            {['PDF report', 'Excel sheet', 'Presentation', 'HTML page', 'JSON data'].map(tag => (
+              <button
+                key={tag}
+                onClick={() => { setInput(`Convert to ${tag}: `); textareaRef.current?.focus() }}
+                className="px-3 py-1.5 rounded-full text-xs font-medium bg-[#111] border border-[#1f1f1f] text-[#737373] hover:bg-[#1a1a1a] hover:border-[#2a2a2a] hover:text-white transition-all duration-200"
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Section 4: Artifacts Gallery (The Big Feature) ── */}
+        <section>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500/20 to-rose-500/20 flex items-center justify-center text-red-400">
+              <SparkIcon size={16} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight text-white">Create Artifacts</h2>
+              <p className="text-sm text-[#737373]">Interactive code previews — websites, charts, diagrams & more</p>
+            </div>
+          </div>
+
+          {/* Artifact type cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: 'Interactive Dashboard', desc: 'Data tables & charts', emoji: '📊', color: 'from-blue-500/10 to-cyan-500/10', prompt: 'Create an interactive analytics dashboard with charts' },
+              { label: 'SVG Diagram', desc: 'Flowcharts & diagrams', emoji: '🔀', color: 'from-violet-500/10 to-purple-500/10', prompt: 'Create an SVG flowchart diagram' },
+              { label: 'Mini App', desc: 'Interactive web apps', emoji: '⚡', color: 'from-amber-500/10 to-yellow-500/10', prompt: 'Build a mini web app with' },
+              { label: 'Data Visualization', desc: 'Charts & graphs', emoji: '📈', color: 'from-emerald-500/10 to-green-500/10', prompt: 'Create a data visualization chart' },
+            ].map(item => (
+              <button
+                key={item.label}
+                onClick={() => { setInput(item.prompt + ': '); textareaRef.current?.focus() }}
+                className={`group p-4 rounded-xl bg-gradient-to-br ${item.color} border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer text-left`}
+              >
+                <div className="text-2xl mb-2">{item.emoji}</div>
+                <h3 className="text-sm font-medium text-white/90 mb-1 group-hover:text-white transition-colors">{item.label}</h3>
+                <p className="text-xs text-[#525252]">{item.desc}</p>
+              </button>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      {/* ── ChatClient CSS ── */}
       <style jsx>{`
         .chat-container-expanded {
           width: 100%;
@@ -254,9 +412,6 @@ export default function HomePage() {
           box-shadow: none !important;
           border-color: transparent !important;
         }
-        .chat-textarea-expanded::placeholder {
-          color: #525252;
-        }
 
         .chat-toolbar-expanded {
           display: flex;
@@ -270,10 +425,6 @@ export default function HomePage() {
           align-items: center;
           gap: 4px;
           flex-shrink: 0;
-        }
-        .chat-toolbar-left {
-          flex-wrap: nowrap;
-          gap: 2px;
         }
 
         .chat-toolbar-btn {
@@ -328,9 +479,6 @@ export default function HomePage() {
           background: #ffffff;
           transform: scale(1.05);
         }
-        .chat-submit-btn-active:active {
-          transform: scale(0.95);
-        }
 
         .chat-typewriter-placeholder {
           position: absolute;
@@ -344,19 +492,12 @@ export default function HomePage() {
           cursor: text;
         }
 
-        .starter-pills-row {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          overflow-x: auto;
-          overflow-y: hidden;
-          -webkit-overflow-scrolling: touch;
-          overscroll-behavior-x: contain;
-          scrollbar-width: none;
-          padding: 4px 4px 4px 0;
+        @keyframes fade-up {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        .starter-pills-row::-webkit-scrollbar {
-          display: none;
+        .animate-fade-up {
+          animation: fade-up 0.5s ease-out forwards;
         }
       `}</style>
     </main>
