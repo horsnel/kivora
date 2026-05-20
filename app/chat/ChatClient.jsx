@@ -1678,10 +1678,10 @@ export default function ChatClient() {
                       <div className="opacity-0 group-hover:opacity-100 mt-1.5 flex items-center gap-3 transition-all">
                         <button
                           onClick={() => copy(msg.content, i)}
-                          className="flex items-center gap-1 text-caption text-muted hover:text-[#e2e2e2] transition-colors"
+                          className="flex items-center justify-center text-muted hover:text-[#e2e2e2] transition-colors"
+                          title={copiedIndex === i ? t('common.copied') : t('common.copy')}
                         >
                           {copiedIndex === i ? <IconCheck size={12} /> : <IconCopy size={12} />}
-                          {copiedIndex === i ? t('common.copied') : t('common.copy')}
                         </button>
                       </div>
                     )}
