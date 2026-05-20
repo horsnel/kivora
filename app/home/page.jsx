@@ -15,34 +15,40 @@ const TYPEWRITER_PHRASES = [
   'Write Python code to scrape data',
 ]
 
-// ── Sample gallery data (would be dynamic from DB in production) ──
+// ── Real image prompts for gallery ──
 const SAMPLE_IMAGES = [
-  { prompt: 'Sunset over Lagos skyline', seed: 'lagos-sunset' },
-  { prompt: 'Afrofuturist city concept', seed: 'afro-city' },
-  { prompt: 'Minimalist tech startup logo', seed: 'tech-logo' },
-  { prompt: 'Colorful African patterns', seed: 'african-pattern' },
-  { prompt: 'Modern workspace design', seed: 'workspace' },
-  { prompt: 'Neon cyberpunk portrait', seed: 'cyberpunk' },
+  { prompt: 'A stunning sunset over Lagos skyline with golden light reflecting on the water', seed: 'lagos-sunset-2' },
+  { prompt: 'Afrofuturist city concept art with neon lights and towering architecture', seed: 'afro-city-2' },
+  { prompt: 'Minimalist tech startup logo design on dark background', seed: 'tech-logo-2' },
+  { prompt: 'Colorful African Ankara patterns and textile art', seed: 'african-pattern-2' },
+  { prompt: 'Modern workspace design with dual monitors and plants', seed: 'workspace-2' },
+  { prompt: 'Neon cyberpunk portrait of a woman with glowing eyes', seed: 'cyberpunk-2' },
+  { prompt: 'A peaceful mountain landscape with aurora borealis', seed: 'aurora-mountain' },
+  { prompt: 'Steampunk mechanical clock with golden gears closeup', seed: 'steampunk-clock' },
+  { prompt: 'Underwater coral reef with tropical fish in sunlight', seed: 'coral-reef' },
+  { prompt: 'Japanese cherry blossom garden with a red bridge', seed: 'cherry-blossom' },
+  { prompt: 'Futuristic space station orbiting Earth at sunset', seed: 'space-station' },
+  { prompt: 'Watercolor painting of a cozy European village', seed: 'watercolor-village' },
 ]
 
 const SAMPLE_WEBSITES = [
-  { title: 'SaaS Landing Page', desc: 'Modern pricing page with gradient hero', icon: 'Layout' },
-  { title: 'Analytics Dashboard', desc: 'Data visualization with charts', icon: 'BarChart3' },
-  { title: 'Portfolio Site', desc: 'Minimal developer portfolio', icon: 'User' },
-  { title: 'E-commerce Store', desc: 'Product catalog with cart', icon: 'ShoppingCart' },
-  { title: 'Blog Template', desc: 'Clean reading experience', icon: 'FileText' },
-  { title: 'Chat Interface', desc: 'Real-time messaging UI', icon: 'MessageSquare' },
+  { title: 'SaaS Landing Page', desc: 'Modern pricing page with gradient hero', prompt: 'Build a SaaS landing page' },
+  { title: 'Analytics Dashboard', desc: 'Data visualization with charts and metrics', prompt: 'Build an analytics dashboard' },
+  { title: 'Portfolio Site', desc: 'Minimal developer portfolio with projects', prompt: 'Build a portfolio website' },
+  { title: 'E-commerce Store', desc: 'Product catalog with shopping cart', prompt: 'Build an e-commerce store' },
+  { title: 'Blog Template', desc: 'Clean reading experience with categories', prompt: 'Build a blog template' },
+  { title: 'Chat Interface', desc: 'Real-time messaging UI with threads', prompt: 'Build a chat interface' },
 ]
 
 const FILE_TYPES = [
-  { id: 'pdf', label: 'PDF', color: '#ef4444', icon: 'FileText', from: ['markdown', 'html', 'text'] },
-  { id: 'docx', label: 'DOCX', color: '#3b82f6', icon: 'FileText', from: ['markdown', 'text'] },
-  { id: 'xlsx', label: 'XLSX', color: '#22c55e', icon: 'Table', from: ['csv', 'json'] },
-  { id: 'csv', label: 'CSV', color: '#f59e0b', icon: 'Table2', from: ['json'] },
-  { id: 'json', label: 'JSON', color: '#a855f7', icon: 'Braces', from: ['csv'] },
-  { id: 'html', label: 'HTML', color: '#f97316', icon: 'Code', from: ['markdown', 'text'] },
-  { id: 'md', label: 'Markdown', color: '#6b7280', icon: 'Hash', from: ['html'] },
-  { id: 'yaml', label: 'YAML', color: '#ec4899', icon: 'FileJson', from: ['json'] },
+  { id: 'pdf', label: 'PDF', color: '#ef4444' },
+  { id: 'docx', label: 'DOCX', color: '#3b82f6' },
+  { id: 'xlsx', label: 'XLSX', color: '#22c55e' },
+  { id: 'csv', label: 'CSV', color: '#f59e0b' },
+  { id: 'json', label: 'JSON', color: '#a855f7' },
+  { id: 'html', label: 'HTML', color: '#f97316' },
+  { id: 'md', label: 'Markdown', color: '#6b7280' },
+  { id: 'yaml', label: 'YAML', color: '#ec4899' },
 ]
 
 // ── SVG Icon Components ──
@@ -55,17 +61,11 @@ function LayoutIcon({ size = 20 }) {
 function FileConvertIcon({ size = 20 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m12 18-2-2 2-2"/><path d="m16 14 2 2-2 2"/></svg>
 }
-function ArrowRightIcon({ size = 16 }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-}
 function SparkIcon({ size = 16 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
 }
 function WebIcon({ size = 20 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
-}
-function FileIcon({ size = 20 }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
 }
 
 export default function HomePage() {
@@ -77,6 +77,9 @@ export default function HomePage() {
   const [placeholderText, setPlaceholderText] = useState('')
   const textareaRef = useRef(null)
   const typewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
+  const scrollContainerRef = useRef(null)
+  const websiteScrollRef = useRef(null)
+  const fileScrollRef = useRef(null)
 
   // Typewriter animation
   useEffect(() => {
@@ -137,19 +140,19 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white overflow-y-auto">
-      {/* ── Hero Section ── */}
-      <div className="flex flex-col items-center pt-16 sm:pt-24 pb-8 px-4">
-        {/* Greeting */}
-        {displayName && (
-          <div className="text-center mb-8 animate-fade-up">
-            <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-2">
-              {getGreeting()}, <span className="text-red-500">{displayName}</span>
-            </h1>
-          </div>
-        )}
+      {/* ── Good Morning Builder ── */}
+      <div className="flex flex-col items-center pt-12 sm:pt-16 pb-4 px-4">
+        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-1 animate-fade-up">
+          {getGreeting()}, <span className="text-red-500">{displayName || t('discover.builder')}</span>
+        </h1>
+        <p className="text-[#737373] text-sm sm:text-base animate-fade-up">
+          {t('discover.greeting.subtitle')}
+        </p>
+      </div>
 
-        {/* ── Chat Bar ── */}
-        <div className="w-full max-w-2xl animate-fade-up">
+      {/* ── Chat Bar ── */}
+      <div className="flex justify-center px-4 pb-8 animate-fade-up">
+        <div className="w-full max-w-2xl">
           <div className="chat-container-expanded">
             <textarea
               ref={textareaRef}
@@ -191,27 +194,32 @@ export default function HomePage() {
       </div>
 
       {/* ── Capability Sections ── */}
-      <div className="max-w-5xl mx-auto px-4 pb-16 space-y-12">
+      <div className="max-w-5xl mx-auto px-4 pb-16 space-y-10">
 
-        {/* ── Section 1: Generate Images ── */}
+        {/* ── Section 1: Generate Images ── Horizontal scrollable */}
         <section>
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center text-purple-400">
-              <ImageIcon size={18} />
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center text-purple-400">
+              <ImageIcon size={16} />
             </div>
             <div>
-              <h2 className="text-lg font-semibold tracking-tight text-white">Generate Images</h2>
-              <p className="text-sm text-[#737373]">Create stunning visuals from text descriptions</p>
+              <h2 className="text-base font-semibold tracking-tight text-white">Generate Images</h2>
+              <p className="text-xs text-[#737373]">Create stunning visuals from text descriptions</p>
             </div>
           </div>
 
-          {/* Image Gallery Row */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {/* Horizontal scrollable image gallery */}
+          <div
+            ref={scrollContainerRef}
+            className="flex gap-3 overflow-x-auto overscroll-x-contain pb-2 scrollbar-hide"
+            style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+          >
             {SAMPLE_IMAGES.map((img, i) => (
               <button
                 key={img.seed}
                 onClick={() => { setInput(`Generate an image: ${img.prompt}`); textareaRef.current?.focus() }}
-                className="group relative aspect-square rounded-xl overflow-hidden bg-[#111] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer"
+                className="group relative shrink-0 w-[200px] h-[200px] rounded-xl overflow-hidden bg-[#111] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer"
+                style={{ scrollSnapAlign: 'start' }}
               >
                 <img
                   src={`https://image.pollinations.ai/prompt/${encodeURIComponent(img.prompt)}?width=400&height=400&nologo=true&seed=${img.seed}&model=flux`}
@@ -220,15 +228,15 @@ export default function HomePage() {
                   loading="lazy"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-3">
-                  <p className="text-xs text-white/90 font-medium line-clamp-2">{img.prompt}</p>
+                <div className="absolute bottom-0 left-0 right-0 p-2.5">
+                  <p className="text-[11px] text-white/90 font-medium line-clamp-2">{img.prompt}</p>
                 </div>
               </button>
             ))}
           </div>
 
           {/* Quick prompts */}
-          <div className="flex flex-wrap gap-2 mt-4">
+          <div className="flex flex-wrap gap-2 mt-3">
             {['Landscape', 'Portrait', 'Logo', 'Icon', 'Illustration'].map(tag => (
               <button
                 key={tag}
@@ -241,41 +249,54 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── Section 2: Build Websites ── */}
+        {/* ── Section 2: Build Websites ── Vertical single line, rectangular, scrollable */}
         <section>
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center text-emerald-400">
-              <WebIcon size={18} />
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center text-emerald-400">
+              <WebIcon size={16} />
             </div>
             <div>
-              <h2 className="text-lg font-semibold tracking-tight text-white">Build Websites</h2>
-              <p className="text-sm text-[#737373]">Generate complete web pages with live preview</p>
+              <h2 className="text-base font-semibold tracking-tight text-white">Build Websites</h2>
+              <p className="text-xs text-[#737373]">Generate complete web pages with live preview</p>
             </div>
           </div>
 
-          {/* Website Preview Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {/* Vertical single line, rectangular cards, scrollable */}
+          <div
+            ref={websiteScrollRef}
+            className="flex flex-col gap-2.5 max-h-[340px] overflow-y-auto overscroll-y-contain pr-1"
+            style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}
+          >
             {SAMPLE_WEBSITES.map((site, i) => (
               <button
                 key={site.title}
-                onClick={() => { setInput(`Build a ${site.title.toLowerCase()}: ${site.desc}`); textareaRef.current?.focus() }}
-                className="group p-4 rounded-xl bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer text-left"
+                onClick={() => { setInput(`${site.prompt}: ${site.desc}`); textareaRef.current?.focus() }}
+                className="group flex items-center gap-4 w-full p-3.5 rounded-xl bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer text-left"
               >
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/10 to-teal-500/10 flex items-center justify-center text-emerald-500/60 mb-3">
-                  <LayoutIcon size={16} />
+                {/* Rectangular preview thumbnail */}
+                <div className="w-24 h-16 rounded-lg bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-[#1f1f1f] flex items-center justify-center shrink-0 overflow-hidden">
+                  <img
+                    src={`https://image.pollinations.ai/prompt/${encodeURIComponent(site.title + ' website screenshot minimal clean design')}${'&width=200&height=130&nologo=true&seed=' + site.title.replace(/\s/g, '-')}`}
+                    alt={site.title}
+                    className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity duration-300"
+                    loading="lazy"
+                  />
                 </div>
-                <h3 className="text-sm font-medium text-white/90 mb-1 group-hover:text-white transition-colors">{site.title}</h3>
-                <p className="text-xs text-[#525252] leading-relaxed">{site.desc}</p>
-                <div className="mt-3 flex items-center gap-1 text-[10px] text-emerald-500/60 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <SparkIcon size={10} />
-                  <span>Generate with AI</span>
+                {/* Text content */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-medium text-white/90 mb-0.5 group-hover:text-white transition-colors">{site.title}</h3>
+                  <p className="text-xs text-[#525252] leading-relaxed">{site.desc}</p>
+                </div>
+                {/* Arrow */}
+                <div className="shrink-0 text-[#525252] group-hover:text-emerald-400 transition-colors">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                 </div>
               </button>
             ))}
           </div>
 
           {/* Quick prompts */}
-          <div className="flex flex-wrap gap-2 mt-4">
+          <div className="flex flex-wrap gap-2 mt-3">
             {['Landing page', 'Dashboard', 'Portfolio', 'Blog', 'E-commerce'].map(tag => (
               <button
                 key={tag}
@@ -288,39 +309,56 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── Section 3: Convert to File ── */}
+        {/* ── Section 3: Convert to File ── Vertical single line, scrollable */}
         <section>
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center text-amber-400">
-              <FileConvertIcon size={18} />
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center text-amber-400">
+              <FileConvertIcon size={16} />
             </div>
             <div>
-              <h2 className="text-lg font-semibold tracking-tight text-white">Convert to File</h2>
-              <p className="text-sm text-[#737373]">Transform content between formats instantly</p>
+              <h2 className="text-base font-semibold tracking-tight text-white">Convert to File</h2>
+              <p className="text-xs text-[#737373]">Transform content between formats instantly</p>
             </div>
           </div>
 
-          {/* File Type Icons Row */}
-          <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
+          {/* Vertical single line, scrollable */}
+          <div
+            ref={fileScrollRef}
+            className="flex flex-col gap-2 max-h-[320px] overflow-y-auto overscroll-y-contain pr-1"
+            style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}
+          >
             {FILE_TYPES.map(ft => (
               <button
                 key={ft.id}
                 onClick={() => { setInput(`Convert my text to ${ft.label} format: `); textareaRef.current?.focus() }}
-                className="group flex flex-col items-center gap-2 p-3 rounded-xl bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer"
+                className="group flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer text-left"
               >
+                {/* Color indicator dot */}
                 <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center transition-transform duration-200 group-hover:scale-110"
-                  style={{ backgroundColor: `${ft.color}15` }}
-                >
-                  <FileIcon size={18} style={{ color: ft.color }} />
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ backgroundColor: ft.color }}
+                />
+                {/* Label */}
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium text-white/90 group-hover:text-white transition-colors">{ft.label}</span>
                 </div>
-                <span className="text-[11px] font-medium text-[#737373] group-hover:text-white transition-colors">{ft.label}</span>
+                {/* Color badge */}
+                <div
+                  className="px-2.5 py-0.5 rounded-md text-[10px] font-semibold shrink-0"
+                  style={{ backgroundColor: `${ft.color}15`, color: ft.color }}
+                >
+                  {ft.id.toUpperCase()}
+                </div>
+                {/* Arrow */}
+                <div className="shrink-0 text-[#525252] group-hover:text-white transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </div>
               </button>
             ))}
           </div>
 
           {/* Quick conversion prompts */}
-          <div className="flex flex-wrap gap-2 mt-4">
+          <div className="flex flex-wrap gap-2 mt-3">
             {['PDF report', 'Excel sheet', 'Presentation', 'HTML page', 'JSON data'].map(tag => (
               <button
                 key={tag}
@@ -333,41 +371,57 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── Section 4: Artifacts Gallery (The Big Feature) ── */}
+        {/* ── Section 4: Create Artifacts ── Vertical single line, scrollable */}
         <section>
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500/20 to-rose-500/20 flex items-center justify-center text-red-400">
-              <SparkIcon size={16} />
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-red-500/20 to-rose-500/20 flex items-center justify-center text-red-400">
+              <SparkIcon size={14} />
             </div>
             <div>
-              <h2 className="text-lg font-semibold tracking-tight text-white">Create Artifacts</h2>
-              <p className="text-sm text-[#737373]">Interactive code previews — websites, charts, diagrams & more</p>
+              <h2 className="text-base font-semibold tracking-tight text-white">Create Artifacts</h2>
+              <p className="text-xs text-[#737373]">Interactive code previews — websites, charts, diagrams & more</p>
             </div>
           </div>
 
-          {/* Artifact type cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* Artifact type cards — vertical single line, scrollable */}
+          <div
+            className="flex flex-col gap-2 max-h-[320px] overflow-y-auto overscroll-y-contain pr-1"
+            style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}
+          >
             {[
-              { label: 'Interactive Dashboard', desc: 'Data tables & charts', emoji: '📊', color: 'from-blue-500/10 to-cyan-500/10', prompt: 'Create an interactive analytics dashboard with charts' },
-              { label: 'SVG Diagram', desc: 'Flowcharts & diagrams', emoji: '🔀', color: 'from-violet-500/10 to-purple-500/10', prompt: 'Create an SVG flowchart diagram' },
-              { label: 'Mini App', desc: 'Interactive web apps', emoji: '⚡', color: 'from-amber-500/10 to-yellow-500/10', prompt: 'Build a mini web app with' },
-              { label: 'Data Visualization', desc: 'Charts & graphs', emoji: '📈', color: 'from-emerald-500/10 to-green-500/10', prompt: 'Create a data visualization chart' },
+              { label: 'Interactive Dashboard', desc: 'Data tables & charts with real-time updates', color: 'from-blue-500/10 to-cyan-500/10', borderColor: 'border-blue-500/10 hover:border-blue-500/20', prompt: 'Create an interactive analytics dashboard with charts' },
+              { label: 'SVG Diagram', desc: 'Flowcharts, system diagrams & architecture', color: 'from-violet-500/10 to-purple-500/10', borderColor: 'border-violet-500/10 hover:border-violet-500/20', prompt: 'Create an SVG flowchart diagram' },
+              { label: 'Mini App', desc: 'Interactive web apps with buttons & forms', color: 'from-amber-500/10 to-yellow-500/10', borderColor: 'border-amber-500/10 hover:border-amber-500/20', prompt: 'Build a mini web app with' },
+              { label: 'Data Visualization', desc: 'Charts, graphs & animated visualizations', color: 'from-emerald-500/10 to-green-500/10', borderColor: 'border-emerald-500/10 hover:border-emerald-500/20', prompt: 'Create a data visualization chart' },
             ].map(item => (
               <button
                 key={item.label}
                 onClick={() => { setInput(item.prompt + ': '); textareaRef.current?.focus() }}
-                className={`group p-4 rounded-xl bg-gradient-to-br ${item.color} border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer text-left`}
+                className={`group flex items-center gap-4 w-full p-3.5 rounded-xl bg-gradient-to-br ${item.color} border ${item.borderColor} transition-all duration-200 cursor-pointer text-left`}
               >
-                <div className="text-2xl mb-2">{item.emoji}</div>
-                <h3 className="text-sm font-medium text-white/90 mb-1 group-hover:text-white transition-colors">{item.label}</h3>
-                <p className="text-xs text-[#525252]">{item.desc}</p>
+                {/* Icon */}
+                <div className="w-10 h-10 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center shrink-0 text-base">
+                  {item.label === 'Interactive Dashboard' && '📊'}
+                  {item.label === 'SVG Diagram' && '🔀'}
+                  {item.label === 'Mini App' && '⚡'}
+                  {item.label === 'Data Visualization' && '📈'}
+                </div>
+                {/* Text */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-medium text-white/90 mb-0.5 group-hover:text-white transition-colors">{item.label}</h3>
+                  <p className="text-xs text-[#525252]">{item.desc}</p>
+                </div>
+                {/* Arrow */}
+                <div className="shrink-0 text-[#525252] group-hover:text-red-400 transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </div>
               </button>
             ))}
           </div>
         </section>
       </div>
 
-      {/* ── ChatClient CSS ── */}
+      {/* ── CSS ── */}
       <style jsx>{`
         .chat-container-expanded {
           width: 100%;
@@ -490,6 +544,15 @@ export default function HomePage() {
           line-height: 1.6;
           pointer-events: auto;
           cursor: text;
+        }
+
+        /* Hide scrollbar for horizontal scroll */
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
 
         @keyframes fade-up {
