@@ -7,6 +7,10 @@ const ALLOWED_MODEL_IDS = ALLOWED_MODELS.map(m => m.id)
 
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY || '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'
 
+const JUDGE0_URL = 'https://ce.judge0.com/submissions?base64_encoded=false&wait=true'
+
+const VALID_LANGUAGE_IDS = new Set([71, 63, 74, 62, 54, 50, 60, 73, 72, 68, 46, 82])
+
 const tools = [
   {
     type: 'function',
@@ -24,18 +28,54 @@ const tools = [
         required: ['query']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'execute_code',
+      description: 'Execute code in an isolated sandbox and return the output. Use this when you need to: verify code behavior, test outputs, perform calculations, demonstrate results, run algorithms, or show what a program produces. The code runs in a secure sandbox with no network access.',
+      parameters: {
+        type: 'object',
+        properties: {
+          code: {
+            type: 'string',
+            description: 'The complete source code to execute. Must be self-contained with all imports and setup.'
+          },
+          language_id: {
+            type: 'number',
+            description: 'Judge0 language ID. Common: 71=Python, 63=JavaScript, 74=TypeScript, 62=Java, 54=C++, 50=C, 60=Go, 73=Rust, 46=Bash, 82=SQL'
+          },
+          stdin: {
+            type: 'string',
+            description: 'Optional input to feed to the program via stdin'
+          }
+        },
+        required: ['code', 'language_id']
+      }
+    }
   }
 ]
 
-const SEARCH_TOOL_INSTRUCTION = `
+const TOOL_INSTRUCTIONS = `
 
-You have access to a web_search tool. USE IT when the user asks about:
+You have access to two tools:
+
+1. **web_search** — USE IT when the user asks about:
 - Current prices, exchange rates, stock prices
 - Recent news or events
 - Weather, sports results
 - Anything that changes over time
 - Comparisons of current tools/software/pricing
-DO NOT use search for general knowledge, coding help, math, or creative writing.`
+DO NOT use search for general knowledge, coding help, math, or creative writing.
+
+2. **execute_code** — USE IT when:
+- The user asks "what does this code output?" or "run this code"
+- You need to verify your code actually works before presenting it
+- You need to compute something complex (math, algorithms, data processing) and showing the real output is more convincing than describing it
+- The user asks you to test, debug, or demonstrate code behavior
+- You want to show the actual output of a program alongside the code
+When you execute code, ALWAYS present the code in a markdown code block FIRST, then show the execution output. This way the user sees both the code and the result.
+DO NOT use execute_code for trivial calculations you can do mentally, or for code that requires network access, file system access, or long-running processes.`
 
 export async function POST(req) {
   const ip = req.headers.get('x-forwarded-for') || 'unknown'
@@ -128,7 +168,7 @@ The user has attached an image. Describe what you see in detail and answer any q
 Before presenting any code, silently verify: syntax correctness, variable consistency (declared before use), all imports included, function signatures matching their usage, correct return types, and null/edge-case handling. If code is wrong, fix it silently before presenting — never output broken code. Always provide complete, runnable code with all imports and setup, never using "..." to skip parts. Tag code blocks with the correct language. Code can be executed via the Run button on this platform (supports JavaScript, Python, Java, C++, Go, and more). For code requiring input, include sample input as comments.
 
 Stay context-aware: reference the user's earlier messages, frameworks, and language preferences. Think project-wide — suggest where files belong, flag missing dependencies, and consider configuration. Proactively suggest improvements when you spot issues. Your expertise spans programming, web development, AI/ML, data science, DevOps, system design, mathematics, science, business strategy, and academic writing. For tool recommendations, include a table with Tool, Cost, and Best For columns. Keep responses comprehensive yet scannable — use --- to separate major sections in long responses.
-${wikiContext ? `\nRelevant platform knowledge:\n${wikiContext}` : ''}${SEARCH_TOOL_INSTRUCTION}`
+${wikiContext ? `\nRelevant platform knowledge:\n${wikiContext}` : ''}${TOOL_INSTRUCTIONS}`
         },
         ...messages.slice(-12)
       ]
@@ -145,17 +185,19 @@ ${wikiContext ? `\nRelevant platform knowledge:\n${wikiContext}` : ''}${SEARCH_T
 
     const message = chat.choices[0].message
 
-    // Handle tool calls — AI decides when to search
+    // Handle tool calls — AI decides when to search or execute code
     if (useTools && message.tool_calls && message.tool_calls.length > 0) {
       let searchResults = null
       let searchQuery = ''
+      let codeExecResult = null
+      let codeExecMeta = null
 
+      // Process each tool call sequentially
       for (const toolCall of message.tool_calls) {
         if (toolCall.function.name === 'web_search') {
           const args = JSON.parse(toolCall.function.arguments)
           searchQuery = args.query
 
-          // Call Tavily search
           try {
             const searchResponse = await fetch('https://api.tavily.com/search', {
               method: 'POST',
@@ -178,15 +220,53 @@ ${wikiContext ? `\nRelevant platform knowledge:\n${wikiContext}` : ''}${SEARCH_T
             console.error('[chat] Tavily search error:', searchErr)
           }
         }
+
+        if (toolCall.function.name === 'execute_code') {
+          const args = JSON.parse(toolCall.function.arguments)
+          const { code, language_id, stdin = '' } = args
+
+          if (!code || !language_id || !VALID_LANGUAGE_IDS.has(language_id)) {
+            codeExecResult = { error: `Invalid or unsupported language_id: ${language_id}` }
+          } else {
+            try {
+              const execResponse = await fetch(JUDGE0_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source_code: code, language_id, stdin })
+              })
+
+              if (!execResponse.ok) {
+                codeExecResult = { error: `Execution service error: ${execResponse.status}` }
+              } else {
+                const execData = await execResponse.json()
+                codeExecResult = {
+                  stdout: execData.stdout || null,
+                  stderr: execData.stderr || null,
+                  compile_output: execData.compile_output || null,
+                  status: execData.status?.description || 'Unknown',
+                  status_id: execData.status?.id || null,
+                  exit_code: execData.exit_code ?? null,
+                  time: execData.time || null,
+                  memory: execData.memory || null
+                }
+                codeExecMeta = { language_id, time: execData.time, memory: execData.memory }
+              }
+            } catch (execErr) {
+              console.error('[chat] Code execution error:', execErr)
+              codeExecResult = { error: 'Code execution failed' }
+            }
+          }
+        }
       }
 
-      // Build tool response message
-      const toolMessages = [
-        message,  // The assistant's tool_call message
-        {
-          role: 'tool',
-          tool_call_id: message.tool_calls[0].id,
-          content: searchResults
+      // Build tool response messages — one per tool call
+      const toolMessages = [message]  // Start with the assistant's tool_call message
+
+      for (const toolCall of message.tool_calls) {
+        let content = ''
+
+        if (toolCall.function.name === 'web_search') {
+          content = searchResults
             ? JSON.stringify({
                 answer: searchResults.answer,
                 results: searchResults.results?.map(r => ({
@@ -197,9 +277,39 @@ ${wikiContext ? `\nRelevant platform knowledge:\n${wikiContext}` : ''}${SEARCH_T
               })
             : 'Search failed. Respond based on your existing knowledge.'
         }
-      ]
 
-      // Make a second call with the search results
+        if (toolCall.function.name === 'execute_code') {
+          if (codeExecResult?.error) {
+            content = JSON.stringify({ error: codeExecResult.error })
+          } else {
+            // Build a clean output summary for the AI
+            const STATUS_OK = new Set([3, 4])
+            const isOk = STATUS_OK.has(codeExecResult.status_id)
+            let output = ''
+            if (codeExecResult.stdout) output += codeExecResult.stdout
+            if (codeExecResult.compile_output) output += (output ? '\n' : '') + codeExecResult.compile_output
+            if (codeExecResult.stderr) output += (output ? '\n' : '') + codeExecResult.stderr
+            if (!output) output = '(no output)'
+
+            content = JSON.stringify({
+              success: isOk,
+              status: codeExecResult.status,
+              exit_code: codeExecResult.exit_code,
+              output,
+              time: codeExecResult.time,
+              memory: codeExecResult.memory
+            })
+          }
+        }
+
+        toolMessages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content
+        })
+      }
+
+      // Make a second call with the tool results
       const finalChat = await groqChat({
         model,
         messages: [...apiMessages, ...toolMessages],
@@ -234,13 +344,17 @@ ${wikiContext ? `\nRelevant platform knowledge:\n${wikiContext}` : ''}${SEARCH_T
         } catch (_) {}
       }
 
-      // Return with search metadata so the UI can show a search indicator
-      return Response.json({
-        reply,
-        model,
-        searchUsed: true,
-        searchQuery
-      })
+      // Return with metadata so the UI can show indicators
+      const response = { reply, model }
+      if (searchQuery) {
+        response.searchUsed = true
+        response.searchQuery = searchQuery
+      }
+      if (codeExecResult) {
+        response.codeExecuted = true
+        response.codeExecMeta = codeExecMeta
+      }
+      return Response.json(response)
     }
 
     // Normal response, no search needed

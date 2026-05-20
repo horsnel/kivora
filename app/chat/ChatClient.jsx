@@ -585,6 +585,9 @@ export default function ChatClient() {
         assistantMsg.searchUsed = true
         assistantMsg.searchQuery = data.searchQuery || ''
       }
+      if (data.codeExecuted) {
+        assistantMsg.codeExecuted = true
+      }
       setMessages(prev => [...prev, assistantMsg])
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: t('chat.error.network') }])
@@ -1419,6 +1422,14 @@ export default function ChatClient() {
                         <span className="text-[11px] text-[#525252]">Searched: &quot;{msg.searchQuery}&quot;</span>
                       </div>
                     )}
+                    {msg.role === 'assistant' && msg.codeExecuted && (
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
+                        </svg>
+                        <span className="text-[11px] text-[#4ade80]/70">Code executed</span>
+                      </div>
+                    )}
                     {msg.role === 'assistant' ? (
                       msg.isImage && msg.imageData ? (
                         <div className="space-y-2">
@@ -1906,6 +1917,17 @@ export default function ChatClient() {
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z"/><path d="M12 12l9-4.5"/><path d="M12 12v9"/><path d="M12 12L3 7.5"/>
+                      </svg>
+                    </button>
+
+                    {/* Terminal mode toggle */}
+                    <button
+                      className={`chat-toolbar-btn ${terminalMode ? 'chat-toolbar-btn-active' : ''}`}
+                      onClick={() => setTerminalMode(!terminalMode)}
+                      title={terminalMode ? 'Switch to chat mode' : 'Live terminal'}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
                       </svg>
                     </button>
 
