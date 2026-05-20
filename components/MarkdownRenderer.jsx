@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback, useRef, useEffect, createPortal } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Highlight, themes } from 'prism-react-renderer'
@@ -102,263 +102,62 @@ const kivoraTheme = {
   ],
 }
 
-const COLLAPSE_LINES = 12
+/* ─── Detect if code is browser-previewable (HTML/CSS/JS) ─────── */
+function isBrowserPreviewable(className, codeText) {
+  if (!className) return false
+  const match = className.match(/language-(\w+)/)
+  if (!match) return false
+  const lang = match[1].toLowerCase()
+  // HTML is always previewable
+  if (lang === 'html') return true
+  // CSS alone isn't really previewable without HTML
+  if (lang === 'css') return false
+  // JS/JSX/TS/TSX - check if it contains HTML-like content (DOM manipulation)
+  if (['js', 'javascript', 'jsx', 'ts', 'typescript', 'tsx'].includes(lang)) {
+    // Only if it contains document.write or innerHTML or creates HTML
+    return /document\.write|innerHTML|createElement|\.append\(|\.prepend\(|\.replaceWith\(/i.test(codeText)
+  }
+  return false
+}
 
 /* ─── Syntax-Highlighted Code ──────────────────────────────────── */
-function SyntaxCode({ code, language, maxLines, expanded }) {
+function SyntaxCode({ code, language }) {
   return (
     <Highlight theme={kivoraTheme} code={code} language={language}>
-      {({ style, tokens, getLineProps, getTokenProps }) => {
-        const visibleTokens = expanded ? tokens : tokens.slice(0, maxLines)
-        return (
-          <pre
-            className="font-['SF_Mono',_Fira_Code,_'Courier_New',_monospace] text-[14px] leading-[1.6] overflow-x-auto whitespace-pre"
-            style={{ ...style, background: 'transparent', margin: 0, padding: 0 }}
-          >
-            {visibleTokens.map((line, i) => {
-              const lineProps = getLineProps({ line, key: i })
-              return (
-                <div key={i} {...lineProps} className={lineProps.className || ''} style={{ ...lineProps.style, background: 'transparent' }}>
-                  {line.map((token, key) => (
-                    <span key={key} {...getTokenProps({ token, key })} />
-                  ))}
-                  {line.length === 0 && '\n'}
-                </div>
-              )
-            })}
-          </pre>
-        )
-      }}
+      {({ style, tokens, getLineProps, getTokenProps }) => (
+        <pre
+          className="font-['SF_Mono',_Fira_Code,_'Courier_New',_monospace] text-[13px] leading-[1.55] overflow-x-auto whitespace-pre"
+          style={{ ...style, background: 'transparent', margin: 0, padding: 0 }}
+        >
+          {tokens.map((line, i) => {
+            const lineProps = getLineProps({ line, key: i })
+            return (
+              <div key={i} {...lineProps} className={lineProps.className || ''} style={{ ...lineProps.style, background: 'transparent' }}>
+                {line.map((token, key) => (
+                  <span key={key} {...getTokenProps({ token, key })} />
+                ))}
+                {line.length === 0 && '\n'}
+              </div>
+            )
+          })}
+        </pre>
+      )}
     </Highlight>
   )
 }
 
-/* ─── Full-Screen Code Modal ───────────────────────────────────── */
-function CodeModal({ code, language, langLabel, langId, onClose }) {
-  const [tab, setTab] = useState('code')
-  const [runResult, setRunResult] = useState(null)
-  const [running, setRunning] = useState(false)
-  const [detailsOpen, setDetailsOpen] = useState(false)
-
-  const handleRun = async () => {
-    if (!langId) return
-    setRunning(true)
-    setRunResult(null)
-    setDetailsOpen(false)
-    try {
-      const res = await fetch('/api/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source_code: code, language_id: langId })
-      })
-      const data = await res.json()
-      if (data.error && !data.status) {
-        setRunResult({
-          status: { id: null, description: 'Error' },
-          stderr: data.error,
-          stdout: null,
-          compile_output: data.details || null,
-          exit_code: null, time: null, memory: null
-        })
-      } else {
-        setRunResult(data)
-      }
-    } catch {
-      setRunResult({
-        status: { id: null, description: 'Network Error' },
-        stderr: 'Could not reach the execution server.',
-        stdout: null, compile_output: null,
-        exit_code: null, time: null, memory: null
-      })
-    }
-    setRunning(false)
-    setTab('console')
-  }
-
-  const statusId = runResult?.status?.id
-  const hasError = runResult && STATUS_ERROR.has(statusId)
-  const hasOutput = runResult && (runResult.stdout || runResult.stderr || runResult.compile_output)
-
-  let consoleOutput = ''
-  if (runResult) {
-    if (hasError) {
-      if (runResult.compile_output) consoleOutput += runResult.compile_output
-      if (runResult.stderr) consoleOutput += (consoleOutput ? '\n' : '') + runResult.stderr
-    } else {
-      if (runResult.stdout) consoleOutput = runResult.stdout
-      if (runResult.stderr) consoleOutput += (consoleOutput ? '\n' : '') + runResult.stderr
-    }
-  }
-
-  const hasDetails = runResult && (
-    runResult.status?.description || runResult.exit_code != null || runResult.time || runResult.memory
-  )
-
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
-
-  return createPortal(
-    <div className="fixed inset-0 z-[100] flex flex-col" style={{ background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(10px)' }}>
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] shrink-0">
-        {/* Close */}
-        <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/[0.1] transition-colors">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        </button>
-        {/* Tab switcher */}
-        <div className="flex items-center gap-1 p-1 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }}>
-          <button
-            onClick={() => setTab('code')}
-            className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-all duration-200 ${
-              tab === 'code' ? 'text-white' : 'text-[rgba(255,255,255,0.5)] hover:text-[rgba(255,255,255,0.7)]'
-            }`}
-            style={tab === 'code' ? { background: 'rgba(255,255,255,0.15)' } : {}}
-          >
-            Code
-          </button>
-          <button
-            onClick={() => setTab('console')}
-            className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-all duration-200 flex items-center gap-1.5 ${
-              tab === 'console' ? 'text-white' : 'text-[rgba(255,255,255,0.5)] hover:text-[rgba(255,255,255,0.7)]'
-            }`}
-            style={tab === 'console' ? { background: 'rgba(255,255,255,0.15)' } : {}}
-          >
-            Console
-            {runResult && hasError && (
-              <span className="inline-block w-2 h-2 rounded-full bg-[#F44336]" />
-            )}
-          </button>
-        </div>
-        {/* Run */}
-        {langId ? (
-          <button
-            onClick={handleRun}
-            disabled={running}
-            className="flex items-center gap-2 px-4 py-1.5 rounded-full text-[13px] font-medium transition-all duration-200 disabled:opacity-50"
-            style={{
-              border: '1px solid rgba(255,255,255,0.2)',
-              background: running ? 'rgba(255,255,255,0.05)' : 'transparent',
-              color: 'rgba(255,255,255,0.8)',
-            }}
-          >
-            {running ? (
-              <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-            ) : (
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6V2z"/></svg>
-            )}
-            {running ? 'Running...' : 'Run'}
-          </button>
-        ) : (
-          <div />
-        )}
-      </div>
-      {/* Content */}
-      <div className="flex-1 overflow-auto p-6 max-w-4xl mx-auto w-full">
-        {tab === 'code' ? (
-          <SyntaxCode code={code} language={language} maxLines={Infinity} expanded={true} />
-        ) : (
-          <div className="font-['SF_Mono',_Fira_Code,_'Courier_New',_monospace] text-[14px] leading-[1.6] whitespace-pre">
-            {runResult ? (
-              <>
-                {hasOutput ? (
-                  <>
-                    {runResult.stdout && !hasError && (
-                      <span style={{ color: 'rgba(255,255,255,0.7)' }}>{runResult.stdout}</span>
-                    )}
-                    {hasError ? (
-                      <span style={{ color: '#F44336' }}>{consoleOutput}</span>
-                    ) : (
-                      runResult.stderr && (
-                        <span style={{ color: '#facc15' }}>{runResult.stderr}</span>
-                      )
-                    )}
-                  </>
-                ) : (
-                  <span style={{ color: 'rgba(255,255,255,0.3)' }}>(no output)</span>
-                )}
-                {/* View Error Details */}
-                {(hasDetails || hasError) && (
-                  <div className="mt-4 pt-3 border-t border-white/[0.06]">
-                    <button
-                      onClick={() => setDetailsOpen(!detailsOpen)}
-                      className="flex items-center gap-1 text-[12px] font-mono transition-colors"
-                      style={{ color: 'rgba(255,255,255,0.4)' }}
-                    >
-                      <svg
-                        width="10" height="10" viewBox="0 0 16 16"
-                        fill="none" stroke="currentColor" strokeWidth="1.5"
-                        strokeLinecap="round" strokeLinejoin="round"
-                        className={`transition-transform ${detailsOpen ? 'rotate-90' : ''}`}
-                      >
-                        <path d="M6 4l4 4-4 4" />
-                      </svg>
-                      {hasError ? 'View Error Details' : 'View Details'}
-                    </button>
-                    {detailsOpen && (
-                      <div className="mt-2 space-y-1 text-[12px] font-mono" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                        {runResult.status?.description && (
-                          <div className="flex gap-3">
-                            <span style={{ color: 'rgba(255,255,255,0.3)' }}>Status</span>
-                            <span style={{ color: hasError ? '#F44336' : STATUS_OK.has(statusId) ? '#4CAF50' : '#facc15' }}>
-                              {runResult.status.description}
-                            </span>
-                          </div>
-                        )}
-                        {runResult.exit_code != null && (
-                          <div className="flex gap-3">
-                            <span style={{ color: 'rgba(255,255,255,0.3)' }}>Exit Code</span>
-                            <span style={{ color: runResult.exit_code !== 0 ? '#F44336' : 'rgba(255,255,255,0.7)' }}>
-                              {runResult.exit_code}
-                            </span>
-                          </div>
-                        )}
-                        {runResult.time && (
-                          <div className="flex gap-3">
-                            <span style={{ color: 'rgba(255,255,255,0.3)' }}>Time</span>
-                            <span style={{ color: 'rgba(255,255,255,0.7)' }}>{runResult.time}s</span>
-                          </div>
-                        )}
-                        {runResult.memory && (
-                          <div className="flex gap-3">
-                            <span style={{ color: 'rgba(255,255,255,0.3)' }}>Memory</span>
-                            <span style={{ color: 'rgba(255,255,255,0.7)' }}>{(runResult.memory / 1024).toFixed(1)} KB</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            ) : (
-              <span style={{ color: 'rgba(255,255,255,0.3)' }}>Run the code to see output here</span>
-            )}
-          </div>
-        )}
-      </div>
-    </div>,
-    document.body
-  )
-}
-
-/* ─── Code Block — ChatGPT-style ───────────────────────────────── */
+/* ─── Code Block — Full preview, split view with Console ──────── */
 function CodeBlock({ langLabel, codeText, codeClassName }) {
   const [copied, setCopied] = useState(false)
-  const [expanded, setExpanded] = useState(false)
   const [running, setRunning] = useState(false)
   const [runResult, setRunResult] = useState(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
-  const [modalOpen, setModalOpen] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const iframeRef = useRef(null)
 
   const langId = getLangId(codeClassName)
   const prismLang = getPrismLang(codeClassName)
-  const lineCount = codeText.split('\n').length
-  const shouldCollapse = lineCount > COLLAPSE_LINES
+  const canPreview = isBrowserPreviewable(codeClassName, codeText)
 
   const copy = useCallback(() => {
     navigator.clipboard.writeText(codeText).then(() => {
@@ -401,6 +200,23 @@ function CodeBlock({ langLabel, codeText, codeClassName }) {
     setRunning(false)
   }
 
+  const handlePreview = () => {
+    setPreviewOpen(!previewOpen)
+    // After toggling open, inject into iframe on next tick
+    if (!previewOpen) {
+      setTimeout(() => {
+        if (iframeRef.current) {
+          const doc = iframeRef.current.contentDocument
+          if (doc) {
+            doc.open()
+            doc.write(codeText)
+            doc.close()
+          }
+        }
+      }, 50)
+    }
+  }
+
   // Execution result helpers
   const statusId = runResult?.status?.id
   const hasError = runResult && STATUS_ERROR.has(statusId)
@@ -421,189 +237,155 @@ function CodeBlock({ langLabel, codeText, codeClassName }) {
     runResult.status?.description || runResult.exit_code != null || runResult.time || runResult.memory
   )
 
+  // Split view: code on left, console on right (for non-browser languages with Run support)
+  const showSplitView = langId && !canPreview && runResult
+
   return (
-    <>
+    <div
+      className="my-3 overflow-hidden max-w-full"
+      style={{
+        background: '#1E1E1E',
+        borderRadius: '12px',
+        border: '1px solid rgba(255,255,255,0.06)',
+      }}
+    >
+      {/* ── Header bar ── */}
       <div
-        className="my-4 overflow-hidden max-w-full"
+        className="flex items-center justify-between"
         style={{
-          background: '#1E1E1E',
-          borderRadius: '16px',
-          border: '1px solid rgba(255,255,255,0.06)',
+          minHeight: '40px',
+          padding: '0 12px',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
         }}
       >
-        {/* ── Header bar ── */}
-        <div
-          className="flex items-center justify-between"
-          style={{
-            minHeight: '48px',
-            padding: '0 16px',
-            borderBottom: '1px solid rgba(255,255,255,0.06)',
-          }}
-        >
-          {/* Left: </> icon + language */}
-          <div className="flex items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="16 18 22 12 16 6" />
-              <polyline points="8 6 2 12 8 18" />
-            </svg>
-            <span className="text-[14px] font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
-              {langLabel || 'Code'}
-            </span>
-          </div>
-          {/* Right: Copy + Expand + Run */}
-          <div className="flex items-center" style={{ gap: '12px' }}>
-            {/* Copy button */}
-            <button
-              onClick={copy}
-              className="flex items-center justify-center transition-colors duration-200 hover:opacity-80"
-              style={{ color: copied ? '#4CAF50' : 'rgba(255,255,255,0.5)' }}
-              aria-label="Copy code"
-            >
-              {copied ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                </svg>
-              )}
-            </button>
-            {/* Expand / Fullscreen button */}
-            <button
-              onClick={() => setModalOpen(true)}
-              className="flex items-center justify-center transition-colors duration-200 hover:opacity-80"
-              style={{ color: 'rgba(255,255,255,0.5)' }}
-              aria-label="Expand code fullscreen"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="15 3 21 3 21 9" />
-                <polyline points="9 21 3 21 3 15" />
-                <line x1="21" y1="3" x2="14" y2="10" />
-                <line x1="3" y1="21" x2="10" y2="14" />
-              </svg>
-            </button>
-            {/* Run button */}
-            {langId ? (
-              <button
-                onClick={handleRun}
-                disabled={running}
-                className="flex items-center gap-1.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  borderRadius: '999px',
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  background: running ? 'rgba(255,255,255,0.05)' : 'transparent',
-                  padding: '8px 16px',
-                  color: 'rgba(255,255,255,0.8)',
-                  fontSize: '14px',
-                }}
-                aria-label="Run code"
-              >
-                {running ? (
-                  <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                ) : (
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6V2z"/></svg>
-                )}
-                <span className="text-[14px]">{running ? 'Running...' : 'Run'}</span>
-              </button>
-            ) : (
-              <button
-                disabled
-                className="flex items-center gap-1.5 cursor-not-allowed opacity-30"
-                style={{
-                  borderRadius: '999px',
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  background: 'transparent',
-                  padding: '8px 16px',
-                  color: 'rgba(255,255,255,0.8)',
-                  fontSize: '14px',
-                }}
-                title="Language not supported for execution"
-                aria-label="Language not supported"
-              >
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6V2z"/></svg>
-                <span className="text-[14px]">Run</span>
-              </button>
-            )}
-          </div>
+        {/* Left: </> icon + language */}
+        <div className="flex items-center gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="16 18 22 12 16 6" />
+            <polyline points="8 6 2 12 8 18" />
+          </svg>
+          <span className="text-[12px] font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
+            {langLabel || 'Code'}
+          </span>
         </div>
-
-        {/* ── Code body with syntax highlighting ── */}
-        <div
-          className="relative"
-          style={{ padding: '16px' }}
-        >
-          <div
-            className="overflow-x-auto overscroll-behavior-contain"
-            style={{
-              scrollbarWidth: 'thin',
-              scrollbarColor: 'rgba(255,255,255,0.15) transparent',
-            }}
+        {/* Right: Copy + Preview (for HTML) + Run (for executable) */}
+        <div className="flex items-center" style={{ gap: '8px' }}>
+          {/* Copy button */}
+          <button
+            onClick={copy}
+            className="flex items-center justify-center transition-colors duration-200 hover:opacity-80"
+            style={{ color: copied ? '#4CAF50' : 'rgba(255,255,255,0.4)' }}
+            aria-label="Copy code"
           >
-            <SyntaxCode
-              code={codeText}
-              language={prismLang}
-              maxLines={COLLAPSE_LINES}
-              expanded={expanded || !shouldCollapse}
-            />
-          </div>
-          {/* Fade overlay when collapsed */}
-          {shouldCollapse && !expanded && (
-            <div
-              className="absolute left-0 right-0 pointer-events-none"
+            {copied ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+              </svg>
+            )}
+          </button>
+
+          {/* Preview button (HTML only) */}
+          {canPreview && (
+            <button
+              onClick={handlePreview}
+              className="flex items-center gap-1.5 transition-all duration-200"
               style={{
-                bottom: 0,
-                height: '80px',
-                background: 'linear-gradient(transparent, #1E1E1E)',
+                borderRadius: '6px',
+                border: previewOpen ? '1px solid rgba(74,222,128,0.3)' : '1px solid rgba(255,255,255,0.15)',
+                background: previewOpen ? 'rgba(74,222,128,0.08)' : 'transparent',
+                padding: '4px 10px',
+                color: previewOpen ? '#4ade80' : 'rgba(255,255,255,0.6)',
+                fontSize: '12px',
               }}
-            />
+              aria-label="Preview in browser"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <span>{previewOpen ? 'Hide Preview' : 'Preview'}</span>
+            </button>
+          )}
+
+          {/* Run button */}
+          {langId ? (
+            <button
+              onClick={handleRun}
+              disabled={running}
+              className="flex items-center gap-1.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                borderRadius: '6px',
+                border: runResult ? (hasError ? '1px solid rgba(244,67,54,0.3)' : '1px solid rgba(74,222,128,0.3)') : '1px solid rgba(255,255,255,0.15)',
+                background: running ? 'rgba(255,255,255,0.04)' : runResult ? (hasError ? 'rgba(244,67,54,0.06)' : 'rgba(74,222,128,0.06)') : 'transparent',
+                padding: '4px 10px',
+                color: runResult ? (hasError ? '#ef4444' : '#4ade80') : 'rgba(255,255,255,0.6)',
+                fontSize: '12px',
+              }}
+              aria-label="Run code"
+            >
+              {running ? (
+                <span className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+              ) : (
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6V2z"/></svg>
+              )}
+              <span>{running ? 'Running...' : runResult ? 'Re-run' : 'Run'}</span>
+            </button>
+          ) : (
+            <button
+              disabled
+              className="flex items-center gap-1.5 cursor-not-allowed opacity-25"
+              style={{
+                borderRadius: '6px',
+                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'transparent',
+                padding: '4px 10px',
+                color: 'rgba(255,255,255,0.5)',
+                fontSize: '12px',
+              }}
+              title="Language not supported for execution"
+              aria-label="Language not supported"
+            >
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6V2z"/></svg>
+              <span>Run</span>
+            </button>
           )}
         </div>
+      </div>
 
-        {/* ── Expand/collapse button ── */}
-        {shouldCollapse && (
-          <div className="flex justify-center -mt-4 pb-3 relative z-10">
-            <button
-              onClick={() => setExpanded(!expanded)}
-              className="flex items-center justify-center transition-all duration-200"
-              style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
-                border: '1px solid rgba(255,255,255,0.15)',
-                background: 'rgba(255,255,255,0.05)',
-                color: 'rgba(255,255,255,0.6)',
-              }}
-              aria-label={expanded ? 'Collapse code' : 'Expand code'}
-            >
-              <svg
-                width="16" height="16" viewBox="0 0 24 24"
-                fill="none" stroke="currentColor" strokeWidth="2"
-                strokeLinecap="round" strokeLinejoin="round"
-                className={`transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
-          </div>
-        )}
-
-        {/* ── Execution output — terminal-style ── */}
-        {runResult && (
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-            {/* Output area */}
+      {/* ── Code + Console split view (for non-browser languages with run results) ── */}
+      {showSplitView ? (
+        <div className="flex flex-col sm:flex-row" style={{ minHeight: 0 }}>
+          {/* Code panel */}
+          <div className="flex-1 min-w-0 overflow-auto" style={{ padding: '12px', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
             <div
-              className="font-['SF_Mono',_Fira_Code,_'Courier_New',_monospace] text-[14px] leading-[1.6] overflow-x-auto whitespace-pre"
+              className="overflow-x-auto overscroll-behavior-contain"
               style={{
-                background: '#1E1E1E',
-                padding: '16px',
+                scrollbarWidth: 'thin',
+                scrollbarColor: 'rgba(255,255,255,0.1) transparent',
               }}
+            >
+              <SyntaxCode code={codeText} language={prismLang} />
+            </div>
+          </div>
+          {/* Console panel */}
+          <div className="flex-1 min-w-0 flex flex-col" style={{ background: '#1a1a1a' }}>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-white/[0.04] shrink-0">
+              <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Console</span>
+              {hasError && <span className="w-1.5 h-1.5 rounded-full bg-[#F44336]" />}
+            </div>
+            <div
+              className="flex-1 overflow-auto font-['SF_Mono',_Fira_Code,_'Courier_New',_monospace] text-[12px] leading-[1.5] whitespace-pre p-3"
+              style={{ maxHeight: '300px' }}
             >
               {hasOutput ? (
                 <>
                   {runResult.stdout && !hasError && (
-                    <span style={{ color: '#4CAF50' }}>{runResult.stdout}</span>
+                    <span style={{ color: '#4ade80' }}>{runResult.stdout}</span>
                   )}
                   {hasError ? (
                     <span style={{ color: '#F44336' }}>{primaryOutput}</span>
@@ -614,101 +396,132 @@ function CodeBlock({ langLabel, codeText, codeClassName }) {
                   )}
                 </>
               ) : (
-                <span style={{ color: 'rgba(255,255,255,0.3)' }}>(no output)</span>
+                <span style={{ color: 'rgba(255,255,255,0.2)' }}>(no output)</span>
               )}
             </div>
-
-            {/* View Error Details / Clear footer */}
+            {/* Details footer */}
             {(hasDetails || hasError) && (
-              <div
-                className="flex items-center justify-between"
-                style={{
-                  padding: '8px 16px',
-                  background: '#1E1E1E',
-                  borderTop: '1px solid rgba(255,255,255,0.03)',
-                }}
-              >
+              <div className="shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
                 <button
                   onClick={() => setDetailsOpen(!detailsOpen)}
-                  className="flex items-center gap-1 text-[12px] font-mono transition-colors duration-200"
-                  style={{ color: 'rgba(255,255,255,0.4)' }}
+                  className="w-full flex items-center gap-1 px-3 py-1.5 text-[10px] font-mono transition-colors"
+                  style={{ color: 'rgba(255,255,255,0.3)' }}
                 >
                   <svg
-                    width="10" height="10" viewBox="0 0 16 16"
+                    width="8" height="8" viewBox="0 0 16 16"
                     fill="none" stroke="currentColor" strokeWidth="1.5"
                     strokeLinecap="round" strokeLinejoin="round"
-                    className={`transition-transform duration-200 ${detailsOpen ? 'rotate-90' : ''}`}
+                    className={`transition-transform ${detailsOpen ? 'rotate-90' : ''}`}
                   >
                     <path d="M6 4l4 4-4 4" />
                   </svg>
-                  {hasError ? 'View Error Details' : 'View Details'}
+                  {hasError ? 'Error Details' : 'Details'}
                 </button>
-                <button
-                  onClick={() => { setRunResult(null); setDetailsOpen(false) }}
-                  className="text-[11px] font-mono transition-colors duration-200"
-                  style={{ color: 'rgba(255,255,255,0.3)' }}
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-
-            {/* Expandable developer details */}
-            {detailsOpen && hasDetails && (
-              <div
-                style={{
-                  background: '#1a1a1a',
-                  borderTop: '1px solid rgba(255,255,255,0.03)',
-                  padding: '12px 16px',
-                }}
-              >
-                <div className="space-y-1">
-                  {runResult.status?.description && (
-                    <div className="flex items-center gap-3 text-[12px] font-mono">
-                      <span style={{ color: 'rgba(255,255,255,0.3)' }}>Status</span>
-                      <span style={{ color: hasError ? '#F44336' : STATUS_OK.has(statusId) ? '#4CAF50' : '#facc15' }}>
-                        {runResult.status.description}
-                      </span>
-                    </div>
-                  )}
-                  {runResult.exit_code != null && (
-                    <div className="flex items-center gap-3 text-[12px] font-mono">
-                      <span style={{ color: 'rgba(255,255,255,0.3)' }}>Exit Code</span>
-                      <span style={{ color: runResult.exit_code !== 0 ? '#F44336' : 'rgba(255,255,255,0.7)' }}>
-                        {runResult.exit_code}
-                      </span>
-                    </div>
-                  )}
-                  {runResult.time && (
-                    <div className="flex items-center gap-3 text-[12px] font-mono">
-                      <span style={{ color: 'rgba(255,255,255,0.3)' }}>Time</span>
-                      <span style={{ color: 'rgba(255,255,255,0.7)' }}>{runResult.time}s</span>
-                    </div>
-                  )}
-                  {runResult.memory && (
-                    <div className="flex items-center gap-3 text-[12px] font-mono">
-                      <span style={{ color: 'rgba(255,255,255,0.3)' }}>Memory</span>
-                      <span style={{ color: 'rgba(255,255,255,0.7)' }}>{(runResult.memory / 1024).toFixed(1)} KB</span>
-                    </div>
-                  )}
-                </div>
+                {detailsOpen && hasDetails && (
+                  <div className="px-3 pb-2 space-y-0.5 text-[10px] font-mono" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                    {runResult.status?.description && (
+                      <div className="flex gap-2">
+                        <span style={{ color: 'rgba(255,255,255,0.2)' }}>Status</span>
+                        <span style={{ color: hasError ? '#F44336' : STATUS_OK.has(statusId) ? '#4ade80' : '#facc15' }}>
+                          {runResult.status.description}
+                        </span>
+                      </div>
+                    )}
+                    {runResult.exit_code != null && (
+                      <div className="flex gap-2">
+                        <span style={{ color: 'rgba(255,255,255,0.2)' }}>Exit</span>
+                        <span style={{ color: runResult.exit_code !== 0 ? '#F44336' : 'rgba(255,255,255,0.5)' }}>
+                          {runResult.exit_code}
+                        </span>
+                      </div>
+                    )}
+                    {runResult.time && (
+                      <div className="flex gap-2">
+                        <span style={{ color: 'rgba(255,255,255,0.2)' }}>Time</span>
+                        <span style={{ color: 'rgba(255,255,255,0.5)' }}>{runResult.time}s</span>
+                      </div>
+                    )}
+                    {runResult.memory && (
+                      <div className="flex gap-2">
+                        <span style={{ color: 'rgba(255,255,255,0.2)' }}>Mem</span>
+                        <span style={{ color: 'rgba(255,255,255,0.5)' }}>{(runResult.memory / 1024).toFixed(1)}KB</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
-      </div>
-
-      {/* ── Full-screen modal ── */}
-      {modalOpen && (
-        <CodeModal
-          code={codeText}
-          language={prismLang}
-          langLabel={langLabel}
-          langId={langId}
-          onClose={() => setModalOpen(false)}
-        />
+        </div>
+      ) : (
+        /* ── Code body only (no split — no run result yet, or HTML with preview) ── */
+        <div style={{ padding: '12px' }}>
+          <div
+            className="overflow-x-auto overscroll-behavior-contain"
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'rgba(255,255,255,0.1) transparent',
+            }}
+          >
+            <SyntaxCode code={codeText} language={prismLang} />
+          </div>
+        </div>
       )}
-    </>
+
+      {/* ── Browser Preview (HTML only) ── */}
+      {canPreview && previewOpen && (
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="flex items-center gap-1.5 px-3 py-1.5" style={{ background: '#1a1a1a', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M2 12h20"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+            <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Preview</span>
+          </div>
+          <div style={{ background: '#fff', maxHeight: '400px', overflow: 'auto' }}>
+            <iframe
+              ref={iframeRef}
+              srcDoc={codeText}
+              title="Code Preview"
+              style={{ width: '100%', minHeight: '200px', maxHeight: '400px', border: 'none', display: 'block' }}
+              sandbox="allow-scripts allow-same-origin"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── Inline console output (for non-split view — when there's a result but it's HTML or no langId) ── */}
+      {!showSplitView && runResult && (
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="flex items-center gap-1.5 px-3 py-1.5" style={{ background: '#1a1a1a', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Console</span>
+            {hasError && <span className="w-1.5 h-1.5 rounded-full bg-[#F44336]" />}
+          </div>
+          <div
+            className="font-['SF_Mono',_Fira_Code,_'Courier_New',_monospace] text-[12px] leading-[1.5] overflow-x-auto whitespace-pre p-3"
+            style={{ background: '#1a1a1a', maxHeight: '200px', overflow: 'auto' }}
+          >
+            {hasOutput ? (
+              <>
+                {runResult.stdout && !hasError && (
+                  <span style={{ color: '#4ade80' }}>{runResult.stdout}</span>
+                )}
+                {hasError ? (
+                  <span style={{ color: '#F44336' }}>{primaryOutput}</span>
+                ) : (
+                  runResult.stderr && (
+                    <span style={{ color: '#facc15' }}>{runResult.stderr}</span>
+                  )
+                )}
+              </>
+            ) : (
+              <span style={{ color: 'rgba(255,255,255,0.2)' }}>(no output)</span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 

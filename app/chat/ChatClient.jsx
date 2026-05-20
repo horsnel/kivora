@@ -1405,7 +1405,7 @@ export default function ChatClient() {
           </div>
         ) : (
         <div className="flex-1 overflow-y-auto overscroll-behavior-contain">
-          <div className="max-w-[720px] mx-auto px-[min(5vw,48px)] py-8 space-y-6">
+          <div className="max-w-[720px] mx-auto px-[min(5vw,48px)] py-6 space-y-4">
             {messages.length === 0 && (
               <div className="flex flex-col items-center min-h-[65vh]">
                 {/* Morphing brand mark — the chat page's nav icon, ghosted and alive in the upper void */}
@@ -1670,7 +1670,7 @@ export default function ChatClient() {
                         <MarkdownRenderer content={msg.content} />
                       )
                     ) : (
-                      <div className="rounded-2xl px-5 py-3.5 bg-white/[0.04] text-[#e2e2e2] border border-white/[0.06] rounded-tr-sm leading-[1.65]">
+                      <div className="rounded-2xl px-4 py-2.5 bg-white/[0.04] text-[#e2e2e2] text-[14px] border border-white/[0.06] rounded-tr-sm leading-[1.6]">
                         <span>{displayContent}</span>
                       </div>
                     )}
