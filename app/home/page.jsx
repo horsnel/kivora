@@ -78,8 +78,6 @@ export default function HomePage() {
   const textareaRef = useRef(null)
   const typewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
   const scrollContainerRef = useRef(null)
-  const websiteScrollRef = useRef(null)
-  const fileScrollRef = useRef(null)
 
   // Typewriter animation
   useEffect(() => {
@@ -249,7 +247,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── Section 2: Build Websites ── Vertical single line, rectangular, scrollable */}
+        {/* ── Section 2: Build Websites ── Horizontal scrollable rectangular cards */}
         <section>
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center text-emerald-400">
@@ -261,35 +259,31 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Vertical single line, rectangular cards, scrollable */}
+          {/* Horizontal scrollable rectangular cards */}
           <div
-            ref={websiteScrollRef}
-            className="flex flex-col gap-2.5 max-h-[340px] overflow-y-auto overscroll-y-contain pr-1"
-            style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}
+            className="flex gap-3 overflow-x-auto overscroll-x-contain pb-2 scrollbar-hide"
+            style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
           >
             {SAMPLE_WEBSITES.map((site, i) => (
               <button
                 key={site.title}
                 onClick={() => { setInput(`${site.prompt}: ${site.desc}`); textareaRef.current?.focus() }}
-                className="group flex items-center gap-4 w-full p-3.5 rounded-xl bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer text-left"
+                className="group relative shrink-0 w-[260px] rounded-xl overflow-hidden bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer text-left"
+                style={{ scrollSnapAlign: 'start' }}
               >
                 {/* Rectangular preview thumbnail */}
-                <div className="w-24 h-16 rounded-lg bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-[#1f1f1f] flex items-center justify-center shrink-0 overflow-hidden">
+                <div className="w-full h-[120px] bg-gradient-to-br from-emerald-500/10 to-teal-500/10 overflow-hidden">
                   <img
-                    src={`https://image.pollinations.ai/prompt/${encodeURIComponent(site.title + ' website screenshot minimal clean design')}${'&width=200&height=130&nologo=true&seed=' + site.title.replace(/\s/g, '-')}`}
+                    src={`https://image.pollinations.ai/prompt/${encodeURIComponent(site.title + ' website screenshot minimal clean design')}${'&width=520&height=240&nologo=true&seed=' + site.title.replace(/\s/g, '-')}`}
                     alt={site.title}
-                    className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity duration-300"
+                    className="w-full h-full object-cover opacity-60 group-hover:opacity-80 group-hover:scale-105 transition-all duration-300"
                     loading="lazy"
                   />
                 </div>
                 {/* Text content */}
-                <div className="flex-1 min-w-0">
+                <div className="p-3">
                   <h3 className="text-sm font-medium text-white/90 mb-0.5 group-hover:text-white transition-colors">{site.title}</h3>
                   <p className="text-xs text-[#525252] leading-relaxed">{site.desc}</p>
-                </div>
-                {/* Arrow */}
-                <div className="shrink-0 text-[#525252] group-hover:text-emerald-400 transition-colors">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                 </div>
               </button>
             ))}
@@ -309,7 +303,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── Section 3: Convert to File ── Vertical single line, scrollable */}
+        {/* ── Section 3: Convert to File ── Horizontal scrollable cards */}
         <section>
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center text-amber-400">
@@ -321,38 +315,27 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Vertical single line, scrollable */}
+          {/* Horizontal scrollable cards */}
           <div
-            ref={fileScrollRef}
-            className="flex flex-col gap-2 max-h-[320px] overflow-y-auto overscroll-y-contain pr-1"
-            style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}
+            className="flex gap-3 overflow-x-auto overscroll-x-contain pb-2 scrollbar-hide"
+            style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
           >
             {FILE_TYPES.map(ft => (
               <button
                 key={ft.id}
                 onClick={() => { setInput(`Convert my text to ${ft.label} format: `); textareaRef.current?.focus() }}
-                className="group flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer text-left"
+                className="group shrink-0 w-[130px] p-4 rounded-xl bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer text-center"
+                style={{ scrollSnapAlign: 'start' }}
               >
-                {/* Color indicator dot */}
+                {/* Icon with color */}
                 <div
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{ backgroundColor: ft.color }}
-                />
-                {/* Label */}
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-white/90 group-hover:text-white transition-colors">{ft.label}</span>
-                </div>
-                {/* Color badge */}
-                <div
-                  className="px-2.5 py-0.5 rounded-md text-[10px] font-semibold shrink-0"
-                  style={{ backgroundColor: `${ft.color}15`, color: ft.color }}
+                  className="w-10 h-10 rounded-lg mx-auto mb-2.5 flex items-center justify-center transition-transform duration-200 group-hover:scale-110"
+                  style={{ backgroundColor: `${ft.color}15` }}
                 >
-                  {ft.id.toUpperCase()}
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={ft.color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
                 </div>
-                {/* Arrow */}
-                <div className="shrink-0 text-[#525252] group-hover:text-white transition-colors">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                </div>
+                {/* Label */}
+                <span className="text-sm font-medium text-white/90 group-hover:text-white transition-colors block">{ft.label}</span>
               </button>
             ))}
           </div>
@@ -371,7 +354,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── Section 4: Create Artifacts ── Vertical single line, scrollable */}
+        {/* ── Section 4: Create Artifacts ── Horizontal scrollable cards */}
         <section>
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-red-500/20 to-rose-500/20 flex items-center justify-center text-red-400">
@@ -383,38 +366,28 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Artifact type cards — vertical single line, scrollable */}
+          {/* Horizontal scrollable cards */}
           <div
-            className="flex flex-col gap-2 max-h-[320px] overflow-y-auto overscroll-y-contain pr-1"
-            style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}
+            className="flex gap-3 overflow-x-auto overscroll-x-contain pb-2 scrollbar-hide"
+            style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
           >
             {[
-              { label: 'Interactive Dashboard', desc: 'Data tables & charts with real-time updates', color: 'from-blue-500/10 to-cyan-500/10', borderColor: 'border-blue-500/10 hover:border-blue-500/20', prompt: 'Create an interactive analytics dashboard with charts' },
-              { label: 'SVG Diagram', desc: 'Flowcharts, system diagrams & architecture', color: 'from-violet-500/10 to-purple-500/10', borderColor: 'border-violet-500/10 hover:border-violet-500/20', prompt: 'Create an SVG flowchart diagram' },
-              { label: 'Mini App', desc: 'Interactive web apps with buttons & forms', color: 'from-amber-500/10 to-yellow-500/10', borderColor: 'border-amber-500/10 hover:border-amber-500/20', prompt: 'Build a mini web app with' },
-              { label: 'Data Visualization', desc: 'Charts, graphs & animated visualizations', color: 'from-emerald-500/10 to-green-500/10', borderColor: 'border-emerald-500/10 hover:border-emerald-500/20', prompt: 'Create a data visualization chart' },
+              { label: 'Interactive Dashboard', desc: 'Data tables & charts', emoji: '📊', color: 'from-blue-500/10 to-cyan-500/10', borderColor: 'border-blue-500/10 hover:border-blue-500/20', prompt: 'Create an interactive analytics dashboard with charts' },
+              { label: 'SVG Diagram', desc: 'Flowcharts & diagrams', emoji: '🔀', color: 'from-violet-500/10 to-purple-500/10', borderColor: 'border-violet-500/10 hover:border-violet-500/20', prompt: 'Create an SVG flowchart diagram' },
+              { label: 'Mini App', desc: 'Interactive web apps', emoji: '⚡', color: 'from-amber-500/10 to-yellow-500/10', borderColor: 'border-amber-500/10 hover:border-amber-500/20', prompt: 'Build a mini web app with' },
+              { label: 'Data Visualization', desc: 'Charts & graphs', emoji: '📈', color: 'from-emerald-500/10 to-green-500/10', borderColor: 'border-emerald-500/10 hover:border-emerald-500/20', prompt: 'Create a data visualization chart' },
+              { label: 'Game', desc: 'Browser games & simulations', emoji: '🎮', color: 'from-rose-500/10 to-pink-500/10', borderColor: 'border-rose-500/10 hover:border-rose-500/20', prompt: 'Build a browser game' },
+              { label: 'Animation', desc: 'CSS & canvas animations', emoji: '✨', color: 'from-indigo-500/10 to-violet-500/10', borderColor: 'border-indigo-500/10 hover:border-indigo-500/20', prompt: 'Create an animated visualization' },
             ].map(item => (
               <button
                 key={item.label}
                 onClick={() => { setInput(item.prompt + ': '); textareaRef.current?.focus() }}
-                className={`group flex items-center gap-4 w-full p-3.5 rounded-xl bg-gradient-to-br ${item.color} border ${item.borderColor} transition-all duration-200 cursor-pointer text-left`}
+                className={`group shrink-0 w-[150px] p-4 rounded-xl bg-gradient-to-br ${item.color} border ${item.borderColor} transition-all duration-200 cursor-pointer text-left`}
+                style={{ scrollSnapAlign: 'start' }}
               >
-                {/* Icon */}
-                <div className="w-10 h-10 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center shrink-0 text-base">
-                  {item.label === 'Interactive Dashboard' && '📊'}
-                  {item.label === 'SVG Diagram' && '🔀'}
-                  {item.label === 'Mini App' && '⚡'}
-                  {item.label === 'Data Visualization' && '📈'}
-                </div>
-                {/* Text */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-medium text-white/90 mb-0.5 group-hover:text-white transition-colors">{item.label}</h3>
-                  <p className="text-xs text-[#525252]">{item.desc}</p>
-                </div>
-                {/* Arrow */}
-                <div className="shrink-0 text-[#525252] group-hover:text-red-400 transition-colors">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                </div>
+                <div className="text-2xl mb-2">{item.emoji}</div>
+                <h3 className="text-sm font-medium text-white/90 mb-0.5 group-hover:text-white transition-colors">{item.label}</h3>
+                <p className="text-xs text-[#525252]">{item.desc}</p>
               </button>
             ))}
           </div>
