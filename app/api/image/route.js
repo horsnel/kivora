@@ -1,12 +1,18 @@
 export const runtime = 'edge'
 
-// ── Pollinations AI — Free, Open-Source Image Generation ──
-// Docs: https://pollinations.ai
-// Simple GET endpoint: https://image.pollinations.ai/prompt/{encoded_prompt}
-// Supports: flux, gptimage, seedream, grok-imagine, and more
-// No API key required for basic usage. CORS-enabled. Runs on Cloudflare.
+// ── Image Generation: ZAI (primary) → Pollinations AI (fallback) ──
 //
-// Rate limit: 1 concurrent request per IP. 402 = queue full, retry with backoff.
+// ZAI API: https://api.z.ai/api/paas/v4
+//   - POST /images/generations with Bearer token auth
+//   - Returns base64 encoded images
+//   - May be geo-restricted (401 from certain regions)
+//
+// Pollinations AI (fallback): https://pollinations.ai
+//   - Free, no API key required
+//   - GET endpoint, returns image directly
+//   - Rate limit: 1 concurrent request per IP. 402 = queue full.
+
+import { imageGeneration } from '@/lib/zai'
 
 const VALID_SIZES = [
   '1024x1024',
@@ -20,42 +26,97 @@ const VALID_SIZES = [
 
 const DEFAULT_SIZE = '1024x1024'
 
-// Professional quality model — Flux produces stunning, detailed images
-const DEFAULT_MODEL = 'flux'
-
-// Retry config for 402 (queue full) errors
-const MAX_RETRIES = 3
-const RETRY_BASE_MS = 2000  // 2s base, doubles each retry
-
-// Optional Pollinations API key for higher rate limits (set as Cloudflare secret)
+// Pollinations config
+const POLLINATIONS_MODEL = 'flux'
 const POLLINATIONS_API_KEY = process.env.POLLINATIONS_API_KEY || ''
+const MAX_RETRIES = 3
+const RETRY_BASE_MS = 2000
 
-/**
- * Fetch with retry for Pollinations 402 (queue full) errors.
- * Pollinations enforces 1 concurrent request per IP — a 402 means the queue
- * is full and we need to wait and retry.
- */
+// ── ZAI Image Generation (Primary) ──
+
+async function generateWithZAI(prompt, size) {
+  const result = await imageGeneration({ prompt, size })
+  // ZAI returns { data: [{ base64, format }] }
+  if (result.data && result.data.length > 0) {
+    const item = result.data[0]
+    const base64Data = item.base64 || item.url || ''
+    const format = item.format || 'png'
+    const imageData = base64Data.startsWith('data:')
+      ? base64Data
+      : `data:image/${format};base64,${base64Data}`
+    return {
+      image: imageData,
+      provider: 'zai',
+      size,
+      model: 'zai-image',
+    }
+  }
+  throw new Error('ZAI returned no image data')
+}
+
+// ── Pollinations Image Generation (Fallback) ──
+
+function enhancePrompt(rawPrompt) {
+  const hasQualityWords = /professional|high.quality|detailed|4k|8k|ultra|cinematic|studio/i.test(rawPrompt)
+  if (hasQualityWords) return rawPrompt
+  return `${rawPrompt}, professional quality, highly detailed, sharp focus, studio lighting`
+}
+
 async function fetchWithRetry(url, retries = MAX_RETRIES) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     const res = await fetch(url, {
       method: 'GET',
       headers: { 'Accept': 'image/*' },
     })
-
     if (res.ok) return res
-
-    // 402 = queue full — retry with exponential backoff
     if (res.status === 402 && attempt < retries) {
       const delay = RETRY_BASE_MS * Math.pow(2, attempt)
       console.warn(`[image] Pollinations 402 (queue full), retry ${attempt + 1}/${retries} in ${delay}ms`)
       await new Promise(r => setTimeout(r, delay))
       continue
     }
-
-    // Non-retryable error or out of retries
     return res
   }
 }
+
+async function generateWithPollinations(prompt, size) {
+  const [width, height] = size.split('x').map(Number)
+  const enhancedPrompt = enhancePrompt(prompt.trim())
+  const encodedPrompt = encodeURIComponent(enhancedPrompt)
+  const params = new URLSearchParams({
+    width: String(width),
+    height: String(height),
+    model: POLLINATIONS_MODEL,
+    nologo: 'true',
+  })
+  if (POLLINATIONS_API_KEY) params.set('key', POLLINATIONS_API_KEY)
+
+  const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?${params.toString()}`
+  const imgResponse = await fetchWithRetry(imageUrl)
+
+  if (!imgResponse.ok) {
+    const errorBody = await imgResponse.text()
+    throw new Error(`Pollinations error ${imgResponse.status}: ${errorBody.slice(0, 200)}`)
+  }
+
+  const imgBuffer = await imgResponse.arrayBuffer()
+  const contentType = imgResponse.headers.get('content-type') || 'image/jpeg'
+  const bytes = new Uint8Array(imgBuffer)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+  const base64 = btoa(binary)
+  const imageData = `data:${contentType};base64,${base64}`
+
+  return {
+    image: imageData,
+    imageUrl,
+    provider: 'pollinations',
+    size,
+    model: POLLINATIONS_MODEL,
+  }
+}
+
+// ── Main Handler ──
 
 export async function POST(req) {
   try {
@@ -70,80 +131,47 @@ export async function POST(req) {
     }
 
     const resolvedSize = VALID_SIZES.includes(size) ? size : DEFAULT_SIZE
-    const [width, height] = resolvedSize.split('x').map(Number)
 
-    // Enhance the prompt for professional quality output
-    const enhancedPrompt = enhancePrompt(prompt.trim())
+    // ── Try ZAI first (primary) ──
+    try {
+      const result = await generateWithZAI(prompt.trim(), resolvedSize)
+      return Response.json(result)
+    } catch (zaiErr) {
+      const errMsg = zaiErr?.message || 'Unknown ZAI error'
+      console.warn(`[image] ZAI failed, falling back to Pollinations: ${errMsg}`)
 
-    // Build the Pollinations URL
-    // The GET endpoint returns the image directly — no JSON wrapping needed
-    const encodedPrompt = encodeURIComponent(enhancedPrompt)
-    const params = new URLSearchParams({
-      width: String(width),
-      height: String(height),
-      model: DEFAULT_MODEL,
-      nologo: 'true',
-      // NOTE: omit enhance param — our own enhancePrompt() already enriches the text,
-      // and enhance=true adds server-side processing that increases 402 risk
-    })
+      // Return detailed error info so the user can debug from their location
+      // If ZAI is geo-restricted, it will work from non-restricted regions
+      const isAuthError = errMsg.includes('401') || errMsg.toLowerCase().includes('auth')
 
-    // Add API key if available (for higher rate limits)
-    if (POLLINATIONS_API_KEY) {
-      params.set('key', POLLINATIONS_API_KEY)
+      // ── Fallback to Pollinations ──
+      try {
+        const fallbackResult = await generateWithPollinations(prompt, resolvedSize)
+        // Include ZAI error details so user knows what happened
+        fallbackResult.zaiFallback = true
+        fallbackResult.zaiError = isAuthError
+          ? 'ZAI API returned 401 — likely geo-restricted from this server. Try from a supported region.'
+          : errMsg
+        return Response.json(fallbackResult)
+      } catch (pollErr) {
+        // Both providers failed
+        const pollMsg = pollErr?.message || 'Unknown Pollinations error'
+        console.error(`[image] Both providers failed. ZAI: ${errMsg} | Pollinations: ${pollMsg}`)
+        return Response.json(
+          {
+            error: 'Image generation failed from all providers.',
+            details: {
+              zai: errMsg,
+              pollinations: pollMsg,
+            }
+          },
+          { status: 502 }
+        )
+      }
     }
-
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?${params.toString()}`
-
-    // Fetch the generated image (with retry for 402 queue-full errors)
-    const imgResponse = await fetchWithRetry(imageUrl)
-
-    if (!imgResponse.ok) {
-      const errorBody = await imgResponse.text()
-      console.error(`[image] Pollinations returned ${imgResponse.status}:`, errorBody.slice(0, 300))
-      return Response.json(
-        { error: `Image generation failed (${imgResponse.status}). Please try again.` },
-        { status: imgResponse.status >= 500 ? 502 : imgResponse.status }
-      )
-    }
-
-    // Convert the image to base64 for embedding in the chat
-    const imgBuffer = await imgResponse.arrayBuffer()
-    const contentType = imgResponse.headers.get('content-type') || 'image/jpeg'
-
-    // Use btoa for edge runtime compatibility
-    const bytes = new Uint8Array(imgBuffer)
-    let binary = ''
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i])
-    }
-    const base64 = btoa(binary)
-    const imageData = `data:${contentType};base64,${base64}`
-
-    return Response.json({
-      image: imageData,
-      imageUrl,  // Also return the URL so user can view/download the full-res version
-      size: resolvedSize,
-      model: DEFAULT_MODEL,
-    })
   } catch (err) {
     console.error('[image] Generation failed:', err)
     const message = err?.message || 'Image generation failed.'
     return Response.json({ error: message }, { status: 500 })
   }
-}
-
-/**
- * Enhance the user's prompt for professional quality output.
- * Adds quality boosters and style guidance without changing the core intent.
- */
-function enhancePrompt(rawPrompt) {
-  // If the prompt already has quality descriptors, don't over-enhance
-  const hasQualityWords = /professional|high.quality|detailed|4k|8k|ultra|cinematic|studio/i.test(rawPrompt)
-
-  if (hasQualityWords) {
-    return rawPrompt
-  }
-
-  // Add professional quality enhancements
-  return `${rawPrompt}, professional quality, highly detailed, sharp focus, studio lighting`
 }

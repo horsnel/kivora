@@ -154,7 +154,20 @@ export async function POST(req) {
 
     return Response.json(result)
   } catch (err) {
-    console.error('[zai-api]', err.message)
-    return Response.json({ error: err.message || 'ZAI API error' }, { status: 500 })
+    const msg = err?.message || 'ZAI API error'
+    const isAuthError = msg.includes('401') || msg.toLowerCase().includes('auth') || msg.includes('token expired')
+    console.error('[zai-api]', msg)
+
+    return Response.json({
+      error: msg,
+      hint: isAuthError
+        ? 'ZAI API returned 401 — this may be a geo-restriction. The API key works from supported regions but not from this server location. Try calling from your own device/network.'
+        : undefined,
+      debug: {
+        baseUrl: process.env.ZAI_BASE_URL || '(not set)',
+        hasApiKey: !!(process.env.ZAI_API_KEY),
+        hasUserId: !!(process.env.ZAI_USER_ID),
+      }
+    }, { status: isAuthError ? 401 : 500 })
   }
 }
