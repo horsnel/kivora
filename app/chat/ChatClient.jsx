@@ -1451,7 +1451,7 @@ export default function ChatClient() {
 
               return (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`group ${msg.role === 'user' ? 'max-w-[80%]' : 'w-full'}`}>
+                  <div className={`group ${msg.role === 'user' ? 'max-w-[65%]' : 'w-full'}`}>
                     {/* File/Image attachment indicator */}
                     {hasFileAttachment && (
                       <div className="flex items-center gap-1.5 mb-1.5 justify-end">
@@ -1670,7 +1670,7 @@ export default function ChatClient() {
                         <MarkdownRenderer content={msg.content} />
                       )
                     ) : (
-                      <div className="rounded-2xl px-4 py-2.5 bg-white/[0.04] text-[#e2e2e2] text-[14px] border border-white/[0.06] rounded-tr-sm leading-[1.6]">
+                      <div className="rounded-2xl px-3.5 py-2 bg-white/[0.04] text-[#e2e2e2] text-[14px] border border-white/[0.06] rounded-tr-sm leading-[1.5]">
                         <span>{displayContent}</span>
                       </div>
                     )}
