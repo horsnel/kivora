@@ -331,7 +331,7 @@ export default function StudyClient() {
 
   return (
     <main className="min-h-screen bg-[#0a0a0a]">
-      <div className="max-w-5xl mx-auto px-4 pt-6 pb-10">
+      <div className="max-w-7xl mx-auto px-4 pt-6 pb-10">
         <div className="mb-6 animate-fade-up">
           <h1 className="text-display font-semibold mb-2 tracking-tight">{t('study.title').slice(0, parseInt(t('study.split')))}<span className="text-red-500">{t('study.title').slice(parseInt(t('study.split')))}</span></h1>
           <p className="text-muted text-body-sm mt-0.5">{t('study.subtitle')}</p>

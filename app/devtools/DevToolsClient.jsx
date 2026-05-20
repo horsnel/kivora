@@ -435,7 +435,7 @@ export default function DevToolsClient() {
 
   return (
     <main className="min-h-screen bg-[#0a0a0a]">
-      <div className="max-w-5xl mx-auto px-4 pt-6 pb-10">
+      <div className="max-w-7xl mx-auto px-4 pt-6 pb-10">
 
         {/* Header */}
         <div className="mb-6 animate-fade-up">
