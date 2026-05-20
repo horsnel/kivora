@@ -29,8 +29,8 @@ const DEFAULT_SIZE = '1024x1024'
 // Pollinations config
 const POLLINATIONS_MODEL = 'flux'
 const POLLINATIONS_API_KEY = process.env.POLLINATIONS_API_KEY || ''
-const MAX_RETRIES = 3
-const RETRY_BASE_MS = 2000
+const MAX_RETRIES = 5
+const RETRY_BASE_MS = 3000
 
 // ── ZAI Image Generation (Primary) ──
 
@@ -140,21 +140,17 @@ export async function POST(req) {
       const errMsg = zaiErr?.message || 'Unknown ZAI error'
       console.warn(`[image] ZAI failed, falling back to Pollinations: ${errMsg}`)
 
-      // Return detailed error info so the user can debug from their location
-      // If ZAI is geo-restricted, it will work from non-restricted regions
-      const isAuthError = errMsg.includes('401') || errMsg.toLowerCase().includes('auth')
+      const isAuthError = errMsg.includes('401') || errMsg.toLowerCase().includes('auth') || errMsg.includes('token expired')
 
       // ── Fallback to Pollinations ──
       try {
         const fallbackResult = await generateWithPollinations(prompt, resolvedSize)
-        // Include ZAI error details so user knows what happened
         fallbackResult.zaiFallback = true
         fallbackResult.zaiError = isAuthError
-          ? 'ZAI API returned 401 — likely geo-restricted from this server. Try from a supported region.'
+          ? 'ZAI API returned 401 — likely geo-restricted from server region. Key works from supported regions.'
           : errMsg
         return Response.json(fallbackResult)
       } catch (pollErr) {
-        // Both providers failed
         const pollMsg = pollErr?.message || 'Unknown Pollinations error'
         console.error(`[image] Both providers failed. ZAI: ${errMsg} | Pollinations: ${pollMsg}`)
         return Response.json(
@@ -162,6 +158,9 @@ export async function POST(req) {
             error: 'Image generation failed from all providers.',
             details: {
               zai: errMsg,
+              zaiHint: isAuthError
+                ? 'ZAI API returned 401 — likely geo-restricted from server. The API key works from supported regions.'
+                : undefined,
               pollinations: pollMsg,
             }
           },
