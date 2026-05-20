@@ -61,9 +61,6 @@ function LayoutIcon({ size = 20 }) {
 function FileConvertIcon({ size = 20 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m12 18-2-2 2-2"/><path d="m16 14 2 2-2 2"/></svg>
 }
-function SparkIcon({ size = 16 }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-}
 function WebIcon({ size = 20 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
 }
@@ -356,44 +353,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── Section 4: Create Artifacts ── Horizontal scrollable cards */}
-        <section>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-red-500/20 to-rose-500/20 flex items-center justify-center text-red-400">
-              <SparkIcon size={14} />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold tracking-tight text-white">Create Artifacts</h2>
-              <p className="text-xs text-[#737373]">Interactive code previews — websites, charts, diagrams & more</p>
-            </div>
-          </div>
 
-          {/* Horizontal scrollable cards */}
-          <div
-            className="flex gap-3 overflow-x-auto overscroll-x-contain pb-2 scrollbar-hide"
-            style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
-          >
-            {[
-              { label: 'Interactive Dashboard', desc: 'Data tables & charts', emoji: '📊', color: 'from-blue-500/10 to-cyan-500/10', borderColor: 'border-blue-500/10 hover:border-blue-500/20', prompt: 'Create an interactive analytics dashboard with charts' },
-              { label: 'SVG Diagram', desc: 'Flowcharts & diagrams', emoji: '🔀', color: 'from-violet-500/10 to-purple-500/10', borderColor: 'border-violet-500/10 hover:border-violet-500/20', prompt: 'Create an SVG flowchart diagram' },
-              { label: 'Mini App', desc: 'Interactive web apps', emoji: '⚡', color: 'from-amber-500/10 to-yellow-500/10', borderColor: 'border-amber-500/10 hover:border-amber-500/20', prompt: 'Build a mini web app with' },
-              { label: 'Data Visualization', desc: 'Charts & graphs', emoji: '📈', color: 'from-emerald-500/10 to-green-500/10', borderColor: 'border-emerald-500/10 hover:border-emerald-500/20', prompt: 'Create a data visualization chart' },
-              { label: 'Game', desc: 'Browser games & simulations', emoji: '🎮', color: 'from-rose-500/10 to-pink-500/10', borderColor: 'border-rose-500/10 hover:border-rose-500/20', prompt: 'Build a browser game' },
-              { label: 'Animation', desc: 'CSS & canvas animations', emoji: '✨', color: 'from-indigo-500/10 to-violet-500/10', borderColor: 'border-indigo-500/10 hover:border-indigo-500/20', prompt: 'Create an animated visualization' },
-            ].map(item => (
-              <button
-                key={item.label}
-                onClick={() => { setInput(item.prompt + ': '); textareaRef.current?.focus() }}
-                className={`group shrink-0 w-[150px] p-4 rounded-xl bg-gradient-to-br ${item.color} border ${item.borderColor} transition-all duration-200 cursor-pointer text-left`}
-                style={{ scrollSnapAlign: 'start' }}
-              >
-                <div className="text-2xl mb-2">{item.emoji}</div>
-                <h3 className="text-sm font-medium text-white/90 mb-0.5 group-hover:text-white transition-colors">{item.label}</h3>
-                <p className="text-xs text-[#525252]">{item.desc}</p>
-              </button>
-            ))}
-          </div>
-        </section>
       </div>
 
       {/* ── CSS ── */}
