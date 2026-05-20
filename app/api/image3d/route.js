@@ -1,26 +1,165 @@
 export const runtime = 'edge'
 
-// ── Tripo3D API — 2,000 free credits on signup ──
-// Sign up at https://platform.tripo3d.ai to get your API key
+// ── 3D Image Generation: hitem3d (primary) → Tripo3D (fallback) ──
+//
+// hitem3d API: https://api.hitem3d.ai
+//   - Auth: Basic base64(access_key:secret_key) → get accessToken
+//   - POST /open-api/v1/submit-task (image-to-3D, multipart/form-data)
+//   - GET  /open-api/v1/query-task?task_id=xxx (poll until success)
+//   - Returns GLB model URL + cover image URL
+//
+// Tripo3D API (fallback): https://api.tripo3d.ai/v2/openapi
+//   - POST /task (text-to-model)
+//   - GET  /task/{id} (poll until success)
+//   - Returns GLB + rendered image
+
+const HITEM3D_API_BASE = 'https://api.hitem3d.ai'
+const HITEM3D_ACCESS_KEY = process.env.HITEM3D_ACCESS_KEY || ''
+const HITEM3D_SECRET_KEY = process.env.HITEM3D_SECRET_KEY || ''
+
 const TRIPO_API_BASE = 'https://api.tripo3d.ai/v2/openapi'
 const TRIPO_API_KEY = process.env.TRIPO_API_KEY || ''
 
-const POLL_INTERVAL = 3000  // 3s between polls
+const POLL_INTERVAL = 3000   // 3s between polls
 const MAX_POLL_TIME = 180000 // 3 min max wait
 const MAX_POLLS = Math.ceil(MAX_POLL_TIME / POLL_INTERVAL)
 
-/**
- * Poll a Tripo3D task until it reaches a terminal state.
- * Returns the task data object on success, throws on failure or timeout.
- *
- * Tripo3D task response shape:
- *   { code: 0, data: { task_id, status, output: { pbr_model, rendered_image, generated_image }, ... } }
- *   status: queued | running | success | failed
- *   output.pbr_model = GLB download URL  (type: "glb")
- *   output.rendered_image = webp preview (type: "webp")
- *   output.generated_image = text2image preview
- */
-async function pollTask(taskId, phase = 'generation') {
+// Pollinations for preview images
+const POLLINATIONS_API_KEY = process.env.POLLINATIONS_API_KEY || ''
+
+// ── hitem3d Auth ──
+
+async function getHitem3dToken() {
+  // Basic auth: base64(access_key:secret_key)
+  const credentials = btoa(`${HITEM3D_ACCESS_KEY}:${HITEM3D_SECRET_KEY}`)
+  const res = await fetch(`${HITEM3D_API_BASE}/open-api/v1/auth/token`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${credentials}`,
+      'Content-Type': 'application/json',
+    },
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`hitem3d auth error ${res.status}: ${text}`)
+  }
+  const data = await res.json()
+  if (data.code !== 200 && data.code !== '200') {
+    throw new Error(`hitem3d auth failed: ${data.msg || JSON.stringify(data)}`)
+  }
+  return data.data?.accessToken || data.data?.access_token
+}
+
+// ── hitem3d Task Creation (Image-to-3D) ──
+// hitem3d requires an image input — we generate one from the prompt first
+
+async function generatePreviewForHitem(prompt) {
+  // Use Pollinations to generate a preview image from the prompt
+  const enhancedPrompt = `${prompt}, 3D render, isometric view, clean white background, studio lighting, high detail`
+  const encodedPrompt = encodeURIComponent(enhancedPrompt)
+  const params = new URLSearchParams({
+    width: '1024', height: '1024',
+    model: 'flux', nologo: 'true',
+  })
+  if (POLLINATIONS_API_KEY) params.set('key', POLLINATIONS_API_KEY)
+
+  const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?${params.toString()}`
+  const imgRes = await fetch(imageUrl, { headers: { 'Accept': 'image/*' } })
+
+  if (!imgRes.ok) {
+    throw new Error(`Preview image generation failed (${imgRes.status})`)
+  }
+  return await imgRes.blob()
+}
+
+async function submitHitem3dTask(accessToken, imageBlob) {
+  // hitem3d uses multipart/form-data
+  const formData = new FormData()
+  formData.append('request_type', '3')           // 3 = geometry+texture
+  formData.append('model', 'hitem3dv2.1')        // Latest model
+  formData.append('resolution', '1536fast')       // Fast resolution
+  formData.append('images', imageBlob, 'image.png')
+
+  const res = await fetch(`${HITEM3D_API_BASE}/open-api/v1/submit-task`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+    },
+    body: formData,
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`hitem3d submit error ${res.status}: ${text}`)
+  }
+  const data = await res.json()
+  if (data.code !== 200 && data.code !== '200') {
+    throw new Error(`hitem3d submit failed: ${data.msg || JSON.stringify(data)}`)
+  }
+  return data.data?.task_id
+}
+
+async function pollHitem3dTask(accessToken, taskId) {
+  for (let i = 0; i < MAX_POLLS; i++) {
+    const res = await fetch(`${HITEM3D_API_BASE}/open-api/v1/query-task?task_id=${encodeURIComponent(taskId)}`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(`hitem3d poll error ${res.status}: ${text}`)
+    }
+    const data = await res.json()
+    const task = data.data
+
+    if (!task) {
+      throw new Error(`hitem3d unexpected response: ${JSON.stringify(data)}`)
+    }
+
+    if (task.state === 'success') return task
+    if (task.state === 'failed') {
+      throw new Error(`hitem3d generation failed: ${task.msg || 'unknown error'}`)
+    }
+
+    // Still processing (created, queueing, processing) — wait and retry
+    await new Promise(r => setTimeout(r, POLL_INTERVAL))
+  }
+  throw new Error(`hitem3d timed out after ${MAX_POLL_TIME / 1000}s`)
+}
+
+async function generateWithHitem3d(prompt) {
+  if (!HITEM3D_ACCESS_KEY || !HITEM3D_SECRET_KEY) {
+    throw new Error('hitem3d API keys not configured')
+  }
+
+  // Step 1: Get access token
+  const accessToken = await getHitem3dToken()
+
+  // Step 2: Generate preview image from prompt (hitem3d needs image input)
+  const imageBlob = await generatePreviewForHitem(prompt.trim())
+
+  // Step 3: Submit 3D generation task
+  const taskId = await submitHitem3dTask(accessToken, imageBlob)
+  if (!taskId) throw new Error('hitem3d returned no task ID')
+
+  // Step 4: Poll until done
+  const result = await pollHitem3dTask(accessToken, taskId)
+
+  return {
+    glbUrl: result.url || null,
+    thumbnailUrl: result.cover_url || null,
+    provider: 'hitem3d',
+    model: 'hitem3dv2.1',
+    prompt: prompt.trim(),
+    hasTexture: true,
+  }
+}
+
+// ── Tripo3D (Fallback) ──
+
+async function pollTripoTask(taskId, phase = 'generation') {
   for (let i = 0; i < MAX_POLLS; i++) {
     const res = await fetch(`${TRIPO_API_BASE}/task/${taskId}`, {
       headers: { 'Authorization': `Bearer ${TRIPO_API_KEY}` },
@@ -31,94 +170,98 @@ async function pollTask(taskId, phase = 'generation') {
     }
     const data = await res.json()
     const task = data.data
-
-    if (!task) {
-      throw new Error(`Tripo3D unexpected response: ${JSON.stringify(data)}`)
-    }
-
-    // Tripo3D statuses: queued, running, success, failed
+    if (!task) throw new Error(`Tripo3D unexpected response: ${JSON.stringify(data)}`)
     if (task.status === 'success') return task
-    if (task.status === 'failed') {
-      const msg = task.error || 'Generation failed'
-      throw new Error(`Tripo3D ${phase} failed: ${msg}`)
-    }
-
-    // Still queued or running — wait and retry
+    if (task.status === 'failed') throw new Error(`Tripo3D ${phase} failed: ${task.error || 'unknown'}`)
     await new Promise(r => setTimeout(r, POLL_INTERVAL))
   }
   throw new Error(`Tripo3D ${phase} timed out after ${MAX_POLL_TIME / 1000}s`)
 }
 
-// Retry config for Pollinations 402 (queue full) errors
-const POLL_RETRIES = 2
-const POLL_RETRY_BASE_MS = 2000
+async function generateWithTripo(prompt) {
+  if (!TRIPO_API_KEY) {
+    throw new Error('Tripo3D API key not configured')
+  }
 
-/**
- * Fetch with retry for Pollinations 402 (queue full) errors.
- * Pollinations enforces 1 concurrent request per IP.
- */
-async function fetchWithRetry(url, retries = POLL_RETRIES) {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: { 'Accept': 'image/*' },
-      signal: AbortSignal.timeout(30000),
-    })
+  // Create text-to-model task
+  const createRes = await fetch(`${TRIPO_API_BASE}/task`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${TRIPO_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      type: 'text_to_model',
+      prompt: prompt.trim().slice(0, 600),
+    }),
+  })
 
-    if (res.ok) return res
+  if (!createRes.ok) {
+    const errText = await createRes.text()
+    if (createRes.status === 402) throw new Error('Tripo3D credits exhausted')
+    if (createRes.status === 429) throw new Error('Tripo3D rate limited')
+    throw new Error(`Tripo3D create error (${createRes.status}): ${errText}`)
+  }
 
-    // 402 = queue full — retry with exponential backoff
-    if (res.status === 402 && attempt < retries) {
-      const delay = POLL_RETRY_BASE_MS * Math.pow(2, attempt)
-      console.warn(`[image3d] Pollinations 402 (queue full), retry ${attempt + 1}/${retries} in ${delay}ms`)
-      await new Promise(r => setTimeout(r, delay))
-      continue
-    }
+  const createData = await createRes.json()
+  const taskId = createData.data?.task_id || createData.data?.id
+  if (!taskId) throw new Error('Tripo3D returned no task ID')
 
-    return res
+  // Generate a quick 2D preview while the 3D model processes
+  const previewBase64 = await generatePollinationsPreview(prompt.trim())
+
+  // Poll until model is generated
+  const modelTask = await pollTripoTask(taskId, 'model generation')
+  const output = modelTask.output || {}
+  const glbUrl = output.pbr_model || null
+  const tripoThumbnail = modelTask.thumbnail || output.rendered_image || output.generated_image || null
+  const thumbnailUrl = previewBase64 || tripoThumbnail
+
+  return {
+    glbUrl,
+    thumbnailUrl,
+    tripoThumbnail,
+    provider: 'tripo',
+    model: 'tripo3d',
+    prompt: prompt.trim(),
+    hasTexture: !!output.pbr_model,
+    isPollinationsPreview: !!previewBase64,
   }
 }
 
-/**
- * Generate a high-quality preview image using Pollinations AI.
- * This gives us a beautiful 2D render while the 3D model generates.
- * Falls back gracefully if Pollinations is unavailable.
- */
-async function generatePreviewImage(prompt) {
+// ── Pollinations Preview (for Tripo fallback) ──
+
+async function generatePollinationsPreview(prompt) {
   try {
     const enhancedPrompt = `${prompt}, 3D render, professional product photography, studio lighting, clean background, isometric view, high detail`
     const encodedPrompt = encodeURIComponent(enhancedPrompt)
     const params = new URLSearchParams({
-      width: '1024',
-      height: '1024',
-      model: 'flux',
-      nologo: 'true',
-      // NOTE: omit enhance param — our prompt is already enhanced with quality words,
-      // and enhance=true adds server-side processing that increases 402 risk
+      width: '1024', height: '1024',
+      model: 'flux', nologo: 'true',
     })
+    if (POLLINATIONS_API_KEY) params.set('key', POLLINATIONS_API_KEY)
+
     const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?${params.toString()}`
+    const imgRes = await fetch(imageUrl, {
+      headers: { 'Accept': 'image/*' },
+      signal: AbortSignal.timeout(30000),
+    })
 
-    const imgResponse = await fetchWithRetry(imageUrl)
-
-    if (imgResponse.ok) {
-      const imgBuffer = await imgResponse.arrayBuffer()
-      const contentType = imgResponse.headers.get('content-type') || 'image/jpeg'
+    if (imgRes.ok) {
+      const imgBuffer = await imgRes.arrayBuffer()
+      const contentType = imgRes.headers.get('content-type') || 'image/jpeg'
       const bytes = new Uint8Array(imgBuffer)
       let binary = ''
-      for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i])
-      }
-      const base64 = btoa(binary)
-      return `data:${contentType};base64,${base64}`
-    } else {
-      const status = imgResponse.status
-      console.warn(`[image3d] Preview image failed (${status}), falling back to Tripo thumbnail`)
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+      return `data:${contentType};base64,${btoa(binary)}`
     }
   } catch (err) {
-    console.warn('[image3d] Preview image generation failed:', err.message)
+    console.warn('[image3d] Preview image failed:', err.message)
   }
   return null
 }
+
+// ── Main Handler ──
 
 export async function POST(req) {
   try {
@@ -126,111 +269,40 @@ export async function POST(req) {
     const { prompt } = body
 
     if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
-      return Response.json(
-        { error: 'Prompt is required and must be a non-empty string.' },
-        { status: 400 }
-      )
+      return Response.json({ error: 'Prompt is required and must be a non-empty string.' }, { status: 400 })
     }
 
-    if (!TRIPO_API_KEY) {
-      return Response.json(
-        { error: '3D generation is not configured yet. Set TRIPO_API_KEY to enable it.' },
-        { status: 503 }
-      )
-    }
+    // ── Try hitem3d first (primary) ──
+    try {
+      const result = await generateWithHitem3d(prompt.trim())
+      return Response.json(result)
+    } catch (hitemErr) {
+      const hitemMsg = hitemErr?.message || 'Unknown hitem3d error'
+      console.warn(`[image3d] hitem3d failed, falling back to Tripo3D: ${hitemMsg}`)
 
-    // ── Step 1: Create text-to-model task ──
-    const createRes = await fetch(`${TRIPO_API_BASE}/task`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${TRIPO_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        type: 'text_to_model',
-        prompt: prompt.trim().slice(0, 600),
-      }),
-    })
-
-    if (!createRes.ok) {
-      const errText = await createRes.text()
-      console.error('[image3d] Create task error:', createRes.status, errText)
-
-      if (createRes.status === 402) {
+      // ── Fallback to Tripo3D ──
+      try {
+        const fallbackResult = await generateWithTripo(prompt.trim())
+        fallbackResult.hitem3dFallback = true
+        fallbackResult.hitem3dError = hitemMsg
+        return Response.json(fallbackResult)
+      } catch (tripoErr) {
+        const tripoMsg = tripoErr?.message || 'Unknown Tripo3D error'
+        console.error(`[image3d] Both providers failed. hitem3d: ${hitemMsg} | Tripo: ${tripoMsg}`)
         return Response.json(
-          { error: '3D generation credits exhausted. Please try again later.' },
-          { status: 402 }
+          {
+            error: '3D generation failed from all providers.',
+            details: {
+              hitem3d: hitemMsg,
+              tripo: tripoMsg,
+            }
+          },
+          { status: 502 }
         )
       }
-      if (createRes.status === 429) {
-        return Response.json(
-          { error: '3D generation is busy. Please wait a moment and try again.' },
-          { status: 429 }
-        )
-      }
-      return Response.json(
-        { error: `Failed to start 3D generation (${createRes.status})` },
-        { status: 502 }
-      )
     }
-
-    const createData = await createRes.json()
-    // Tripo3D returns { data: { task_id: "..." } } — NOT data.id
-    const taskId = createData.data?.task_id || createData.data?.id
-
-    if (!taskId) {
-      console.error('[image3d] Unexpected create response:', JSON.stringify(createData))
-      return Response.json({ error: 'No task ID returned from Tripo3D.' }, { status: 502 })
-    }
-
-    // ── Step 2: Generate a quick 2D preview while the 3D model processes ──
-    // This gives the user something beautiful to look at immediately
-    const previewBase64 = await generatePreviewImage(prompt.trim())
-
-    // ── Step 3: Poll until model is generated ──
-    const modelTask = await pollTask(taskId, 'model generation')
-
-    // Parse the output — Tripo3D returns:
-    //   output.pbr_model       → GLB file URL (already textured)
-    //   output.rendered_image  → webp preview image
-    //   output.generated_image → text-to-image preview
-    //   thumbnail              → same as rendered_image
-    const output = modelTask.output || {}
-    const glbUrl = output.pbr_model || null
-    // Prefer our Pollinations preview (higher quality) over Tripo3D's thumbnail
-    const tripoThumbnail = modelTask.thumbnail || output.rendered_image || output.generated_image || null
-    const thumbnailUrl = previewBase64 || tripoThumbnail
-    const isPollinationsPreview = !!previewBase64
-
-    if (!glbUrl) {
-      // Model generated but no GLB URL — return preview image if available
-      if (thumbnailUrl) {
-        return Response.json({
-          glbUrl: null,
-          thumbnailUrl,
-          tripoThumbnail,
-          prompt: prompt.trim(),
-          hasTexture: false,
-          isPollinationsPreview,
-          error: '3D model generated but GLB download unavailable. Showing preview image.',
-        })
-      }
-      return Response.json({ error: 'No 3D model data returned.' }, { status: 502 })
-    }
-
-    // ── Return result ──
-    // text_to_model already produces a PBR-textured GLB, no separate convert step needed
-    return Response.json({
-      glbUrl,
-      thumbnailUrl,
-      tripoThumbnail,
-      prompt: prompt.trim(),
-      hasTexture: !!output.pbr_model,
-      isPollinationsPreview,
-    })
   } catch (err) {
     console.error('[image3d] Error:', err)
-    const message = err?.message || '3D generation failed.'
-    return Response.json({ error: message }, { status: 500 })
+    return Response.json({ error: err?.message || '3D generation failed.' }, { status: 500 })
   }
 }

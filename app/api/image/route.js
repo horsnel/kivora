@@ -4,13 +4,13 @@ export const runtime = 'edge'
 //
 // ZAI API: https://api.z.ai/api/paas/v4
 //   - POST /images/generations with Bearer token auth
-//   - Returns base64 encoded images
 //   - May be geo-restricted (401 from certain regions)
 //
 // Pollinations AI (fallback): https://pollinations.ai
-//   - Free, no API key required
-//   - GET endpoint, returns image directly
-//   - Rate limit: 1 concurrent request per IP. 402 = queue full.
+//   - Free tier: GET endpoint, no API key
+//   - Paid tier: POST endpoint with API key (sk_...) for higher rate limits
+//   - If POLLINATIONS_API_KEY is set, use the paid endpoint
+//   - Otherwise fall back to free GET endpoint with retry for 402 (queue full)
 
 import { imageGeneration } from '@/lib/zai'
 
@@ -25,8 +25,6 @@ const VALID_SIZES = [
 ]
 
 const DEFAULT_SIZE = '1024x1024'
-
-// Pollinations config
 const POLLINATIONS_MODEL = 'flux'
 const POLLINATIONS_API_KEY = process.env.POLLINATIONS_API_KEY || ''
 const MAX_RETRIES = 5
@@ -36,7 +34,6 @@ const RETRY_BASE_MS = 3000
 
 async function generateWithZAI(prompt, size) {
   const result = await imageGeneration({ prompt, size })
-  // ZAI returns { data: [{ base64, format }] }
   if (result.data && result.data.length > 0) {
     const item = result.data[0]
     const base64Data = item.base64 || item.url || ''
@@ -44,12 +41,7 @@ async function generateWithZAI(prompt, size) {
     const imageData = base64Data.startsWith('data:')
       ? base64Data
       : `data:image/${format};base64,${base64Data}`
-    return {
-      image: imageData,
-      provider: 'zai',
-      size,
-      model: 'zai-image',
-    }
+    return { image: imageData, provider: 'zai', size, model: 'zai-image' }
   }
   throw new Error('ZAI returned no image data')
 }
@@ -79,24 +71,54 @@ async function fetchWithRetry(url, retries = MAX_RETRIES) {
   }
 }
 
-async function generateWithPollinations(prompt, size) {
-  const [width, height] = size.split('x').map(Number)
-  const enhancedPrompt = enhancePrompt(prompt.trim())
-  const encodedPrompt = encodeURIComponent(enhancedPrompt)
-  const params = new URLSearchParams({
-    width: String(width),
-    height: String(height),
-    model: POLLINATIONS_MODEL,
-    nologo: 'true',
+async function generateWithPollinationsPaid(prompt, size) {
+  // Use the Pollinations paid API (POST) with API key — bypasses rate limits
+  const res = await fetch('https://image.pollinations.ai/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${POLLINATIONS_API_KEY}`,
+    },
+    body: JSON.stringify({
+      prompt: enhancePrompt(prompt.trim()),
+      width: parseInt(size.split('x')[0]),
+      height: parseInt(size.split('x')[1]),
+      model: POLLINATIONS_MODEL,
+      nologo: true,
+    }),
   })
-  if (POLLINATIONS_API_KEY) params.set('key', POLLINATIONS_API_KEY)
+
+  if (!res.ok) {
+    const errText = await res.text()
+    throw new Error(`Pollinations paid error ${res.status}: ${errText.slice(0, 200)}`)
+  }
+
+  const contentType = res.headers.get('content-type') || 'image/jpeg'
+  const imgBuffer = await res.arrayBuffer()
+  const bytes = new Uint8Array(imgBuffer)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+  const base64 = btoa(binary)
+  const imageData = `data:${contentType};base64,${base64}`
+
+  return { image: imageData, provider: 'pollinations-paid', size, model: POLLINATIONS_MODEL }
+}
+
+async function generateWithPollinationsFree(prompt, size) {
+  // Free GET endpoint — no API key needed, but 402 (queue full) is common
+  const [width, height] = size.split('x').map(Number)
+  const encodedPrompt = encodeURIComponent(enhancePrompt(prompt.trim()))
+  const params = new URLSearchParams({
+    width: String(width), height: String(height),
+    model: POLLINATIONS_MODEL, nologo: 'true',
+  })
 
   const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?${params.toString()}`
   const imgResponse = await fetchWithRetry(imageUrl)
 
   if (!imgResponse.ok) {
     const errorBody = await imgResponse.text()
-    throw new Error(`Pollinations error ${imgResponse.status}: ${errorBody.slice(0, 200)}`)
+    throw new Error(`Pollinations free error ${imgResponse.status}: ${errorBody.slice(0, 200)}`)
   }
 
   const imgBuffer = await imgResponse.arrayBuffer()
@@ -107,13 +129,20 @@ async function generateWithPollinations(prompt, size) {
   const base64 = btoa(binary)
   const imageData = `data:${contentType};base64,${base64}`
 
-  return {
-    image: imageData,
-    imageUrl,
-    provider: 'pollinations',
-    size,
-    model: POLLINATIONS_MODEL,
+  return { image: imageData, imageUrl, provider: 'pollinations', size, model: POLLINATIONS_MODEL }
+}
+
+async function generateWithPollinations(prompt, size) {
+  // Try paid API first (if key available), then fall back to free endpoint
+  if (POLLINATIONS_API_KEY) {
+    try {
+      return await generateWithPollinationsPaid(prompt, size)
+    } catch (err) {
+      console.warn(`[image] Pollinations paid failed, trying free endpoint: ${err.message}`)
+      // Fall through to free endpoint
+    }
   }
+  return await generateWithPollinationsFree(prompt, size)
 }
 
 // ── Main Handler ──
@@ -124,10 +153,7 @@ export async function POST(req) {
     const { prompt, size } = body
 
     if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
-      return Response.json(
-        { error: 'Prompt is required and must be a non-empty string.' },
-        { status: 400 }
-      )
+      return Response.json({ error: 'Prompt is required and must be a non-empty string.' }, { status: 400 })
     }
 
     const resolvedSize = VALID_SIZES.includes(size) ? size : DEFAULT_SIZE
@@ -147,7 +173,7 @@ export async function POST(req) {
         const fallbackResult = await generateWithPollinations(prompt, resolvedSize)
         fallbackResult.zaiFallback = true
         fallbackResult.zaiError = isAuthError
-          ? 'ZAI API returned 401 — likely geo-restricted from server region. Key works from supported regions.'
+          ? 'ZAI API returned 401 — likely geo-restricted from server region.'
           : errMsg
         return Response.json(fallbackResult)
       } catch (pollErr) {
@@ -158,9 +184,7 @@ export async function POST(req) {
             error: 'Image generation failed from all providers.',
             details: {
               zai: errMsg,
-              zaiHint: isAuthError
-                ? 'ZAI API returned 401 — likely geo-restricted from server. The API key works from supported regions.'
-                : undefined,
+              zaiHint: isAuthError ? 'ZAI API returned 401 — likely geo-restricted from server.' : undefined,
               pollinations: pollMsg,
             }
           },
@@ -170,7 +194,6 @@ export async function POST(req) {
     }
   } catch (err) {
     console.error('[image] Generation failed:', err)
-    const message = err?.message || 'Image generation failed.'
-    return Response.json({ error: message }, { status: 500 })
+    return Response.json({ error: err?.message || 'Image generation failed.' }, { status: 500 })
   }
 }
