@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
-import { IconMenu, IconClose, IconDashboard, IconUser, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconHome } from '@/components/Icons'
+import { IconMenu, IconClose, IconDashboard, IconUser, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconHome, IconVideo } from '@/components/Icons'
 import { supabasePublic } from '@/lib/supabase'
 import { useCurrency } from '@/components/CurrencyToggle'
 import { useTranslation } from '@/components/LanguageProvider'
@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { labelKey: 'nav.explore',      href: '/explore',    Icon: IconSearch },
   { labelKey: 'nav.chat',         href: '/chat',       Icon: IconChat },
   { labelKey: 'nav.studydesk',    href: '/study',      Icon: IconBook },
+  { labelKey: 'nav.reelpen',      href: '/reelpen',    Icon: IconVideo },
   { labelKey: 'nav.devtools',     href: '/devtools',   Icon: IconCode },
   { labelKey: 'nav.community',    href: '/community',  Icon: IconChat },
   { labelKey: 'nav.opportunities', href: '/opportunities', Icon: IconTrending },
