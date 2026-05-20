@@ -55,9 +55,6 @@ const FILE_TYPES = [
 function ImageIcon({ size = 20 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
 }
-function LayoutIcon({ size = 20 }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-}
 function FileConvertIcon({ size = 20 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m12 18-2-2 2-2"/><path d="m16 14 2 2-2 2"/></svg>
 }
@@ -74,7 +71,6 @@ export default function HomePage() {
   const [placeholderText, setPlaceholderText] = useState('')
   const textareaRef = useRef(null)
   const typewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
-  const scrollContainerRef = useRef(null)
 
   // Typewriter animation
   useEffect(() => {
@@ -194,7 +190,7 @@ export default function HomePage() {
         {/* ── Section 1: Generate Images ── Horizontal scrollable */}
         <section>
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center text-purple-400">
+            <div className="w-8 h-8 rounded-xl bg-[#dc2626]/15 flex items-center justify-center text-[#dc2626]">
               <ImageIcon size={16} />
             </div>
             <div>
@@ -203,32 +199,33 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Horizontal scrollable image gallery */}
-          <div
-            ref={scrollContainerRef}
-            className="flex gap-3 overflow-x-auto overscroll-x-contain pb-2 scrollbar-hide"
-            style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
-          >
-            {SAMPLE_IMAGES.map((img, i) => (
-              <button
-                key={img.src}
-                onClick={() => { setInput(`Generate an image: ${img.prompt}`); textareaRef.current?.focus() }}
-                className="group relative shrink-0 w-[200px] h-[200px] rounded-xl overflow-hidden bg-[#111] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer"
-                style={{ scrollSnapAlign: 'start' }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={img.src}
-                  alt={img.prompt}
-                  className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-300"
-                  loading="lazy"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-2.5">
-                  <p className="text-[11px] text-white/90 font-medium line-clamp-2">{img.prompt}</p>
-                </div>
-              </button>
-            ))}
+          {/* Auto-scrolling image gallery — infinite loop */}
+          <div className="overflow-hidden pb-2">
+            <div
+              className="flex gap-3 image-scroll-track"
+              onMouseEnter={e => e.currentTarget.style.animationPlayState = 'paused'}
+              onMouseLeave={e => e.currentTarget.style.animationPlayState = 'running'}
+            >
+              {[...SAMPLE_IMAGES, ...SAMPLE_IMAGES].map((img, i) => (
+                <button
+                  key={`${img.src}-${i}`}
+                  onClick={() => { setInput(`Generate an image: ${img.prompt}`); textareaRef.current?.focus() }}
+                  className="group relative shrink-0 w-[200px] h-[200px] rounded-xl overflow-hidden bg-[#111] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={img.src}
+                    alt={img.prompt}
+                    className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-300"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-2.5">
+                    <p className="text-[11px] text-white/90 font-medium line-clamp-2">{img.prompt}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Quick prompts */}
@@ -248,7 +245,7 @@ export default function HomePage() {
         {/* ── Section 2: Build Websites ── Horizontal scrollable rectangular cards */}
         <section>
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center text-emerald-400">
+            <div className="w-8 h-8 rounded-xl bg-[#dc2626]/15 flex items-center justify-center text-[#dc2626]">
               <WebIcon size={16} />
             </div>
             <div>
@@ -270,7 +267,7 @@ export default function HomePage() {
                 style={{ scrollSnapAlign: 'start' }}
               >
                 {/* Rectangular preview thumbnail */}
-                <div className="w-full h-[120px] bg-gradient-to-br from-emerald-500/10 to-teal-500/10 overflow-hidden">
+                <div className="w-full h-[120px] bg-gradient-to-br from-[#dc2626]/10 to-red-900/10 overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={site.src}
@@ -305,7 +302,7 @@ export default function HomePage() {
         {/* ── Section 3: Convert to File ── Horizontal scrollable cards */}
         <section>
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center text-amber-400">
+            <div className="w-8 h-8 rounded-xl bg-[#dc2626]/15 flex items-center justify-center text-[#dc2626]">
               <FileConvertIcon size={16} />
             </div>
             <div>
@@ -496,6 +493,19 @@ export default function HomePage() {
         }
         .animate-fade-up {
           animation: fade-up 0.5s ease-out forwards;
+        }
+
+        /* Infinite auto-scroll for image gallery */
+        @keyframes image-scroll {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .image-scroll-track {
+          animation: image-scroll 40s linear infinite;
+          width: max-content;
+        }
+        .image-scroll-track:hover {
+          animation-play-state: paused;
         }
       `}</style>
     </main>
