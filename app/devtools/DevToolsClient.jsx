@@ -1032,10 +1032,6 @@ export default function DevToolsClient() {
             ))}
           </div>
         </div>
-
-        <p className="text-center text-xs text-[#2e2e2e] mt-8">
-          {t('devtools.footer_tagline')}
-        </p>
       </div>
     </main>
   )
