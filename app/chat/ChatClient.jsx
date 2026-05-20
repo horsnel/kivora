@@ -1815,23 +1815,6 @@ export default function ChatClient() {
                   />
                 </div>
 
-                {/* Voice input button */}
-                <button
-                  className={`chat-collapsed-btn-circle ${isListening ? 'chat-collapsed-btn-active' : ''}`}
-                  onClick={toggleListening}
-                  aria-label="Voice input"
-                  title={isListening ? 'Stop listening' : 'Voice input'}
-                >
-                  {isListening ? (
-                    <span className="relative flex items-center justify-center" style={{ width: 18, height: 18 }}>
-                      <span className="absolute w-4 h-4 bg-red-500 rounded-full animate-pulse" />
-                      <IconMicrophone size={18} className="relative z-10 text-red-400" />
-                    </span>
-                  ) : (
-                    <IconMicrophone size={18} />
-                  )}
-                </button>
-
                 {/* Image mode toggle (collapsed) */}
                 <button
                   className={`chat-collapsed-btn-circle ${imageMode ? 'chat-collapsed-btn-active' : ''}`}
@@ -1958,22 +1941,6 @@ export default function ChatClient() {
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
                       </svg>
-                    </button>
-
-                    {/* Voice input */}
-                    <button
-                      className={`chat-toolbar-btn ${isListening ? 'chat-toolbar-btn-active' : ''}`}
-                      onClick={toggleListening}
-                      title={isListening ? 'Stop listening' : 'Voice input'}
-                    >
-                      {isListening ? (
-                        <span className="relative flex items-center justify-center" style={{ width: 16, height: 16 }}>
-                          <span className="absolute w-3.5 h-3.5 bg-red-500 rounded-full animate-pulse" />
-                          <IconMicrophone size={16} className="relative z-10" />
-                        </span>
-                      ) : (
-                        <IconMicrophone size={16} />
-                      )}
                     </button>
 
                     {/* Image generation mode */}
