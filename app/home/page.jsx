@@ -190,7 +190,7 @@ export default function HomePage() {
         {/* ── Section 1: Generate Images ── Horizontal scrollable */}
         <section>
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-xl bg-[#dc2626]/15 flex items-center justify-center text-[#dc2626]">
+            <div className="w-8 h-8 rounded-xl bg-[#1a1a1a] flex items-center justify-center text-[#737373]">
               <ImageIcon size={16} />
             </div>
             <div>
@@ -245,7 +245,7 @@ export default function HomePage() {
         {/* ── Section 2: Build Websites ── Horizontal scrollable rectangular cards */}
         <section>
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-xl bg-[#dc2626]/15 flex items-center justify-center text-[#dc2626]">
+            <div className="w-8 h-8 rounded-xl bg-[#1a1a1a] flex items-center justify-center text-[#737373]">
               <WebIcon size={16} />
             </div>
             <div>
@@ -302,7 +302,7 @@ export default function HomePage() {
         {/* ── Section 3: Convert to File ── Horizontal scrollable cards */}
         <section>
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-xl bg-[#dc2626]/15 flex items-center justify-center text-[#dc2626]">
+            <div className="w-8 h-8 rounded-xl bg-[#1a1a1a] flex items-center justify-center text-[#737373]">
               <FileConvertIcon size={16} />
             </div>
             <div>
