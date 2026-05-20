@@ -133,29 +133,13 @@ export default function Navbar() {
 
   return (
     <>
-      {/* Mobile overlay */}
-      {mobileOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setMobileOpen(false)} />
-      )}
-
-      {/* Sidebar — full height, always visible on desktop, slide-in on mobile */}
+      {/* Sidebar — full height, always visible, static layout */}
       <aside
         ref={sidebarRef}
-        className={`fixed md:relative z-50 md:z-auto top-0 left-0 h-full w-60 bg-[#0f0f0f] border-r border-[#181818] flex flex-col transition-transform duration-200 ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        }`}
+        className="relative z-50 top-0 left-0 h-full w-60 bg-[#0f0f0f] border-r border-[#181818] flex flex-col shrink-0"
       >
         <SidebarContent user={user} pathname={pathname} onClose={() => setMobileOpen(false)} currencyOpen={currencyOpen} setCurrencyOpen={setCurrencyOpen} currencyDropdownRef={currencyDropdownRef} />
       </aside>
-
-      {/* Mobile hamburger — top-left, only on small screens */}
-      <button
-        className="fixed top-3 left-3 md:hidden z-30 w-9 h-9 flex items-center justify-center bg-[#141414] border border-[#262626] rounded-lg text-[#737373] hover:text-white transition-colors"
-        onClick={() => setMobileOpen(true)}
-        aria-label="Open sidebar"
-      >
-        <IconMenu size={14} />
-      </button>
     </>
   )
 }
