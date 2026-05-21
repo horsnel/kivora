@@ -8,7 +8,7 @@ const SCENES = [
   {
     id: 'moon',
     label: 'Moon',
-    src: '/3d/moon.html',
+    src: '/3d-scenes/moon.html',
     description: 'Interactive 3D Moon with procedural textures and NASA data',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -20,7 +20,7 @@ const SCENES = [
   {
     id: 'deepspace',
     label: 'Deep Space',
-    src: '/3d/deepspace.html',
+    src: '/3d-scenes/deepspace.html',
     description: 'Nebula exploration with Hubble telescope imagery',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -33,7 +33,7 @@ const SCENES = [
   {
     id: 'cube',
     label: 'Rubik\'s Cube',
-    src: '/3d/cube.html',
+    src: '/3d-scenes/cube.html',
     description: 'Interactive 3x3 Rubik\'s Cube with face rotation',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
