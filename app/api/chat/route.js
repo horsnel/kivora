@@ -1,6 +1,7 @@
 export const runtime = 'edge'
-import { groq, MODEL, VISION_MODEL, groqChat, ALLOWED_MODELS } from '@/lib/groq'
-import { getSupabaseAdmin } from '@/lib/supabase'
+import { groq, MODEL, VISION_MODEL, groqChat, ALLOWED_MODELS, getPrimaryClientAsync } from '@/lib/groq'
+import { createClient } from '@supabase/supabase-js'
+import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit } from '@/lib/ratelimit'
 import { toolDefs, toolHandlers, TOOL_INSTRUCTIONS } from '@/lib/toolRegistry'
 import { buildSystemPrompt } from '@/lib/systemPrompt'
@@ -25,8 +26,13 @@ export async function POST(req) {
   }
 
   try {
-    const admin = getSupabaseAdmin()
-    if (!admin || !groq) {
+    // Access Cloudflare Workers secrets via getEnvVar (process.env has empty values for secrets)
+    const groqKey = await getEnvVar('GROQ_API_KEY')
+    const supaUrl = await getEnvVar('NEXT_PUBLIC_SUPABASE_URL')
+    const supaKey = await getEnvVar('SUPABASE_SERVICE_ROLE_KEY')
+    const groqClient = await getPrimaryClientAsync(groqKey)
+    const admin = supaUrl && supaKey ? createClient(supaUrl, supaKey) : null
+    if (!groqClient || !admin) {
       return Response.json({ error: 'Service not configured' }, { status: 503 })
     }
     const { messages, sessionId, userId, model: requestedModel, systemPrompt } = await req.json()

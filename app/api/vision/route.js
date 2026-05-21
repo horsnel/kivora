@@ -1,7 +1,8 @@
 export const runtime = 'edge'
 
 import { rateLimit } from '@/lib/ratelimit'
-import { groq } from '@/lib/groq'
+import { groq, getPrimaryClientAsync } from '@/lib/groq'
+import { getEnvVar } from '@/lib/cfEnv'
 
 const VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct'
 
@@ -18,7 +19,9 @@ export async function POST(req) {
       return Response.json({ error: 'image is required (base64 data URL or image URL)' }, { status: 400 })
     }
 
-    if (!groq) {
+    const groqKey = await getEnvVar('GROQ_API_KEY')
+    const groqClient = await getPrimaryClientAsync(groqKey)
+    if (!groqClient) {
       return Response.json({ error: 'Vision service not configured' }, { status: 503 })
     }
 

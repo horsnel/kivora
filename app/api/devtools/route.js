@@ -1,5 +1,6 @@
 export const runtime = 'edge'
-import { groq, MODEL, groqChat } from '@/lib/groq'
+import { groq, MODEL, groqChat, getPrimaryClientAsync } from '@/lib/groq'
+import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit } from '@/lib/ratelimit'
 
 const PROMPTS = {
@@ -562,7 +563,9 @@ export async function POST(req) {
   }
 
   try {
-    if (!groq) {
+    const groqKey = await getEnvVar('GROQ_API_KEY')
+    const groqClient = await getPrimaryClientAsync(groqKey)
+    if (!groqClient) {
       return Response.json({ error: 'AI service not configured' }, { status: 503 })
     }
     const { tool, payload } = await req.json()

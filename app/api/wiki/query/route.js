@@ -1,11 +1,16 @@
 export const runtime = 'edge'
-import { getSupabaseAdmin } from '@/lib/supabase'
-import { groq, MODEL_FAST, groqChat } from '@/lib/groq'
+import { createClient } from '@supabase/supabase-js'
+import { groq, MODEL_FAST, groqChat, getPrimaryClientAsync } from '@/lib/groq'
+import { getEnvVar } from '@/lib/cfEnv'
 
 export async function POST(req) {
   try {
-    const admin = getSupabaseAdmin()
-    if (!admin || !groq) {
+    const groqKey = await getEnvVar('GROQ_API_KEY')
+    const groqClient = await getPrimaryClientAsync(groqKey)
+    const supaUrl = await getEnvVar('NEXT_PUBLIC_SUPABASE_URL')
+    const supaKey = await getEnvVar('SUPABASE_SERVICE_ROLE_KEY')
+    const admin = supaUrl && supaKey ? createClient(supaUrl, supaKey) : null
+    if (!groqClient || !admin) {
       return Response.json({ error: 'Service not configured' }, { status: 503 })
     }
     const { topic, category } = await req.json()
