@@ -13,6 +13,7 @@ const FOOTER_LINKS = [
   { labelKey: 'footer.studydesk',     href: '/study' },
   { labelKey: 'footer.devtools',      href: '/devtools' },
   { labelKey: 'footer.opportunities', href: '/opportunities' },
+  { label: 'Tools & Features',        href: '/tools' },
   { labelKey: 'footer.about',         href: '/about' },
   { labelKey: 'footer.blog',          href: '/blog' },
   { labelKey: 'footer.contact',       href: '/contact' },
@@ -42,9 +43,9 @@ export default function Footer() {
         </Link>
 
         <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-caption text-[#737373]">
-          {FOOTER_LINKS.map(({ labelKey, href }) => (
+          {FOOTER_LINKS.map(({ labelKey, label, href }) => (
             <Link key={href} href={href} className="hover:text-white transition-colors">
-              {t(labelKey)}
+              {label || t(labelKey)}
             </Link>
           ))}
         </div>

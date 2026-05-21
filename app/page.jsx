@@ -47,13 +47,6 @@ export default function WelcomePage() {
     },
   ]
 
-  const STATS = [
-    { value: '6', label: t('welcome.stats.tools') },
-    { value: '400+', label: t('welcome.stats.guides') },
-    { value: '11', label: t('welcome.stats.currencies') },
-    { value: '$0', label: t('welcome.stats.free') },
-  ]
-
   const TESTIMONIALS = [
     { quote: t('welcome.testimonials.1.quote'), name: 'Emeka O.', location: 'Lagos, Nigeria' },
     { quote: t('welcome.testimonials.2.quote'), name: 'Priya S.', location: 'Bangalore, India' },
@@ -142,18 +135,6 @@ export default function WelcomePage() {
         </div>
       </section>
 
-      {/* ── Stats ──────────────────────────────────── */}
-      <section className="border-y border-[#141414] py-8 sm:py-10">
-        <div className="max-w-4xl mx-auto px-5 sm:px-6 grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 text-center">
-          {STATS.map(s => (
-            <div key={s.label}>
-              <div className="text-2xl sm:text-3xl font-bold tracking-tight text-white mb-1">{s.value}</div>
-              <div className="text-[11px] sm:text-xs text-muted">{s.label}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* ── Features ───────────────────────────────── */}
       <section className="max-w-5xl mx-auto px-5 sm:px-6 py-14 sm:py-20">
         <div className="text-center mb-10 sm:mb-12">
@@ -170,31 +151,6 @@ export default function WelcomePage() {
               <p className="text-muted text-xs leading-relaxed">{desc}</p>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* ── How it works ───────────────────────────── */}
-      <section className="bg-[#0d0d0d] border-y border-[#141414] py-14 sm:py-20">
-        <div className="max-w-3xl mx-auto px-5 sm:px-6">
-          <div className="text-center mb-10 sm:mb-12">
-            <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mb-3">{t('welcome.how.title')}</h2>
-            <p className="text-muted text-sm sm:text-base">{t('welcome.how.subtitle')}</p>
-          </div>
-          <div className="space-y-3 sm:space-y-4">
-            {[
-              { n: '01', title: t('welcome.how.step1.title'), desc: t('welcome.how.step1.desc') },
-              { n: '02', title: t('welcome.how.step2.title'), desc: t('welcome.how.step2.desc') },
-              { n: '03', title: t('welcome.how.step3.title'), desc: t('welcome.how.step3.desc') },
-            ].map(step => (
-              <div key={step.n} className="flex gap-4 sm:gap-5 bg-[#141414] rounded-xl p-5 sm:p-6">
-                <span className="text-red-500 font-mono text-sm font-bold shrink-0 mt-0.5 w-6">{step.n}</span>
-                <div>
-                  <h3 className="font-semibold text-sm mb-1.5 tracking-tight text-muted">{step.title}</h3>
-                  <p className="text-muted text-sm leading-relaxed">{step.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -301,7 +257,8 @@ export default function WelcomePage() {
                   [t('footer.chat'), '/chat'],
                   [t('footer.studydesk'), '/study'],
                   [t('footer.devtools'), '/devtools'],
-                  [t('footer.opportunities'), '/opportunities']
+                  [t('footer.opportunities'), '/opportunities'],
+                  ['Tools & Features', '/tools']
                 ].map(([l, h]) => (
                   <li key={l}><Link href={h} className="text-xs text-muted hover:text-white transition-colors">{l}</Link></li>
                 ))}
