@@ -7,21 +7,7 @@ import { IconMoney, IconLightning, IconTool, IconSearch, IconFilter, IconEye, Ic
 
 const CATEGORY_KEYS = ['all','automation','content','youtube','ecommerce','affiliate','freelance','saas','finance','education','africa','developer']
 
-// Inline icon: Calculator
-function IconCalc({ size = 16, className = '' }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
-      <rect x="2" y="1.5" width="12" height="13" rx="1.5" stroke="currentColor" strokeWidth="1.25"/>
-      <rect x="4" y="3.5" width="8" height="3" rx="0.75" stroke="currentColor" strokeWidth="1"/>
-      <circle cx="5" cy="9.5" r=".75" fill="currentColor"/>
-      <circle cx="8" cy="9.5" r=".75" fill="currentColor"/>
-      <circle cx="11" cy="9.5" r=".75" fill="currentColor"/>
-      <circle cx="5" cy="12" r=".75" fill="currentColor"/>
-      <circle cx="8" cy="12" r=".75" fill="currentColor"/>
-      <circle cx="11" cy="12" r=".75" fill="currentColor"/>
-    </svg>
-  )
-}
+/* IconCalc removed — calculator card removed from page */
 
 // Inline icon: Checklist
 function IconChecklist({ size = 16, className = '' }) {
@@ -67,11 +53,6 @@ export default function OpportunitiesPage() {
   const [search, setSearch] = useState('')
   const [genQuery, setGenQuery] = useState('')
   const [generating, setGenerating] = useState(false)
-
-  // ── Feature 1: Income Calculator ──
-  const [calcMin, setCalcMin] = useState(0)
-  const [calcMax, setCalcMax] = useState(5000)
-  const [calcPeriod, setCalcPeriod] = useState('monthly')
 
   // ── Feature 2: Checklist ──
   const [checklistSlug, setChecklistSlug] = useState(null)
@@ -145,37 +126,6 @@ export default function OpportunitiesPage() {
       if (data.slug) router.push(`/explore/${data.slug}`)
     } catch (_) {}
     setGenerating(false)
-  }
-
-  // ── Income Calculator helpers ──
-  const periodMultipliers = { daily: 30, weekly: 4.3, monthly: 1 }
-  const multiplier = periodMultipliers[calcPeriod] || 1
-  const projections = {
-    '1 month': { min: Math.round(calcMin * multiplier), max: Math.round(calcMax * multiplier) },
-    '6 months': { min: Math.round(calcMin * multiplier * 6), max: Math.round(calcMax * multiplier * 6) },
-    '12 months': { min: Math.round(calcMin * multiplier * 12), max: Math.round(calcMax * multiplier * 12) },
-  }
-  const maxProjection = projections['12 months'].max || 1
-
-  // Compact format for projection cards — abbreviates large numbers
-  function formatCompact(usd) {
-    const val = convert(usd)
-    if (val >= 1_000_000_000) return `${currency.symbol}${(val / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}B`
-    if (val >= 1_000_000) return `${currency.symbol}${(val / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
-    if (val >= 100_000) return `${currency.symbol}${(val / 1_000).toFixed(0)}K`
-    if (val >= 10_000) return `${currency.symbol}${(val / 1_000).toFixed(1).replace(/\.0$/, '')}K`
-    return `${currency.symbol}${val.toLocaleString()}`
-  }
-
-  function fillCalcFromOpp(opp) {
-    if (opp.result) {
-      setCalcMin(opp.result.income_min || 0)
-      setCalcMax(opp.result.income_max || 5000)
-      const p = (opp.result.income_period || 'month').toLowerCase()
-      if (p.includes('day')) setCalcPeriod('daily')
-      else if (p.includes('week')) setCalcPeriod('weekly')
-      else setCalcPeriod('monthly')
-    }
   }
 
   // ── Checklist helpers ──
@@ -267,75 +217,6 @@ export default function OpportunitiesPage() {
           </div>
         </div>
 
-        {/* ── Feature 1: Income Calculator ── */}
-        <div className="bg-[#141414] rounded-xl p-7 sm:p-8 mb-10">
-          <p className="text-caption text-muted font-medium mb-4 flex items-center gap-1.5"><IconCalc size={12} /> {t('opportunities.income_calc')}</p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
-            {/* Min slider */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-caption text-muted2">{t('opportunities.min_income')}</span>
-                <span className="text-caption text-muted2 font-mono">{formatCompact(calcMin)}</span>
-              </div>
-              <input type="range" min={0} max={10000000} step={100} value={calcMin}
-                onChange={e => setCalcMin(Number(e.target.value))}
-                className="w-full h-1.5 bg-[#262626] rounded-full appearance-none cursor-pointer accent-red-500
-                  [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-red-500 [&::-webkit-slider-thumb]:cursor-pointer
-                  [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-red-500 [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer" />
-            </div>
-            {/* Max slider */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-caption text-muted2">{t('opportunities.max_income')}</span>
-                <span className="text-caption text-muted2 font-mono">{formatCompact(calcMax)}</span>
-              </div>
-              <input type="range" min={0} max={10000000} step={100} value={calcMax}
-                onChange={e => setCalcMax(Number(e.target.value))}
-                className="w-full h-1.5 bg-[#262626] rounded-full appearance-none cursor-pointer accent-red-500
-                  [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-red-500 [&::-webkit-slider-thumb]:cursor-pointer
-                  [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-red-500 [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer" />
-            </div>
-          </div>
-
-          {/* Period selector */}
-          <div className="flex gap-2 mb-6">
-            {['daily', 'weekly', 'monthly'].map(p => (
-              <button key={p} onClick={() => setCalcPeriod(p)}
-                className={`px-3 py-1.5 rounded-full text-caption font-medium border transition-all ${
-                  calcPeriod === p ? 'bg-red-600 border-red-600 text-white' : 'bg-[#0a0a0a] border-[#262626] text-muted hover:text-white hover:border-[#3a3a3a]'
-                }`}>
-                {p.charAt(0).toUpperCase() + p.slice(1)}
-              </button>
-            ))}
-          </div>
-
-          {/* Projection cards + bar chart */}
-          <div className="grid grid-cols-3 gap-3">
-            {Object.entries(projections).map(([label, { min, max }]) => {
-              const barHeight = maxProjection > 0 ? Math.max(8, (Math.log10(max + 1) / Math.log10(maxProjection + 1)) * 100) : 8
-              const barMinHeight = maxProjection > 0 ? Math.max(8, (Math.log10(min + 1) / Math.log10(maxProjection + 1)) * 100) : 8
-              return (
-                <div key={label} className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-4 text-center overflow-hidden">
-                  <p className="text-caption text-muted2 mb-2">{label}</p>
-                  <div className="flex items-end justify-center gap-1.5 h-20 mb-3">
-                    <div className="flex flex-col items-center gap-0.5 w-8">
-                      <div className="w-full bg-[#262626] rounded-sm relative" style={{ height: `${barHeight}%` }}>
-                        <div className="absolute bottom-0 left-0 right-0 bg-red-500/30 rounded-sm" style={{ height: `${barMinHeight}%` }} />
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-center gap-0.5 w-8">
-                      <div className="w-full bg-red-500/70 rounded-sm relative" style={{ height: `${barMinHeight}%` }} />
-                    </div>
-                  </div>
-                  <p className="text-xs sm:text-body text-muted2 font-semibold whitespace-nowrap">{formatCompact(min)}</p>
-                  <p className="text-caption text-muted2 whitespace-nowrap">to {formatCompact(max)}</p>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
         {/* Search + filter */}
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
           <div className="relative flex-1">
@@ -409,14 +290,6 @@ export default function OpportunitiesPage() {
 
                   {/* Action buttons row */}
                   <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-white/[0.04]">
-                    {/* Fill calculator */}
-                    <button onClick={(e) => { e.stopPropagation(); fillCalcFromOpp(opp) }}
-                      className="flex items-center gap-1 px-2 py-1 rounded-md text-caption text-muted2 hover:text-white hover:bg-[#0a0a0a] transition-colors"
-                      title="Use in income calculator">
-                      <IconCalc size={12} />
-                      <span>{t('opportunities.calc')}</span>
-                    </button>
-
                     {/* Open checklist */}
                     <button onClick={(e) => { e.stopPropagation(); setChecklistSlug(opp.slug) }}
                       className="flex items-center gap-1 px-2 py-1 rounded-md text-caption text-muted2 hover:text-white hover:bg-[#0a0a0a] transition-colors"

@@ -567,6 +567,10 @@ export default function ChatClient() {
     }
 
     const userMsg = { role: 'user', content: messageContent }
+    // Store image data separately for display rendering (avoids embedding base64 in content string for display)
+    if (attachedIsImage && attachedContent) {
+      userMsg.userImageData = attachedContent
+    }
     const newMessages = [...messages, userMsg]
     setMessages(newMessages)
     setInput('')
@@ -1473,8 +1477,9 @@ export default function ChatClient() {
                 if (imageMatch) {
                   hasImageAttachment = true
                   attachmentName = imageMatch[1]
-                  displayContent = msg.content.replace(/^\[Image: .+?\]\n?/, '').replace(/^data:image\/[\s\S]+$/, '').trim()
-                  if (!displayContent) displayContent = '📷 Attached image'
+                  // Strip [Image: ...] prefix and base64 data from display text, keep any user text
+                  displayContent = msg.content.replace(/^\[Image: .+?\]\n?/, '').replace(/^data:image\/[^\n]+/, '').trim()
+                  if (!displayContent) displayContent = ''
                 }
               }
 
@@ -1490,7 +1495,7 @@ export default function ChatClient() {
                         </div>
                       </div>
                     )}
-                    {hasImageAttachment && (
+                    {hasImageAttachment && !msg.userImageData && (
                       <div className="flex items-center gap-1.5 mb-1.5 justify-end">
                         <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-lg px-2.5 py-1 text-[11px] text-muted">
                           <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1.5"/><path d="M2 11l3.5-3.5 2.5 2.5 2-2L14 11"/></svg>
@@ -1773,8 +1778,18 @@ export default function ChatClient() {
                         <MarkdownRenderer content={msg.content} />
                       )
                     ) : (
-                      <div className="rounded-2xl px-3.5 py-2 bg-white/[0.04] text-[#e2e2e2] text-[14px] border border-white/[0.06] rounded-tr-sm leading-[1.5]">
-                        <span>{displayContent}</span>
+                      <div className="flex flex-col items-end gap-1.5">
+                        {msg.userImageData && (
+                          <div className="rounded-xl overflow-hidden border border-white/[0.06] max-w-full">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={msg.userImageData} alt="Uploaded" className="max-w-full max-h-64 w-auto h-auto object-contain" />
+                          </div>
+                        )}
+                        {displayContent && (
+                          <div className="rounded-2xl px-3.5 py-2 bg-white/[0.04] text-[#e2e2e2] text-[14px] border border-white/[0.06] rounded-tr-sm leading-[1.5]">
+                            <span>{displayContent}</span>
+                          </div>
+                        )}
                       </div>
                     )}
                     {msg.role === 'assistant' && (
