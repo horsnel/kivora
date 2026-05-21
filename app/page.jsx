@@ -47,12 +47,6 @@ export default function WelcomePage() {
     },
   ]
 
-  const TESTIMONIALS = [
-    { quote: t('welcome.testimonials.1.quote'), name: 'Emeka O.', location: 'Lagos, Nigeria' },
-    { quote: t('welcome.testimonials.2.quote'), name: 'Priya S.', location: 'Bangalore, India' },
-    { quote: t('welcome.testimonials.3.quote'), name: 'Kwame A.', location: 'Accra, Ghana' },
-  ]
-
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 40)
     window.addEventListener('scroll', fn)
@@ -179,31 +173,6 @@ export default function WelcomePage() {
               </div>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* ── Testimonials ───────────────────────────── */}
-      <section className="bg-[#0d0d0d] border-y border-[#141414] py-14 sm:py-20">
-        <div className="max-w-4xl mx-auto px-5 sm:px-6">
-          <div className="text-center mb-10 sm:mb-12">
-            <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mb-3">{t('welcome.testimonials.title')}</h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-            {TESTIMONIALS.map(tItem => (
-              <div key={tItem.name} className="bg-[#141414] rounded-xl p-5 sm:p-6">
-                <div className="flex gap-0.5 mb-4">
-                  {[...Array(5)].map((_, i) => (
-                    <svg key={i} width="12" height="12" viewBox="0 0 12 12" fill="#dc2626"><path d="M6 1l1.4 2.8L10.5 4l-2.2 2.2.5 3.1L6 7.9 3.2 9.3l.5-3.1L1.5 4l3.1-.2z"/></svg>
-                  ))}
-                </div>
-                <p className="text-[#d4d4d4] text-sm leading-relaxed mb-5">"{tItem.quote}"</p>
-                <div>
-                  <div className="font-semibold text-sm">{tItem.name}</div>
-                  <div className="text-xs text-muted">{tItem.location}</div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
