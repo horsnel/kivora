@@ -1,0 +1,23 @@
+name = "kivora-sandbox"
+main = "src/index.ts"
+compatibility_date = "2026-05-20"
+compatibility_flags = ["nodejs_compat"]
+
+# Durable Object binding for sandbox (persistent file storage via SQLite)
+[[durable_objects.bindings]]
+class_name = "Sandbox"
+name = "Sandbox"
+
+# Migration for Durable Object with SQLite
+[[migrations]]
+new_sqlite_classes = ["Sandbox"]
+tag = "v1"
+
+# v2 migration (no-op, just bumps tag for code update)
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = []
+
+# Environment variables
+[vars]
+SANDBOX_MODE = "do-sqlite"

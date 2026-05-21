@@ -9,6 +9,10 @@ import MarkdownRenderer from '@/components/MarkdownRenderer'
 import ArtifactViewer from '@/components/ArtifactViewer'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
+import dynamic from 'next/dynamic'
+
+// Dynamic import xterm — it only works in the browser
+const XTerminal = dynamic(() => import('@/components/XTerminal'), { ssr: false })
 
 // ── System Templates (Google AI Studio-style) ──
 const SYSTEM_TEMPLATES = [
@@ -196,12 +200,10 @@ export default function ChatClient() {
 
   // ── Live Terminal Mode ──
   const [terminalMode, setTerminalMode] = useState(false)
-  const [terminalHistory, setTerminalHistory] = useState([]) // {type: 'input'|'output'|'ai-suggest', content: string}
-  const [termInput, setTermInput] = useState('')
   const [aiSuggestion, setAiSuggestion] = useState(null) // pending command from AI
+  const xtermRef = useRef(null)
 
   const bottomRef = useRef(null)
-  const termOutputRef = useRef(null)
   const textareaRef = useRef(null)
   const collapsedInputRef = useRef(null)
   const historyRef = useRef(null)
@@ -608,6 +610,12 @@ export default function ChatClient() {
       if (data.codeExecuted) {
         assistantMsg.codeExecuted = true
       }
+      if (data.sandboxUsed) {
+        assistantMsg.sandboxUsed = true
+      }
+      if (data.downloadFile) {
+        assistantMsg.downloadFile = data.downloadFile
+      }
       if (data.urlRead) {
         assistantMsg.urlRead = true
         assistantMsg.urlReadSource = data.urlReadSource || ''
@@ -947,9 +955,67 @@ export default function ChatClient() {
   const currentModel = MODELS.find(m => m.id === model) || MODELS[0]
 
   // ── Live Terminal Handlers ──
-  const executeCommand = async (cmd) => {
-    setTerminalHistory(prev => [...prev, { type: 'input', content: cmd }])
+  const [sandboxAvailable, setSandboxAvailable] = useState(false)
 
+  // Check sandbox availability on mount
+  useEffect(() => {
+    fetch('/api/sandbox?action=health')
+      .then(r => r.json())
+      .then(data => setSandboxAvailable(data.sandbox_available === true))
+      .catch(() => setSandboxAvailable(false))
+  }, [])
+
+  // Helper to write to xterm with ANSI colors
+  const termWrite = (text, color) => {
+    const term = xtermRef.current
+    if (!term) return
+    if (color) {
+      const colorMap = { green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m', cyan: '\x1b[36m', gray: '\x1b[90m', reset: '\x1b[0m' }
+      term.write(`${colorMap[color] || ''}${text}${colorMap.reset}`)
+    } else {
+      term.write(text)
+    }
+  }
+
+  const termWriteln = (text, color) => {
+    termWrite(text + '\r\n', color)
+  }
+
+  const termPrompt = () => {
+    const term = xtermRef.current
+    if (!term) return
+    term.write('\r\n\x1b[32m$\x1b[0m ')
+  }
+
+  const executeCommand = async (cmd) => {
+    // ── Try Cloudflare Sandbox first ──
+    if (sandboxAvailable) {
+      try {
+        const res = await fetch('/api/sandbox', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'exec', sandbox_id: 'terminal', command: cmd, timeout: 30000 })
+        })
+        const data = await res.json()
+        if (data.sandbox_available && data.success !== undefined) {
+          let output = data.stdout || ''
+          if (data.stderr) output += (output ? '\n' : '') + data.stderr
+          if (!output) output = '(no output)'
+          if (data.exitCode && data.exitCode !== 0) {
+            termWriteln(output)
+            termWriteln(`[Exit code: ${data.exitCode}]`, 'red')
+          } else {
+            termWriteln(output)
+          }
+          termPrompt()
+          return
+        }
+      } catch {
+        // Fall through to Judge0
+      }
+    }
+
+    // ── Fallback: Judge0 ──
     try {
       const res = await fetch('/api/execute', {
         method: 'POST',
@@ -959,7 +1025,6 @@ export default function ChatClient() {
       const data = await res.json()
 
       let output = ''
-      // API-level error (rate limit, bad request, etc.)
       if (data.error && !data.status) {
         output = data.error
       } else {
@@ -968,25 +1033,21 @@ export default function ChatClient() {
         if (data.stderr) output += (output ? '\n' : '') + data.stderr
         if (!output) output = '(no output)'
         if (data.exit_code && data.exit_code !== 0) output += `\n[Exit code: ${data.exit_code}]`
-        // Show status if not "Accepted"
         if (data.status?.id && data.status.id !== 3 && data.status.id !== 4) {
           output += `\n[${data.status.description}]`
         }
       }
 
-      setTerminalHistory(prev => [...prev, { type: 'output', content: output }])
+      termWriteln(output)
     } catch {
-      setTerminalHistory(prev => [...prev, { type: 'output', content: 'Execution failed. Check your connection.' }])
+      termWriteln('Execution failed. Check your connection.', 'red')
     }
 
-    // Auto-scroll
-    setTimeout(() => {
-      termOutputRef.current?.scrollTo({ top: termOutputRef.current.scrollHeight })
-    }, 50)
+    termPrompt()
   }
 
   const askAIForCommand = async (query) => {
-    setTerminalHistory(prev => [...prev, { type: 'input', content: `# ${query}` }])
+    termWriteln(`\x1b[90m# ${query}\x1b[0m`)
 
     try {
       const messages = [{ role: 'user', content: `I need a shell command for: ${query}\n\nRespond with ONLY the command, no explanation, no markdown, no code blocks. Just the raw command that can be pasted into a terminal.` }]
@@ -994,42 +1055,31 @@ export default function ChatClient() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages, model: 'llama-3.1-8b-instant' }) // Use fast model for terminal
+        body: JSON.stringify({ messages, model: 'llama-3.1-8b-instant' })
       })
       const data = await res.json()
 
       if (data.reply) {
-        // Clean up the reply — strip markdown code blocks if present
         let cmd = data.reply.trim()
         cmd = cmd.replace(/^```(?:bash|sh|shell)?\n?/, '').replace(/\n?```$/, '').trim()
         cmd = cmd.replace(/^`|`$/g, '').trim()
 
         if (cmd) {
           setAiSuggestion(cmd)
+          termWriteln(`\x1b[33mAI suggests:\x1b[0m ${cmd}`)
+          termWriteln('\x1b[90mPress Enter to run · Esc to dismiss\x1b[0m')
         }
       }
     } catch {
-      setTerminalHistory(prev => [...prev, { type: 'output', content: 'AI request failed.' }])
+      termWriteln('AI request failed.', 'red')
     }
 
-    // Auto-scroll
-    setTimeout(() => {
-      termOutputRef.current?.scrollTo({ top: termOutputRef.current.scrollHeight })
-    }, 50)
+    termPrompt()
   }
 
-  const handleTerminalInput = async (e) => {
-    if (e.key === 'Escape') {
-      setAiSuggestion(null)
-      return
-    }
-
-    if (e.key !== 'Enter') return
-    const cmd = termInput.trim()
-    if (!cmd) return
-    setTermInput('')
-
-    // If there's an AI suggestion pending and user presses Enter, execute it
+  // Handle xterm input (command submitted via Enter)
+  const handleXTermInput = async (cmd) => {
+    // If there's an AI suggestion pending, execute it
     if (aiSuggestion) {
       const suggestion = aiSuggestion
       setAiSuggestion(null)
@@ -1037,17 +1087,22 @@ export default function ChatClient() {
       return
     }
 
-    // Check if this looks like a shell command (starts with common command prefixes)
+    // Check if this looks like a shell command
     const isCommand = /^[a-z]/.test(cmd) && (
       /^(ls|cd|pwd|cat|echo|mkdir|rm|cp|mv|grep|find|curl|wget|npm|npx|node|python|pip|git|docker|make|chmod|chown|export|source|sudo|apt|yum|brew|which|whoami|uname|df|du|ps|top|kill|clear|history)/.test(cmd)
     )
 
     if (isCommand) {
-      // Execute directly
       await executeCommand(cmd)
     } else {
-      // Natural language — ask AI for a command suggestion
       await askAIForCommand(cmd)
+    }
+  }
+
+  // Handle xterm key events for AI suggestion dismiss
+  const handleXTermKey = (domEvent) => {
+    if (domEvent.key === 'Escape') {
+      setAiSuggestion(null)
     }
   }
 
@@ -1352,54 +1407,27 @@ export default function ChatClient() {
           <div className="flex-1 flex flex-col min-h-0">
             {/* Terminal header */}
             <div className="flex items-center gap-2 px-4 py-2 border-b border-white/[0.06]">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className={`w-2 h-2 rounded-full ${sandboxAvailable ? 'bg-amber-500' : 'bg-green-500'} animate-pulse`} />
               <span className="text-[12px] font-mono text-muted uppercase tracking-wider">Live Terminal</span>
-            </div>
-
-            {/* Terminal output */}
-            <div className="flex-1 overflow-y-auto bg-[#0d0d0d] p-4 font-mono text-[13px] leading-[1.6] terminal-output" ref={termOutputRef}>
-              {terminalHistory.length === 0 && !aiSuggestion && (
-                <div className="text-muted2 text-[12px]">
-                  <div className="text-green-400/60 mb-2">Welcome to Live Terminal</div>
-                  <div>Type a shell command to execute it directly.</div>
-                  <div>Or type a natural language query and AI will suggest a command.</div>
-                </div>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${sandboxAvailable ? 'bg-amber-500/10 text-amber-400/70 border border-amber-500/20' : 'bg-green-500/10 text-green-400/70 border border-green-500/20'}`}>
+                {sandboxAvailable ? 'SANDBOX' : 'JUDGE0'}
+              </span>
+              {sandboxAvailable && (
+                <span className="text-[10px] text-[#525252]">· internet · pip/npm · persistent</span>
               )}
-              {terminalHistory.map((entry, i) => (
-                <div key={i} className={entry.type === 'input' ? 'text-muted' : entry.type === 'output' ? 'text-[#d4d4d4] whitespace-pre-wrap break-all' : 'text-yellow-400'}>
-                  {entry.type === 'input' && entry.content.startsWith('#') ? (
-                    <><span className="text-[#525252]"># </span><span className="text-muted">{entry.content.slice(2)}</span></>
-                  ) : entry.type === 'input' ? (
-                    <><span className="text-green-400">$ </span>{entry.content}</>
-                  ) : entry.type === 'ai-suggest' ? (
-                    <><span className="text-yellow-400">AI suggests: </span>{entry.content}</>
-                  ) : (
-                    entry.content
-                  )}
-                </div>
-              ))}
-
-              {/* AI suggestion pending */}
               {aiSuggestion && (
-                <div className="mt-2">
-                  <div className="text-yellow-400 text-[12px]">AI suggests:</div>
-                  <div className="text-[#e2e2e2] bg-yellow-400/[0.06] border border-yellow-400/20 rounded-md px-3 py-1.5 mt-1 inline-block">{aiSuggestion}</div>
-                  <div className="text-[11px] text-[#525252] mt-1.5">Press <span className="text-muted">Enter</span> to run · <span className="text-muted">Esc</span> to dismiss</div>
-                </div>
+                <span className="text-[10px] text-yellow-400 ml-auto animate-pulse">AI suggestion pending — Enter to run</span>
               )}
             </div>
 
-            {/* Terminal input */}
-            <div className="flex items-center gap-2 px-4 py-3 border-t border-white/[0.06] bg-[#0d0d0d]">
-              <span className="text-green-400 font-mono text-[13px]">$</span>
-              <input
-                type="text"
-                value={termInput}
-                onChange={e => setTermInput(e.target.value)}
-                onKeyDown={handleTerminalInput}
-                className="flex-1 bg-transparent border-none outline-none font-mono text-[13px] text-[#d4d4d4] placeholder-[#404040] terminal-input"
-                placeholder="Type a command or ask AI..."
-                autoFocus
+            {/* xterm.js terminal */}
+            <div className="flex-1 bg-[#0d0d0d] p-2 terminal-xterm-container">
+              <XTerminal
+                ref={xtermRef}
+                onInput={handleXTermInput}
+                onKey={handleXTermKey}
+                welcomeMessage={'\x1b[32mWelcome to Live Terminal\x1b[0m\r\nType a shell command to execute it directly.\r\nOr type a natural language query and AI will suggest a command.' + (sandboxAvailable ? '\r\n\x1b[33mSandbox mode active — internet access, pip/npm install, and persistent filesystem available.\x1b[0m' : '')}
+                className="terminal-xterm"
               />
             </div>
           </div>
@@ -1479,10 +1507,68 @@ export default function ChatClient() {
                     )}
                     {msg.role === 'assistant' && msg.codeExecuted && (
                       <div className="flex items-center gap-1.5 mb-1.5">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={msg.sandboxUsed ? "#f59e0b" : "#4ade80"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
                         </svg>
-                        <span className="text-[11px] text-[#4ade80]/70">Code executed</span>
+                        <span className={`text-[11px] ${msg.sandboxUsed ? 'text-[#f59e0b]/70' : 'text-[#4ade80]/70'}`}>
+                          {msg.sandboxUsed ? 'Sandbox executed' : 'Code executed'}
+                        </span>
+                      </div>
+                    )}
+                    {msg.role === 'assistant' && msg.downloadFile && (
+                      <div className="mb-1.5">
+                        <button
+                          onClick={async () => {
+                            const dl = msg.downloadFile
+                            if (dl.data_url) {
+                              // Base64 fallback — client-side download
+                              const a = document.createElement('a')
+                              a.href = dl.data_url
+                              a.download = dl.filename
+                              a.click()
+                            } else if (dl.download_url) {
+                              // Sandbox download URL (requires POST with path in body)
+                              try {
+                                const res = await fetch(dl.download_url, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${dl.api_key || ''}` },
+                                  body: dl.download_body || JSON.stringify({ path: dl.path || `/workspace/downloads/${dl.filename}` }),
+                                })
+                                if (res.ok) {
+                                  const blob = await res.blob()
+                                  const url = URL.createObjectURL(blob)
+                                  const a = document.createElement('a')
+                                  a.href = url
+                                  a.download = dl.filename
+                                  a.click()
+                                  URL.revokeObjectURL(url)
+                                } else {
+                                  // Fallback: try GET
+                                  const a = document.createElement('a')
+                                  a.href = dl.download_url
+                                  a.download = dl.filename
+                                  a.target = '_blank'
+                                  a.click()
+                                }
+                              } catch {
+                                const a = document.createElement('a')
+                                a.href = dl.download_url
+                                a.download = dl.filename
+                                a.target = '_blank'
+                                a.click()
+                              }
+                            }
+                          }}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 hover:border-emerald-500/40 text-[12px] text-emerald-300 hover:text-emerald-200 transition-colors cursor-pointer"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                          </svg>
+                          <span>Download {msg.downloadFile.filename}</span>
+                          <span className="text-emerald-400/40 text-[10px]">
+                            {msg.downloadFile.size > 1024 ? `${(msg.downloadFile.size / 1024).toFixed(1)}KB` : `${msg.downloadFile.size}B`}
+                          </span>
+                        </button>
                       </div>
                     )}
                     {msg.role === 'assistant' && msg.urlRead && (
@@ -2926,23 +3012,25 @@ export default function ChatClient() {
         }
 
         /* ═══════════════════════════════════════
-           LIVE TERMINAL
+           LIVE TERMINAL (xterm.js)
            ═══════════════════════════════════════ */
-        .terminal-output {
-          overscroll-behavior: contain;
-          font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+        .terminal-xterm-container {
+          overflow: hidden;
         }
-        .terminal-output::-webkit-scrollbar { width: 3px; }
-        .terminal-output::-webkit-scrollbar-thumb { background: #262626; border-radius: 2px; }
-        .terminal-output::-webkit-scrollbar-track { background: transparent; }
-        .terminal-input {
-          font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+        .terminal-xterm-container .terminal-xterm {
+          height: 100%;
+          width: 100%;
         }
-        .terminal-input:focus {
-          outline: none;
-          border: none;
-          box-shadow: none;
+        .terminal-xterm-container .xterm {
+          height: 100%;
+          padding: 8px;
         }
+        .terminal-xterm-container .xterm-viewport {
+          overflow-y: auto !important;
+        }
+        .terminal-xterm-container .xterm-viewport::-webkit-scrollbar { width: 3px; }
+        .terminal-xterm-container .xterm-viewport::-webkit-scrollbar-thumb { background: #262626; border-radius: 2px; }
+        .terminal-xterm-container .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
       `}</style>
     </main>
   )
