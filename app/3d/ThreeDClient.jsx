@@ -254,149 +254,445 @@ function createEarthScene(container) {
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x010108)
   const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 2000)
-  camera.position.set(0, 1, 5)
+  camera.position.set(0, 0.5, 3.5)
   const renderer = createRenderer(container)
+  renderer.toneMappingExposure = 1.0
 
-  // Procedural Earth color texture
-  const eCanvas = document.createElement('canvas'); eCanvas.width = 2048; eCanvas.height = 1024
+  // ── Simplex-like noise for procedural textures ──
+  function hash(x, y) { const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return n - Math.floor(n) }
+  function smoothNoise(x, y) {
+    const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy
+    const ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy)
+    const a = hash(ix, iy), b = hash(ix+1, iy), c = hash(ix, iy+1), d = hash(ix+1, iy+1)
+    return a + (b-a)*ux + (c-a)*uy + (a-b-c+d)*ux*uy
+  }
+  function fbm(x, y, oct) { let v=0,a=1,f=1,m=0; for(let i=0;i<oct;i++){v+=smoothNoise(x*f,y*f)*a;m+=a;a*=0.5;f*=2} return v/m }
+
+  // ── Procedural Earth Day Texture (high quality fallback) ──
+  const W = 2048, H = 1024
+  const eCanvas = document.createElement('canvas'); eCanvas.width = W; eCanvas.height = H
   const ectx = eCanvas.getContext('2d')
-  // Ocean
-  ectx.fillStyle = '#1a4a7a'; ectx.fillRect(0, 0, 2048, 1024)
-  // Add ocean depth variation
-  for (let i = 0; i < 200; i++) {
-    const x = Math.random()*2048, y = Math.random()*1024, r = Math.random()*100+20
-    const grad = ectx.createRadialGradient(x, y, 0, x, y, r)
-    grad.addColorStop(0, `rgba(${15+Math.floor(Math.random()*20)},${50+Math.floor(Math.random()*30)},${100+Math.floor(Math.random()*40)},0.3)`)
-    grad.addColorStop(1, 'rgba(0,0,0,0)')
-    ectx.fillStyle = grad; ectx.fillRect(x-r, y-r, r*2, r*2)
-  }
-  // Continents (simplified shapes)
-  const continents = [
-    {cx:420,cy:280,pts:[[380,220],[460,200],[500,260],[520,340],[480,380],[420,360],[380,320]]},  // N America
-    {cx:480,cy:580,pts:[[460,520],[500,510],[520,560],[510,620],[480,640],[450,600]]},            // S America
-    {cx:1050,cy:300,pts:[[980,240],[1020,220],[1100,240],[1140,300],[1120,380],[1060,400],[1000,360],[970,300]]},  // Europe
-    {cx:1100,cy:520,pts:[[1040,440],[1100,420],[1180,440],[1220,520],[1200,620],[1140,660],[1060,640],[1020,560]]},  // Africa
-    {cx:1300,cy:320,pts:[[1220,240],[1300,200],[1420,220],[1480,280],[1460,360],[1400,400],[1300,420],[1240,380]]},  // Asia
-    {cx:1550,cy:620,pts:[[1500,580],[1560,560],[1620,590],[1640,640],[1600,680],[1540,670]]},      // Australia
-    {cx:1024,cy:100,pts:[[200,80],[400,70],[600,85],[800,75],[1000,80],[1200,72],[1400,78],[1600,82],[1800,76]]},  // Arctic ice
-    {cx:1024,cy:950,pts:[[300,920],[500,940],[700,930],[900,950],[1100,935],[1300,945],[1500,925],[1700,940]]},   // Antarctic
-  ]
-  continents.forEach(c => {
-    ectx.beginPath()
-    ectx.moveTo(c.pts[0][0], c.pts[0][1])
-    for (let i = 1; i < c.pts.length; i++) ectx.lineTo(c.pts[i][0], c.pts[i][1])
-    ectx.closePath()
-    const isLand = c.cy > 150 && c.cy < 900
-    if (isLand) {
-      const grad = ectx.createRadialGradient(c.cx, c.cy, 0, c.cx, c.cy, 200)
-      grad.addColorStop(0, '#3a8a3a')
-      grad.addColorStop(0.5, '#2d6b2d')
-      grad.addColorStop(1, '#1a4a1a')
-      ectx.fillStyle = grad
-    } else {
-      ectx.fillStyle = '#d0e8f0'
-    }
-    ectx.fill()
-  })
-  // Add terrain detail
-  for (let i = 0; i < 3000; i++) {
-    const x = Math.random()*2048, y = Math.random()*1024, r = Math.random()*6+1
-    const px = ectx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data
-    if (px[1] > 60 && px[1] < 140) { // green areas
-      ectx.beginPath(); ectx.arc(x, y, r, 0, Math.PI*2)
-      const shade = Math.floor(Math.random()*40+60)
-      ectx.fillStyle = `rgba(${shade-10},${shade+30},${shade-10},0.4)`; ectx.fill()
-    }
-  }
-  const earthTex = new THREE.CanvasTexture(eCanvas); earthTex.encoding = THREE.sRGBEncoding
+  const imgData = ectx.createImageData(W, H)
+  const d = imgData.data
 
-  // Bump texture
-  const bumpC = document.createElement('canvas'); bumpC.width = 1024; bumpC.height = 512
-  const bctx = bumpC.getContext('2d')
-  bctx.fillStyle = '#808080'; bctx.fillRect(0, 0, 1024, 512)
-  for (let i = 0; i < 2000; i++) {
-    const x = Math.random()*1024, y = Math.random()*512, r = Math.random()*10+2
-    bctx.beginPath(); bctx.arc(x, y, r, 0, Math.PI*2)
-    bctx.fillStyle = `rgba(${Math.floor(Math.random()*60+100)},${Math.floor(Math.random()*60+100)},${Math.floor(Math.random()*60+100)},0.2)`; bctx.fill()
-  }
-  const earthBump = new THREE.CanvasTexture(bumpC)
+  // Realistic continent positions using latitude/longitude mapping (equirectangular)
+  // Each continent defined as polygon in lat/lon, then mapped to pixel coords
+  function latLonToPx(lat, lon) { return [((lon + 180) / 360) * W, ((90 - lat) / 180) * H] }
 
-  // Earth sphere
+  // Point-in-polygon test for continent masks
+  function pointInPoly(px, py, poly) {
+    let inside = false
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1]
+      if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) inside = !inside
+    }
+    return inside
+  }
+
+  // Simplified but recognizable continent outlines [lat, lon]
+  const continentPolys = {
+    northAmerica: [
+      [70,-168],[72,-140],[68,-100],[60,-80],[55,-60],[48,-55],[44,-65],[30,-82],[25,-80],
+      [25,-98],[20,-105],[15,-92],[15,-83],[10,-84],[8,-77],[8,-80],[18,-88],[20,-90],
+      [22,-98],[28,-97],[30,-85],[30,-82],[35,-75],[40,-70],[42,-70],[45,-67],[47,-60],
+      [48,-55],[50,-57],[52,-56],[55,-60],[57,-68],[60,-65],[60,-75],[63,-75],[65,-85],
+      [65,-100],[68,-110],[70,-130],[72,-155],[70,-168]
+    ].map(p => latLonToPx(p[0], p[1])),
+    southAmerica: [
+      [12,-72],[10,-75],[7,-77],[4,-77],[0,-80],[-5,-81],[-5,-78],[-2,-70],[0,-50],
+      [2,-50],[5,-54],[7,-55],[7,-60],[5,-62],[3,-60],[0,-65],[-2,-70],[-5,-75],
+      [-8,-77],[-10,-78],[-15,-76],[-18,-70],[-22,-65],[-25,-57],[-28,-49],[-30,-50],
+      [-33,-53],[-38,-58],[-42,-64],[-46,-67],[-50,-70],[-55,-68],[-55,-65],[-52,-70],
+      [-48,-75],[-42,-73],[-35,-57],[-30,-48],[-25,-46],[-22,-40],[-18,-39],[-15,-39],
+      [-10,-37],[-5,-35],[-2,-44],[0,-50],[2,-52],[4,-52],[8,-60],[10,-62],[12,-72]
+    ].map(p => latLonToPx(p[0], p[1])),
+    europe: [
+      [70,20],[72,30],[70,40],[65,42],[60,30],[58,28],[55,22],[54,14],[53,8],
+      [51,4],[49,2],[48,-5],[43,-9],[37,-10],[36,-6],[38,0],[40,3],[42,5],
+      [43,10],[40,15],[38,13],[37,15],[38,20],[40,22],[38,24],[36,22],[35,25],
+      [37,28],[40,26],[42,28],[44,30],[44,36],[46,30],[48,22],[50,14],[51,4],
+      [52,5],[54,8],[55,12],[55,20],[56,24],[58,24],[60,28],[62,30],[65,25],
+      [68,16],[70,20]
+    ].map(p => latLonToPx(p[0], p[1])),
+    africa: [
+      [37,-10],[37,0],[35,10],[33,12],[32,25],[30,32],[25,35],[22,37],[20,40],
+      [15,42],[12,44],[10,42],[5,40],[2,10],[0,42],[-5,40],[-10,40],[-15,40],
+      [-20,35],[-25,33],[-28,30],[-30,28],[-33,26],[-34,28],[-35,20],[-34,18],
+      [-30,17],[-25,15],[-20,12],[-15,12],[-10,14],[-5,10],[0,10],[2,10],
+      [5,2],[5,-5],[7,-15],[10,-16],[15,-17],[20,-17],[25,-15],[30,-10],[35,-5],[37,-10]
+    ].map(p => latLonToPx(p[0], p[1])),
+    asia: [
+      [70,40],[72,60],[70,80],[68,90],[70,100],[72,120],[68,140],[65,160],[60,165],
+      [55,155],[50,143],[45,142],[42,132],[38,128],[35,130],[33,126],[30,122],
+      [25,120],[22,114],[20,110],[18,106],[14,100],[10,98],[8,100],[5,103],
+      [1,104],[-5,106],[-8,110],[-7,115],[-2,110],[2,108],[5,103],[8,98],
+      [10,80],[15,75],[20,73],[25,68],[25,62],[28,57],[30,48],[32,36],
+      [35,36],[38,42],[40,44],[42,52],[40,50],[38,44],[35,36],[33,35],
+      [30,35],[25,37],[22,40],[20,45],[15,45],[12,45],[10,50],[15,55],
+      [20,58],[22,60],[25,62],[28,62],[30,52],[33,48],[35,45],[37,40],
+      [40,45],[45,50],[50,55],[55,60],[60,60],[65,55],[70,40]
+    ].map(p => latLonToPx(p[0], p[1])),
+    australia: [
+      [-12,130],[-12,137],[-14,142],[-18,146],[-22,150],[-28,153],[-33,152],
+      [-38,146],[-38,140],[-35,137],[-33,132],[-32,128],[-30,115],[-25,113],
+      [-22,114],[-18,122],[-15,125],[-12,130]
+    ].map(p => latLonToPx(p[0], p[1])),
+  }
+
+  // Generate pixel-by-pixel texture
+  for (let py = 0; py < H; py++) {
+    for (let px = 0; px < W; px++) {
+      const i = (py * W + px) * 4
+      const lat = 90 - (py / H) * 180
+      const lon = (px / W) * 360 - 180
+
+      // Check if point is on land
+      let isLand = false
+      for (const poly of Object.values(continentPolys)) {
+        if (pointInPoly(px, py, poly)) { isLand = true; break }
+      }
+
+      // Ice caps
+      const isIce = lat > 72 || lat < -70
+
+      // Noise for terrain detail
+      const n1 = fbm(px * 0.008, py * 0.008, 5)
+      const n2 = fbm(px * 0.015 + 100, py * 0.015 + 100, 4)
+      const n3 = fbm(px * 0.003, py * 0.003, 3)
+
+      let r, g, b
+      if (isIce) {
+        // Ice/snow with subtle blue tint
+        const v = 220 + Math.floor(n1 * 30)
+        r = v; g = v + 5; b = v + 15
+      } else if (isLand) {
+        // Land: vary by latitude and noise
+        const absLat = Math.abs(lat)
+        if (absLat > 55) {
+          // Tundra/taiga
+          r = 80 + Math.floor(n1 * 30); g = 90 + Math.floor(n2 * 30); b = 60 + Math.floor(n1 * 15)
+        } else if (absLat > 35) {
+          // Temperate (green forests)
+          r = 40 + Math.floor(n1 * 35); g = 85 + Math.floor(n2 * 40); b = 30 + Math.floor(n1 * 20)
+        } else if (absLat > 20) {
+          // Subtropical
+          r = 70 + Math.floor(n1 * 40); g = 100 + Math.floor(n2 * 35); b = 35 + Math.floor(n1 * 15)
+        } else {
+          // Tropical / desert
+          if (n3 > 0.55) {
+            // Desert (Sahara, Arabian, etc.)
+            r = 180 + Math.floor(n1 * 40); g = 155 + Math.floor(n2 * 35); b = 95 + Math.floor(n1 * 20)
+          } else {
+            // Tropical forest
+            r = 25 + Math.floor(n1 * 25); g = 95 + Math.floor(n2 * 40); b = 20 + Math.floor(n1 * 15)
+          }
+        }
+        // Mountain overlay (highlands)
+        if (n1 > 0.65) {
+          const mt = (n1 - 0.65) * 4
+          r = Math.floor(r + (140 - r) * mt); g = Math.floor(g + (120 - g) * mt); b = Math.floor(b + (100 - b) * mt)
+        }
+      } else {
+        // Ocean with depth variation
+        const depth = n1 * 0.4 + n2 * 0.3
+        const shallow = Math.max(0, 1 - depth * 3) // Shallow near coasts
+        r = Math.floor(8 + depth * 15 + shallow * 25)
+        g = Math.floor(30 + depth * 35 + shallow * 50)
+        b = Math.floor(80 + depth * 50 + shallow * 40)
+        // Sun glint region (specular hint baked in)
+        const glintLon = -30, glintLat = 5
+        const dLon = lon - glintLon, dLat = lat - glintLat
+        const glintDist = Math.sqrt(dLon*dLon + dLat*dLat)
+        if (glintDist < 20) {
+          const glint = Math.max(0, 1 - glintDist / 20) * 0.15
+          r = Math.floor(r + (255-r)*glint); g = Math.floor(g + (255-g)*glint); b = Math.floor(b + (255-b)*glint)
+        }
+      }
+
+      d[i] = Math.max(0, Math.min(255, r))
+      d[i+1] = Math.max(0, Math.min(255, g))
+      d[i+2] = Math.max(0, Math.min(255, b))
+      d[i+3] = 255
+    }
+  }
+  ectx.putImageData(imgData, 0, 0)
+  const earthTex = new THREE.CanvasTexture(eCanvas)
+  earthTex.encoding = THREE.sRGBEncoding
+  earthTex.anisotropy = renderer.capabilities.getMaxAnisotropy()
+
+  // ── Specular map (ocean = white/specular, land = dark/matte) ──
+  const specCanvas = document.createElement('canvas'); specCanvas.width = 1024; specCanvas.height = 512
+  const sctx = specCanvas.getContext('2d')
+  const specData = sctx.createImageData(1024, 512)
+  for (let py = 0; py < 512; py++) {
+    for (let px = 0; px < 1024; px++) {
+      const i = (py * 1024 + px) * 4
+      const sx = px * 2, sy = py * 2 // Map to the larger texture
+      let isLand = false
+      for (const poly of Object.values(continentPolys)) {
+        if (pointInPoly(sx, sy, poly)) { isLand = true; break }
+      }
+      const val = isLand ? 20 : 200
+      specData.data[i] = val; specData.data[i+1] = val; specData.data[i+2] = val; specData.data[i+3] = 255
+    }
+  }
+  sctx.putImageData(specData, 0, 0)
+  const specTex = new THREE.CanvasTexture(specCanvas)
+
+  // ── Bump/Elevation map ──
+  const bumpCanvas = document.createElement('canvas'); bumpCanvas.width = 1024; bumpCanvas.height = 512
+  const bctx = bumpCanvas.getContext('2d')
+  const bumpData = bctx.createImageData(1024, 512)
+  for (let py = 0; py < 512; py++) {
+    for (let px = 0; px < 1024; px++) {
+      const i = (py * 1024 + px) * 4
+      const sx = px * 2, sy = py * 2
+      let isLand = false
+      for (const poly of Object.values(continentPolys)) {
+        if (pointInPoly(sx, sy, poly)) { isLand = true; break }
+      }
+      const n = fbm(sx * 0.008, sy * 0.008, 5)
+      const val = isLand ? Math.floor(128 + (n - 0.5) * 120) : 128
+      bumpData.data[i] = val; bumpData.data[i+1] = val; bumpData.data[i+2] = val; bumpData.data[i+3] = 255
+    }
+  }
+  bctx.putImageData(bumpData, 0, 0)
+  const earthBump = new THREE.CanvasTexture(bumpCanvas)
+
+  // ── Earth sphere with specular highlights ──
   const earthGeo = new THREE.SphereGeometry(1.2, 128, 128)
-  const earthMat = new THREE.MeshStandardMaterial({ map: earthTex, bumpMap: earthBump, bumpScale: 0.03, roughness: 0.7, metalness: 0.1 })
+  const earthMat = new THREE.MeshPhongMaterial({
+    map: earthTex,
+    bumpMap: earthBump,
+    bumpScale: 0.035,
+    specularMap: specTex,
+    specular: new THREE.Color(0x333333),
+    shininess: 25,
+  })
   const earthMesh = new THREE.Mesh(earthGeo, earthMat)
   scene.add(earthMesh)
 
-  // Atmosphere glow (larger transparent sphere)
-  const atmosGeo = new THREE.SphereGeometry(1.35, 64, 64)
-  const atmosMat = new THREE.MeshBasicMaterial({ color: 0x4488ff, transparent: true, opacity: 0.12, side: THREE.BackSide })
+  // ── Fresnel Atmosphere Glow (shader-based) ──
+  const atmosVert = `
+    varying vec3 vNormal;
+    varying vec3 vPosition;
+    void main() {
+      vNormal = normalize(normalMatrix * normal);
+      vPosition = (modelViewMatrix * vec4(position, 1.0)).xyz;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `
+  const atmosFrag = `
+    varying vec3 vNormal;
+    varying vec3 vPosition;
+    void main() {
+      vec3 viewDir = normalize(-vPosition);
+      float fresnel = 1.0 - dot(viewDir, vNormal);
+      fresnel = pow(fresnel, 3.5);
+      vec3 atmosColor = mix(vec3(0.3, 0.6, 1.0), vec3(0.1, 0.3, 0.8), fresnel);
+      gl_FragColor = vec4(atmosColor, fresnel * 0.75);
+    }
+  `
+  const atmosGeo = new THREE.SphereGeometry(1.38, 64, 64)
+  const atmosMat = new THREE.ShaderMaterial({
+    vertexShader: atmosVert,
+    fragmentShader: atmosFrag,
+    transparent: true,
+    side: THREE.FrontSide,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  })
   scene.add(new THREE.Mesh(atmosGeo, atmosMat))
 
-  // Outer glow ring
-  const glowGeo = new THREE.SphereGeometry(1.5, 64, 64)
-  const glowMat = new THREE.MeshBasicMaterial({ color: 0x6699ff, transparent: true, opacity: 0.04, side: THREE.BackSide })
-  scene.add(new THREE.Mesh(glowGeo, glowMat))
+  // Outer soft glow
+  const outerFrag = `
+    varying vec3 vNormal;
+    varying vec3 vPosition;
+    void main() {
+      vec3 viewDir = normalize(-vPosition);
+      float fresnel = 1.0 - dot(viewDir, vNormal);
+      fresnel = pow(fresnel, 5.0);
+      gl_FragColor = vec4(0.4, 0.65, 1.0, fresnel * 0.35);
+    }
+  `
+  const outerGeo = new THREE.SphereGeometry(1.55, 64, 64)
+  const outerMat = new THREE.ShaderMaterial({
+    vertexShader: atmosVert,
+    fragmentShader: outerFrag,
+    transparent: true,
+    side: THREE.BackSide,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  })
+  scene.add(new THREE.Mesh(outerGeo, outerMat))
 
-  // Cloud layer
-  const cloudCanvas = document.createElement('canvas'); cloudCanvas.width = 1024; cloudCanvas.height = 512
+  // ── Cloud layer (detailed procedural) ──
+  const cW = 2048, cH = 1024
+  const cloudCanvas = document.createElement('canvas'); cloudCanvas.width = cW; cloudCanvas.height = cH
   const cctx = cloudCanvas.getContext('2d')
-  cctx.fillStyle = 'rgba(0,0,0,0)'; cctx.clearRect(0, 0, 1024, 512)
-  for (let i = 0; i < 400; i++) {
-    const x = Math.random()*1024, y = Math.random()*512, rx = Math.random()*60+10, ry = Math.random()*20+5
-    cctx.beginPath(); cctx.ellipse(x, y, rx, ry, Math.random()*Math.PI, 0, Math.PI*2)
-    cctx.fillStyle = `rgba(255,255,255,${0.15+Math.random()*0.2})`; cctx.fill()
+  const cloudData = cctx.createImageData(cW, cH)
+  for (let py = 0; py < cH; py++) {
+    for (let px = 0; px < cW; px++) {
+      const i = (py * cW + px) * 4
+      const n = fbm(px * 0.006 + 50, py * 0.006 + 50, 6)
+      const cloudVal = Math.max(0, (n - 0.45) * 3.5)
+      const alpha = Math.min(255, Math.floor(cloudVal * 200))
+      cloudData.data[i] = 255; cloudData.data[i+1] = 255; cloudData.data[i+2] = 255
+      cloudData.data[i+3] = alpha
+    }
   }
-  const cloudTex = new THREE.CanvasTexture(cloudCanvas); cloudTex.encoding = THREE.sRGBEncoding
-  const cloudGeo = new THREE.SphereGeometry(1.24, 64, 64)
-  const cloudMat = new THREE.MeshStandardMaterial({ map: cloudTex, transparent: true, opacity: 0.6, depthWrite: false })
+  cctx.putImageData(cloudData, 0, 0)
+  const cloudTex = new THREE.CanvasTexture(cloudCanvas)
+  cloudTex.encoding = THREE.sRGBEncoding
+  const cloudGeo = new THREE.SphereGeometry(1.235, 64, 64)
+  const cloudMat = new THREE.MeshPhongMaterial({
+    map: cloudTex,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  })
   const cloudMesh = new THREE.Mesh(cloudGeo, cloudMat)
   scene.add(cloudMesh)
 
-  // City lights (night side)
-  const lightsCanvas = document.createElement('canvas'); lightsCanvas.width = 2048; lightsCanvas.height = 1024
-  const lctx = lightsCanvas.getContext('2d')
-  lctx.fillStyle = 'rgba(0,0,0,0)'; lctx.clearRect(0, 0, 2048, 1024)
-  const cityClusters = [
-    {x:420,y:300,count:60},{x:480,y:580,count:40},{x:1050,y:300,count:80},
-    {x:1100,y:500,count:50},{x:1300,y:320,count:70},{x:1250,y:400,count:40},
-    {x:1550,y:620,count:25},{x:380,y:260,count:30},{x:1400,y:340,count:35}
+  // ── Night Lights (city lights on dark side) ──
+  const lCanvas = document.createElement('canvas'); lCanvas.width = 2048; lCanvas.height = 1024
+  const lctx = lCanvas.getContext('2d')
+  lctx.clearRect(0, 0, 2048, 1024)
+  // Real city positions (approximate lat/lon)
+  const cities = [
+    // North America
+    {lat:40.7,lon:-74,s:18},{lat:34,lon:-118,s:16},{lat:41.9,lon:-87.6,s:12},{lat:29.8,lon:-95.4,s:14},
+    {lat:43.7,lon:-79.4,s:10},{lat:19.4,lon:-99.1,s:14},{lat:38.9,lon:-77,s:8},{lat:33.4,lon:-112,s:6},
+    {lat:32.7,lon:-117,s:7},{lat:42.4,lon:-71,s:7},{lat:45.5,lon:-73.6,s:8},{lat:51,lon:-114,s:5},
+    // Europe
+    {lat:51.5,lon:-0.1,s:16},{lat:48.9,lon:2.3,s:14},{lat:52.5,lon:13.4,s:10},{lat:41.9,lon:12.5,s:10},
+    {lat:40.4,lon:-3.7,s:12},{lat:55.8,lon:37.6,s:14},{lat:59.9,lon:30.3,s:10},{lat:50.1,lon:14.4,s:7},
+    {lat:48.2,lon:16.4,s:7},{lat:47.4,lon:8.5,s:7},{lat:52.2,lon:21,s:7},{lat:44.4,lon:26.1,s:7},
+    // Asia
+    {lat:35.7,lon:139.7,s:20},{lat:31.2,lon:121.5,s:18},{lat:39.9,lon:116.4,s:18},{lat:22.3,lon:114.2,s:14},
+    {lat:37.6,lon:127,s:12},{lat:1.3,lon:103.8,s:10},{lat:13.8,lon:100.5,s:10},{lat:25,lon:55.3,s:10},
+    {lat:28.6,lon:77.2,s:14},{lat:19,lon:72.8,s:14},{lat:30,lon:31.2,s:10},{lat:23.8,lon:90.4,s:8},
+    // South America
+    {lat:-23.5,lon:-46.6,s:14},{lat:-34.6,lon:-58.4,s:12},{lat:-33.4,lon:-70.7,s:8},{lat:-12,lon:-77,s:8},
+    {lat:4.7,lon:-74.1,s:8},{lat:10.5,lon:-66.9,s:7},
+    // Africa
+    {lat:6.5,lon:3.4,s:8},{lat:30,lon:31.2,s:8},{lat:-33.9,lon:18.4,s:6},{lat:-1.3,lon:36.8,s:6},
+    {lat:33.6,lon:-7.6,s:6},{lat:9,lon:7.5,s:6},{lat:14.7,lon:-17.5,s:5},
+    // Australia
+    {lat:-33.9,lon:151.2,s:10},{lat:-37.8,lon:145,s:8},{lat:-27.5,lon:153,s:6},
   ]
-  cityClusters.forEach(c => {
-    for (let i = 0; i < c.count; i++) {
-      const x = c.x + (Math.random()-0.5)*80, y = c.y + (Math.random()-0.5)*40
-      lctx.beginPath(); lctx.arc(x, y, Math.random()*1.5+0.5, 0, Math.PI*2)
-      lctx.fillStyle = `rgba(255,${Math.floor(180+Math.random()*75)},${Math.floor(50+Math.random()*50)},${0.6+Math.random()*0.4})`; lctx.fill()
+  cities.forEach(c => {
+    const cx = ((c.lon + 180) / 360) * 2048
+    const cy = ((90 - c.lat) / 180) * 1024
+    const spread = c.s * 3
+    for (let i = 0; i < c.s * 20; i++) {
+      const x = cx + (Math.random()-0.5) * spread
+      const y = cy + (Math.random()-0.5) * spread * 0.5
+      const r = Math.random() * 1.2 + 0.3
+      lctx.beginPath(); lctx.arc(x, y, r, 0, Math.PI*2)
+      const warmth = Math.random()
+      if (warmth > 0.7) {
+        lctx.fillStyle = `rgba(255,${180+Math.floor(Math.random()*60)},${30+Math.floor(Math.random()*40)},${0.5+Math.random()*0.5})`
+      } else {
+        lctx.fillStyle = `rgba(255,${200+Math.floor(Math.random()*55)},${150+Math.floor(Math.random()*60)},${0.4+Math.random()*0.4})`
+      }
+      lctx.fill()
     }
   })
-  const lightsTex = new THREE.CanvasTexture(lightsCanvas); lightsTex.encoding = THREE.sRGBEncoding
-  const lightsGeo = new THREE.SphereGeometry(1.21, 64, 64)
-  const lightsMat = new THREE.MeshBasicMaterial({ map: lightsTex, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false })
+  const lightsTex = new THREE.CanvasTexture(lCanvas); lightsTex.encoding = THREE.sRGBEncoding
+  const lightsGeo = new THREE.SphereGeometry(1.205, 64, 64)
+  const lightsMat = new THREE.MeshBasicMaterial({
+    map: lightsTex, transparent: true, opacity: 0.85,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  })
   const lightsMesh = new THREE.Mesh(lightsGeo, lightsMat)
   scene.add(lightsMesh)
 
-  // Starfield
-  const starCount = 5000; const starPos = new Float32Array(starCount*3)
-  for(let i=0;i<starCount;i++){const i3=i*3,r=80+Math.random()*300,theta=Math.random()*Math.PI*2,phi=Math.acos(2*Math.random()-1);starPos[i3]=r*Math.sin(phi)*Math.cos(theta);starPos[i3+1]=r*Math.sin(phi)*Math.sin(theta);starPos[i3+2]=r*Math.cos(phi)}
-  const starGeo=new THREE.BufferGeometry();starGeo.setAttribute('position',new THREE.BufferAttribute(starPos,3))
-  scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({size:0.5,color:0xffffff,transparent:true,opacity:0.7,depthWrite:false})))
+  // ── Starfield with color variation ──
+  const starCount = 8000
+  const starPos = new Float32Array(starCount*3)
+  const starCols = new Float32Array(starCount*3)
+  const starSizes = new Float32Array(starCount)
+  for(let i=0;i<starCount;i++){
+    const i3=i*3, r=60+Math.random()*400, theta=Math.random()*Math.PI*2, phi=Math.acos(2*Math.random()-1)
+    starPos[i3]=r*Math.sin(phi)*Math.cos(theta); starPos[i3+1]=r*Math.sin(phi)*Math.sin(theta); starPos[i3+2]=r*Math.cos(phi)
+    const t=Math.random()
+    if(t>0.95){starCols[i3]=0.7;starCols[i3+1]=0.8;starCols[i3+2]=1.0}
+    else if(t>0.88){starCols[i3]=1.0;starCols[i3+1]=0.9;starCols[i3+2]=0.7}
+    else{starCols[i3]=1.0;starCols[i3+1]=1.0;starCols[i3+2]=1.0}
+    starSizes[i] = 0.3 + Math.random() * 0.8
+  }
+  const starGeo=new THREE.BufferGeometry()
+  starGeo.setAttribute('position',new THREE.BufferAttribute(starPos,3))
+  starGeo.setAttribute('color',new THREE.BufferAttribute(starCols,3))
+  starGeo.setAttribute('size',new THREE.BufferAttribute(starSizes,1))
+  scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({size:0.5,sizeAttenuation:true,vertexColors:true,transparent:true,opacity:0.8,depthWrite:false})))
 
-  // Lights
-  const sunLight = new THREE.DirectionalLight(0xfff5e6, 2.0); sunLight.position.set(5, 2, 5); scene.add(sunLight)
-  scene.add(new THREE.AmbientLight(0x111122, 0.2))
+  // ── Lighting ──
+  const sunLight = new THREE.DirectionalLight(0xfff8e8, 2.2)
+  sunLight.position.set(5, 2, 5)
+  scene.add(sunLight)
+  scene.add(new THREE.AmbientLight(0x0a0a1e, 0.25))
+  // Subtle earthshine from opposite side
+  const earthshine = new THREE.DirectionalLight(0x3355aa, 0.06)
+  earthshine.position.set(-5, -1, -5)
+  scene.add(earthshine)
 
-  const orbitControls = addOrbitControls(camera, renderer, { minDistance: 2, maxDistance: 15, autoRotateSpeed: 0.4 })
+  // ── Try loading NASA Blue Marble textures (override procedural) ──
+  const textureLoader = new THREE.TextureLoader()
+  textureLoader.crossOrigin = 'anonymous'
+  // NASA Blue Marble - day texture
+  textureLoader.load(
+    'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57735/land_ocean_ice_cloud_2048.jpg',
+    (tex) => {
+      tex.encoding = THREE.sRGBEncoding
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy()
+      earthMat.map = tex
+      earthMat.needsUpdate = true
+    }, undefined, () => {}
+  )
+  // NASA topography/bump
+  textureLoader.load(
+    'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57735/earth_topo_2048.jpg',
+    (tex) => {
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy()
+      earthMat.bumpMap = tex
+      earthMat.bumpScale = 0.04
+      earthMat.needsUpdate = true
+    }, undefined, () => {}
+  )
+  // NASA city lights (night)
+  textureLoader.load(
+    'https://eoimages.gsfc.nasa.gov/images/imagerecords/55000/55167/earth_lights_lrg.jpg',
+    (tex) => {
+      tex.encoding = THREE.sRGBEncoding
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy()
+      lightsMat.map = tex
+      lightsMat.needsUpdate = true
+    }, undefined, () => {}
+  )
+  // NASA cloud layer
+  textureLoader.load(
+    'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57735/earth_clouds_2048.png',
+    (tex) => {
+      tex.encoding = THREE.sRGBEncoding
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy()
+      cloudMat.map = tex
+      cloudMat.needsUpdate = true
+    }, undefined, () => {}
+  )
+
+  // ── Controls ──
+  const orbitControls = addOrbitControls(camera, renderer, { minDistance: 2, maxDistance: 12, autoRotateSpeed: 0.25 })
 
   const clock = new THREE.Clock()
   let animId
   function animate() {
     animId = requestAnimationFrame(animate)
     const t = clock.getElapsedTime()
-    earthMesh.rotation.y = t * 0.05
-    cloudMesh.rotation.y = t * 0.06
+    earthMesh.rotation.y = t * 0.04
+    cloudMesh.rotation.y = t * 0.048
     lightsMesh.rotation.y = earthMesh.rotation.y
-    // Fade city lights based on sun direction
-    const sunAngle = t * 0.05
-    lightsMat.opacity = 0.5 + Math.sin(sunAngle) * 0.3
     if (orbitControls) orbitControls.update()
     renderer.render(scene, camera)
   }
