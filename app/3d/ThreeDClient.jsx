@@ -44,10 +44,13 @@ const SCENES = [
   },
 ]
 
-/* ── Load Three.js + OrbitControls from CDN ── */
+/* ── Load Three.js + OrbitControls from local files ── */
 function loadScript(src) {
   return new Promise((resolve, reject) => {
     if (typeof window === 'undefined') { reject('No window'); return }
+    // Check if already loaded
+    const existing = document.querySelector(`script[src="${src}"]`)
+    if (existing) { resolve(); return }
     const s = document.createElement('script')
     s.src = src
     s.onload = resolve
@@ -59,8 +62,8 @@ function loadScript(src) {
 let threeLoaded = false
 async function ensureThreeJS() {
   if (threeLoaded && window.THREE) return
-  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js')
-  await loadScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js')
+  await loadScript('/3d-lib/three.min.js')
+  await loadScript('/3d-lib/OrbitControls.js')
   threeLoaded = true
 }
 
