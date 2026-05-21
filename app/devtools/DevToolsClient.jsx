@@ -1001,37 +1001,7 @@ export default function DevToolsClient() {
           </div>
         </div>
 
-        {/* All tools quick reference */}
-        <div className="mt-10 border-t border-[#141414] pt-10">
-          <h2 className="font-semibold text-base tracking-tight mb-6 text-muted">{t('devtools.all_tools')}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {CATEGORIES.map(cat => (
-              <div key={cat.id} className="bg-[#141414] rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-2 h-5 rounded-full" style={{ background: cat.color }} />
-                  <h3 className="font-semibold text-sm text-muted">{t(cat.labelKey)}</h3>
-                </div>
-                <ul className="space-y-1.5">
-                  {cat.tools.map(tool => (
-                    <li key={tool.id}>
-                      <button
-                        onClick={() => selectTool(tool.id, cat.id)}
-                        className={`w-full text-left text-xs flex items-center gap-2 py-1 px-2 rounded-lg transition-colors ${
-                          active === tool.id
-                            ? 'text-red-400 bg-red-950/20'
-                            : 'text-muted hover:text-white hover:bg-[#1a1a1a]'
-                        }`}
-                      >
-                        <tool.Icon size={11} className="shrink-0" />
-                        {t(tool.labelKey)}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
+
       </div>
     </main>
   )

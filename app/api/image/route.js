@@ -13,6 +13,7 @@ export const runtime = 'edge'
 //   - Otherwise fall back to free GET endpoint with retry for 402 (queue full)
 
 import { imageGeneration } from '@/lib/zai'
+import { getEnvVar } from '@/lib/cfEnv'
 
 const VALID_SIZES = [
   '1024x1024',
@@ -26,9 +27,20 @@ const VALID_SIZES = [
 
 const DEFAULT_SIZE = '1024x1024'
 const POLLINATIONS_MODEL = 'flux'
-const POLLINATIONS_API_KEY = process.env.POLLINATIONS_API_KEY || ''
 const MAX_RETRIES = 5
 const RETRY_BASE_MS = 3000
+
+// Helper to convert ArrayBuffer to base64 efficiently (chunked for edge runtime)
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer)
+  const chunkSize = 8192
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize)
+    binary += String.fromCharCode.apply(null, chunk)
+  }
+  return btoa(binary)
+}
 
 // ── ZAI Image Generation (Primary) ──
 
@@ -72,12 +84,13 @@ async function fetchWithRetry(url, retries = MAX_RETRIES) {
 }
 
 async function generateWithPollinationsPaid(prompt, size) {
+  const pollApiKey = await getEnvVar('POLLINATIONS_API_KEY')
   // Use the Pollinations paid API (POST) with API key — bypasses rate limits
   const res = await fetch('https://image.pollinations.ai/', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${POLLINATIONS_API_KEY}`,
+      'Authorization': `Bearer ${pollApiKey}`,
     },
     body: JSON.stringify({
       prompt: enhancePrompt(prompt.trim()),
@@ -95,10 +108,7 @@ async function generateWithPollinationsPaid(prompt, size) {
 
   const contentType = res.headers.get('content-type') || 'image/jpeg'
   const imgBuffer = await res.arrayBuffer()
-  const bytes = new Uint8Array(imgBuffer)
-  let binary = ''
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-  const base64 = btoa(binary)
+  const base64 = arrayBufferToBase64(imgBuffer)
   const imageData = `data:${contentType};base64,${base64}`
 
   return { image: imageData, provider: 'pollinations-paid', size, model: POLLINATIONS_MODEL }
@@ -123,10 +133,7 @@ async function generateWithPollinationsFree(prompt, size) {
 
   const imgBuffer = await imgResponse.arrayBuffer()
   const contentType = imgResponse.headers.get('content-type') || 'image/jpeg'
-  const bytes = new Uint8Array(imgBuffer)
-  let binary = ''
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-  const base64 = btoa(binary)
+  const base64 = arrayBufferToBase64(imgBuffer)
   const imageData = `data:${contentType};base64,${base64}`
 
   return { image: imageData, imageUrl, provider: 'pollinations', size, model: POLLINATIONS_MODEL }
@@ -134,7 +141,8 @@ async function generateWithPollinationsFree(prompt, size) {
 
 async function generateWithPollinations(prompt, size) {
   // Try paid API first (if key available), then fall back to free endpoint
-  if (POLLINATIONS_API_KEY) {
+  const pollApiKey = await getEnvVar('POLLINATIONS_API_KEY')
+  if (pollApiKey) {
     try {
       return await generateWithPollinationsPaid(prompt, size)
     } catch (err) {

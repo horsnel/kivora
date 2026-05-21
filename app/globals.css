@@ -157,6 +157,41 @@ input, textarea, select {
   background: linear-gradient(90deg, #a855f7, #ef4444);
 }
 
+/* Opportunity card — subtle purple/red glow (YouTube Music community section style) */
+.opportunity-card {
+  position: relative;
+  overflow: hidden;
+}
+.opportunity-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(168,85,247,0.25), rgba(239,68,68,0.18), rgba(168,85,247,0.10));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.opportunity-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at 30% 20%, rgba(168,85,247,0.06) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 80%, rgba(239,68,68,0.04) 0%, transparent 50%);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+.opportunity-card:hover::after {
+  opacity: 1.5;
+}
+.opportunity-card:hover::before {
+  background: linear-gradient(135deg, rgba(168,85,247,0.40), rgba(239,68,68,0.30), rgba(168,85,247,0.15));
+}
+
 /* Shimmer for image generation cards */
 @keyframes shimmer3d {
   0%   { background-position: 200% 0; }

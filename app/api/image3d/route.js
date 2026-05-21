@@ -13,25 +13,36 @@ export const runtime = 'edge'
 //   - GET  /task/{id} (poll until success)
 //   - Returns GLB + rendered image
 
+import { getEnvVar } from '@/lib/cfEnv'
+
 const HITEM3D_API_BASE = 'https://api.hitem3d.ai'
-const HITEM3D_ACCESS_KEY = process.env.HITEM3D_ACCESS_KEY || ''
-const HITEM3D_SECRET_KEY = process.env.HITEM3D_SECRET_KEY || ''
 
 const TRIPO_API_BASE = 'https://api.tripo3d.ai/v2/openapi'
-const TRIPO_API_KEY = process.env.TRIPO_API_KEY || ''
 
 const POLL_INTERVAL = 3000   // 3s between polls
 const MAX_POLL_TIME = 180000 // 3 min max wait
 const MAX_POLLS = Math.ceil(MAX_POLL_TIME / POLL_INTERVAL)
 
-// Pollinations for preview images
-const POLLINATIONS_API_KEY = process.env.POLLINATIONS_API_KEY || ''
+// Helper to convert ArrayBuffer to base64 efficiently
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer)
+  const chunkSize = 8192
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize)
+    binary += String.fromCharCode.apply(null, chunk)
+  }
+  return btoa(binary)
+}
 
 // ── hitem3d Auth ──
 
 async function getHitem3dToken() {
   // Basic auth: base64(access_key:secret_key)
-  const credentials = btoa(`${HITEM3D_ACCESS_KEY}:${HITEM3D_SECRET_KEY}`)
+  const accessKey = await getEnvVar('HITEM3D_ACCESS_KEY')
+  const secretKey = await getEnvVar('HITEM3D_SECRET_KEY')
+  if (!accessKey || !secretKey) throw new Error('hitem3d API keys not configured')
+  const credentials = btoa(`${accessKey}:${secretKey}`)
   const res = await fetch(`${HITEM3D_API_BASE}/open-api/v1/auth/token`, {
     method: 'POST',
     headers: {
@@ -55,13 +66,14 @@ async function getHitem3dToken() {
 
 async function generatePreviewForHitem(prompt) {
   // Use Pollinations to generate a preview image from the prompt
+  const pollApiKey = await getEnvVar('POLLINATIONS_API_KEY')
   const enhancedPrompt = `${prompt}, 3D render, isometric view, clean white background, studio lighting, high detail`
   const encodedPrompt = encodeURIComponent(enhancedPrompt)
   const params = new URLSearchParams({
     width: '1024', height: '1024',
     model: 'flux', nologo: 'true',
   })
-  if (POLLINATIONS_API_KEY) params.set('key', POLLINATIONS_API_KEY)
+  if (pollApiKey) params.set('key', pollApiKey)
 
   const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?${params.toString()}`
   const imgRes = await fetch(imageUrl, { headers: { 'Accept': 'image/*' } })
@@ -130,11 +142,7 @@ async function pollHitem3dTask(accessToken, taskId) {
 }
 
 async function generateWithHitem3d(prompt) {
-  if (!HITEM3D_ACCESS_KEY || !HITEM3D_SECRET_KEY) {
-    throw new Error('hitem3d API keys not configured')
-  }
-
-  // Step 1: Get access token
+  // Step 1: Get access token (throws if keys not configured)
   const accessToken = await getHitem3dToken()
 
   // Step 2: Generate preview image from prompt (hitem3d needs image input)
@@ -160,9 +168,10 @@ async function generateWithHitem3d(prompt) {
 // ── Tripo3D (Fallback) ──
 
 async function pollTripoTask(taskId, phase = 'generation') {
+  const tripoApiKey = await getEnvVar('TRIPO_API_KEY')
   for (let i = 0; i < MAX_POLLS; i++) {
     const res = await fetch(`${TRIPO_API_BASE}/task/${taskId}`, {
-      headers: { 'Authorization': `Bearer ${TRIPO_API_KEY}` },
+      headers: { 'Authorization': `Bearer ${tripoApiKey}` },
     })
     if (!res.ok) {
       const text = await res.text()
@@ -179,7 +188,8 @@ async function pollTripoTask(taskId, phase = 'generation') {
 }
 
 async function generateWithTripo(prompt) {
-  if (!TRIPO_API_KEY) {
+  const tripoApiKey = await getEnvVar('TRIPO_API_KEY')
+  if (!tripoApiKey) {
     throw new Error('Tripo3D API key not configured')
   }
 
@@ -187,7 +197,7 @@ async function generateWithTripo(prompt) {
   const createRes = await fetch(`${TRIPO_API_BASE}/task`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${TRIPO_API_KEY}`,
+      'Authorization': `Bearer ${tripoApiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -233,13 +243,14 @@ async function generateWithTripo(prompt) {
 
 async function generatePollinationsPreview(prompt) {
   try {
+    const pollApiKey = await getEnvVar('POLLINATIONS_API_KEY')
     const enhancedPrompt = `${prompt}, 3D render, professional product photography, studio lighting, clean background, isometric view, high detail`
     const encodedPrompt = encodeURIComponent(enhancedPrompt)
     const params = new URLSearchParams({
       width: '1024', height: '1024',
       model: 'flux', nologo: 'true',
     })
-    if (POLLINATIONS_API_KEY) params.set('key', POLLINATIONS_API_KEY)
+    if (pollApiKey) params.set('key', pollApiKey)
 
     const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?${params.toString()}`
     const imgRes = await fetch(imageUrl, {
@@ -250,10 +261,8 @@ async function generatePollinationsPreview(prompt) {
     if (imgRes.ok) {
       const imgBuffer = await imgRes.arrayBuffer()
       const contentType = imgRes.headers.get('content-type') || 'image/jpeg'
-      const bytes = new Uint8Array(imgBuffer)
-      let binary = ''
-      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-      return `data:${contentType};base64,${btoa(binary)}`
+      const base64 = arrayBufferToBase64(imgBuffer)
+      return `data:${contentType};base64,${base64}`
     }
   } catch (err) {
     console.warn('[image3d] Preview image failed:', err.message)

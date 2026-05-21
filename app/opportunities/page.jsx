@@ -377,7 +377,7 @@ export default function OpportunitiesPage() {
               const isComparing = compareSlugs.includes(opp.slug)
               return (
                 <div key={opp.slug}
-                  className={`bg-[#141414] border border-white/[0.06] rounded-xl p-5 sm:p-6 text-left transition-all group hover:-translate-y-0.5 hover:bg-[#161616] relative ${
+                  className={`opportunity-card bg-[#141414] border border-white/[0.06] rounded-xl p-5 sm:p-6 text-left transition-all group hover:-translate-y-0.5 hover:bg-[#161616] relative ${
                     isComparing ? '!border-red-500/50' : ''
                   }`}>
                   {/* Card main area - clickable */}
