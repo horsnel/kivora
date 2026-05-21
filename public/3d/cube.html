@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#050505">
+    <title>Rubik's Cube 3D</title>
+    <style>
+        html, body {
+            margin: 0 !important; padding: 0 !important; width: 100% !important; height: 100% !important;
+            overflow: hidden !important; background: #050505 !important; color: #ffffff;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; -webkit-text-size-adjust: 100%; touch-action: none;
+        }
+        #canvas-container { position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; z-index: 1; }
+        canvas { display: block; width: 100%; height: 100%; }
+        .ui-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        .header { position: absolute; top: 30px; left: 50%; transform: translateX(-50%); text-align: center; animation: fadeInDown 1.5s ease-out; width: 90%; }
+        .header h1 { font-size: 2.2rem; font-weight: 300; letter-spacing: 0.4em; text-transform: uppercase; color: rgba(255,255,255,0.9); text-shadow: 0 0 30px rgba(255,255,255,0.15); margin: 0; }
+        .header .subtitle { font-size: 0.75rem; font-weight: 300; letter-spacing: 0.25em; color: rgba(255,255,255,0.35); margin-top: 8px; }
+        .controls-hint { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); text-align: center; animation: fadeInUp 1.5s ease-out 0.3s both; }
+        .controls-hint p { font-size: 0.7rem; color: rgba(255,255,255,0.25); letter-spacing: 0.15em; margin: 0; }
+        .btn-panel { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); display: flex; gap: 15px; pointer-events: auto; animation: fadeInUp 1.5s ease-out 0.5s both; }
+        .btn {
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+            color: rgba(255,255,255,0.6); padding: 8px 20px; font-size: 0.7rem;
+            letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer;
+            border-radius: 4px; backdrop-filter: blur(10px); transition: all 0.3s ease; font-family: inherit;
+        }
+        .btn:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.25); color: rgba(255,255,255,0.9); }
+        .btn:active { transform: scale(0.96); }
+        .vignette { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.5) 100%); }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateX(-50%) translateY(-20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateX(-50%) translateY(20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+        @media (max-width: 600px) {
+            .header { top: 20px; } .header h1 { font-size: 1.6rem; letter-spacing: 0.3em; }
+            .btn-panel { gap: 10px; } .btn { padding: 6px 14px; font-size: 0.65rem; }
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div class="vignette"></div>
+    <div class="ui-overlay">
+        <div class="header">
+            <h1>Cube</h1>
+            <div class="subtitle">3x3x3 Interactive</div>
+        </div>
+        <div class="controls-hint"><p>CLICK A FACE TO ROTATE &middot; DRAG TO ORBIT</p></div>
+        <div class="btn-panel">
+            <button class="btn" id="btnScramble">Scramble</button>
+            <button class="btn" id="btnReset">Reset</button>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+    (function() {
+        'use strict';
+        document.documentElement.style.background = '#050505';
+        document.body.style.background = '#050505'; document.body.style.color = '#ffffff';
+        document.body.style.margin = '0'; document.body.style.padding = '0'; document.body.style.overflow = 'hidden';
+        if (typeof THREE === 'undefined') { document.body.innerHTML = '<div style="color:white;text-align:center;padding-top:40vh;font-family:sans-serif;">Error: Three.js not loaded</div>'; return; }
+
+        var container = document.getElementById('canvas-container');
+        var scene = new THREE.Scene(); scene.background = new THREE.Color(0x050505);
+        var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(8, 6, 10);
+        var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;
+        renderer.outputEncoding = THREE.sRGBEncoding; renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap; container.appendChild(renderer.domElement);
+
+        var matBlack = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6, metalness: 0.05 });
+        var colors = {
+            white: new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.25, metalness: 0.0, emissive: 0x222222, emissiveIntensity: 0.05 }),
+            yellow: new THREE.MeshStandardMaterial({ color: 0xffd500, roughness: 0.25, metalness: 0.0, emissive: 0x332200, emissiveIntensity: 0.05 }),
+            blue: new THREE.MeshStandardMaterial({ color: 0x0051ba, roughness: 0.25, metalness: 0.0, emissive: 0x001133, emissiveIntensity: 0.05 }),
+            green: new THREE.MeshStandardMaterial({ color: 0x009e60, roughness: 0.25, metalness: 0.0, emissive: 0x002211, emissiveIntensity: 0.05 }),
+            red: new THREE.MeshStandardMaterial({ color: 0xc41e3a, roughness: 0.25, metalness: 0.0, emissive: 0x330000, emissiveIntensity: 0.05 }),
+            orange: new THREE.MeshStandardMaterial({ color: 0xff5800, roughness: 0.25, metalness: 0.0, emissive: 0x331100, emissiveIntensity: 0.05 })
+        };
+        var CUBIE_SIZE = 0.96; var allCubies = [];
+        var faceColors = ['red', 'orange', 'white', 'yellow', 'blue', 'green'];
+
+        function createCubie(x, y, z) {
+            var materials = []; var stickerFaces = [];
+            if (x === 1) { materials.push(colors.red); stickerFaces.push(0); } else { materials.push(matBlack); }
+            if (x === -1) { materials.push(colors.orange); stickerFaces.push(1); } else { materials.push(matBlack); }
+            if (y === 1) { materials.push(colors.white); stickerFaces.push(2); } else { materials.push(matBlack); }
+            if (y === -1) { materials.push(colors.yellow); stickerFaces.push(3); } else { materials.push(matBlack); }
+            if (z === 1) { materials.push(colors.blue); stickerFaces.push(4); } else { materials.push(matBlack); }
+            if (z === -1) { materials.push(colors.green); stickerFaces.push(5); } else { materials.push(matBlack); }
+            var geometry = new THREE.BoxGeometry(CUBIE_SIZE, CUBIE_SIZE, CUBIE_SIZE);
+            var mesh = new THREE.Mesh(geometry, materials); mesh.position.set(x, y, z);
+            mesh.castShadow = true; mesh.receiveShadow = true;
+            mesh.userData = { stickerFaces: stickerFaces, x: x, y: y, z: z };
+            scene.add(mesh); allCubies.push(mesh); return mesh;
+        }
+        for (var x = -1; x <= 1; x++) for (var y = -1; y <= 1; y++) for (var z = -1; z <= 1; z++) createCubie(x, y, z);
+
+        var ambient = new THREE.AmbientLight(0x222222, 0.6); scene.add(ambient);
+        var keyLight = new THREE.DirectionalLight(0xffffff, 1.2); keyLight.position.set(5, 8, 6);
+        keyLight.castShadow = true; keyLight.shadow.mapSize.width = 1024; keyLight.shadow.mapSize.height = 1024;
+        keyLight.shadow.camera.near = 0.5; keyLight.shadow.camera.far = 50; keyLight.shadow.bias = -0.001; scene.add(keyLight);
+        var fillLight = new THREE.DirectionalLight(0x8888cc, 0.4); fillLight.position.set(-4, 2, -3); scene.add(fillLight);
+        var rimLight = new THREE.DirectionalLight(0xffaa77, 0.3); rimLight.position.set(-3, -2, 5); scene.add(rimLight);
+        var groundGeo = new THREE.PlaneGeometry(30, 30);
+        var groundMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.9, metalness: 0.0 });
+        var ground = new THREE.Mesh(groundGeo, groundMat); ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -3; ground.receiveShadow = true; scene.add(ground);
+
+        var camAzimuth = 0.6, camPolar = 0.9, camRadius = 13, targetAzimuth = 0.6, targetPolar = 0.9;
+        function updateCamera() {
+            camAzimuth += (targetAzimuth - camAzimuth) * 0.05; camPolar += (targetPolar - camPolar) * 0.05;
+            camera.position.x = camRadius * Math.sin(camPolar) * Math.sin(camAzimuth);
+            camera.position.y = camRadius * Math.cos(camPolar);
+            camera.position.z = camRadius * Math.sin(camPolar) * Math.cos(camAzimuth);
+            camera.lookAt(0, 0, 0);
+        }
+
+        var raycaster = new THREE.Raycaster(); var mouse = new THREE.Vector2();
+        var isOrbiting = false, orbitStartX = 0, orbitStartY = 0, pendingClick = null, rotationAnim = null, autoRotate = true, autoRotateTimer = null;
+
+        function getPointerPos(e) { if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY }; return { x: e.clientX, y: e.clientY }; }
+        function onPointerDown(e) {
+            e.preventDefault(); var pos = getPointerPos(e); var px = pos.x, py = pos.y;
+            mouse.x = (px / window.innerWidth) * 2 - 1; mouse.y = -(py / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera); var intersects = raycaster.intersectObjects(allCubies);
+            if (intersects.length > 0 && !rotationAnim) {
+                var faceIndex = Math.floor(intersects[0].faceIndex / 2); var cubie = intersects[0].object;
+                if (cubie.userData.stickerFaces.indexOf(faceIndex) !== -1) { pendingClick = { intersect: intersects[0], x: px, y: py, faceIndex: faceIndex }; }
+                else { startOrbit(px, py); }
+            } else { startOrbit(px, py); }
+            autoRotate = false; clearTimeout(autoRotateTimer);
+        }
+        function startOrbit(x, y) { isOrbiting = true; orbitStartX = x; orbitStartY = y; pendingClick = null; }
+        function onPointerMove(e) {
+            e.preventDefault(); var pos = getPointerPos(e); var px = pos.x, py = pos.y;
+            if (isOrbiting) { targetAzimuth -= (px - orbitStartX) * 0.004; targetPolar = Math.max(0.2, Math.min(Math.PI - 0.2, targetPolar - (py - orbitStartY) * 0.004)); orbitStartX = px; orbitStartY = py; }
+            else if (pendingClick) { if (Math.abs(px - pendingClick.x) > 6 || Math.abs(py - pendingClick.y) > 6) { pendingClick = null; startOrbit(px, py); } }
+        }
+        function onPointerUp(e) {
+            if (pendingClick && !isOrbiting) executeRotation(pendingClick.intersect, pendingClick.faceIndex);
+            pendingClick = null; isOrbiting = false; autoRotateTimer = setTimeout(function() { autoRotate = true; }, 4000);
+        }
+        renderer.domElement.addEventListener('mousedown', onPointerDown);
+        renderer.domElement.addEventListener('mousemove', onPointerMove);
+        renderer.domElement.addEventListener('mouseup', onPointerUp);
+        renderer.domElement.addEventListener('touchstart', onPointerDown, { passive: false });
+        renderer.domElement.addEventListener('touchmove', onPointerMove, { passive: false });
+        renderer.domElement.addEventListener('touchend', onPointerUp);
+
+        function executeRotation(intersect, faceIndex) {
+            if (rotationAnim) return;
+            var pos = intersect.object.position; var axis, layerCoord, angle;
+            switch (faceIndex) {
+                case 0: axis='x'; layerCoord=pos.x; angle=-Math.PI/2; break;
+                case 1: axis='x'; layerCoord=pos.x; angle=Math.PI/2; break;
+                case 2: axis='y'; layerCoord=pos.y; angle=-Math.PI/2; break;
+                case 3: axis='y'; layerCoord=pos.y; angle=Math.PI/2; break;
+                case 4: axis='z'; layerCoord=pos.z; angle=-Math.PI/2; break;
+                case 5: axis='z'; layerCoord=pos.z; angle=Math.PI/2; break;
+            }
+            layerCoord = Math.round(layerCoord);
+            var layerCubies = allCubies.filter(function(c) { return Math.round(c.position[axis]) === layerCoord; });
+            if (layerCubies.length === 0) return;
+            var pivot = new THREE.Group(); scene.add(pivot);
+            for (var i = 0; i < layerCubies.length; i++) pivot.attach(layerCubies[i]);
+            var duration = 280, startTime = performance.now();
+            var startRot = pivot.rotation[axis], targetRot = startRot + angle;
+            rotationAnim = { pivot: pivot, axis: axis, startTime: startTime, duration: duration, startRot: startRot, targetRot: targetRot,
+                onComplete: function() { pivot.rotation[axis] = targetRot; while (pivot.children.length > 0) scene.attach(pivot.children[0]); scene.remove(pivot); rotationAnim = null; }
+            };
+        }
+
+        function scrambleCube() {
+            if (rotationAnim) return;
+            var axes = ['x', 'y', 'z'], layers = [-1, 0, 1], angles = [Math.PI / 2, -Math.PI / 2];
+            var moves = 0, maxMoves = 15;
+            function doMove() {
+                if (moves >= maxMoves || rotationAnim) return;
+                var axis = axes[Math.floor(Math.random() * 3)], layer = layers[Math.floor(Math.random() * 3)], angle = angles[Math.floor(Math.random() * 2)];
+                var layerCubies = allCubies.filter(function(c) { return Math.round(c.position[axis]) === layer; });
+                var pivot = new THREE.Group(); scene.add(pivot);
+                for (var i = 0; i < layerCubies.length; i++) pivot.attach(layerCubies[i]);
+                var duration = 180, startTime = performance.now();
+                var startRot = pivot.rotation[axis], targetRot = startRot + angle;
+                rotationAnim = { pivot: pivot, axis: axis, startTime: startTime, duration: duration, startRot: startRot, targetRot: targetRot,
+                    onComplete: function() { pivot.rotation[axis] = targetRot; while (pivot.children.length > 0) scene.attach(pivot.children[0]); scene.remove(pivot); rotationAnim = null; moves++; if (moves < maxMoves) setTimeout(doMove, 50); }
+                };
+            }
+            doMove();
+        }
+        function resetCube() {
+            if (rotationAnim) return;
+            for (var i = 0; i < allCubies.length; i++) { scene.remove(allCubies[i]); allCubies[i].geometry.dispose(); }
+            allCubies.length = 0;
+            for (var x = -1; x <= 1; x++) for (var y = -1; y <= 1; y++) for (var z = -1; z <= 1; z++) createCubie(x, y, z);
+            targetAzimuth = 0.6; targetPolar = 0.9; camRadius = 13;
+        }
+        document.getElementById('btnScramble').addEventListener('click', function(e) { e.stopPropagation(); scrambleCube(); });
+        document.getElementById('btnReset').addEventListener('click', function(e) { e.stopPropagation(); resetCube(); });
+
+        function animate() {
+            requestAnimationFrame(animate); var now = performance.now();
+            if (rotationAnim) {
+                var elapsed = now - rotationAnim.startTime;
+                var t = Math.min(elapsed / rotationAnim.duration, 1);
+                t = 1 - Math.pow(1 - t, 3);
+                rotationAnim.pivot.rotation[rotationAnim.axis] = rotationAnim.startRot + (rotationAnim.targetRot - rotationAnim.startRot) * t;
+                if (elapsed >= rotationAnim.duration) rotationAnim.onComplete();
+            }
+            if (autoRotate && !rotationAnim) targetAzimuth += 0.002;
+            updateCamera(); renderer.render(scene, camera);
+        }
+        animate();
+        window.addEventListener('resize', function() {
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        });
+    })();
+    </script>
+</body>
+</html>

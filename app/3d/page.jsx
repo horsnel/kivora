@@ -2,7 +2,6 @@
 
 import dynamic from 'next/dynamic'
 
-// Lazy-load Three.js — only loads when user visits /3d
 const ThreeDViewer = dynamic(() => import('./ThreeDClient'), {
   ssr: false,
   loading: () => (

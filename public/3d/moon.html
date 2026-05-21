@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#000000">
+    <title>Moon 3D</title>
+    <style>
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            overflow: hidden !important;
+            background: #000005 !important;
+            color: #ffffff !important;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            -webkit-text-size-adjust: 100%;
+        }
+        #canvas-container {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: 1;
+        }
+        canvas { display: block; width: 100%; height: 100%; }
+        .ui-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 10;
+        }
+        .header {
+            position: absolute; top: 30px; left: 50%; transform: translateX(-50%);
+            text-align: center; animation: fadeInDown 1.5s ease-out; width: 90%;
+        }
+        .header h1 {
+            font-size: 2.5rem; font-weight: 300; letter-spacing: 0.4em;
+            text-transform: uppercase; color: #e8e8e8;
+            text-shadow: 0 0 40px rgba(200, 200, 255, 0.3); margin: 0;
+        }
+        .header .subtitle {
+            font-size: 0.85rem; font-weight: 300; letter-spacing: 0.2em;
+            color: rgba(255, 255, 255, 0.45); margin-top: 8px;
+        }
+        .info-panel {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 30px; align-items: center;
+            animation: fadeInUp 1.5s ease-out 0.5s both;
+            flex-wrap: wrap; justify-content: center; width: 90%;
+        }
+        .info-item {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 0.8rem; color: rgba(255, 255, 255, 0.5); letter-spacing: 0.1em;
+        }
+        .info-item svg {
+            width: 16px; height: 16px; fill: none;
+            stroke: rgba(255, 255, 255, 0.5); stroke-width: 1.5; flex-shrink: 0;
+        }
+        .controls-hint {
+            position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+            text-align: center; animation: fadeInUp 1.5s ease-out 0.3s both; width: 90%;
+        }
+        .controls-hint p {
+            font-size: 0.75rem; color: rgba(255, 255, 255, 0.35); letter-spacing: 0.15em; margin: 0;
+        }
+        .loading-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000005; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 100;
+            transition: opacity 1s ease-out, visibility 1s ease-out;
+        }
+        .loading-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+        .loading-text { font-size: 0.9rem; letter-spacing: 0.3em; color: rgba(255, 255, 255, 0.6); margin-bottom: 30px; }
+        .loading-bar-container {
+            width: 200px; height: 2px; background: rgba(255, 255, 255, 0.15);
+            position: relative; overflow: hidden; border-radius: 1px;
+        }
+        .loading-bar {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, rgba(200, 200, 255, 0.4), rgba(200, 200, 255, 0.9));
+            transition: width 0.3s ease-out;
+        }
+        .loading-percent { margin-top: 15px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.4); letter-spacing: 0.2em; }
+        .vignette {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 5;
+            background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.6) 100%);
+        }
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        @media (max-width: 600px) {
+            .header { top: 20px; }
+            .header h1 { font-size: 1.8rem; letter-spacing: 0.3em; }
+            .info-panel { flex-direction: column; gap: 10px; bottom: 20px; }
+            .controls-hint { bottom: 100px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-text">LOADING</div>
+        <div class="loading-bar-container"><div class="loading-bar" id="loadingBar"></div></div>
+        <div class="loading-percent" id="loadingPercent">0%</div>
+    </div>
+    <div id="canvas-container"></div>
+    <div class="vignette"></div>
+    <div class="ui-overlay">
+        <div class="header">
+            <h1>Moon</h1>
+            <div class="subtitle">Earth's Natural Satellite</div>
+        </div>
+        <div class="controls-hint"><p>DRAG TO ROTATE &middot; SCROLL TO ZOOM</p></div>
+        <div class="info-panel">
+            <div class="info-item">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
+                <span>Distance: 384,400 km</span>
+            </div>
+            <div class="info-item">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M6 12h12"/></svg>
+                <span>Diameter: 3,474 km</span>
+            </div>
+            <div class="info-item">
+                <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                <span>Gravity: 1.62 m/s&sup2;</span>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+    (function() {
+        'use strict';
+        document.documentElement.style.background = '#000005';
+        document.body.style.background = '#000005';
+        document.body.style.color = '#ffffff';
+        document.body.style.margin = '0';
+        document.body.style.padding = '0';
+        document.body.style.overflow = 'hidden';
+        document.body.style.width = '100%';
+        document.body.style.height = '100%';
+
+        var container = document.getElementById('canvas-container');
+        var loadingScreen = document.getElementById('loadingScreen');
+        var loadingBar = document.getElementById('loadingBar');
+        var loadingPercent = document.getElementById('loadingPercent');
+
+        function updateLoading(pct) {
+            loadingBar.style.width = pct + '%';
+            loadingPercent.textContent = pct + '%';
+            if (pct >= 100) setTimeout(function() { loadingScreen.classList.add('hidden'); }, 400);
+        }
+        setTimeout(function() { updateLoading(100); }, 4000);
+        if (typeof THREE === 'undefined') { loadingPercent.textContent = 'Error: Three.js not loaded'; return; }
+
+        var scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x000005);
+        var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
+        camera.position.set(0, 0, 4.5);
+        var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        container.appendChild(renderer.domElement);
+
+        function createProceduralColorTexture() {
+            var canvas = document.createElement('canvas'); canvas.width = 2048; canvas.height = 1024;
+            var ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#9a9a9a'; ctx.fillRect(0, 0, 2048, 1024);
+            for (var i = 0; i < 5000; i++) {
+                var x = Math.random() * 2048, y = Math.random() * 1024, r = Math.random() * 3 + 0.5;
+                var v = Math.floor(Math.random() * 40 + 110);
+                ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')'; ctx.fill();
+            }
+            for (var i = 0; i < 40; i++) {
+                var x = Math.random() * 2048, y = Math.random() * 1024, r = Math.random() * 60 + 10;
+                var v = Math.floor(Math.random() * 30 + 120);
+                ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(' + v + ',' + v + ',' + v + ',0.6)'; ctx.fill();
+                ctx.strokeStyle = 'rgba(' + (v+20) + ',' + (v+20) + ',' + (v+20) + ',0.3)'; ctx.lineWidth = 2; ctx.stroke();
+                for (var j = 0; j < 8; j++) {
+                    var angle = (j / 8) * Math.PI * 2 + Math.random() * 0.5;
+                    var len = r * (2 + Math.random() * 3);
+                    ctx.beginPath();
+                    ctx.moveTo(x + Math.cos(angle) * r, y + Math.sin(angle) * r);
+                    ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
+                    ctx.strokeStyle = 'rgba(' + (v+15) + ',' + (v+15) + ',' + (v+15) + ',0.15)';
+                    ctx.lineWidth = 1 + Math.random() * 2; ctx.stroke();
+                }
+            }
+            var maria = [
+                {x:600,y:500,rx:280,ry:200},{x:1100,y:450,rx:180,ry:140},
+                {x:1400,y:550,rx:150,ry:100},{x:950,y:700,rx:120,ry:90},
+                {x:1300,y:750,rx:100,ry:80},{x:450,y:350,rx:90,ry:70},
+                {x:1600,y:400,rx:80,ry:60},{x:1700,y:650,rx:70,ry:50}
+            ];
+            maria.forEach(function(m) {
+                ctx.beginPath(); ctx.ellipse(m.x, m.y, m.rx, m.ry, Math.random() * Math.PI, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(45, 45, 50, ' + (0.5 + Math.random() * 0.3) + ')'; ctx.fill();
+                ctx.strokeStyle = 'rgba(70,70,75,0.2)'; ctx.lineWidth = 3; ctx.stroke();
+            });
+            for (var i = 0; i < 800; i++) {
+                var x = Math.random() * 2048, y = Math.random() * 1024, r = Math.random() * 8 + 2;
+                ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(' + Math.floor(80+Math.random()*40) + ',' + Math.floor(80+Math.random()*40) + ',' + Math.floor(85+Math.random()*40) + ',0.4)';
+                ctx.fill(); ctx.strokeStyle = 'rgba(140,140,145,0.25)'; ctx.lineWidth = 1; ctx.stroke();
+            }
+            var tex = new THREE.CanvasTexture(canvas); tex.encoding = THREE.sRGBEncoding; return tex;
+        }
+
+        function createProceduralBumpTexture() {
+            var canvas = document.createElement('canvas'); canvas.width = 2048; canvas.height = 1024;
+            var ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#808080'; ctx.fillRect(0, 0, 2048, 1024);
+            for (var i = 0; i < 3000; i++) {
+                var x = Math.random() * 2048, y = Math.random() * 1024, r = Math.random() * 20 + 2;
+                var v = Math.floor(Math.random() * 40 + 100);
+                ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(' + v + ',' + v + ',' + v + ',0.15)'; ctx.fill();
+            }
+            for (var i = 0; i < 150; i++) {
+                var x = Math.random() * 2048, y = Math.random() * 1024, r = Math.random() * 50 + 5;
+                ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(220,220,220,' + (0.3 + Math.random()*0.3) + ')'; ctx.lineWidth = 3 + Math.random() * 3; ctx.stroke();
+                ctx.beginPath(); ctx.arc(x, y, r * 0.7, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(30,30,30,' + (0.3 + Math.random()*0.3) + ')'; ctx.fill();
+            }
+            var maria = [{x:600,y:500,rx:280,ry:200},{x:1100,y:450,rx:180,ry:140},{x:1400,y:550,rx:150,ry:100},{x:950,y:700,rx:120,ry:90},{x:1300,y:750,rx:100,ry:80}];
+            maria.forEach(function(m) {
+                ctx.beginPath(); ctx.ellipse(m.x, m.y, m.rx, m.ry, Math.random() * Math.PI, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(100,100,105,0.3)'; ctx.fill();
+            });
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        var colorTex = createProceduralColorTexture();
+        var bumpTex = createProceduralBumpTexture();
+        updateLoading(60);
+
+        var moonGeometry = new THREE.SphereGeometry(1.2, 128, 128);
+        var moonMaterial = new THREE.MeshStandardMaterial({
+            map: colorTex, bumpMap: bumpTex, bumpScale: 0.04,
+            roughness: 0.95, metalness: 0.0, color: 0xdddddd
+        });
+        var moonMesh = new THREE.Mesh(moonGeometry, moonMaterial);
+        moonMesh.rotation.y = -Math.PI / 2;
+        scene.add(moonMesh);
+
+        function createStarField() {
+            var count = 6000; var pos = new Float32Array(count * 3); var cols = new Float32Array(count * 3);
+            for (var i = 0; i < count; i++) {
+                var i3 = i * 3; var r = 80 + Math.random() * 400;
+                var theta = Math.random() * Math.PI * 2; var phi = Math.acos(2 * Math.random() - 1);
+                pos[i3] = r * Math.sin(phi) * Math.cos(theta); pos[i3+1] = r * Math.sin(phi) * Math.sin(theta); pos[i3+2] = r * Math.cos(phi);
+                var t = Math.random();
+                if (t > 0.92) { cols[i3]=0.75; cols[i3+1]=0.80; cols[i3+2]=1.0; }
+                else if (t > 0.85) { cols[i3]=1.0; cols[i3+1]=0.92; cols[i3+2]=0.75; }
+                else { cols[i3]=1.0; cols[i3+1]=1.0; cols[i3+2]=1.0; }
+            }
+            var geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+            var mat = new THREE.PointsMaterial({ size: 0.7, sizeAttenuation: true, vertexColors: true, transparent: true, opacity: 0.8, depthWrite: false });
+            var stars = new THREE.Points(geo, mat); scene.add(stars); return stars;
+        }
+        var starField = createStarField(); updateLoading(80);
+
+        var sunLight = new THREE.DirectionalLight(0xfff5e6, 2.5); sunLight.position.set(5, 3, 5); scene.add(sunLight);
+        scene.add(new THREE.AmbientLight(0x1a1a2e, 0.15));
+        var earthShine = new THREE.DirectionalLight(0x4466aa, 0.08); earthShine.position.set(-5, -2, -3); scene.add(earthShine);
+
+        var orbitControls;
+        if (typeof THREE.OrbitControls !== 'undefined') {
+            orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+            orbitControls.enableDamping = true; orbitControls.dampingFactor = 0.05;
+            orbitControls.enablePan = false; orbitControls.minDistance = 2.0; orbitControls.maxDistance = 15.0;
+            orbitControls.rotateSpeed = 0.5; orbitControls.zoomSpeed = 0.8;
+            orbitControls.autoRotate = true; orbitControls.autoRotateSpeed = 0.3;
+            var autoRotateTimeout;
+            orbitControls.addEventListener('start', function() { orbitControls.autoRotate = false; });
+            orbitControls.addEventListener('end', function() {
+                clearTimeout(autoRotateTimeout);
+                autoRotateTimeout = setTimeout(function() { orbitControls.autoRotate = true; }, 5000);
+            });
+        }
+
+        var textureLoader = new THREE.TextureLoader(); textureLoader.crossOrigin = 'anonymous';
+        var NASA_COLOR = 'https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_poles_1k.jpg';
+        var NASA_BUMP = 'https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/ldem_3_8bit.jpg';
+        var nasaLoaded = 0;
+        function onNasaLoad() { nasaLoaded++; if (nasaLoaded >= 2) { updateLoading(100); moonMaterial.needsUpdate = true; } }
+        textureLoader.load(NASA_COLOR, function(tex) { tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); moonMaterial.map = tex; onNasaLoad(); }, undefined, function() { onNasaLoad(); });
+        textureLoader.load(NASA_BUMP, function(tex) { tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); moonMaterial.bumpMap = tex; onNasaLoad(); }, undefined, function() { onNasaLoad(); });
+
+        var clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            var t = clock.getElapsedTime();
+            moonMesh.rotation.x = Math.sin(t * 0.1) * 0.02;
+            starField.rotation.y = t * 0.002; starField.rotation.x = t * 0.001;
+            if (orbitControls) orbitControls.update();
+            renderer.render(scene, camera);
+        }
+        renderer.render(scene, camera); updateLoading(90); animate();
+
+        window.addEventListener('resize', function() {
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        });
+        setTimeout(function() { updateLoading(100); }, 100);
+    })();
+    </script>
+</body>
+</html>
