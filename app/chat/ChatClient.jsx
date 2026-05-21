@@ -1935,8 +1935,8 @@ export default function ChatClient() {
                 {/* Send button */}
                 <button
                   onClick={imageMode ? sendImageGeneration : image3dMode ? send3DGeneration : send}
-                  disabled={loading || imageGenLoading || image3dLoading}
-                  className="chat-collapsed-send"
+                  disabled={loading || imageGenLoading || image3dLoading || !hasInput}
+                  className={`chat-collapsed-send ${hasInput ? 'chat-collapsed-send-active' : ''}`}
                   aria-label={imageMode ? 'Generate image' : image3dMode ? 'Generate 3D' : 'Send message'}
                 >
                   {loading || imageGenLoading || image3dLoading ? (
@@ -1944,7 +1944,7 @@ export default function ChatClient() {
                   ) : hasInput ? (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                   ) : (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="8" y="5" width="2" height="14" rx="1" fill="currentColor"/><rect x="12" y="9" width="2" height="6" rx="1" fill="currentColor"/><rect x="16" y="6" width="2" height="12" rx="1" fill="currentColor"/><rect x="20" y="10" width="2" height="4" rx="1" fill="currentColor"/></svg>
                   )}
                 </button>
               </div>
@@ -2333,8 +2333,8 @@ export default function ChatClient() {
           height: 40px;
           border-radius: 50%;
           border: none;
-          background: #e2e2e2;
-          color: #0a0a0a;
+          background: rgba(255,255,255,0.06);
+          color: #737373;
           cursor: pointer;
           display: flex;
           align-items: center;
@@ -2347,10 +2347,15 @@ export default function ChatClient() {
           cursor: not-allowed;
           opacity: 0.5;
         }
-        .chat-collapsed-send:hover {
-          background: #ffffff;
+        .chat-collapsed-send-active {
+          background: #e2e2e2;
+          color: #0a0a0a;
         }
-        .chat-collapsed-send:active {
+        .chat-collapsed-send-active:hover {
+          background: #ffffff;
+          transform: scale(1.05);
+        }
+        .chat-collapsed-send-active:active {
           transform: scale(0.95);
         }
 
