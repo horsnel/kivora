@@ -1904,16 +1904,15 @@ export default function ChatClient() {
             {/* ═══ COLLAPSED STATE ═══ */}
             {!barExpanded && (
               <div className="chat-bar-collapsed">
-                {/* + New chat button */}
+                {/* Paperclip — attach file */}
                 <button
                   className="chat-collapsed-btn-circle"
-                  onClick={clearChat}
-                  aria-label={t('chat.new')}
-                  title={t('chat.new')}
+                  onClick={() => fileInputRef.current?.click()}
+                  aria-label="Attach file"
+                  title="Attach file"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <line x1="12" y1="5" x2="12" y2="19"/>
-                    <line x1="5" y1="12" x2="19" y2="12"/>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
                   </svg>
                 </button>
 
@@ -1933,45 +1932,19 @@ export default function ChatClient() {
                   />
                 </div>
 
-                {/* Image mode toggle (collapsed) */}
-                <button
-                  className={`chat-collapsed-btn-circle ${imageMode ? 'chat-collapsed-btn-active' : ''}`}
-                  onClick={() => { setImageMode(!imageMode); if (image3dMode) setImage3dMode(false) }}
-                  title={imageMode ? 'Switch to chat mode' : 'Image generation'}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>
-                  </svg>
-                </button>
-
-                {/* 3D mode toggle (collapsed) */}
-                <button
-                  className={`chat-collapsed-btn-circle ${image3dMode ? 'chat-collapsed-btn-active' : ''}`}
-                  onClick={() => { setImage3dMode(!image3dMode); if (imageMode) setImageMode(false) }}
-                  title="3D generation"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z"/><path d="M12 12l9-4.5"/><path d="M12 12v9"/><path d="M12 12L3 7.5"/>
-                  </svg>
-                </button>
-
                 {/* Send button */}
                 <button
                   onClick={imageMode ? sendImageGeneration : image3dMode ? send3DGeneration : send}
-                  disabled={loading || imageGenLoading || image3dLoading || !hasInput}
-                  className={`chat-collapsed-send ${hasInput ? 'chat-collapsed-send-active' : ''}`}
+                  disabled={loading || imageGenLoading || image3dLoading}
+                  className="chat-collapsed-send"
                   aria-label={imageMode ? 'Generate image' : image3dMode ? 'Generate 3D' : 'Send message'}
                 >
                   {loading || imageGenLoading || image3dLoading ? (
                     <IconSpinner size={16} />
-                  ) : imageMode ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                  ) : image3dMode ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z"/><path d="M12 12l9-4.5"/><path d="M12 12v9"/><path d="M12 12L3 7.5"/></svg>
                   ) : hasInput ? (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                   ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="8" y="5" width="2" height="14" rx="1" fill="currentColor"/><rect x="12" y="9" width="2" height="6" rx="1" fill="currentColor"/><rect x="16" y="6" width="2" height="12" rx="1" fill="currentColor"/><rect x="20" y="10" width="2" height="4" rx="1" fill="currentColor"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                   )}
                 </button>
               </div>
@@ -2360,8 +2333,8 @@ export default function ChatClient() {
           height: 40px;
           border-radius: 50%;
           border: none;
-          background: rgba(255,255,255,0.06);
-          color: #737373;
+          background: #e2e2e2;
+          color: #0a0a0a;
           cursor: pointer;
           display: flex;
           align-items: center;
@@ -2374,15 +2347,10 @@ export default function ChatClient() {
           cursor: not-allowed;
           opacity: 0.5;
         }
-        .chat-collapsed-send-active {
-          background: #e2e2e2;
-          color: #0a0a0a;
-        }
-        .chat-collapsed-send-active:hover {
+        .chat-collapsed-send:hover {
           background: #ffffff;
-          transform: scale(1.05);
         }
-        .chat-collapsed-send-active:active {
+        .chat-collapsed-send:active {
           transform: scale(0.95);
         }
 
