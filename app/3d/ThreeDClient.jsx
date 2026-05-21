@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useRef, useCallback, Suspense } from 'react'
+import { useState, useEffect, useRef, useCallback, Suspense, Component } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Environment, Float, Text, PresentationControls } from '@react-three/drei'
+import { Float, PresentationControls } from '@react-three/drei'
+import * as THREE from 'three'
 import { useTranslation } from '@/components/LanguageProvider'
 import { IconDownload, IconEye, IconArrowRight, IconClose } from '@/components/Icons'
 
@@ -24,26 +25,33 @@ function ImagePlane({ src, isActive }) {
   const [hovered, setHovered] = useState(false)
   const [texture, setTexture] = useState(null)
 
-  // Load texture
-  useState(() => {
-    if (typeof window !== 'undefined') {
-      const loader = new (require('three').TextureLoader)()
-      loader.load(src, (tex) => {
-        tex.minFilter = require('three').LinearFilter
-        tex.magFilter = require('three').LinearFilter
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const loader = new THREE.TextureLoader()
+    loader.load(
+      src,
+      (tex) => {
+        tex.minFilter = THREE.LinearFilter
+        tex.magFilter = THREE.LinearFilter
+        tex.colorSpace = THREE.SRGBColorSpace
         setTexture(tex)
-      })
+      },
+      undefined,
+      () => {
+        // On error, try without texture
+        setTexture(null)
+      }
+    )
+    return () => {
+      if (texture) texture.dispose()
     }
   }, [src])
 
   useFrame((state) => {
     if (meshRef.current) {
-      // Gentle floating animation
       meshRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.5) * 0.05
-      // Scale up when active
       const targetScale = isActive ? 1.0 : 0.85
-      meshRef.current.scale.lerp({ x: targetScale, y: targetScale, z: targetScale }, 0.05)
-      // Hover glow
+      meshRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.05)
       if (meshRef.current.material) {
         const targetEmissive = hovered ? 0.08 : 0
         meshRef.current.material.emissiveIntensity += (targetEmissive - meshRef.current.material.emissiveIntensity) * 0.1
@@ -66,7 +74,7 @@ function ImagePlane({ src, isActive }) {
       <planeGeometry args={[width, height]} />
       <meshStandardMaterial
         map={texture}
-        side={2}
+        side={THREE.DoubleSide}
         emissive="#dc2626"
         emissiveIntensity={0}
         toneMapped={false}
@@ -78,7 +86,9 @@ function ImagePlane({ src, isActive }) {
 /* ── Floating Particles ── */
 function Particles({ count = 40 }) {
   const ref = useRef()
-  const positions = useRef(
+  const dummy = useRef(new THREE.Vector3())
+
+  const particleData = useRef(
     Array.from({ length: count }, () => ({
       x: (Math.random() - 0.5) * 8,
       y: (Math.random() - 0.5) * 6,
@@ -88,18 +98,27 @@ function Particles({ count = 40 }) {
     }))
   )
 
+  const positions = useRef(new Float32Array(count * 3))
+
+  // Initialize positions
+  useEffect(() => {
+    particleData.current.forEach((p, i) => {
+      positions.current[i * 3] = p.x
+      positions.current[i * 3 + 1] = p.y
+      positions.current[i * 3 + 2] = p.z
+    })
+  }, [])
+
   useFrame((state) => {
     if (!ref.current) return
-    const geo = ref.current.geometry
-    const pos = geo.attributes.position
-    if (!pos) return
+    const posArray = positions.current
 
-    positions.current.forEach((p, i) => {
-      const y = pos.getY(i)
-      pos.setY(i, y + Math.sin(state.clock.elapsedTime * p.speed + p.offset) * 0.002)
-      pos.setX(i, pos.getX(i) + Math.sin(state.clock.elapsedTime * 0.3 + p.offset) * 0.001)
+    particleData.current.forEach((p, i) => {
+      posArray[i * 3 + 1] += Math.sin(state.clock.elapsedTime * p.speed + p.offset) * 0.002
+      posArray[i * 3] += Math.sin(state.clock.elapsedTime * 0.3 + p.offset) * 0.001
     })
-    pos.needsUpdate = true
+
+    ref.current.geometry.attributes.position.needsUpdate = true
   })
 
   return (
@@ -108,7 +127,7 @@ function Particles({ count = 40 }) {
         <bufferAttribute
           attach="attributes-position"
           count={count}
-          array={new Float32Array(positions.current.flatMap(p => [p.x, p.y, p.z]))}
+          array={positions.current}
           itemSize={3}
         />
       </bufferGeometry>
@@ -128,15 +147,24 @@ function CameraRig() {
   return null
 }
 
+/* ── Simple environment (no external files) ── */
+function SimpleEnvironment() {
+  return (
+    <>
+      <ambientLight intensity={0.5} />
+      <directionalLight position={[5, 5, 5]} intensity={0.8} color="#ffffff" />
+      <pointLight position={[-3, 2, 4]} intensity={0.5} color="#dc2626" />
+      <pointLight position={[3, -2, 4]} intensity={0.3} color="#a855f7" />
+      <hemisphereLight args={['#1a1a2e', '#0a0a0a', 0.4]} />
+    </>
+  )
+}
+
 /* ── 3D Scene ── */
 function Scene({ activeImage }) {
   return (
     <>
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[5, 5, 5]} intensity={0.8} color="#ffffff" />
-      <pointLight position={[-3, 2, 4]} intensity={0.5} color="#dc2626" />
-      <pointLight position={[3, -2, 4]} intensity={0.3} color="#a855f7" />
-
+      <SimpleEnvironment />
       <CameraRig />
       <Particles />
 
@@ -152,9 +180,22 @@ function Scene({ activeImage }) {
           {activeImage && <ImagePlane src={activeImage} isActive={true} />}
         </PresentationControls>
       </Float>
-
-      <Environment preset="city" />
     </>
+  )
+}
+
+/* ── Error boundary wrapper for the canvas ── */
+function CanvasFallback() {
+  return (
+    <div className="w-full h-full flex items-center justify-center bg-[#0a0a0a]">
+      <div className="text-center p-6">
+        <div className="w-12 h-12 bg-[#111111] rounded-xl flex items-center justify-center mx-auto mb-4">
+          <IconEye size={20} className="text-red-400" />
+        </div>
+        <p className="text-sm text-[#737373] mb-1">3D Viewer requires WebGL</p>
+        <p className="text-xs text-[#404040]">Try using Chrome, Edge, or Firefox</p>
+      </div>
+    </div>
   )
 }
 
@@ -163,17 +204,37 @@ export default function ThreeDClient() {
   const { t } = useTranslation()
   const [activeImage, setActiveImage] = useState(SAMPLE_IMAGES[0].src)
   const [fullscreen, setFullscreen] = useState(false)
+  const [webglSupported, setWebglSupported] = useState(true)
+  const [hasError, setHasError] = useState(false)
   const canvasRef = useRef()
+
+  useEffect(() => {
+    try {
+      const canvas = document.createElement('canvas')
+      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
+      setWebglSupported(!!gl)
+    } catch {
+      setWebglSupported(false)
+    }
+  }, [])
 
   const handleExport = useCallback(() => {
     if (!canvasRef.current) return
     const canvas = canvasRef.current.querySelector('canvas')
     if (!canvas) return
-    const link = document.createElement('a')
-    link.download = 'kivora-3d-view.png'
-    link.href = canvas.toDataURL('image/png')
-    link.click()
+    try {
+      const link = document.createElement('a')
+      link.download = 'kivora-3d-view.png'
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    } catch {
+      // Canvas tainted or not available
+    }
   }, [])
+
+  if (!webglSupported || hasError) {
+    return <CanvasFallback />
+  }
 
   return (
     <div className={`bg-[#0a0a0a] text-white ${fullscreen ? 'fixed inset-0 z-50' : 'min-h-screen'}`}>
@@ -250,28 +311,55 @@ export default function ThreeDClient() {
 
         {/* 3D Canvas */}
         <div ref={canvasRef} className="flex-1 relative">
-          <Suspense fallback={
-            <div className="w-full h-full flex items-center justify-center">
-              <div className="w-10 h-10 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin" />
-            </div>
-          }>
-            <Canvas
-              camera={{ position: [0, 0, 5], fov: 50 }}
-              gl={{ preserveDrawingBuffer: true, antialias: true }}
-              className="w-full h-full"
-            >
-              <Scene activeImage={activeImage} />
-            </Canvas>
-          </Suspense>
+          <ErrorBoundary onError={() => setHasError(true)}>
+            <Suspense fallback={
+              <div className="w-full h-full flex items-center justify-center">
+                <div className="w-10 h-10 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin" />
+              </div>
+            }>
+              <Canvas
+                camera={{ position: [0, 0, 5], fov: 50 }}
+                gl={{ preserveDrawingBuffer: true, antialias: true, powerPreference: 'default' }}
+                className="w-full h-full"
+                onError={() => setHasError(true)}
+              >
+                <Scene activeImage={activeImage} />
+              </Canvas>
+            </Suspense>
+          </ErrorBoundary>
 
           {/* Controls hint overlay */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-[#0a0a0a]/80 backdrop-blur-md border border-[#1a1a1a] rounded-full px-4 py-2">
-            <span className="text-[10px] text-[#525252]">🖱 Drag to rotate</span>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-[#0a0a0a]/80 backdrop-blur-md border border-[#1a1a1a] rounded-full px-4 py-2 pointer-events-none">
+            <span className="text-[10px] text-[#525252]">Drag to rotate</span>
             <span className="text-[10px] text-[#1a1a1a]">|</span>
-            <span className="text-[10px] text-[#525252]">⚡ Scroll to zoom</span>
+            <span className="text-[10px] text-[#525252]">Scroll to zoom</span>
           </div>
         </div>
       </div>
     </div>
   )
+}
+
+/* ── Simple Error Boundary ── */
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false }
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error, info) {
+    console.error('3D Viewer error:', error, info)
+    if (this.props.onError) this.props.onError()
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <CanvasFallback />
+    }
+    return this.props.children
+  }
 }
