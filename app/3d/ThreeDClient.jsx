@@ -193,6 +193,34 @@ function addOrbitControls(camera, renderer, opts = {}) {
   return controls
 }
 
+/* ── Full cleanup helper: dispose all GPU resources ── */
+function fullCleanup(scene, renderer) {
+  scene.traverse(obj => {
+    if (obj.geometry) obj.geometry.dispose()
+    if (obj.material) {
+      if (Array.isArray(obj.material)) {
+        obj.material.forEach(m => {
+          if (m.map) m.map.dispose()
+          if (m.bumpMap) m.bumpMap.dispose()
+          if (m.specularMap) m.specularMap.dispose()
+          if (m.emissiveMap) m.emissiveMap.dispose()
+          m.dispose()
+        })
+      } else {
+        if (obj.material.map) obj.material.map.dispose()
+        if (obj.material.bumpMap) obj.material.bumpMap.dispose()
+        if (obj.material.specularMap) obj.material.specularMap.dispose()
+        if (obj.material.emissiveMap) obj.material.emissiveMap.dispose()
+        obj.material.dispose()
+      }
+    }
+  })
+  scene.clear()
+  renderer.dispose()
+  renderer.forceContextLoss()
+  if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement)
+}
+
 /* ── Moon Scene ── */
 function createMoonScene(container) {
   const THREE = window.THREE
@@ -201,17 +229,18 @@ function createMoonScene(container) {
   const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 2000)
   camera.position.set(0, 0, 4.5)
   const renderer = createRenderer(container)
+  let disposed = false
 
-  // Procedural color texture
-  const colorCanvas = document.createElement('canvas'); colorCanvas.width = 2048; colorCanvas.height = 1024
+  // Procedural color texture (reduced from 2048x1024 to 1024x512)
+  const colorCanvas = document.createElement('canvas'); colorCanvas.width = 1024; colorCanvas.height = 512
   const ctx = colorCanvas.getContext('2d')
-  ctx.fillStyle = '#9a9a9a'; ctx.fillRect(0, 0, 2048, 1024)
+  ctx.fillStyle = '#9a9a9a'; ctx.fillRect(0, 0, 1024, 512)
   for (let i = 0; i < 5000; i++) {
-    const x = Math.random()*2048, y = Math.random()*1024, r = Math.random()*3+0.5, v = Math.floor(Math.random()*40+110)
+    const x = Math.random()*1024, y = Math.random()*512, r = Math.random()*3+0.5, v = Math.floor(Math.random()*40+110)
     ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fillStyle=`rgb(${v},${v},${v})`; ctx.fill()
   }
   for (let i = 0; i < 40; i++) {
-    const x = Math.random()*2048, y = Math.random()*1024, r = Math.random()*60+10, v = Math.floor(Math.random()*30+120)
+    const x = Math.random()*1024, y = Math.random()*512, r = Math.random()*60+10, v = Math.floor(Math.random()*30+120)
     ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fillStyle=`rgba(${v},${v},${v},0.6)`; ctx.fill()
     ctx.strokeStyle=`rgba(${v+20},${v+20},${v+20},0.3)`; ctx.lineWidth=2; ctx.stroke()
     for (let j = 0; j < 8; j++) {
@@ -221,17 +250,17 @@ function createMoonScene(container) {
       ctx.strokeStyle=`rgba(${v+15},${v+15},${v+15},0.15)`; ctx.lineWidth=1+Math.random()*2; ctx.stroke()
     }
   }
-  const maria=[{x:600,y:500,rx:280,ry:200},{x:1100,y:450,rx:180,ry:140},{x:1400,y:550,rx:150,ry:100},{x:950,y:700,rx:120,ry:90},{x:1300,y:750,rx:100,ry:80},{x:450,y:350,rx:90,ry:70},{x:1600,y:400,rx:80,ry:60},{x:1700,y:650,rx:70,ry:50}]
+  const maria=[{x:300,y:250,rx:140,ry:100},{x:550,y:225,rx:90,ry:70},{x:700,y:275,rx:75,ry:50},{x:475,y:350,rx:60,ry:45},{x:650,y:375,rx:50,ry:40},{x:225,y:175,rx:45,ry:35},{x:800,y:200,rx:40,ry:30},{x:850,y:325,rx:35,ry:25}]
   maria.forEach(m=>{ctx.beginPath();ctx.ellipse(m.x,m.y,m.rx,m.ry,Math.random()*Math.PI,0,Math.PI*2);ctx.fillStyle=`rgba(45,45,50,${0.5+Math.random()*0.3})`;ctx.fill();ctx.strokeStyle='rgba(70,70,75,0.2)';ctx.lineWidth=3;ctx.stroke()})
-  for(let i=0;i<800;i++){const x=Math.random()*2048,y=Math.random()*1024,r=Math.random()*8+2;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=`rgba(${Math.floor(80+Math.random()*40)},${Math.floor(80+Math.random()*40)},${Math.floor(85+Math.random()*40)},0.4)`;ctx.fill();ctx.strokeStyle='rgba(140,140,145,0.25)';ctx.lineWidth=1;ctx.stroke()}
+  for(let i=0;i<800;i++){const x=Math.random()*1024,y=Math.random()*512,r=Math.random()*8+2;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=`rgba(${Math.floor(80+Math.random()*40)},${Math.floor(80+Math.random()*40)},${Math.floor(85+Math.random()*40)},0.4)`;ctx.fill();ctx.strokeStyle='rgba(140,140,145,0.25)';ctx.lineWidth=1;ctx.stroke()}
   const colorTex=new THREE.CanvasTexture(colorCanvas);colorTex.encoding=THREE.sRGBEncoding
 
-  // Procedural bump
-  const bumpCanvas = document.createElement('canvas'); bumpCanvas.width = 2048; bumpCanvas.height = 1024
+  // Procedural bump (reduced from 2048x1024 to 1024x512)
+  const bumpCanvas = document.createElement('canvas'); bumpCanvas.width = 1024; bumpCanvas.height = 512
   const bctx = bumpCanvas.getContext('2d')
-  bctx.fillStyle='#808080'; bctx.fillRect(0,0,2048,1024)
-  for(let i=0;i<3000;i++){const x=Math.random()*2048,y=Math.random()*1024,r=Math.random()*20+2,v=Math.floor(Math.random()*40+100);bctx.beginPath();bctx.arc(x,y,r,0,Math.PI*2);bctx.fillStyle=`rgba(${v},${v},${v},0.15)`;bctx.fill()}
-  for(let i=0;i<150;i++){const x=Math.random()*2048,y=Math.random()*1024,r=Math.random()*50+5;bctx.beginPath();bctx.arc(x,y,r,0,Math.PI*2);bctx.strokeStyle=`rgba(220,220,220,${0.3+Math.random()*0.3})`;bctx.lineWidth=3+Math.random()*3;bctx.stroke();bctx.beginPath();bctx.arc(x,y,r*0.7,0,Math.PI*2);bctx.fillStyle=`rgba(30,30,30,${0.3+Math.random()*0.3})`;bctx.fill()}
+  bctx.fillStyle='#808080'; bctx.fillRect(0,0,1024,512)
+  for(let i=0;i<1500;i++){const x=Math.random()*1024,y=Math.random()*512,r=Math.random()*20+2,v=Math.floor(Math.random()*40+100);bctx.beginPath();bctx.arc(x,y,r,0,Math.PI*2);bctx.fillStyle=`rgba(${v},${v},${v},0.15)`;bctx.fill()}
+  for(let i=0;i<80;i++){const x=Math.random()*1024,y=Math.random()*512,r=Math.random()*50+5;bctx.beginPath();bctx.arc(x,y,r,0,Math.PI*2);bctx.strokeStyle=`rgba(220,220,220,${0.3+Math.random()*0.3})`;bctx.lineWidth=3+Math.random()*3;bctx.stroke();bctx.beginPath();bctx.arc(x,y,r*0.7,0,Math.PI*2);bctx.fillStyle=`rgba(30,30,30,${0.3+Math.random()*0.3})`;bctx.fill()}
   const bumpTex = new THREE.CanvasTexture(bumpCanvas)
 
   const moonGeometry = new THREE.SphereGeometry(1.2, 128, 128)
@@ -240,8 +269,8 @@ function createMoonScene(container) {
   moonMesh.rotation.y = -Math.PI / 2
   scene.add(moonMesh)
 
-  // Starfield
-  const starCount = 6000; const starPos = new Float32Array(starCount*3); const starCols = new Float32Array(starCount*3)
+  // Starfield (reduced from 6000 to 3000)
+  const starCount = 3000; const starPos = new Float32Array(starCount*3); const starCols = new Float32Array(starCount*3)
   for(let i=0;i<starCount;i++){const i3=i*3,r=80+Math.random()*400,theta=Math.random()*Math.PI*2,phi=Math.acos(2*Math.random()-1);starPos[i3]=r*Math.sin(phi)*Math.cos(theta);starPos[i3+1]=r*Math.sin(phi)*Math.sin(theta);starPos[i3+2]=r*Math.cos(phi);const t=Math.random();if(t>0.92){starCols[i3]=0.75;starCols[i3+1]=0.80;starCols[i3+2]=1.0}else if(t>0.85){starCols[i3]=1.0;starCols[i3+1]=0.92;starCols[i3+2]=0.75}else{starCols[i3]=1.0;starCols[i3+1]=1.0;starCols[i3+2]=1.0}}
   const starGeo=new THREE.BufferGeometry();starGeo.setAttribute('position',new THREE.BufferAttribute(starPos,3));starGeo.setAttribute('color',new THREE.BufferAttribute(starCols,3))
   const starMat=new THREE.PointsMaterial({size:0.7,sizeAttenuation:true,vertexColors:true,transparent:true,opacity:0.8,depthWrite:false})
@@ -252,10 +281,10 @@ function createMoonScene(container) {
   scene.add(new THREE.AmbientLight(0x1a1a2e,0.15))
   const earthShine=new THREE.DirectionalLight(0x4466aa,0.08);earthShine.position.set(-5,-2,-3);scene.add(earthShine)
 
-  // Try loading NASA textures
+  // Try loading NASA textures (cancellable via disposed flag)
   const textureLoader=new THREE.TextureLoader();textureLoader.crossOrigin='anonymous'
-  textureLoader.load('https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_poles_1k.jpg',(tex)=>{tex.encoding=THREE.sRGBEncoding;tex.anisotropy=renderer.capabilities.getMaxAnisotropy();moonMaterial.map=tex;moonMaterial.needsUpdate=true},undefined,()=>{})
-  textureLoader.load('https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/ldem_3_8bit.jpg',(tex)=>{tex.anisotropy=renderer.capabilities.getMaxAnisotropy();moonMaterial.bumpMap=tex;moonMaterial.needsUpdate=true},undefined,()=>{})
+  textureLoader.load('https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_poles_1k.jpg',(tex)=>{if(disposed)return;tex.encoding=THREE.sRGBEncoding;tex.anisotropy=renderer.capabilities.getMaxAnisotropy();moonMaterial.map=tex;moonMaterial.needsUpdate=true},undefined,()=>{})
+  textureLoader.load('https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/ldem_3_8bit.jpg',(tex)=>{if(disposed)return;tex.anisotropy=renderer.capabilities.getMaxAnisotropy();moonMaterial.bumpMap=tex;moonMaterial.needsUpdate=true},undefined,()=>{})
 
   const orbitControls = addOrbitControls(camera, renderer, { minDistance: 2, maxDistance: 15 })
 
@@ -272,7 +301,7 @@ function createMoonScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); renderer.dispose(); if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement) }
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer) }
 }
 
 /* ── Earth Scene ── */
@@ -284,6 +313,7 @@ function createEarthScene(container) {
   camera.position.set(0, 0.5, 3.5)
   const renderer = createRenderer(container)
   renderer.toneMappingExposure = 1.0
+  let disposed = false
 
   // ── Simplex-like noise for procedural textures ──
   function hash(x, y) { const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return n - Math.floor(n) }
@@ -295,8 +325,8 @@ function createEarthScene(container) {
   }
   function fbm(x, y, oct) { let v=0,a=1,f=1,m=0; for(let i=0;i<oct;i++){v+=smoothNoise(x*f,y*f)*a;m+=a;a*=0.5;f*=2} return v/m }
 
-  // ── Procedural Earth Day Texture (high quality fallback) ──
-  const W = 2048, H = 1024
+  // ── Procedural Earth Day Texture (reduced from 2048x1024 to 1024x512) ──
+  const W = 1024, H = 512
   const eCanvas = document.createElement('canvas'); eCanvas.width = W; eCanvas.height = H
   const ectx = eCanvas.getContext('2d')
   const imgData = ectx.createImageData(W, H)
@@ -382,9 +412,9 @@ function createEarthScene(container) {
       // Ice caps
       const isIce = lat > 72 || lat < -70
 
-      // Noise for terrain detail
-      const n1 = fbm(px * 0.008, py * 0.008, 5)
-      const n2 = fbm(px * 0.015 + 100, py * 0.015 + 100, 4)
+      // Noise for terrain detail (reduced octaves for performance)
+      const n1 = fbm(px * 0.008, py * 0.008, 4)
+      const n2 = fbm(px * 0.015 + 100, py * 0.015 + 100, 3)
       const n3 = fbm(px * 0.003, py * 0.003, 3)
 
       let r, g, b
@@ -447,14 +477,14 @@ function createEarthScene(container) {
   earthTex.encoding = THREE.sRGBEncoding
   earthTex.anisotropy = renderer.capabilities.getMaxAnisotropy()
 
-  // ── Specular map (ocean = white/specular, land = dark/matte) ──
-  const specCanvas = document.createElement('canvas'); specCanvas.width = 1024; specCanvas.height = 512
+  // ── Specular map (reduced to 256x128 for performance) ──
+  const specCanvas = document.createElement('canvas'); specCanvas.width = 256; specCanvas.height = 128
   const sctx = specCanvas.getContext('2d')
-  const specData = sctx.createImageData(1024, 512)
-  for (let py = 0; py < 512; py++) {
-    for (let px = 0; px < 1024; px++) {
-      const i = (py * 1024 + px) * 4
-      const sx = px * 2, sy = py * 2 // Map to the larger texture
+  const specData = sctx.createImageData(256, 128)
+  for (let py = 0; py < 128; py++) {
+    for (let px = 0; px < 256; px++) {
+      const i = (py * 256 + px) * 4
+      const sx = px * 4, sy = py * 4 // Map to the main texture space
       let isLand = false
       for (const poly of Object.values(continentPolys)) {
         if (pointInPoly(sx, sy, poly)) { isLand = true; break }
@@ -466,19 +496,19 @@ function createEarthScene(container) {
   sctx.putImageData(specData, 0, 0)
   const specTex = new THREE.CanvasTexture(specCanvas)
 
-  // ── Bump/Elevation map ──
-  const bumpCanvas = document.createElement('canvas'); bumpCanvas.width = 1024; bumpCanvas.height = 512
+  // ── Bump/Elevation map (reduced to 256x128, 3 octaves) ──
+  const bumpCanvas = document.createElement('canvas'); bumpCanvas.width = 256; bumpCanvas.height = 128
   const bctx = bumpCanvas.getContext('2d')
-  const bumpData = bctx.createImageData(1024, 512)
-  for (let py = 0; py < 512; py++) {
-    for (let px = 0; px < 1024; px++) {
-      const i = (py * 1024 + px) * 4
-      const sx = px * 2, sy = py * 2
+  const bumpData = bctx.createImageData(256, 128)
+  for (let py = 0; py < 128; py++) {
+    for (let px = 0; px < 256; px++) {
+      const i = (py * 256 + px) * 4
+      const sx = px * 4, sy = py * 4
       let isLand = false
       for (const poly of Object.values(continentPolys)) {
         if (pointInPoly(sx, sy, poly)) { isLand = true; break }
       }
-      const n = fbm(sx * 0.008, sy * 0.008, 5)
+      const n = fbm(sx * 0.008, sy * 0.008, 3)
       const val = isLand ? Math.floor(128 + (n - 0.5) * 120) : 128
       bumpData.data[i] = val; bumpData.data[i+1] = val; bumpData.data[i+2] = val; bumpData.data[i+3] = 255
     }
@@ -553,15 +583,15 @@ function createEarthScene(container) {
   })
   scene.add(new THREE.Mesh(outerGeo, outerMat))
 
-  // ── Cloud layer (detailed procedural) ──
-  const cW = 2048, cH = 1024
+  // ── Cloud layer (reduced from 2048x1024 to 1024x512, 4 octaves) ──
+  const cW = 1024, cH = 512
   const cloudCanvas = document.createElement('canvas'); cloudCanvas.width = cW; cloudCanvas.height = cH
   const cctx = cloudCanvas.getContext('2d')
   const cloudData = cctx.createImageData(cW, cH)
   for (let py = 0; py < cH; py++) {
     for (let px = 0; px < cW; px++) {
       const i = (py * cW + px) * 4
-      const n = fbm(px * 0.006 + 50, py * 0.006 + 50, 6)
+      const n = fbm(px * 0.006 + 50, py * 0.006 + 50, 4)
       const cloudVal = Math.max(0, (n - 0.45) * 3.5)
       const alpha = Math.min(255, Math.floor(cloudVal * 200))
       cloudData.data[i] = 255; cloudData.data[i+1] = 255; cloudData.data[i+2] = 255
@@ -581,10 +611,10 @@ function createEarthScene(container) {
   const cloudMesh = new THREE.Mesh(cloudGeo, cloudMat)
   scene.add(cloudMesh)
 
-  // ── Night Lights (city lights on dark side) ──
-  const lCanvas = document.createElement('canvas'); lCanvas.width = 2048; lCanvas.height = 1024
+  // ── Night Lights (reduced from 2048x1024 to 1024x512) ──
+  const lCanvas = document.createElement('canvas'); lCanvas.width = 1024; lCanvas.height = 512
   const lctx = lCanvas.getContext('2d')
-  lctx.clearRect(0, 0, 2048, 1024)
+  lctx.clearRect(0, 0, 1024, 512)
   // Real city positions (approximate lat/lon)
   const cities = [
     // North America
@@ -609,8 +639,8 @@ function createEarthScene(container) {
     {lat:-33.9,lon:151.2,s:10},{lat:-37.8,lon:145,s:8},{lat:-27.5,lon:153,s:6},
   ]
   cities.forEach(c => {
-    const cx = ((c.lon + 180) / 360) * 2048
-    const cy = ((90 - c.lat) / 180) * 1024
+    const cx = ((c.lon + 180) / 360) * 1024
+    const cy = ((90 - c.lat) / 180) * 512
     const spread = c.s * 3
     for (let i = 0; i < c.s * 20; i++) {
       const x = cx + (Math.random()-0.5) * spread
@@ -635,8 +665,8 @@ function createEarthScene(container) {
   const lightsMesh = new THREE.Mesh(lightsGeo, lightsMat)
   scene.add(lightsMesh)
 
-  // ── Starfield with color variation ──
-  const starCount = 8000
+  // ── Starfield with color variation (reduced from 8000 to 4000) ──
+  const starCount = 4000
   const starPos = new Float32Array(starCount*3)
   const starCols = new Float32Array(starCount*3)
   const starSizes = new Float32Array(starCount)
@@ -665,13 +695,14 @@ function createEarthScene(container) {
   earthshine.position.set(-5, -1, -5)
   scene.add(earthshine)
 
-  // ── Try loading NASA Blue Marble textures (override procedural) ──
+  // ── Try loading NASA Blue Marble textures (override procedural, cancellable) ──
   const textureLoader = new THREE.TextureLoader()
   textureLoader.crossOrigin = 'anonymous'
   // NASA Blue Marble - day texture
   textureLoader.load(
     'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57735/land_ocean_ice_cloud_2048.jpg',
     (tex) => {
+      if (disposed) return
       tex.encoding = THREE.sRGBEncoding
       tex.anisotropy = renderer.capabilities.getMaxAnisotropy()
       earthMat.map = tex
@@ -682,6 +713,7 @@ function createEarthScene(container) {
   textureLoader.load(
     'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57735/earth_topo_2048.jpg',
     (tex) => {
+      if (disposed) return
       tex.anisotropy = renderer.capabilities.getMaxAnisotropy()
       earthMat.bumpMap = tex
       earthMat.bumpScale = 0.04
@@ -692,6 +724,7 @@ function createEarthScene(container) {
   textureLoader.load(
     'https://eoimages.gsfc.nasa.gov/images/imagerecords/55000/55167/earth_lights_lrg.jpg',
     (tex) => {
+      if (disposed) return
       tex.encoding = THREE.sRGBEncoding
       tex.anisotropy = renderer.capabilities.getMaxAnisotropy()
       lightsMat.map = tex
@@ -702,6 +735,7 @@ function createEarthScene(container) {
   textureLoader.load(
     'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57735/earth_clouds_2048.png',
     (tex) => {
+      if (disposed) return
       tex.encoding = THREE.sRGBEncoding
       tex.anisotropy = renderer.capabilities.getMaxAnisotropy()
       cloudMat.map = tex
@@ -726,7 +760,7 @@ function createEarthScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); renderer.dispose(); if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement) }
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer) }
 }
 
 /* ── Solar System Scene ── */
@@ -837,8 +871,8 @@ function createSolarScene(container) {
     }
   })
 
-  // Starfield
-  const starCount = 8000; const starPos = new Float32Array(starCount*3); const starCols = new Float32Array(starCount*3)
+  // Starfield (reduced from 8000 to 4000)
+  const starCount = 4000; const starPos = new Float32Array(starCount*3); const starCols = new Float32Array(starCount*3)
   for(let i=0;i<starCount;i++){const i3=i*3,r=100+Math.random()*400,theta=Math.random()*Math.PI*2,phi=Math.acos(2*Math.random()-1);starPos[i3]=r*Math.sin(phi)*Math.cos(theta);starPos[i3+1]=r*Math.sin(phi)*Math.sin(theta);starPos[i3+2]=r*Math.cos(phi);const t=Math.random();starCols[i3]=0.8+Math.random()*0.2;starCols[i3+1]=0.8+Math.random()*0.2;starCols[i3+2]=0.9+Math.random()*0.1}
   const starGeo=new THREE.BufferGeometry();starGeo.setAttribute('position',new THREE.BufferAttribute(starPos,3));starGeo.setAttribute('color',new THREE.BufferAttribute(starCols,3))
   scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({size:0.4,sizeAttenuation:true,vertexColors:true,transparent:true,opacity:0.7,depthWrite:false})))
@@ -865,7 +899,7 @@ function createSolarScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); renderer.dispose(); if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement) }
+  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer) }
 }
 
 /* ── Deep Space Scene ── */
@@ -875,6 +909,7 @@ function createDeepSpaceScene(container) {
   const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000); camera.position.set(0, 1, 12)
   const renderer = createRenderer(container)
   renderer.toneMappingExposure = 1.4
+  let disposed = false
 
   const textureLoader = new THREE.TextureLoader(); textureLoader.crossOrigin = 'anonymous'
   const NEBULA_URLS = ['https://cdn.esahubble.org/archives/images/screen/heic1509a.jpg','https://cdn.esahubble.org/archives/images/screen/heic0910h.jpg','https://cdn.esahubble.org/archives/images/screen/heic0109a.jpg']
@@ -883,7 +918,7 @@ function createDeepSpaceScene(container) {
     const geo = new THREE.PlaneGeometry(scale, scale, 1, 1)
     const mat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending })
     const mesh = new THREE.Mesh(geo, mat); mesh.position.z = z; mesh.rotation.z = rotation || 0; scene.add(mesh); nebulaPlanes.push(mesh)
-    textureLoader.load(url, (tex) => { tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); mat.map = tex; mat.opacity = opacity; mat.needsUpdate = true }, undefined, () => {})
+    textureLoader.load(url, (tex) => { if (disposed) return; tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); mat.map = tex; mat.opacity = opacity; mat.needsUpdate = true }, undefined, () => {})
     return mesh
   }
   createNebulaPlane(NEBULA_URLS[0], -25, 35, 0.55, 0.1)
@@ -953,7 +988,7 @@ function createDeepSpaceScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('touchmove', onTouchMove); document.removeEventListener('wheel', onWheel); renderer.dispose(); if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement) }
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('touchmove', onTouchMove); document.removeEventListener('wheel', onWheel); fullCleanup(scene, renderer) }
 }
 
 /* ── Crystal Scene ── */
@@ -1098,7 +1133,7 @@ function createCrystalScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); renderer.dispose(); if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement) }
+  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer) }
 }
 
 /* ── Ocean Scene ── */
@@ -1217,7 +1252,7 @@ function createOceanScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); renderer.dispose(); if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement) }
+  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer) }
 }
 
 /* ── Terrain Scene ── */
@@ -1366,7 +1401,7 @@ function createTerrainScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); renderer.dispose(); if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement) }
+  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer) }
 }
 
 /* ── Cube Scene ── */
@@ -1488,7 +1523,7 @@ function createCubeScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); renderer.dispose(); if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement); delete window.__cubeScramble; delete window.__cubeReset }
+  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer); delete window.__cubeScramble; delete window.__cubeReset }
 }
 
 /* ── House Scene ── */
@@ -1806,7 +1841,7 @@ function createHouseScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); renderer.dispose(); if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement) }
+  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer) }
 }
 
 /* ── Museum Scene ── */
@@ -2070,7 +2105,7 @@ function createMuseumScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); renderer.dispose(); if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement) }
+  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer) }
 }
 
 const SCENE_CREATORS = {
