@@ -88,6 +88,33 @@ const SCENES = [
     ),
   },
   {
+    id: 'house',
+    label: 'House',
+    description: 'Modern house with interior rooms, furniture, and warm lighting',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M3 12L12 3l9 9" />
+        <path d="M5 10v9a1 1 0 001 1h3v-5h6v5h3a1 1 0 001-1v-9" />
+        <rect x="9" y="15" width="6" height="5" />
+      </svg>
+    ),
+  },
+  {
+    id: 'museum',
+    label: 'Museum',
+    description: 'Grand museum hall with columns, sculptures, and dramatic lighting',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M3 21h18" />
+        <path d="M5 21V7l7-4 7 4v14" />
+        <line x1="8" y1="21" x2="8" y2="10" />
+        <line x1="12" y1="21" x2="12" y2="10" />
+        <line x1="16" y1="21" x2="16" y2="10" />
+        <path d="M3 7h18" />
+      </svg>
+    ),
+  },
+  {
     id: 'cube',
     label: "Rubik's Cube",
     description: "Interactive 3x3 Rubik's Cube with face rotation",
@@ -1464,6 +1491,588 @@ function createCubeScene(container) {
   return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); renderer.dispose(); if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement); delete window.__cubeScramble; delete window.__cubeReset }
 }
 
+/* ── House Scene ── */
+function createHouseScene(container) {
+  const THREE = window.THREE
+  const scene = new THREE.Scene()
+  scene.background = new THREE.Color(0x1a2a3a)
+  scene.fog = new THREE.FogExp2(0x1a2a3a, 0.015)
+  const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 200)
+  camera.position.set(14, 10, 18)
+  const renderer = createRenderer(container)
+  renderer.shadowMap.enabled = true
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap
+
+  // ── Materials ──
+  const wallExt = new THREE.MeshStandardMaterial({ color: 0xf5f0e8, roughness: 0.85, metalness: 0.0 })
+  const wallInt = new THREE.MeshStandardMaterial({ color: 0xfff8ee, roughness: 0.9, metalness: 0.0 })
+  const floorWood = new THREE.MeshStandardMaterial({ color: 0x8B6D3F, roughness: 0.6, metalness: 0.05 })
+  const floorTile = new THREE.MeshStandardMaterial({ color: 0xd0ccc4, roughness: 0.4, metalness: 0.1 })
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x3a3a40, roughness: 0.7, metalness: 0.3 })
+  const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x88ccff, roughness: 0.05, metalness: 0.1, transmission: 0.8, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
+  const woodDark = new THREE.MeshStandardMaterial({ color: 0x4a3520, roughness: 0.7, metalness: 0.05 })
+  const woodLight = new THREE.MeshStandardMaterial({ color: 0xa08050, roughness: 0.6, metalness: 0.05 })
+  const fabricRed = new THREE.MeshStandardMaterial({ color: 0xaa3322, roughness: 0.9, metalness: 0.0 })
+  const fabricBlue = new THREE.MeshStandardMaterial({ color: 0x2244aa, roughness: 0.9, metalness: 0.0 })
+  const fabricWhite = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.9, metalness: 0.0 })
+  const metalMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.3, metalness: 0.8 })
+  const concreteMat = new THREE.MeshStandardMaterial({ color: 0x888880, roughness: 0.9, metalness: 0.0 })
+  const grassMat = new THREE.MeshStandardMaterial({ color: 0x3a7a2a, roughness: 0.9, metalness: 0.0 })
+  const kitchenMat = new THREE.MeshStandardMaterial({ color: 0xe8e4dc, roughness: 0.4, metalness: 0.1 })
+  const counterMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2e, roughness: 0.2, metalness: 0.3 })
+  const bedSheet = new THREE.MeshStandardMaterial({ color: 0xf0e8d8, roughness: 0.9, metalness: 0.0 })
+  const pillowMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0.0 })
+  const doorMat = new THREE.MeshStandardMaterial({ color: 0x5a4030, roughness: 0.7, metalness: 0.05 })
+  const stoveMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.3, metalness: 0.6 })
+
+  // ── Ground ──
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), grassMat)
+  ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground)
+
+  // Path to front door
+  const pathGeo = new THREE.PlaneGeometry(2, 8)
+  const pathMesh = new THREE.Mesh(pathGeo, concreteMat)
+  pathMesh.rotation.x = -Math.PI / 2; pathMesh.position.set(0, 0.01, 10); scene.add(pathMesh)
+
+  // ── House Shell ──
+  const houseW = 12, houseD = 10, wallH = 3.2
+
+  // Floor
+  const floorGeo = new THREE.BoxGeometry(houseW, 0.15, houseD)
+  const houseFloor = new THREE.Mesh(floorGeo, floorWood)
+  houseFloor.position.set(0, 0.075, 0); houseFloor.receiveShadow = true; scene.add(houseFloor)
+
+  // Walls - Exterior (with cutouts for windows/doors done via separate wall segments)
+  function addWall(x, y, z, w, h, d, mat) {
+    const geo = new THREE.BoxGeometry(w, h, d)
+    const mesh = new THREE.Mesh(geo, mat || wallExt)
+    mesh.position.set(x, y, z); mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh)
+    return mesh
+  }
+
+  // Front wall (z = +5) with door opening and windows
+  addWall(-4.5, wallH/2, houseD/2, 3, wallH, 0.25, wallExt)  // left of door
+  addWall(4.5, wallH/2, houseD/2, 3, wallH, 0.25, wallExt)   // right of door
+  addWall(0, wallH/2+1.0, houseD/2, 3, wallH-2.0, 0.25, wallExt) // above door
+  addWall(-4.5, wallH/2+0.8, houseD/2, 3, wallH*0.5, 0.25, wallExt) // above left window
+  addWall(4.5, wallH/2+0.8, houseD/2, 3, wallH*0.5, 0.25, wallExt) // above right window
+
+  // Front windows
+  addWall(-4.5, 1.2, houseD/2, 2.4, 1.6, 0.05, glassMat) // left window
+  addWall(4.5, 1.2, houseD/2, 2.4, 1.6, 0.05, glassMat)  // right window
+
+  // Back wall (z = -5)
+  addWall(0, wallH/2, -houseD/2, houseW, wallH, 0.25, wallExt)
+  // Back windows
+  addWall(-3, 1.5, -houseD/2+0.15, 2, 1.4, 0.05, glassMat)
+  addWall(3, 1.5, -houseD/2+0.15, 2, 1.4, 0.05, glassMat)
+
+  // Left wall (x = -6)
+  addWall(-houseW/2, wallH/2, 0, 0.25, wallH, houseD, wallExt)
+  addWall(-houseW/2+0.15, 1.5, 2, 0.05, 1.4, 1.5, glassMat) // left window
+
+  // Right wall (x = +6)
+  addWall(houseW/2, wallH/2, 0, 0.25, wallH, houseD, wallExt)
+  addWall(houseW/2-0.15, 1.5, -2, 0.05, 1.4, 1.5, glassMat) // right window
+
+  // Interior dividing wall (living room vs bedroom)
+  addWall(0, wallH/2, 0, 0.15, wallH, 5.5, wallInt) // partial wall, with opening
+  addWall(0, wallH/2+0.8, 0, 0.15, wallH*0.5, 4.5, wallInt) // above opening
+
+  // Kitchen/bathroom dividing wall
+  addWall(-3, wallH/2, -3, 0.15, wallH, 4, wallInt)
+
+  // ── Roof ──
+  const roofGeo = new THREE.BoxGeometry(houseW + 1, 0.2, houseD + 1)
+  const roof = new THREE.Mesh(roofGeo, roofMat)
+  roof.position.set(0, wallH + 0.1, 0); roof.castShadow = true; scene.add(roof)
+
+  // Roof slope accents (simple flat roof with slight overhang already done above)
+  // Add a second thinner roof layer
+  const roof2 = new THREE.Mesh(new THREE.BoxGeometry(houseW + 1.5, 0.1, houseD + 1.5), new THREE.MeshStandardMaterial({ color: 0x2a2a30, roughness: 0.6, metalness: 0.4 }))
+  roof2.position.set(0, wallH + 0.25, 0); scene.add(roof2)
+
+  // ── Front Door ──
+  const door = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.2, 0.1), doorMat)
+  door.position.set(0, 1.1, houseD/2 + 0.08); scene.add(door)
+  const doorHandle = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), metalMat)
+  doorHandle.position.set(0.4, 1.1, houseD/2 + 0.15); scene.add(doorHandle)
+
+  // ── LIVING ROOM (front right, x>0, z>0) ──
+  // Sofa
+  function addSofa(x, z, rotY, mat) {
+    const sofaGroup = new THREE.Group()
+    // Seat
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.4, 1.0), mat)
+    seat.position.y = 0.4; seat.castShadow = true; sofaGroup.add(seat)
+    // Back
+    const back = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.8, 0.2), mat)
+    back.position.set(0, 0.8, -0.4); back.castShadow = true; sofaGroup.add(back)
+    // Arms
+    const armL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 1.0), mat)
+    armL.position.set(-1.3, 0.65, 0); armL.castShadow = true; sofaGroup.add(armL)
+    const armR = armL.clone(); armR.position.x = 1.3; sofaGroup.add(armR)
+    // Cushions
+    const cushion1 = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.15, 0.7), fabricWhite)
+    cushion1.position.set(-0.5, 0.65, 0.05); sofaGroup.add(cushion1)
+    const cushion2 = cushion1.clone(); cushion2.position.x = 0.5; sofaGroup.add(cushion2)
+    sofaGroup.position.set(x, 0, z)
+    sofaGroup.rotation.y = rotY
+    scene.add(sofaGroup)
+  }
+  addSofa(3.5, 3.5, 0, fabricRed)
+
+  // Coffee table
+  const ctGroup = new THREE.Group()
+  const ctTop = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.06, 0.7), woodDark)
+  ctTop.position.y = 0.4; ctTop.castShadow = true; ctGroup.add(ctTop)
+  const ctLeg = (x, z) => { const l = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.37, 0.05), metalMat); l.position.set(x, 0.185, z); return l }
+  ctGroup.add(ctLeg(-0.6, -0.25)); ctGroup.add(ctLeg(0.6, -0.25)); ctGroup.add(ctLeg(-0.6, 0.25)); ctGroup.add(ctLeg(0.6, 0.25))
+  ctGroup.position.set(3.5, 0, 1.8); scene.add(ctGroup)
+
+  // TV stand + TV
+  const tvStand = new THREE.Mesh(new THREE.BoxGeometry(2, 0.5, 0.4), woodDark)
+  tvStand.position.set(3.5, 0.25, 0.2); tvStand.castShadow = true; scene.add(tvStand)
+  const tv = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.0, 0.06), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2, metalness: 0.8 }))
+  tv.position.set(3.5, 1.0, 0.2); scene.add(tv)
+  const tvScreen = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.85, 0.01), new THREE.MeshBasicMaterial({ color: 0x112244 }))
+  tvScreen.position.set(3.5, 1.0, 0.24); scene.add(tvScreen)
+
+  // Rug
+  const rug = new THREE.Mesh(new THREE.PlaneGeometry(3, 2.5), new THREE.MeshStandardMaterial({ color: 0x885533, roughness: 0.95 }))
+  rug.rotation.x = -Math.PI/2; rug.position.set(3.5, 0.16, 2.5); scene.add(rug)
+
+  // ── DINING AREA (front left, x<0, z>0) ──
+  // Dining table
+  const dtGroup = new THREE.Group()
+  const dtTop = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.08, 1.2), woodLight)
+  dtTop.position.y = 0.75; dtTop.castShadow = true; dtGroup.add(dtTop)
+  const dtLeg = (x, z) => { const l = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.71, 0.06), woodDark); l.position.set(x, 0.355, z); return l }
+  dtGroup.add(dtLeg(-0.9, -0.45)); dtGroup.add(dtLeg(0.9, -0.45)); dtGroup.add(dtLeg(-0.9, 0.45)); dtGroup.add(dtLeg(0.9, 0.45))
+  dtGroup.position.set(-3, 0, 3); scene.add(dtGroup)
+
+  // Chairs (4)
+  function addChair(x, z, rotY) {
+    const ch = new THREE.Group()
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.05, 0.45), woodLight)
+    seat.position.y = 0.45; ch.add(seat)
+    const back = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.5, 0.04), woodLight)
+    back.position.set(0, 0.7, -0.2); ch.add(back)
+    const leg = (lx, lz) => { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.42, 6), woodDark); l.position.set(lx, 0.21, lz); return l }
+    ch.add(leg(-0.17, -0.17)); ch.add(leg(0.17, -0.17)); ch.add(leg(-0.17, 0.17)); ch.add(leg(0.17, 0.17))
+    ch.position.set(x, 0, z); ch.rotation.y = rotY; scene.add(ch)
+  }
+  addChair(-3.7, 3, Math.PI/2); addChair(-2.3, 3, -Math.PI/2); addChair(-3, 3.8, 0); addChair(-3, 2.2, Math.PI)
+
+  // ── KITCHEN (back left, x<-3, z<0) ──
+  // Kitchen floor (tile)
+  const kitchenFloor = new THREE.Mesh(new THREE.PlaneGeometry(5.7, 4.7), floorTile)
+  kitchenFloor.rotation.x = -Math.PI/2; kitchenFloor.position.set(-3, 0.16, -2.6); scene.add(kitchenFloor)
+
+  // Counter along left wall
+  const counter = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.9, 4), counterMat)
+  counter.position.set(-5.4, 0.6, -2.5); counter.castShadow = true; scene.add(counter)
+
+  // Counter top
+  const counterTop = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.04, 4.05), new THREE.MeshStandardMaterial({ color: 0xe0dcd4, roughness: 0.3, metalness: 0.1 }))
+  counterTop.position.set(-5.4, 1.07, -2.5); scene.add(counterTop)
+
+  // Stove
+  const stove = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.6), stoveMat)
+  stove.position.set(-5.4, 1.1, -1.5); scene.add(stove)
+  // Burners
+  for (let dx of [-0.12, 0.12]) for (let dz of [-0.12, 0.12]) {
+    const burner = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.01, 12), new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.4, metalness: 0.6 }))
+    burner.position.set(-5.4+dx, 1.13, -1.5+dz); scene.add(burner)
+  }
+
+  // Sink
+  const sink = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.08, 0.5), metalMat)
+  sink.position.set(-5.4, 1.1, -3); scene.add(sink)
+
+  // Fridge
+  const fridge = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.8, 0.6), new THREE.MeshStandardMaterial({ color: 0xd8d8d8, roughness: 0.3, metalness: 0.4 }))
+  fridge.position.set(-5.2, 1.0, -4.2); fridge.castShadow = true; scene.add(fridge)
+
+  // ── BEDROOM (back right, x>0, z<0) ──
+  // Bed
+  const bedGroup = new THREE.Group()
+  const bedFrame = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.3, 2.8), woodDark)
+  bedFrame.position.y = 0.25; bedFrame.castShadow = true; bedGroup.add(bedFrame)
+  const mattress = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.2, 2.6), bedSheet)
+  mattress.position.y = 0.5; bedGroup.add(mattress)
+  // Pillows
+  const p1 = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 0.35), pillowMat)
+  p1.position.set(-0.5, 0.65, -1.0); bedGroup.add(p1)
+  const p2 = p1.clone(); p2.position.x = 0.5; bedGroup.add(p2)
+  // Blanket
+  const blanket = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.08, 1.6), fabricBlue)
+  blanket.position.set(0, 0.62, 0.3); bedGroup.add(blanket)
+  // Headboard
+  const headboard = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.8, 0.1), woodDark)
+  headboard.position.set(0, 0.7, -1.35); bedGroup.add(headboard)
+  bedGroup.position.set(4, 0, -3); scene.add(bedGroup)
+
+  // Nightstand
+  const ns = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), woodLight)
+  ns.position.set(1.8, 0.4, -3); ns.castShadow = true; scene.add(ns)
+  // Lamp on nightstand
+  const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.1, 8), metalMat)
+  lampBase.position.set(1.8, 0.7, -3); scene.add(lampBase)
+  const lampShade = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, 0.25, 8, 1, true), new THREE.MeshStandardMaterial({ color: 0xfff8e0, roughness: 0.8, side: THREE.DoubleSide, transparent: true, opacity: 0.7 }))
+  lampShade.position.set(1.8, 0.95, -3); scene.add(lampShade)
+
+  // Wardrobe
+  const wardrobe = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.2, 0.6), woodDark)
+  wardrobe.position.set(4.5, 1.1, -0.5); wardrobe.castShadow = true; scene.add(wardrobe)
+  const wardDoor1 = new THREE.Mesh(new THREE.BoxGeometry(0.72, 2.1, 0.03), doorMat)
+  wardDoor1.position.set(4.14, 1.1, -0.18); scene.add(wardDoor1)
+  const wardDoor2 = wardDoor1.clone(); wardDoor2.position.x = 4.86; scene.add(wardDoor2)
+
+  // ── BATHROOM (back left corner, x<-3, z<-3) ──
+  const bathFloor = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 2.8), new THREE.MeshStandardMaterial({ color: 0xc8c0b8, roughness: 0.3, metalness: 0.1 }))
+  bathFloor.rotation.x = -Math.PI/2; bathFloor.position.set(-4.6, 0.16, -4.6); scene.add(bathFloor)
+
+  // Bathtub
+  const tub = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.5, 0.7), new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.2, metalness: 0.1 }))
+  tub.position.set(-4.6, 0.35, -4.6); tub.castShadow = true; scene.add(tub)
+
+  // Toilet
+  const toilet = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.5), new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.3, metalness: 0.1 }))
+  toilet.position.set(-3.4, 0.3, -5.2); scene.add(toilet)
+  const toiletTank = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.15), new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.3, metalness: 0.1 }))
+  toiletTank.position.set(-3.4, 0.5, -5.4); scene.add(toiletTank)
+
+  // ── Outdoor Details ──
+  // Fence
+  for (let i = -15; i <= 15; i += 1.5) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.8, 0.08), woodLight)
+    post.position.set(i, 0.4, 12); post.castShadow = true; scene.add(post)
+    const post2 = post.clone(); post2.position.z = -12; scene.add(post2)
+  }
+  // Horizontal rails
+  const rail1 = new THREE.Mesh(new THREE.BoxGeometry(30, 0.05, 0.05), woodLight)
+  rail1.position.set(0, 0.6, 12); scene.add(rail1)
+  const rail2 = rail1.clone(); rail2.position.y = 0.3; scene.add(rail2)
+  const rail3 = rail1.clone(); rail3.position.z = -12; scene.add(rail3)
+  const rail4 = rail1.clone(); rail4.position.set(0, 0.3, -12); scene.add(rail4)
+
+  // Trees
+  function addTree(x, z, scale) {
+    const s = scale || 1
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.15*s, 0.2*s, 1.5*s, 6), new THREE.MeshStandardMaterial({ color: 0x5a3a1a, roughness: 0.9 }))
+    trunk.position.set(x, 0.75*s, z); trunk.castShadow = true; scene.add(trunk)
+    const leaves = new THREE.Mesh(new THREE.SphereGeometry(0.8*s, 8, 6), new THREE.MeshStandardMaterial({ color: 0x2a6a1a, roughness: 0.9 }))
+    leaves.position.set(x, 2.0*s, z); leaves.castShadow = true; scene.add(leaves)
+    const leaves2 = new THREE.Mesh(new THREE.SphereGeometry(0.6*s, 8, 6), new THREE.MeshStandardMaterial({ color: 0x3a8a2a, roughness: 0.9 }))
+    leaves2.position.set(x+0.3*s, 2.4*s, z+0.2*s); scene.add(leaves2)
+  }
+  addTree(-9, 8, 1.2); addTree(9, 8, 1.0); addTree(-9, -8, 0.9); addTree(9, -8, 1.1)
+  addTree(-12, 3, 0.8); addTree(12, -3, 0.7)
+
+  // ── Lighting ──
+  // Sun
+  const sunLight = new THREE.DirectionalLight(0xfff5dd, 1.8)
+  sunLight.position.set(8, 15, 10); sunLight.castShadow = true
+  sunLight.shadow.mapSize.width = 2048; sunLight.shadow.mapSize.height = 2048
+  sunLight.shadow.camera.left = -15; sunLight.shadow.camera.right = 15
+  sunLight.shadow.camera.top = 15; sunLight.shadow.camera.bottom = -15
+  sunLight.shadow.bias = -0.001
+  scene.add(sunLight)
+
+  scene.add(new THREE.AmbientLight(0x334466, 0.4))
+  const hemiLight = new THREE.HemisphereLight(0x88aacc, 0x445522, 0.3); scene.add(hemiLight)
+
+  // Interior lights (warm)
+  const livingLight = new THREE.PointLight(0xffeecc, 0.8, 8); livingLight.position.set(3.5, 2.8, 2.5); scene.add(livingLight)
+  const diningLight = new THREE.PointLight(0xffeecc, 0.6, 6); diningLight.position.set(-3, 2.8, 3); scene.add(diningLight)
+  const kitchenLight = new THREE.PointLight(0xffffff, 0.5, 5); kitchenLight.position.set(-4, 2.8, -2.5); scene.add(kitchenLight)
+  const bedLight = new THREE.PointLight(0xffeedd, 0.4, 5); bedLight.position.set(4, 2.8, -3); scene.add(bedLight)
+  // Lamp glow
+  const lampLight = new THREE.PointLight(0xffdd88, 0.3, 3); lampLight.position.set(1.8, 1.0, -3); scene.add(lampLight)
+
+  const orbitControls = addOrbitControls(camera, renderer, { minDistance: 5, maxDistance: 40, autoRotateSpeed: 0.3, enablePan: true, maxDistance: 40 })
+
+  const clock = new THREE.Clock()
+  let animId
+  function animate() {
+    animId = requestAnimationFrame(animate)
+    const t = clock.getElapsedTime()
+    // Subtle lamp flicker
+    lampLight.intensity = 0.25 + Math.sin(t * 3) * 0.05
+    if (orbitControls) orbitControls.update()
+    renderer.render(scene, camera)
+  }
+  animate()
+
+  const onResize = addResizeHandler(camera, renderer, container)
+  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); renderer.dispose(); if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement) }
+}
+
+/* ── Museum Scene ── */
+function createMuseumScene(container) {
+  const THREE = window.THREE
+  const scene = new THREE.Scene()
+  scene.background = new THREE.Color(0x0a0a0f)
+  scene.fog = new THREE.FogExp2(0x0a0a0f, 0.012)
+  const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 200)
+  camera.position.set(0, 4, 16)
+  const renderer = createRenderer(container)
+  renderer.shadowMap.enabled = true
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap
+  renderer.toneMappingExposure = 0.9
+
+  // ── Materials ──
+  const marbleWhite = new THREE.MeshStandardMaterial({ color: 0xf0ece4, roughness: 0.3, metalness: 0.05 })
+  const marbleFloor = new THREE.MeshStandardMaterial({ color: 0xe8e0d0, roughness: 0.2, metalness: 0.1 })
+  const marbleDark = new THREE.MeshStandardMaterial({ color: 0x3a3530, roughness: 0.4, metalness: 0.1 })
+  const goldMat = new THREE.MeshStandardMaterial({ color: 0xd4a840, roughness: 0.3, metalness: 0.9 })
+  const bronzeMat = new THREE.MeshStandardMaterial({ color: 0x8B6D3F, roughness: 0.4, metalness: 0.8 })
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x2a2520, roughness: 0.8, metalness: 0.0 })
+  const ceilingMat = new THREE.MeshStandardMaterial({ color: 0x1a1510, roughness: 0.9, metalness: 0.0 })
+  const woodDark = new THREE.MeshStandardMaterial({ color: 0x2a1a0a, roughness: 0.6, metalness: 0.05 })
+  const velvetRed = new THREE.MeshStandardMaterial({ color: 0x6a1a1a, roughness: 0.9, metalness: 0.0 })
+  const glassCase = new THREE.MeshPhysicalMaterial({ color: 0xaaccee, roughness: 0.05, metalness: 0.0, transmission: 0.85, transparent: true, opacity: 0.25, side: THREE.DoubleSide })
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x8a7030, roughness: 0.4, metalness: 0.6 })
+  const pedMat = new THREE.MeshStandardMaterial({ color: 0xd0c8b8, roughness: 0.35, metalness: 0.05 })
+
+  const hallW = 30, hallD = 40, hallH = 10
+
+  // ── Floor ──
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(hallW, hallD), marbleFloor)
+  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor)
+
+  // Floor tile pattern (dark inlay lines)
+  for (let i = -14; i <= 14; i += 2) {
+    const line = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.005, hallD), marbleDark)
+    line.position.set(i, 0.003, 0); scene.add(line)
+  }
+  for (let j = -19; j <= 19; j += 2) {
+    const line = new THREE.Mesh(new THREE.BoxGeometry(hallW, 0.005, 0.03), marbleDark)
+    line.position.set(0, 0.003, j); scene.add(line)
+  }
+
+  // ── Walls ──
+  // Back wall
+  const backWall = new THREE.Mesh(new THREE.BoxGeometry(hallW, hallH, 0.3), wallMat)
+  backWall.position.set(0, hallH/2, -hallD/2); backWall.receiveShadow = true; scene.add(backWall)
+
+  // Side walls
+  const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.3, hallH, hallD), wallMat)
+  leftWall.position.set(-hallW/2, hallH/2, 0); leftWall.receiveShadow = true; scene.add(leftWall)
+  const rightWall = leftWall.clone(); rightWall.position.x = hallW/2; scene.add(rightWall)
+
+  // Front wall (with opening)
+  const frontL = new THREE.Mesh(new THREE.BoxGeometry(hallW/2 - 3, hallH, 0.3), wallMat)
+  frontL.position.set(-hallW/4 - 1.5, hallH/2, hallD/2); scene.add(frontL)
+  const frontR = frontL.clone(); frontR.position.x = hallW/4 + 1.5; scene.add(frontR)
+  const frontTop = new THREE.Mesh(new THREE.BoxGeometry(6, hallH - 5, 0.3), wallMat)
+  frontTop.position.set(0, hallH - (hallH-5)/2, hallD/2); scene.add(frontTop)
+
+  // ── Ceiling ──
+  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(hallW, hallD), ceilingMat)
+  ceiling.rotation.x = Math.PI / 2; ceiling.position.y = hallH; scene.add(ceiling)
+
+  // Ceiling medallion (decorative circle)
+  const medal = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 0.1, 32), goldMat)
+  medal.position.set(0, hallH - 0.05, 0); scene.add(medal)
+  const medal2 = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 0.12, 32), marbleWhite)
+  medal2.position.set(0, hallH - 0.06, 0); scene.add(medal2)
+
+  // ── Columns ──
+  function addColumn(x, z) {
+    const colGroup = new THREE.Group()
+    // Base
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.75, 0.4, 16), marbleWhite)
+    base.position.y = 0.2; base.castShadow = true; colGroup.add(base)
+    // Shaft
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.5, hallH - 1.2, 16), marbleWhite)
+    shaft.position.y = hallH/2 - 0.2; shaft.castShadow = true; colGroup.add(shaft)
+    // Capital
+    const capital = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.45, 0.5, 16), marbleWhite)
+    capital.position.y = hallH - 0.65; capital.castShadow = true; colGroup.add(capital)
+    // Fluting detail
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.03, 8, 24), marbleWhite)
+    ring.rotation.x = Math.PI/2; ring.position.y = 2; colGroup.add(ring)
+    const ring2 = ring.clone(); ring2.position.y = hallH - 2; colGroup.add(ring2)
+
+    colGroup.position.set(x, 0, z); scene.add(colGroup)
+  }
+
+  // Two rows of columns along the hall
+  for (let z = -15; z <= 15; z += 7.5) {
+    addColumn(-10, z)
+    addColumn(10, z)
+  }
+
+  // ── Paintings on walls ──
+  function addPainting(x, y, z, w, h, rotY, color) {
+    const pGroup = new THREE.Group()
+    // Frame
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(w + 0.15, h + 0.15, 0.06), frameMat)
+    frame.castShadow = true; pGroup.add(frame)
+    // Canvas
+    const canvas = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.02), new THREE.MeshStandardMaterial({ color, roughness: 0.7 }))
+    canvas.position.z = 0.03; pGroup.add(canvas)
+    // Add texture detail to painting
+    const detailCanvas = document.createElement('canvas'); detailCanvas.width = 256; detailCanvas.height = Math.floor(256 * (h/w))
+    const dctx = detailCanvas.getContext('2d')
+    const c = new THREE.Color(color)
+    const r = Math.floor(c.r*255), g = Math.floor(c.g*255), b = Math.floor(c.b*255)
+    dctx.fillStyle = `rgb(${r},${g},${b})`; dctx.fillRect(0, 0, 256, detailCanvas.height)
+    // Add abstract brush strokes
+    for (let i = 0; i < 30; i++) {
+      const sx = Math.random()*256, sy = Math.random()*detailCanvas.height, sw = Math.random()*40+10, sh = Math.random()*20+5
+      dctx.fillStyle = `rgba(${Math.floor(Math.random()*255)},${Math.floor(Math.random()*255)},${Math.floor(Math.random()*255)},0.3)`
+      dctx.fillRect(sx, sy, sw, sh)
+    }
+    const detailTex = new THREE.CanvasTexture(detailCanvas); detailTex.encoding = THREE.sRGBEncoding
+    canvas.material = new THREE.MeshStandardMaterial({ map: detailTex, roughness: 0.6 })
+    // Spotlight on painting
+    const spot = new THREE.SpotLight(0xfff5dd, 1.5, 5, Math.PI/6, 0.5, 1)
+    spot.position.set(0, 2, 1.5); spot.target = canvas; pGroup.add(spot)
+
+    pGroup.position.set(x, y, z); pGroup.rotation.y = rotY; scene.add(pGroup)
+  }
+
+  // Back wall paintings
+  addPainting(-8, 5.5, -hallD/2+0.3, 3, 2, 0, 0x884422)
+  addPainting(0, 6, -hallD/2+0.3, 4, 3, 0, 0x224488)
+  addPainting(8, 5.5, -hallD/2+0.3, 3, 2, 0, 0x448822)
+
+  // Side wall paintings
+  addPainting(-hallW/2+0.3, 5.5, -10, 2.5, 2, Math.PI/2, 0x882244)
+  addPainting(-hallW/2+0.3, 5.5, 0, 3, 2.5, Math.PI/2, 0x228888)
+  addPainting(-hallW/2+0.3, 5.5, 10, 2.5, 2, Math.PI/2, 0x886622)
+  addPainting(hallW/2-0.3, 5.5, -10, 2.5, 2, -Math.PI/2, 0x448844)
+  addPainting(hallW/2-0.3, 5.5, 0, 3, 2.5, -Math.PI/2, 0x444488)
+  addPainting(hallW/2-0.3, 5.5, 10, 2.5, 2, -Math.PI/2, 0x884444)
+
+  // ── Sculptures on Pedestals ──
+  function addPedestal(x, z, sculptureType) {
+    const pGroup = new THREE.Group()
+    // Pedestal
+    const ped = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.2, 0.9), pedMat)
+    ped.position.y = 0.6; ped.castShadow = true; pGroup.add(ped)
+    // Pedestal top
+    const pedTop = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.08, 1.0), new THREE.MeshStandardMaterial({ color: 0xc0b8a8, roughness: 0.2, metalness: 0.1 }))
+    pedTop.position.y = 1.24; pGroup.add(pedTop)
+    // Base molding
+    const molding = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.1, 1.0), pedMat)
+    molding.position.y = 0.05; pGroup.add(molding)
+
+    // Sculpture
+    let sculpt
+    if (sculptureType === 'sphere') {
+      sculpt = new THREE.Mesh(new THREE.SphereGeometry(0.35, 24, 24), bronzeMat)
+      sculpt.position.y = 1.7; sculpt.castShadow = true; pGroup.add(sculpt)
+    } else if (sculptureType === 'torso') {
+      // Abstract human torso
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.8, 12), marbleWhite)
+      body.position.y = 1.7; body.castShadow = true; pGroup.add(body)
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 12), marbleWhite)
+      head.position.y = 2.2; head.castShadow = true; pGroup.add(head)
+    } else if (sculptureType === 'abstract') {
+      sculpt = new THREE.Mesh(new THREE.TorusKnotGeometry(0.25, 0.08, 64, 8), goldMat)
+      sculpt.position.y = 1.7; sculpt.castShadow = true; pGroup.add(sculpt)
+    } else if (sculptureType === 'obelisk') {
+      sculpt = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.2, 0.9, 4), bronzeMat)
+      sculpt.position.y = 1.75; sculpt.rotation.y = Math.PI/4; sculpt.castShadow = true; pGroup.add(sculpt)
+    }
+
+    // Glass case
+    const caseGeo = new THREE.BoxGeometry(0.8, 1.5, 0.8)
+    const caseMesh = new THREE.Mesh(caseGeo, glassCase)
+    caseMesh.position.y = 2.0; pGroup.add(caseMesh)
+
+    // Spot light from above
+    const spot = new THREE.SpotLight(0xfff8e0, 2.0, 8, Math.PI/8, 0.4, 1)
+    spot.position.set(0, 5, 0); spot.target = sculpt || pedTop; pGroup.add(spot)
+
+    pGroup.position.set(x, 0, z); scene.add(pGroup)
+    return pGroup
+  }
+
+  // Sculptures along center
+  addPedestal(-5, -12, 'sphere')
+  addPedestal(5, -12, 'torso')
+  addPedestal(-5, -4, 'abstract')
+  addPedestal(5, -4, 'obelisk')
+  addPedestal(-5, 4, 'torso')
+  addPedestal(5, 4, 'sphere')
+  addPedestal(0, -8, 'abstract')
+  addPedestal(0, 0, 'torso')
+
+  // ── Benches ──
+  function addBench(x, z, rotY) {
+    const bGroup = new THREE.Group()
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.08, 0.5), woodDark)
+    seat.position.y = 0.45; seat.castShadow = true; bGroup.add(seat)
+    const legL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.4, 0.4), woodDark)
+    legL.position.set(-1.1, 0.22, 0); bGroup.add(legL)
+    const legR = legL.clone(); legR.position.x = 1.1; bGroup.add(legR)
+    bGroup.position.set(x, 0, z); bGroup.rotation.y = rotY; scene.add(bGroup)
+  }
+  addBench(0, -6, 0)
+  addBench(0, 8, 0)
+  addBench(-5, 8, 0)
+  addBench(5, 8, 0)
+
+  // ── Grand Entrance Steps ──
+  for (let i = 0; i < 3; i++) {
+    const step = new THREE.Mesh(new THREE.BoxGeometry(7, 0.2, 1), marbleWhite)
+    step.position.set(0, (3-i)*0.2, hallD/2 + 1 + i); step.receiveShadow = true; scene.add(step)
+  }
+
+  // ── Decorative Elements ──
+  // Crown molding along walls
+  for (let z = -hallD/2+0.3; z <= hallD/2-0.3; z += 0.5) {
+    const moldL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.15, 0.4), goldMat)
+    moldL.position.set(-hallW/2+0.2, hallH - 0.5, z); scene.add(moldL)
+    const moldR = moldL.clone(); moldR.position.x = hallW/2-0.2; scene.add(moldR)
+  }
+
+  // ── Lighting ──
+  // Dramatic overhead spots
+  const mainSpot = new THREE.SpotLight(0xfff5dd, 3, 25, Math.PI/5, 0.3, 1)
+  mainSpot.position.set(0, hallH - 0.5, 0); mainSpot.castShadow = true
+  mainSpot.shadow.mapSize.width = 1024; mainSpot.shadow.mapSize.height = 1024
+  scene.add(mainSpot)
+
+  // Side accent lights
+  for (let z = -15; z <= 15; z += 10) {
+    const lSpot = new THREE.SpotLight(0xffeecc, 1.5, 12, Math.PI/4, 0.5, 1)
+    lSpot.position.set(-hallW/2+2, hallH - 0.5, z); scene.add(lSpot)
+    const rSpot = new THREE.SpotLight(0xffeecc, 1.5, 12, Math.PI/4, 0.5, 1)
+    rSpot.position.set(hallW/2-2, hallH - 0.5, z); scene.add(rSpot)
+  }
+
+  // Ambient fill
+  scene.add(new THREE.AmbientLight(0x111118, 0.3))
+  const hemiLight = new THREE.HemisphereLight(0x221100, 0x080810, 0.2); scene.add(hemiLight)
+
+  // Entrance light
+  const entranceLight = new THREE.PointLight(0xffeedd, 1.0, 15)
+  entranceLight.position.set(0, 8, hallD/2 - 1); scene.add(entranceLight)
+
+  const orbitControls = addOrbitControls(camera, renderer, { minDistance: 3, maxDistance: 35, autoRotateSpeed: 0.2, enablePan: true, maxDistance: 35 })
+
+  const clock = new THREE.Clock()
+  let animId
+  function animate() {
+    animId = requestAnimationFrame(animate)
+    const t = clock.getElapsedTime()
+    // Subtle light flicker for ambiance
+    entranceLight.intensity = 0.9 + Math.sin(t * 2) * 0.1
+    if (orbitControls) orbitControls.update()
+    renderer.render(scene, camera)
+  }
+  animate()
+
+  const onResize = addResizeHandler(camera, renderer, container)
+  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); renderer.dispose(); if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement) }
+}
+
 const SCENE_CREATORS = {
   moon: createMoonScene,
   earth: createEarthScene,
@@ -1472,6 +2081,8 @@ const SCENE_CREATORS = {
   crystal: createCrystalScene,
   ocean: createOceanScene,
   terrain: createTerrainScene,
+  house: createHouseScene,
+  museum: createMuseumScene,
   cube: createCubeScene,
 }
 
