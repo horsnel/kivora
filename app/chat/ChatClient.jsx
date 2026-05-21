@@ -643,7 +643,8 @@ export default function ChatClient() {
     if (!q || imageGenLoading) return
 
     const userMsg = { role: 'user', content: q, isImagePrompt: true }
-    setMessages(prev => [...prev, userMsg])
+    const loadingMsg = { role: 'assistant', content: '', isImageLoading: true, promptImage: q }
+    setMessages(prev => [...prev, userMsg, loadingMsg])
     setInput('')
     setImageGenLoading(true)
 
@@ -656,9 +657,9 @@ export default function ChatClient() {
       const data = await res.json()
 
       if (data.error) {
-        setMessages(prev => [...prev, { role: 'assistant', content: `Image generation failed: ${data.error}` }])
+        setMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: `Image generation failed: ${data.error}` }])
       } else {
-        setMessages(prev => [...prev, {
+        setMessages(prev => [...prev.slice(0, -1), {
           role: 'assistant',
           content: `Generated image: **${q}**`,
           isImage: true,
@@ -669,7 +670,7 @@ export default function ChatClient() {
         }])
       }
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Image generation failed. Please try again.' }])
+      setMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: 'Image generation failed. Please try again.' }])
     }
     setImageGenLoading(false)
   }
@@ -1618,6 +1619,22 @@ export default function ChatClient() {
                             </a>
                           )}
                         </div>
+                      ) : msg.isImageLoading ? (
+                        <div className="space-y-2">
+                          <div className="bg-gradient-to-br from-purple-500/10 to-red-500/10 border border-purple-500/20 rounded-xl p-5 text-center max-w-sm">
+                            <div className="inline-flex items-center justify-center w-10 h-10 mb-2">
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-purple-400 animate-spin" style={{ animationDuration: '3s' }}>
+                                <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>
+                              </svg>
+                            </div>
+                            <p className="text-xs text-purple-300 font-medium">Generating Image</p>
+                            <p className="text-[11px] text-muted mt-1">{msg.promptImage}</p>
+                            <div className="mt-3 w-full bg-white/[0.04] rounded-full h-1 overflow-hidden">
+                              <div className="h-full progress-3d rounded-full animate-pulse" style={{ width: '60%' }} />
+                            </div>
+                            <p className="text-[10px] text-muted mt-2">Creating your image...</p>
+                          </div>
+                        </div>
                       ) : msg.is3DLoading ? (
                         <div className="space-y-2">
                           <div className="bg-gradient-to-br from-purple-500/10 to-red-500/10 border border-purple-500/20 rounded-xl p-5 text-center max-w-sm">
@@ -1629,7 +1646,7 @@ export default function ChatClient() {
                             <p className="text-xs text-purple-300 font-medium">Generating 3D Model</p>
                             <p className="text-[11px] text-muted mt-1">{msg.prompt3d}</p>
                             <div className="mt-3 w-full bg-white/[0.04] rounded-full h-1 overflow-hidden">
-                              <div className="h-full bg-gradient-to-r from-purple-500 to-red-500 rounded-full animate-pulse" style={{ width: '60%' }} />
+                              <div className="h-full progress-3d rounded-full animate-pulse" style={{ width: '60%' }} />
                             </div>
                             <p className="text-[10px] text-muted mt-2">This may take 1-2 minutes...</p>
                           </div>

@@ -20,6 +20,10 @@
   --red: #dc2626;
   --red-hover: #b91c1c;
   --red-dim: rgba(220,38,38,0.08);
+  --purple: #a855f7;
+  --purple-dim: rgba(168,85,247,0.10);
+  --purple-20: rgba(168,85,247,0.20);
+  --accent-red: #ef4444;
   --green: #16a34a;
   --green-dim: rgba(22,163,74,0.08);
   --font-sans: 'Inter', system-ui, sans-serif;
@@ -138,6 +142,33 @@ input, textarea, select {
   background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 50%, var(--surface) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
+}
+
+/* Purple→Red gradient skeleton for 3D/image generation loading states */
+.skeleton-3d {
+  background: linear-gradient(90deg, rgba(168,85,247,0.06) 25%, rgba(239,68,68,0.10) 50%, rgba(168,85,247,0.06) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite;
+  border: 1px solid rgba(168,85,247,0.15);
+}
+
+/* Progress bar with purple→red gradient */
+.progress-3d {
+  background: linear-gradient(90deg, #a855f7, #ef4444);
+}
+
+/* Shimmer for image generation cards */
+@keyframes shimmer3d {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-img {
+  background: linear-gradient(90deg, rgba(168,85,247,0.04) 25%, rgba(239,68,68,0.08) 50%, rgba(168,85,247,0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer3d 2s infinite ease-in-out;
+  border: 1px solid rgba(168,85,247,0.12);
+  border-radius: 12px;
 }
 
 .pulse-dot { animation: pulseRing 2s ease-in-out infinite; }
