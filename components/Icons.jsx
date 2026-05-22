@@ -554,3 +554,41 @@ export function IconLink({ size = 16, className = '' }) {
     </svg>
   )
 }
+
+export function IconImage({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.25"/>
+      <circle cx="5" cy="6" r="1.25" stroke="currentColor" strokeWidth="1"/>
+      <path d="M1.5 11l3.5-3 2.5 2 3-3 4 4" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function IconBuild({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M2 14V7l3-3 3 3v7H2z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+      <path d="M8 14V10l2.5-3 2.5 3v4H8z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+      <path d="M4 10h1M11 12h1" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <path d="M3.5 7.5V6a1.5 1.5 0 013 0v1.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function IconFolder({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M1.5 4.5V12a1 1 0 001 1h11a1 1 0 001-1V5.5a1 1 0 00-1-1H8l-1.5-2H2.5a1 1 0 00-1 1v1z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+      <path d="M1.5 7h13" stroke="currentColor" strokeWidth="1.25"/>
+    </svg>
+  )
+}
+
+export function IconPlay({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M4 2.5v11l9-5.5-9-5.5z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+    </svg>
+  )
+}

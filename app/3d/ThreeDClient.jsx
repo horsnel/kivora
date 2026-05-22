@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useTranslation } from '@/components/LanguageProvider'
-import { IconEye, IconMaximize, IconMinimize } from '@/components/Icons'
+import { IconEye, IconMaximize, IconMinimize, IconBuild } from '@/components/Icons'
 import Link from 'next/link'
 
 const SCENES = [
@@ -1952,7 +1952,7 @@ export default function ThreeDClient() {
               href="/build"
               className="ml-3 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#111111] border border-[#1a1a1a] text-[10px] text-amber-400 hover:text-amber-300 hover:border-amber-500/30 transition-colors uppercase tracking-wider font-medium"
             >
-              🔨 Build Projects
+              <IconBuild size={12} className="text-amber-400" /> Build Projects
             </Link>
           </div>
 
@@ -1999,7 +1999,7 @@ export default function ThreeDClient() {
           href="/build"
           className="flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs font-medium whitespace-nowrap bg-amber-500/15 text-amber-400 border border-amber-500/20"
         >
-          🔨 Build
+          <IconBuild size={12} className="text-amber-400" /> Build
         </Link>
         {SCENES.map((scene) => (
           <button

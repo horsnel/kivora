@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings } from '@/components/Icons'
+import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings, IconCopy as IconClipboard, IconWrite, IconFilter, IconRobot, IconTarget, IconDatabase, IconStack } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
@@ -16,14 +16,14 @@ const XTerminal = dynamic(() => import('@/components/XTerminal'), { ssr: false }
 
 // ── System Templates (Google AI Studio-style) ──
 const SYSTEM_TEMPLATES = [
-  { id: 'summarize', label: 'Summarize', icon: '📋', prompt: 'Summarize the following content concisely, highlighting key points:' },
-  { id: 'translate', label: 'Translate', icon: '🌍', prompt: 'Translate the following to' },
-  { id: 'code-review', label: 'Code Review', icon: '🔍', prompt: 'Review this code for bugs, performance issues, and best practices:' },
-  { id: 'explain', label: 'Explain', icon: '💡', prompt: 'Explain the following in simple terms:' },
-  { id: 'rewrite', label: 'Rewrite', icon: '✏️', prompt: 'Rewrite the following to be more clear and professional:' },
-  { id: 'debug', label: 'Debug', icon: '🐛', prompt: 'Debug this code. Find and fix all errors:' },
-  { id: 'compare', label: 'Compare', icon: '⚖️', prompt: 'Compare the following options with a table showing pros, cons, and best use cases:' },
-  { id: 'extract', label: 'Extract Data', icon: '📊', prompt: 'Extract and organize all key data points from the following:' },
+  { id: 'summarize', label: 'Summarize', Icon: IconClipboard, prompt: 'Summarize the following content concisely, highlighting key points:' },
+  { id: 'translate', label: 'Translate', Icon: IconGlobe, prompt: 'Translate the following to' },
+  { id: 'code-review', label: 'Code Review', Icon: IconSearch, prompt: 'Review this code for bugs, performance issues, and best practices:' },
+  { id: 'explain', label: 'Explain', Icon: IconBulb, prompt: 'Explain the following in simple terms:' },
+  { id: 'rewrite', label: 'Rewrite', Icon: IconWrite, prompt: 'Rewrite the following to be more clear and professional:' },
+  { id: 'debug', label: 'Debug', Icon: IconTool, prompt: 'Debug this code. Find and fix all errors:' },
+  { id: 'compare', label: 'Compare', Icon: IconFilter, prompt: 'Compare the following options with a table showing pros, cons, and best use cases:' },
+  { id: 'extract', label: 'Extract Data', Icon: IconDatabase, prompt: 'Extract and organize all key data points from the following:' },
 ]
 
 const MODELS = [
@@ -84,11 +84,11 @@ const MORPH_SHAPES = [
 ]
 
 const FOCUS_MODES = [
-  { id: 'All', labelKey: 'chat.focus.all', descKey: 'chat.focus.all.desc', icon: '✦' },
-  { id: 'Academic', labelKey: 'chat.focus.academic', descKey: 'chat.focus.academic.desc', icon: '🎓' },
-  { id: 'Writing', labelKey: 'chat.focus.writing', descKey: 'chat.focus.writing.desc', icon: '✍' },
-  { id: 'Math', labelKey: 'chat.focus.math', descKey: 'chat.focus.math.desc', icon: 'Σ' },
-  { id: 'Code', labelKey: 'chat.focus.code', descKey: 'chat.focus.code.desc', icon: '</>' },
+  { id: 'All', labelKey: 'chat.focus.all', descKey: 'chat.focus.all.desc', Icon: IconSearch },
+  { id: 'Academic', labelKey: 'chat.focus.academic', descKey: 'chat.focus.academic.desc', Icon: IconBook },
+  { id: 'Writing', labelKey: 'chat.focus.writing', descKey: 'chat.focus.writing.desc', Icon: IconWrite },
+  { id: 'Math', labelKey: 'chat.focus.math', descKey: 'chat.focus.math.desc', Icon: IconTarget },
+  { id: 'Code', labelKey: 'chat.focus.code', descKey: 'chat.focus.code.desc', Icon: IconCode },
 ]
 
 const PRO_MODES = [
@@ -522,9 +522,9 @@ export default function ChatClient() {
           content += `---\n\n`
           messages.forEach(msg => {
             if (msg.role === 'user') {
-              content += `### 👤 User\n\n${msg.content}\n\n`
+              content += `### User\n\n${msg.content}\n\n`
             } else {
-              content += `### 🤖 Assistant\n\n${msg.content}\n\n`
+              content += `### Assistant\n\n${msg.content}\n\n`
             }
           })
         } else {
@@ -1299,11 +1299,11 @@ export default function ChatClient() {
                   <>
                     <div className="grid grid-cols-3 gap-1.5 mb-2">
                       {[
-                        { id: 'pdf', label: 'PDF', icon: '📄' },
-                        { id: 'docx', label: 'DOCX', icon: '📝' },
-                        { id: 'html', label: 'HTML', icon: '🌐' },
-                        { id: 'md', label: 'MD', icon: '📋' },
-                        { id: 'txt', label: 'TXT', icon: '📃' },
+                        { id: 'pdf', label: 'PDF', Icon: IconFile },
+                        { id: 'docx', label: 'DOCX', Icon: IconWrite },
+                        { id: 'html', label: 'HTML', Icon: IconGlobe },
+                        { id: 'md', label: 'MD', Icon: IconClipboard },
+                        { id: 'txt', label: 'TXT', Icon: IconFile },
                       ].map(fmt => (
                         <button
                           key={fmt.id}
@@ -1314,7 +1314,7 @@ export default function ChatClient() {
                               : 'text-[#525252] hover:text-white hover:bg-[#262626]'
                           }`}
                         >
-                          <span className="text-[9px]">{fmt.icon}</span> {fmt.label}
+                          <fmt.Icon size={10} /> {fmt.label}
                         </button>
                       ))}
                     </div>
@@ -2011,7 +2011,7 @@ export default function ChatClient() {
                               onClick={() => { setFocusMode(m.id); setFocusDropdownOpen(false) }}
                               className={`chat-focus-option ${m.id === focusMode ? 'chat-focus-option-active' : ''}`}
                             >
-                              <span className="chat-focus-icon">{m.icon}</span>
+                              <span className="chat-focus-icon"><m.Icon size={14} /></span>
                               <div className="chat-focus-text">
                                 <span className="chat-focus-label">{t(m.labelKey)}</span>
                                 <span className="chat-focus-desc">{t(m.descKey)}</span>
@@ -2076,7 +2076,7 @@ export default function ChatClient() {
                               onClick={() => { setInput(template.prompt + ' '); setTemplatePickerOpen(false); textareaRef.current?.focus() }}
                               className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12px] text-[#a1a1a1] hover:text-white hover:bg-[#262626] transition-colors text-left"
                             >
-                              <span className="text-sm">{template.icon}</span>
+                              <template.Icon size={14} />
                               <span>{template.label}</span>
                             </button>
                           ))}

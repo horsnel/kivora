@@ -418,14 +418,14 @@ export default function DashboardPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-7">
           {[
-            { label: t('dashboard.streak'), value: streakInfo.current > 0 ? `${streakInfo.current}d` : '0d', icon: streakInfo.current > 0 ? '🔥' : null },
+            { label: t('dashboard.streak'), value: streakInfo.current > 0 ? `${streakInfo.current}d` : '0d', icon: streakInfo.current > 0 ? 'flame' : null },
             { label: 'Goals', value: goals.length },
             { label: t('dashboard.saved'), value: saves.length },
             { label: t('dashboard.chats'), value: chats.length },
             { label: t('dashboard.messages'), value: messages.length },
           ].map(s => (
             <div key={s.label} className="bg-[#141414] border border-white/[0.06] rounded-xl px-4 py-3 text-center">
-              <div className="font-bold text-headline tracking-tight">{s.icon ? `${s.icon} ` : ''}{s.value}</div>
+              <div className="font-bold text-headline tracking-tight">{s.icon === 'flame' && <IconFlame size={14} className="inline text-orange-400" />}{s.icon === 'flame' ? ' ' : ''}{s.value}</div>
               <div className="text-caption text-muted mt-0.5">{s.label}</div>
             </div>
           ))}
@@ -445,7 +445,7 @@ export default function DashboardPage() {
               <div className="flex items-end gap-4">
                 <div>
                   <div className="font-bold text-2xl tracking-tight">
-                    {streakInfo.current > 0 && <span className="mr-1">🔥</span>}
+                    {streakInfo.current > 0 && <IconFlame size={14} className="inline text-orange-400 mr-1" />}
                     {streakInfo.current}
                   </div>
                   <div className="text-caption text-muted">{t('dashboard.current')}</div>
