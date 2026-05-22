@@ -194,7 +194,9 @@ function addOrbitControls(camera, renderer, opts = {}) {
 }
 
 /* ── Full cleanup helper: dispose all GPU resources ── */
-function fullCleanup(scene, renderer) {
+function fullCleanup(scene, renderer, controls) {
+  // Dispose OrbitControls (removes event listeners from domElement)
+  if (controls && controls.dispose) controls.dispose()
   scene.traverse(obj => {
     if (obj.geometry) obj.geometry.dispose()
     if (obj.material) {
@@ -301,7 +303,7 @@ function createMoonScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer) }
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Earth Scene ── */
@@ -760,7 +762,7 @@ function createEarthScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer) }
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Solar System Scene ── */
@@ -899,7 +901,7 @@ function createSolarScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer) }
+  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Deep Space Scene ── */
@@ -988,7 +990,7 @@ function createDeepSpaceScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('touchmove', onTouchMove); document.removeEventListener('wheel', onWheel); fullCleanup(scene, renderer) }
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('touchmove', onTouchMove); document.removeEventListener('wheel', onWheel); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Crystal Scene ── */
@@ -1133,7 +1135,7 @@ function createCrystalScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer) }
+  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Ocean Scene ── */
@@ -1252,7 +1254,7 @@ function createOceanScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer) }
+  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Terrain Scene ── */
@@ -1401,7 +1403,7 @@ function createTerrainScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer) }
+  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Cube Scene ── */
@@ -1523,7 +1525,7 @@ function createCubeScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer); delete window.__cubeScramble; delete window.__cubeReset }
+  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls); delete window.__cubeScramble; delete window.__cubeReset }
 }
 
 /* ── House Scene ── */
@@ -1841,7 +1843,7 @@ function createHouseScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer) }
+  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Museum Scene ── */
@@ -2105,7 +2107,7 @@ function createMuseumScene(container) {
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer) }
+  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 const SCENE_CREATORS = {
@@ -2138,28 +2140,50 @@ export default function ThreeDClient() {
     if (!container) return
 
     let cancelled = false
+    let safetyTimer = null
     setLoading(true)
     setError(false)
+
+    // Safety timeout: ensure loading goes away after max 15 seconds
+    // even if scene creation hangs
+    safetyTimer = setTimeout(() => {
+      if (!cancelled) setLoading(false)
+    }, 15000)
 
     ensureThreeJS()
       .then(() => {
         if (cancelled) return
-        container.innerHTML = ''
-        const creator = SCENE_CREATORS[activeScene]
-        if (creator) {
-          cleanupRef.current = creator(container)
-        }
-        setLoading(false)
+        // Defer scene creation with double rAF so the loading spinner
+        // actually renders before the heavy synchronous work starts
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (cancelled) return
+            try {
+              container.innerHTML = ''
+              const creator = SCENE_CREATORS[activeScene]
+              if (creator) {
+                cleanupRef.current = creator(container)
+              }
+            } catch (err) {
+              console.error('3D scene creation error:', err)
+              setError(true)
+            }
+            setLoading(false)
+            clearTimeout(safetyTimer)
+          })
+        })
       })
       .catch((err) => {
         if (cancelled) return
         console.error('3D scene error:', err)
         setError(true)
         setLoading(false)
+        clearTimeout(safetyTimer)
       })
 
     return () => {
       cancelled = true
+      clearTimeout(safetyTimer)
       if (cleanupRef.current) { cleanupRef.current(); cleanupRef.current = null }
     }
   }, [activeScene])
@@ -2188,7 +2212,7 @@ export default function ThreeDClient() {
       className={`bg-[#0a0a0a] text-white ${fullscreen ? 'fixed inset-0 z-50' : 'min-h-screen'}`}
     >
       {/* Header bar */}
-      <div className="border-b border-[#1a1a1a] bg-[#0a0a0a]/95 backdrop-blur-md z-20 relative">
+      <div className="border-b border-[#1a1a1a] bg-[#0a0a0a]/95 backdrop-blur-md z-30 relative">
         <div className="max-w-full mx-auto px-4 sm:px-6 h-12 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 bg-[#dc2626] rounded-lg flex items-center justify-center">
@@ -2200,7 +2224,7 @@ export default function ThreeDClient() {
           </div>
 
           {/* Scene tabs - scrollable on desktop */}
-          <div className="hidden sm:flex items-center gap-0.5 bg-[#111111] rounded-lg p-0.5 border border-[#1a1a1a] overflow-x-auto max-w-[60vw]">
+          <div className="hidden sm:flex items-center gap-0.5 bg-[#111111] rounded-lg p-0.5 border border-[#1a1a1a] overflow-x-auto max-w-[60vw] relative z-30">
             {SCENES.map((scene) => (
               <button
                 key={scene.id}
@@ -2237,7 +2261,7 @@ export default function ThreeDClient() {
       </div>
 
       {/* Mobile scene selector */}
-      <div className="sm:hidden border-b border-[#1a1a1a] bg-[#0d0d0d] p-2 flex gap-1 overflow-x-auto">
+      <div className="sm:hidden border-b border-[#1a1a1a] bg-[#0d0d0d] p-2 flex gap-1 overflow-x-auto relative z-30">
         {SCENES.map((scene) => (
           <button
             key={scene.id}
@@ -2265,7 +2289,7 @@ export default function ThreeDClient() {
       {/* 3D Canvas container */}
       <div className={`${fullscreen ? 'h-[calc(100vh-48px)]' : 'h-[calc(100vh-96px)] sm:h-[calc(100vh-48px)]'} relative bg-black`}>
         {loading && (
-          <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/80">
+          <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/80 pointer-events-none">
             <div className="text-center">
               <div className="w-10 h-10 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin mx-auto mb-3" />
               <p className="text-xs text-[#525252] tracking-wider">Loading 3D...</p>
