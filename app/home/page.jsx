@@ -40,23 +40,25 @@ const SAMPLE_WEBSITES = [
   { title: 'Chat Interface', desc: 'Real-time messaging UI with threads', prompt: 'Build a chat interface', src: '/images/websites/chat-interface.png' },
 ]
 
-const FILE_TYPES = [
-  { id: 'pdf', label: 'PDF', color: '#ef4444' },
-  { id: 'docx', label: 'DOCX', color: '#3b82f6' },
-  { id: 'xlsx', label: 'XLSX', color: '#22c55e' },
-  { id: 'csv', label: 'CSV', color: '#f59e0b' },
-  { id: 'json', label: 'JSON', color: '#a855f7' },
-  { id: 'html', label: 'HTML', color: '#f97316' },
-  { id: 'md', label: 'Markdown', color: '#6b7280' },
-  { id: 'yaml', label: 'YAML', color: '#ec4899' },
+const THREE_D_SCENES = [
+  { id: 'moon', label: 'Moon', desc: 'Procedural textures with NASA data', gradient: 'from-gray-800/60 to-gray-900/80', accent: '#94a3b8', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg> },
+  { id: 'earth', label: 'Earth', desc: 'Atmosphere, clouds, and city lights', gradient: 'from-blue-900/60 to-cyan-900/80', accent: '#3b82f6', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2c3 3 3 15 0 20M12 2c-3 3-3 15 0 20"/></svg> },
+  { id: 'solar', label: 'Solar System', desc: 'Orbiting planets with particle trails', gradient: 'from-amber-900/60 to-orange-900/80', accent: '#f59e0b', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7" strokeDasharray="2 3"/><circle cx="12" cy="12" r="10" strokeDasharray="1 4"/></svg> },
+  { id: 'deepspace', label: 'Deep Space', desc: 'Nebula exploration with Hubble imagery', gradient: 'from-purple-900/60 to-indigo-900/80', accent: '#a855f7', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="2"/><circle cx="12" cy="12" r="6" strokeDasharray="2 3"/><circle cx="12" cy="12" r="10" strokeDasharray="1 4"/></svg> },
+  { id: 'globe', label: 'Globe', desc: 'Interactive procedural surface details', gradient: 'from-emerald-900/60 to-teal-900/80', accent: '#10b981', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2c2.5 3 2.5 15 0 20"/><path d="M12 2c-2.5 3-2.5 15 0 20"/></svg> },
+  { id: 'ocean', label: 'Ocean', desc: 'Animated waves under golden sunset', gradient: 'from-sky-900/60 to-blue-900/80', accent: '#0ea5e9', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 16c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><circle cx="18" cy="5" r="2"/></svg> },
+  { id: 'terrain', label: 'Terrain', desc: 'Mountain landscape with atmospheric fog', gradient: 'from-green-900/60 to-lime-900/80', accent: '#22c55e', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="2,20 7,8 11,14 15,6 22,20"/><polyline points="5,20 9,12 13,16 18,10 22,20" opacity="0.5"/></svg> },
+  { id: 'house', label: 'House', desc: 'Interior rooms with furniture & lighting', gradient: 'from-red-900/60 to-orange-900/80', accent: '#ef4444', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 12L12 3l9 9"/><path d="M5 10v9a1 1 0 001 1h3v-5h6v5h3a1 1 0 001-1v-9"/></svg> },
+  { id: 'museum', label: 'Museum', desc: 'Columns, sculptures & dramatic lighting', gradient: 'from-stone-800/60 to-neutral-900/80', accent: '#a8a29e', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><line x1="8" y1="21" x2="8" y2="10"/><line x1="12" y1="21" x2="12" y2="10"/><line x1="16" y1="21" x2="16" y2="10"/></svg> },
+  { id: 'cube', label: 'Rubik\'s Cube', desc: 'Interactive 3x3 with face rotation', gradient: 'from-rose-900/60 to-pink-900/80', accent: '#f43f5e', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg> },
 ]
 
 // ── SVG Icon Components ──
 function ImageIcon({ size = 20 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
 }
-function FileConvertIcon({ size = 20 }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m12 18-2-2 2-2"/><path d="m16 14 2 2-2 2"/></svg>
+function CubeIcon({ size = 20 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.27 6.96 8.73 5.04 8.73-5.04"/><path d="M12 22.08V12"/></svg>
 }
 function WebIcon({ size = 20 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
@@ -69,8 +71,17 @@ export default function HomePage() {
   const [input, setInput] = useState('')
   const [focused, setFocused] = useState(false)
   const [placeholderText, setPlaceholderText] = useState('')
+  const [carouselIndex, setCarouselIndex] = useState(0)
   const textareaRef = useRef(null)
   const typewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
+
+  // Auto-advance carousel — Kimi style: slow, gentle, 700ms ease-in-out
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCarouselIndex(prev => (prev + 1) % THREE_D_SCENES.length)
+    }, 5000)
+    return () => clearInterval(timer)
+  }, [])
 
   // Typewriter animation
   useEffect(() => {
@@ -299,54 +310,93 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── Section 3: Convert to File ── Horizontal scrollable cards */}
+        {/* ── Section 3: 3D Viewer ── Carousel with Kimi-style minimal animation */}
         <section>
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 rounded-xl bg-[#1a1a1a] flex items-center justify-center text-[#737373]">
-              <FileConvertIcon size={16} />
+              <CubeIcon size={16} />
             </div>
-            <div>
-              <h2 className="text-base font-semibold tracking-tight text-white">Convert to File</h2>
-              <p className="text-xs text-[#737373]">Transform content between formats instantly</p>
+            <div className="flex-1">
+              <h2 className="text-base font-semibold tracking-tight text-white">3D Viewer</h2>
+              <p className="text-xs text-[#737373]">Explore interactive 3D scenes in your browser</p>
+            </div>
+            <a
+              href="/3d"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#dc2626]/15 text-red-400 border border-red-500/20 hover:bg-[#dc2626]/25 transition-colors duration-300"
+            >
+              Open Viewer
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </a>
+          </div>
+
+          {/* Carousel track — transform 700ms ease-in-out (Kimi style) */}
+          <div className="relative">
+            <div className="overflow-hidden rounded-xl">
+              <div
+                className="flex transition-transform duration-700 ease-in-out"
+                style={{ transform: `translateX(-${carouselIndex * 100}%)` }}
+              >
+                {THREE_D_SCENES.map(scene => (
+                  <div key={scene.id} className="w-full shrink-0 px-0.5">
+                    <a
+                      href={`/3d?scene=${scene.id}`}
+                      className="group block relative w-full aspect-[2.2/1] rounded-xl overflow-hidden bg-gradient-to-br ${scene.gradient} border border-[#1a1a1a] hover:border-[#2a2a2a] transition-colors duration-300"
+                    >
+                      {/* Grid pattern overlay */}
+                      <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+                      {/* Accent glow */}
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full opacity-20 blur-3xl" style={{ backgroundColor: scene.accent }} />
+                      {/* Content */}
+                      <div className="relative h-full flex flex-col items-center justify-center gap-3 p-6">
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110" style={{ backgroundColor: `${scene.accent}20`, color: scene.accent }}>
+                          {scene.icon}
+                        </div>
+                        <div className="text-center">
+                          <h3 className="text-lg font-semibold text-white tracking-tight">{scene.label}</h3>
+                          <p className="text-xs text-white/50 mt-0.5">{scene.desc}</p>
+                        </div>
+                      </div>
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Carousel dots */}
+            <div className="flex items-center justify-center gap-1.5 mt-3">
+              {THREE_D_SCENES.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCarouselIndex(i)}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    carouselIndex === i ? 'w-6 bg-white' : 'w-1.5 bg-white/20 hover:bg-white/40'
+                  }`}
+                  aria-label={`Go to scene ${i + 1}`}
+                />
+              ))}
             </div>
           </div>
 
-          {/* Horizontal scrollable cards */}
-          <div
-            className="flex gap-3 overflow-x-auto overscroll-x-contain pb-2 scrollbar-hide"
-            style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
-          >
-            {FILE_TYPES.map(ft => (
-              <button
-                key={ft.id}
-                onClick={() => { setInput(`Convert my text to ${ft.label} format: `); textareaRef.current?.focus() }}
-                className="group shrink-0 w-[130px] p-4 rounded-xl bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer text-center"
-                style={{ scrollSnapAlign: 'start' }}
-              >
-                {/* Icon with color */}
-                <div
-                  className="w-10 h-10 rounded-lg mx-auto mb-2.5 flex items-center justify-center transition-transform duration-200 group-hover:scale-110"
-                  style={{ backgroundColor: `${ft.color}15` }}
+          {/* Scene quick-access pills + Build CTA */}
+          <div className="flex flex-wrap gap-2 mt-4">
+            {['Moon', 'Earth', 'Solar System', 'Ocean', 'Rubik\'s Cube'].map(tag => {
+              const scene = THREE_D_SCENES.find(s => s.label === tag)
+              return (
+                <a
+                  key={tag}
+                  href={`/3d?scene=${scene?.id || ''}`}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium bg-[#111] border border-[#1f1f1f] text-[#737373] hover:bg-[#1a1a1a] hover:border-[#2a2a2a] hover:text-white transition-all duration-200"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={ft.color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
-                </div>
-                {/* Label */}
-                <span className="text-sm font-medium text-white/90 group-hover:text-white transition-colors block">{ft.label}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Quick conversion prompts */}
-          <div className="flex flex-wrap gap-2 mt-3">
-            {['PDF report', 'Excel sheet', 'Presentation', 'HTML page', 'JSON data'].map(tag => (
-              <button
-                key={tag}
-                onClick={() => { setInput(`Convert to ${tag}: `); textareaRef.current?.focus() }}
-                className="px-3 py-1.5 rounded-full text-xs font-medium bg-[#111] border border-[#1f1f1f] text-[#737373] hover:bg-[#1a1a1a] hover:border-[#2a2a2a] hover:text-white transition-all duration-200"
-              >
-                {tag}
-              </button>
-            ))}
+                  {tag}
+                </a>
+              )
+            })}
+            <a
+              href="/build"
+              className="px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-colors duration-300"
+            >
+              Build Projects
+            </a>
           </div>
         </section>
 
