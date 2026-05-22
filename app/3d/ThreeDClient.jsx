@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useTranslation } from '@/components/LanguageProvider'
 import { IconEye, IconMaximize, IconMinimize } from '@/components/Icons'
+import Link from 'next/link'
 
 const SCENES = [
   {
@@ -1947,6 +1948,12 @@ export default function ThreeDClient() {
             <h1 className="font-bold text-sm tracking-tight">
               3D <span className="text-red-500">Viewer</span>
             </h1>
+            <Link
+              href="/build"
+              className="ml-3 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#111111] border border-[#1a1a1a] text-[10px] text-amber-400 hover:text-amber-300 hover:border-amber-500/30 transition-colors uppercase tracking-wider font-medium"
+            >
+              🔨 Build Projects
+            </Link>
           </div>
 
           {/* Scene tabs - scrollable on desktop */}
@@ -1988,6 +1995,12 @@ export default function ThreeDClient() {
 
       {/* Mobile scene selector */}
       <div className="sm:hidden border-b border-[#1a1a1a] bg-[#0d0d0d] p-2 flex gap-1 overflow-x-auto relative z-30">
+        <Link
+          href="/build"
+          className="flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs font-medium whitespace-nowrap bg-amber-500/15 text-amber-400 border border-amber-500/20"
+        >
+          🔨 Build
+        </Link>
         {SCENES.map((scene) => (
           <button
             key={scene.id}
