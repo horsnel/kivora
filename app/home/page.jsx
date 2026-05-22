@@ -6,11 +6,12 @@ import { supabasePublic } from '@/lib/supabase'
 
 const TYPEWRITER_PHRASES = [
   'Ask anything...',
+  'Explore the Moon in 3D',
   'Generate a logo for my startup',
   'Build a landing page',
+  'Solve a Rubik\'s Cube interactively',
   'Convert my notes to PDF',
-  'Analyze this image',
-  'Summarize this article',
+  'Dive into the Deep Space nebula',
   'Create a dashboard',
   'Write Python code to scrape data',
 ]

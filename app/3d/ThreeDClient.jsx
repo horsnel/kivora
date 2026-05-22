@@ -158,7 +158,7 @@ async function ensureThreeJS() {
 /* ── Helper: create standard renderer ── */
 function createRenderer(container) {
   const THREE = window.THREE
-  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
+  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true })
   renderer.setSize(container.clientWidth, container.clientHeight)
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -1853,10 +1853,16 @@ const SCENE_CREATORS = {
 /* ── Main Component ── */
 export default function ThreeDClient() {
   const { t } = useTranslation()
-  const [activeScene, setActiveScene] = useState('moon')
+  const [activeScene, setActiveScene] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try { return localStorage.getItem('kivora-3d-last-scene') || 'moon' } catch { return 'moon' }
+    }
+    return 'moon'
+  })
   const [fullscreen, setFullscreen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [transitioning, setTransitioning] = useState(false)
   const canvasContainerRef = useRef(null)
   const outerRef = useRef(null)
   const cleanupRef = useRef(null)
@@ -1915,6 +1921,51 @@ export default function ThreeDClient() {
     }
   }, [activeScene])
 
+  // Persist last scene to localStorage
+  useEffect(() => {
+    try { localStorage.setItem('kivora-3d-last-scene', activeScene) } catch {}
+  }, [activeScene])
+
+  // Handle URL scene param
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const sceneParam = params.get('scene')
+    if (sceneParam && SCENES.some(s => s.id === sceneParam)) {
+      setActiveScene(sceneParam)
+    }
+  }, [])
+
+  // Screenshot function
+  const handleScreenshot = useCallback(() => {
+    const canvas = canvasContainerRef.current?.querySelector('canvas')
+    if (!canvas) return
+    const link = document.createElement('a')
+    link.download = `kivora-3d-${activeScene}.png`
+    link.href = canvas.toDataURL('image/png')
+    link.click()
+  }, [activeScene])
+
+  // Scene switch with crossfade
+  const switchScene = useCallback((sceneId) => {
+    if (sceneId === activeScene || transitioning) return
+    setTransitioning(true)
+    const container = canvasContainerRef.current
+    if (container) {
+      container.style.transition = 'opacity 0.3s ease'
+      container.style.opacity = '0'
+      setTimeout(() => {
+        setActiveScene(sceneId)
+        setTimeout(() => {
+          container.style.opacity = '1'
+          setTransitioning(false)
+        }, 50)
+      }, 300)
+    } else {
+      setActiveScene(sceneId)
+      setTransitioning(false)
+    }
+  }, [activeScene, transitioning])
+
   // Fullscreen
   useEffect(() => {
     const handler = () => setFullscreen(!!document.fullscreenElement)
@@ -1961,7 +2012,7 @@ export default function ThreeDClient() {
             {SCENES.map((scene) => (
               <button
                 key={scene.id}
-                onClick={() => setActiveScene(scene.id)}
+                onClick={() => switchScene(scene.id)}
                 title={scene.label}
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all duration-200 whitespace-nowrap ${
                   activeScene === scene.id
@@ -1982,6 +2033,14 @@ export default function ThreeDClient() {
                 <button onClick={handleCubeReset} className="text-[10px] px-2.5 py-1 rounded bg-[#111111] border border-[#1a1a1a] text-[#737373] hover:text-white hover:border-[#2a2a2a] transition-colors uppercase tracking-wider">Reset</button>
               </div>
             )}
+            <button
+              onClick={handleScreenshot}
+              title="Save screenshot"
+              className="flex items-center gap-1.5 bg-[#111111] border border-[#1a1a1a] hover:border-[#2a2a2a] text-[#737373] hover:text-white text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Save
+            </button>
             <button
               onClick={toggleFullscreen}
               className="flex items-center gap-1.5 bg-[#111111] border border-[#1a1a1a] hover:border-[#2a2a2a] text-white text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
