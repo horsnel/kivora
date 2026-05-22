@@ -52,15 +52,17 @@ const SCENES = [
     ),
   },
   {
-    id: 'crystal',
-    label: 'Crystal',
-    description: 'Rotating gemstone with prismatic light refraction',
+    id: 'globe',
+    label: 'Globe',
+    description: 'Interactive 3D Globe with procedural surface details',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <polygon points="12,2 20,9 16,22 8,22 4,9" />
-        <line x1="4" y1="9" x2="20" y2="9" />
-        <line x1="8" y1="22" x2="12" y2="9" />
-        <line x1="16" y1="22" x2="12" y2="9" />
+        <circle cx="12" cy="12" r="10" />
+        <path d="M2 12h20" />
+        <path d="M12 2c2.5 3 2.5 15 0 20" />
+        <path d="M12 2c-2.5 3-2.5 15 0 20" />
+        <path d="M5 7h14" opacity="0.5" />
+        <path d="M5 17h14" opacity="0.5" />
       </svg>
     ),
   },
@@ -785,149 +787,73 @@ function createDeepSpaceScene(container) {
   return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('touchmove', onTouchMove); document.removeEventListener('wheel', onWheel); fullCleanup(scene, renderer, orbitControls) }
 }
 
-/* ── Crystal Scene ── */
-function createCrystalScene(container) {
+/* ── Globe Scene ── */
+function createGlobeScene(container) {
   const THREE = window.THREE
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color(0x050510)
-  const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100)
-  camera.position.set(0, 2, 6)
+  scene.background = new THREE.Color(0x000000)
+  const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000)
+  camera.position.z = 4
   const renderer = createRenderer(container)
-  renderer.toneMappingExposure = 1.5
+  let disposed = false
 
-  // Crystal gem shape (elongated octahedron)
-  const crystalGeo = new THREE.OctahedronGeometry(1.2, 0)
-  // Scale to make it elongated
-  crystalGeo.scale(0.8, 1.6, 0.8)
-
-  const crystalMat = new THREE.MeshPhysicalMaterial({
-    color: 0x8844cc,
-    roughness: 0.05,
-    metalness: 0.1,
-    transmission: 0.7,
-    thickness: 2.0,
-    transparent: true,
-    opacity: 0.85,
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.05,
-    envMapIntensity: 2.0,
-    ior: 2.3,
-    side: THREE.DoubleSide,
-  })
-  const crystal = new THREE.Mesh(crystalGeo, crystalMat)
-  scene.add(crystal)
-
-  // Inner glow core
-  const coreGeo = new THREE.OctahedronGeometry(0.5, 1)
-  coreGeo.scale(0.6, 1.2, 0.6)
-  const coreMat = new THREE.MeshBasicMaterial({ color: 0xcc88ff, transparent: true, opacity: 0.3 })
-  const core = new THREE.Mesh(coreGeo, coreMat)
-  crystal.add(core)
-
-  // Smaller satellite crystals
-  for (let i = 0; i < 5; i++) {
-    const smGeo = new THREE.OctahedronGeometry(0.2 + Math.random()*0.15, 0)
-    smGeo.scale(0.6, 1.2, 0.6)
-    const hue = 0.6 + Math.random() * 0.3
-    const smMat = new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color().setHSL(hue, 0.7, 0.5),
-      roughness: 0.05,
-      metalness: 0.15,
-      transmission: 0.6,
-      thickness: 1.0,
-      transparent: true,
-      opacity: 0.8,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.05,
-      side: THREE.DoubleSide,
-    })
-    const sm = new THREE.Mesh(smGeo, smMat)
-    const angle = (i / 5) * Math.PI * 2
-    const dist = 2.5 + Math.random() * 1.5
-    sm.position.set(Math.cos(angle) * dist, (Math.random()-0.5) * 2, Math.sin(angle) * dist)
-    sm.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, 0)
-    sm.userData = { orbitAngle: angle, orbitDist: dist, orbitSpeed: 0.3 + Math.random()*0.3, yOff: sm.position.y, rotSpeed: 1+Math.random()*2 }
-    scene.add(sm)
+  // Sphere with procedural texture
+  const canvas = document.createElement('canvas')
+  canvas.width = 512; canvas.height = 256
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#6677aa'; ctx.fillRect(0, 0, 512, 256)
+  for (let i = 0; i < 2000; i++) {
+    ctx.beginPath()
+    ctx.arc(Math.random() * 512, Math.random() * 256, Math.random() * 3, 0, Math.PI * 2)
+    ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.3})`
+    ctx.fill()
   }
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.encoding = THREE.sRGBEncoding
 
-  // Prismatic light beams
-  const beamColors = [0xff4444, 0xff8800, 0xffcc00, 0x44ff44, 0x4488ff, 0x8844ff]
-  beamColors.forEach((color, i) => {
-    const beamGeo = new THREE.CylinderGeometry(0.01, 0.15, 8, 6, 1, true)
-    const beamMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.15, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
-    const beam = new THREE.Mesh(beamGeo, beamMat)
-    beam.rotation.z = (i / beamColors.length) * Math.PI
-    beam.rotation.x = Math.sin(i) * 0.5
-    beam.userData = { baseRotZ: beam.rotation.z, colorIndex: i }
-    scene.add(beam)
-  })
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(1.5, 64, 64),
+    new THREE.MeshStandardMaterial({ map: texture, roughness: 0.8 })
+  )
+  scene.add(mesh)
 
-  // Particle sparkles around crystal
-  const sparkCount = 500
-  const sparkPos = new Float32Array(sparkCount * 3)
-  const sparkCols = new Float32Array(sparkCount * 3)
-  for (let i = 0; i < sparkCount; i++) {
-    const i3 = i * 3, angle = Math.random() * Math.PI * 2, r = 1.5 + Math.random() * 3
-    const yOff = (Math.random() - 0.5) * 4
-    sparkPos[i3] = Math.cos(angle) * r; sparkPos[i3+1] = yOff; sparkPos[i3+2] = Math.sin(angle) * r
-    const hue = Math.random()
-    const c = new THREE.Color().setHSL(hue, 0.8, 0.7)
-    sparkCols[i3] = c.r; sparkCols[i3+1] = c.g; sparkCols[i3+2] = c.b
+  // Lighting
+  scene.add(new THREE.AmbientLight(0x404060, 0.5))
+  const light = new THREE.DirectionalLight(0xffffff, 1.5)
+  light.position.set(5, 3, 5)
+  scene.add(light)
+
+  // Starfield background
+  const starCount = 2500
+  const starPos = new Float32Array(starCount * 3)
+  const starCols = new Float32Array(starCount * 3)
+  for (let i = 0; i < starCount; i++) {
+    const i3 = i * 3, r = 60 + Math.random() * 400, theta = Math.random() * Math.PI * 2, phi = Math.acos(2 * Math.random() - 1)
+    starPos[i3] = r * Math.sin(phi) * Math.cos(theta); starPos[i3 + 1] = r * Math.sin(phi) * Math.sin(theta); starPos[i3 + 2] = r * Math.cos(phi)
+    const t = Math.random()
+    if (t > 0.95) { starCols[i3] = 0.7; starCols[i3 + 1] = 0.8; starCols[i3 + 2] = 1.0 }
+    else if (t > 0.88) { starCols[i3] = 1.0; starCols[i3 + 1] = 0.9; starCols[i3 + 2] = 0.7 }
+    else { starCols[i3] = 1.0; starCols[i3 + 1] = 1.0; starCols[i3 + 2] = 1.0 }
   }
-  const sparkGeo = new THREE.BufferGeometry()
-  sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3))
-  sparkGeo.setAttribute('color', new THREE.BufferAttribute(sparkCols, 3))
-  const sparkMat = new THREE.PointsMaterial({ size: 0.06, sizeAttenuation: true, vertexColors: true, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false })
-  const sparks = new THREE.Points(sparkGeo, sparkMat)
-  scene.add(sparks)
+  const starGeo = new THREE.BufferGeometry()
+  starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3))
+  starGeo.setAttribute('color', new THREE.BufferAttribute(starCols, 3))
+  scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 0.5, sizeAttenuation: true, vertexColors: true, transparent: true, opacity: 0.8, depthWrite: false })))
 
-  // Lights
-  const keyLight = new THREE.DirectionalLight(0xffffff, 1.5); keyLight.position.set(3, 5, 4); scene.add(keyLight)
-  const fillLight = new THREE.DirectionalLight(0x8888ff, 0.5); fillLight.position.set(-3, 2, -2); scene.add(fillLight)
-  const rimLight = new THREE.PointLight(0xcc44ff, 1.0, 10); rimLight.position.set(0, -2, 3); scene.add(rimLight)
-  scene.add(new THREE.AmbientLight(0x222244, 0.3))
-
-  const orbitControls = addOrbitControls(camera, renderer, { minDistance: 3, maxDistance: 15, autoRotateSpeed: 0.5 })
+  const orbitControls = addOrbitControls(camera, renderer, { minDistance: 2, maxDistance: 15, autoRotateSpeed: 0.3 })
 
   const clock = new THREE.Clock()
   let animId
   function animate() {
     animId = requestAnimationFrame(animate)
-    const t = clock.getElapsedTime()
-    crystal.rotation.y = t * 0.3
-    crystal.rotation.x = Math.sin(t * 0.2) * 0.15
-    core.rotation.y = -t * 0.5
-    // Pulse inner glow
-    coreMat.opacity = 0.2 + Math.sin(t * 2) * 0.15
-    // Orbit satellites
-    scene.children.forEach(child => {
-      if (child.userData && child.userData.orbitAngle !== undefined) {
-        child.userData.orbitAngle += child.userData.orbitSpeed * 0.01
-        child.position.x = Math.cos(child.userData.orbitAngle) * child.userData.orbitDist
-        child.position.z = Math.sin(child.userData.orbitAngle) * child.userData.orbitDist
-        child.position.y = child.userData.yOff + Math.sin(t * 0.5 + child.userData.orbitAngle) * 0.5
-        child.rotation.y += child.userData.rotSpeed * 0.02
-      }
-    })
-    // Rotate light beams
-    scene.children.forEach(child => {
-      if (child.userData && child.userData.baseRotZ !== undefined) {
-        child.rotation.z = child.userData.baseRotZ + t * 0.1
-        child.rotation.y = t * 0.15
-        child.material.opacity = 0.1 + Math.sin(t * 3 + child.userData.colorIndex) * 0.08
-      }
-    })
-    // Sparkle rotation
-    sparks.rotation.y = t * 0.05
-    // Pulse rim light
-    rimLight.intensity = 0.8 + Math.sin(t * 1.5) * 0.4
+    mesh.rotation.y += 0.002
     if (orbitControls) orbitControls.update()
     renderer.render(scene, camera)
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Ocean Scene ── */
@@ -1915,7 +1841,7 @@ const SCENE_CREATORS = {
   earth: createEarthScene,
   solar: createSolarScene,
   deepspace: createDeepSpaceScene,
-  crystal: createCrystalScene,
+  globe: createGlobeScene,
   ocean: createOceanScene,
   terrain: createTerrainScene,
   house: createHouseScene,
