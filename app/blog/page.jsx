@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { IconArrowRight, IconExternal } from '@/components/Icons'
 
-const BLOG_URL = 'https://blog.kivora.com'
+const BLOG_URL = '/blog'
 
 const POSTS = [
   {
@@ -102,20 +102,18 @@ export default function BlogPage() {
           </p>
         </div>
 
-        {/* External blog notice */}
+        {/* Blog info */}
         <div className="bg-[#141414] border border-[#262626] rounded-xl px-5 py-4 mb-10 flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-medium mb-0.5">Full blog on Kivora</p>
-            <p className="text-xs text-muted">Our full editorial archive lives on the Kivora blog, hundreds of articles, guides, and analyses.</p>
+            <p className="text-sm font-medium mb-0.5">Kivora Blog</p>
+            <p className="text-xs text-muted">Deep dives on AI opportunities, automation strategies, and honest breakdowns of what actually works.</p>
           </div>
-          <a
-            href={BLOG_URL}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/home"
             className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
           >
-            Visit blog <IconExternal size={11} />
-          </a>
+            Back to app <IconArrowRight size={11} />
+          </Link>
         </div>
 
         {/* Category filter */}
@@ -139,11 +137,8 @@ export default function BlogPage() {
         {featured.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             {featured.slice(0, 3).map((post, i) => (
-              <a
+              <div
                 key={post.slug}
-                href={`${BLOG_URL}/posts/${post.slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
                 className={`bg-[#141414] rounded-xl overflow-hidden transition-all group ${i === 0 ? 'md:col-span-2' : ''}`}
               >
                 <div className={`relative overflow-hidden ${i === 0 ? 'h-48 md:h-52' : 'h-36 md:h-40'}`}>
@@ -169,7 +164,7 @@ export default function BlogPage() {
                     </span>
                   </div>
                 </div>
-              </a>
+              </div>
             ))}
           </div>
         )}
@@ -178,11 +173,8 @@ export default function BlogPage() {
         {rest.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
             {rest.map(post => (
-              <a
+              <div
                 key={post.slug}
-                href={`${BLOG_URL}/posts/${post.slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
                 className="bg-[#141414] rounded-xl overflow-hidden transition-all group"
               >
                 <div className="relative h-36 overflow-hidden">
@@ -208,7 +200,7 @@ export default function BlogPage() {
                     </span>
                   </div>
                 </div>
-              </a>
+              </div>
             ))}
           </div>
         )}
@@ -229,14 +221,12 @@ export default function BlogPage() {
           <p className="text-muted text-sm mb-6 max-w-md mx-auto">
             Hundreds of articles covering AI tools, automation, business building, and opportunities for builders everywhere.
           </p>
-          <a
-            href={BLOG_URL}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/home"
             className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl text-sm font-semibold transition-colors"
           >
-            Browse all articles <IconExternal size={13} />
-          </a>
+            Explore Kivora <IconArrowRight size={13} />
+          </Link>
         </div>
 
         <div className="mt-12 pt-8 border-t border-[#141414] flex flex-wrap gap-4 text-xs text-muted">

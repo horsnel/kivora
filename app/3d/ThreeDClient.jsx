@@ -233,16 +233,16 @@ function createMoonScene(container) {
   const renderer = createRenderer(container)
   let disposed = false
 
-  // Procedural color texture (reduced from 2048x1024 to 1024x512)
-  const colorCanvas = document.createElement('canvas'); colorCanvas.width = 1024; colorCanvas.height = 512
+  // Procedural color texture (quick placeholder, NASA textures load from local)
+  const colorCanvas = document.createElement('canvas'); colorCanvas.width = 512; colorCanvas.height = 256
   const ctx = colorCanvas.getContext('2d')
-  ctx.fillStyle = '#9a9a9a'; ctx.fillRect(0, 0, 1024, 512)
-  for (let i = 0; i < 5000; i++) {
-    const x = Math.random()*1024, y = Math.random()*512, r = Math.random()*3+0.5, v = Math.floor(Math.random()*40+110)
+  ctx.fillStyle = '#9a9a9a'; ctx.fillRect(0, 0, 512, 256)
+  for (let i = 0; i < 2000; i++) {
+    const x = Math.random()*512, y = Math.random()*256, r = Math.random()*3+0.5, v = Math.floor(Math.random()*40+110)
     ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fillStyle=`rgb(${v},${v},${v})`; ctx.fill()
   }
-  for (let i = 0; i < 40; i++) {
-    const x = Math.random()*1024, y = Math.random()*512, r = Math.random()*60+10, v = Math.floor(Math.random()*30+120)
+  for (let i = 0; i < 20; i++) {
+    const x = Math.random()*512, y = Math.random()*256, r = Math.random()*30+5, v = Math.floor(Math.random()*30+120)
     ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fillStyle=`rgba(${v},${v},${v},0.6)`; ctx.fill()
     ctx.strokeStyle=`rgba(${v+20},${v+20},${v+20},0.3)`; ctx.lineWidth=2; ctx.stroke()
     for (let j = 0; j < 8; j++) {
@@ -252,20 +252,20 @@ function createMoonScene(container) {
       ctx.strokeStyle=`rgba(${v+15},${v+15},${v+15},0.15)`; ctx.lineWidth=1+Math.random()*2; ctx.stroke()
     }
   }
-  const maria=[{x:300,y:250,rx:140,ry:100},{x:550,y:225,rx:90,ry:70},{x:700,y:275,rx:75,ry:50},{x:475,y:350,rx:60,ry:45},{x:650,y:375,rx:50,ry:40},{x:225,y:175,rx:45,ry:35},{x:800,y:200,rx:40,ry:30},{x:850,y:325,rx:35,ry:25}]
+  const maria=[{x:150,y:125,rx:70,ry:50},{x:275,y:112,rx:45,ry:35},{x:350,y:137,rx:37,ry:25}]
   maria.forEach(m=>{ctx.beginPath();ctx.ellipse(m.x,m.y,m.rx,m.ry,Math.random()*Math.PI,0,Math.PI*2);ctx.fillStyle=`rgba(45,45,50,${0.5+Math.random()*0.3})`;ctx.fill();ctx.strokeStyle='rgba(70,70,75,0.2)';ctx.lineWidth=3;ctx.stroke()})
-  for(let i=0;i<800;i++){const x=Math.random()*1024,y=Math.random()*512,r=Math.random()*8+2;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=`rgba(${Math.floor(80+Math.random()*40)},${Math.floor(80+Math.random()*40)},${Math.floor(85+Math.random()*40)},0.4)`;ctx.fill();ctx.strokeStyle='rgba(140,140,145,0.25)';ctx.lineWidth=1;ctx.stroke()}
+  for(let i=0;i<400;i++){const x=Math.random()*512,y=Math.random()*256,r=Math.random()*4+1;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=`rgba(${Math.floor(80+Math.random()*40)},${Math.floor(80+Math.random()*40)},${Math.floor(85+Math.random()*40)},0.4)`;ctx.fill();ctx.strokeStyle='rgba(140,140,145,0.25)';ctx.lineWidth=1;ctx.stroke()}
   const colorTex=new THREE.CanvasTexture(colorCanvas);colorTex.encoding=THREE.sRGBEncoding
 
-  // Procedural bump (reduced from 2048x1024 to 1024x512)
-  const bumpCanvas = document.createElement('canvas'); bumpCanvas.width = 1024; bumpCanvas.height = 512
+  // Procedural bump (quick placeholder, NASA textures load from local)
+  const bumpCanvas = document.createElement('canvas'); bumpCanvas.width = 512; bumpCanvas.height = 256
   const bctx = bumpCanvas.getContext('2d')
-  bctx.fillStyle='#808080'; bctx.fillRect(0,0,1024,512)
-  for(let i=0;i<1500;i++){const x=Math.random()*1024,y=Math.random()*512,r=Math.random()*20+2,v=Math.floor(Math.random()*40+100);bctx.beginPath();bctx.arc(x,y,r,0,Math.PI*2);bctx.fillStyle=`rgba(${v},${v},${v},0.15)`;bctx.fill()}
-  for(let i=0;i<80;i++){const x=Math.random()*1024,y=Math.random()*512,r=Math.random()*50+5;bctx.beginPath();bctx.arc(x,y,r,0,Math.PI*2);bctx.strokeStyle=`rgba(220,220,220,${0.3+Math.random()*0.3})`;bctx.lineWidth=3+Math.random()*3;bctx.stroke();bctx.beginPath();bctx.arc(x,y,r*0.7,0,Math.PI*2);bctx.fillStyle=`rgba(30,30,30,${0.3+Math.random()*0.3})`;bctx.fill()}
+  bctx.fillStyle='#808080'; bctx.fillRect(0,0,512,256)
+  for(let i=0;i<500;i++){const x=Math.random()*512,y=Math.random()*256,r=Math.random()*10+1,v=Math.floor(Math.random()*40+100);bctx.beginPath();bctx.arc(x,y,r,0,Math.PI*2);bctx.fillStyle=`rgba(${v},${v},${v},0.15)`;bctx.fill()}
+  for(let i=0;i<30;i++){const x=Math.random()*512,y=Math.random()*256,r=Math.random()*25+3;bctx.beginPath();bctx.arc(x,y,r,0,Math.PI*2);bctx.strokeStyle=`rgba(220,220,220,${0.3+Math.random()*0.3})`;bctx.lineWidth=2+Math.random()*2;bctx.stroke();bctx.beginPath();bctx.arc(x,y,r*0.7,0,Math.PI*2);bctx.fillStyle=`rgba(30,30,30,${0.3+Math.random()*0.3})`;bctx.fill()}
   const bumpTex = new THREE.CanvasTexture(bumpCanvas)
 
-  const moonGeometry = new THREE.SphereGeometry(1.2, 128, 128)
+  const moonGeometry = new THREE.SphereGeometry(1.2, 96, 96)
   const moonMaterial = new THREE.MeshStandardMaterial({ map: colorTex, bumpMap: bumpTex, bumpScale: 0.04, roughness: 0.95, metalness: 0.0, color: 0xdddddd })
   const moonMesh = new THREE.Mesh(moonGeometry, moonMaterial)
   moonMesh.rotation.y = -Math.PI / 2
@@ -283,10 +283,10 @@ function createMoonScene(container) {
   scene.add(new THREE.AmbientLight(0x1a1a2e,0.15))
   const earthShine=new THREE.DirectionalLight(0x4466aa,0.08);earthShine.position.set(-5,-2,-3);scene.add(earthShine)
 
-  // Try loading NASA textures (cancellable via disposed flag)
-  const textureLoader=new THREE.TextureLoader();textureLoader.crossOrigin='anonymous'
-  textureLoader.load('https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_poles_1k.jpg',(tex)=>{if(disposed)return;tex.encoding=THREE.sRGBEncoding;tex.anisotropy=renderer.capabilities.getMaxAnisotropy();moonMaterial.map=tex;moonMaterial.needsUpdate=true},undefined,()=>{})
-  textureLoader.load('https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/ldem_3_8bit.jpg',(tex)=>{if(disposed)return;tex.anisotropy=renderer.capabilities.getMaxAnisotropy();moonMaterial.bumpMap=tex;moonMaterial.needsUpdate=true},undefined,()=>{})
+  // Load NASA textures from local files (fast, same-origin, cancellable via disposed flag)
+  const textureLoader=new THREE.TextureLoader()
+  textureLoader.load('/3d-textures/moon_color.jpg',(tex)=>{if(disposed)return;tex.encoding=THREE.sRGBEncoding;tex.anisotropy=renderer.capabilities.getMaxAnisotropy();moonMaterial.map=tex;moonMaterial.needsUpdate=true},undefined,()=>{})
+  textureLoader.load('/3d-textures/moon_bump.jpg',(tex)=>{if(disposed)return;tex.anisotropy=renderer.capabilities.getMaxAnisotropy();moonMaterial.bumpMap=tex;moonMaterial.needsUpdate=true},undefined,()=>{})
 
   const orbitControls = addOrbitControls(camera, renderer, { minDistance: 2, maxDistance: 15 })
 
@@ -306,7 +306,7 @@ function createMoonScene(container) {
   return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
-/* ── Earth Scene ── */
+/* ── Earth Scene (NASA textures loaded from local files for speed) ── */
 function createEarthScene(container) {
   const THREE = window.THREE
   const scene = new THREE.Scene()
@@ -317,214 +317,31 @@ function createEarthScene(container) {
   renderer.toneMappingExposure = 1.0
   let disposed = false
 
-  // ── Simplex-like noise for procedural textures ──
-  function hash(x, y) { const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return n - Math.floor(n) }
-  function smoothNoise(x, y) {
-    const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy
-    const ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy)
-    const a = hash(ix, iy), b = hash(ix+1, iy), c = hash(ix, iy+1), d = hash(ix+1, iy+1)
-    return a + (b-a)*ux + (c-a)*uy + (a-b-c+d)*ux*uy
-  }
-  function fbm(x, y, oct) { let v=0,a=1,f=1,m=0; for(let i=0;i<oct;i++){v+=smoothNoise(x*f,y*f)*a;m+=a;a*=0.5;f*=2} return v/m }
+  // ── Quick placeholder texture (simple blue/green, no heavy computation) ──
+  const placeholderCanvas = document.createElement('canvas')
+  placeholderCanvas.width = 256; placeholderCanvas.height = 128
+  const pctx = placeholderCanvas.getContext('2d')
+  // Ocean gradient
+  const oceanGrad = pctx.createLinearGradient(0, 0, 0, 128)
+  oceanGrad.addColorStop(0, '#b8d8f0'); oceanGrad.addColorStop(0.15, '#4488cc')
+  oceanGrad.addColorStop(0.5, '#1a5588'); oceanGrad.addColorStop(0.85, '#4488cc')
+  oceanGrad.addColorStop(1, '#b8d8f0')
+  pctx.fillStyle = oceanGrad; pctx.fillRect(0, 0, 256, 128)
+  // Rough land blobs
+  pctx.fillStyle = '#3a7a3a'
+  pctx.beginPath(); pctx.ellipse(60, 40, 25, 18, 0, 0, Math.PI*2); pctx.fill()
+  pctx.beginPath(); pctx.ellipse(55, 70, 15, 25, 0.2, 0, Math.PI*2); pctx.fill()
+  pctx.beginPath(); pctx.ellipse(130, 35, 20, 15, 0, 0, Math.PI*2); pctx.fill()
+  pctx.beginPath(); pctx.ellipse(155, 50, 35, 20, 0, 0, Math.PI*2); pctx.fill()
+  pctx.beginPath(); pctx.ellipse(200, 75, 15, 10, 0, 0, Math.PI*2); pctx.fill()
+  const placeholderTex = new THREE.CanvasTexture(placeholderCanvas)
+  placeholderTex.encoding = THREE.sRGBEncoding
 
-  // ── Procedural Earth Day Texture (reduced from 2048x1024 to 1024x512) ──
-  const W = 1024, H = 512
-  const eCanvas = document.createElement('canvas'); eCanvas.width = W; eCanvas.height = H
-  const ectx = eCanvas.getContext('2d')
-  const imgData = ectx.createImageData(W, H)
-  const d = imgData.data
-
-  // Realistic continent positions using latitude/longitude mapping (equirectangular)
-  // Each continent defined as polygon in lat/lon, then mapped to pixel coords
-  function latLonToPx(lat, lon) { return [((lon + 180) / 360) * W, ((90 - lat) / 180) * H] }
-
-  // Point-in-polygon test for continent masks
-  function pointInPoly(px, py, poly) {
-    let inside = false
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-      const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1]
-      if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) inside = !inside
-    }
-    return inside
-  }
-
-  // Simplified but recognizable continent outlines [lat, lon]
-  const continentPolys = {
-    northAmerica: [
-      [70,-168],[72,-140],[68,-100],[60,-80],[55,-60],[48,-55],[44,-65],[30,-82],[25,-80],
-      [25,-98],[20,-105],[15,-92],[15,-83],[10,-84],[8,-77],[8,-80],[18,-88],[20,-90],
-      [22,-98],[28,-97],[30,-85],[30,-82],[35,-75],[40,-70],[42,-70],[45,-67],[47,-60],
-      [48,-55],[50,-57],[52,-56],[55,-60],[57,-68],[60,-65],[60,-75],[63,-75],[65,-85],
-      [65,-100],[68,-110],[70,-130],[72,-155],[70,-168]
-    ].map(p => latLonToPx(p[0], p[1])),
-    southAmerica: [
-      [12,-72],[10,-75],[7,-77],[4,-77],[0,-80],[-5,-81],[-5,-78],[-2,-70],[0,-50],
-      [2,-50],[5,-54],[7,-55],[7,-60],[5,-62],[3,-60],[0,-65],[-2,-70],[-5,-75],
-      [-8,-77],[-10,-78],[-15,-76],[-18,-70],[-22,-65],[-25,-57],[-28,-49],[-30,-50],
-      [-33,-53],[-38,-58],[-42,-64],[-46,-67],[-50,-70],[-55,-68],[-55,-65],[-52,-70],
-      [-48,-75],[-42,-73],[-35,-57],[-30,-48],[-25,-46],[-22,-40],[-18,-39],[-15,-39],
-      [-10,-37],[-5,-35],[-2,-44],[0,-50],[2,-52],[4,-52],[8,-60],[10,-62],[12,-72]
-    ].map(p => latLonToPx(p[0], p[1])),
-    europe: [
-      [70,20],[72,30],[70,40],[65,42],[60,30],[58,28],[55,22],[54,14],[53,8],
-      [51,4],[49,2],[48,-5],[43,-9],[37,-10],[36,-6],[38,0],[40,3],[42,5],
-      [43,10],[40,15],[38,13],[37,15],[38,20],[40,22],[38,24],[36,22],[35,25],
-      [37,28],[40,26],[42,28],[44,30],[44,36],[46,30],[48,22],[50,14],[51,4],
-      [52,5],[54,8],[55,12],[55,20],[56,24],[58,24],[60,28],[62,30],[65,25],
-      [68,16],[70,20]
-    ].map(p => latLonToPx(p[0], p[1])),
-    africa: [
-      [37,-10],[37,0],[35,10],[33,12],[32,25],[30,32],[25,35],[22,37],[20,40],
-      [15,42],[12,44],[10,42],[5,40],[2,10],[0,42],[-5,40],[-10,40],[-15,40],
-      [-20,35],[-25,33],[-28,30],[-30,28],[-33,26],[-34,28],[-35,20],[-34,18],
-      [-30,17],[-25,15],[-20,12],[-15,12],[-10,14],[-5,10],[0,10],[2,10],
-      [5,2],[5,-5],[7,-15],[10,-16],[15,-17],[20,-17],[25,-15],[30,-10],[35,-5],[37,-10]
-    ].map(p => latLonToPx(p[0], p[1])),
-    asia: [
-      [70,40],[72,60],[70,80],[68,90],[70,100],[72,120],[68,140],[65,160],[60,165],
-      [55,155],[50,143],[45,142],[42,132],[38,128],[35,130],[33,126],[30,122],
-      [25,120],[22,114],[20,110],[18,106],[14,100],[10,98],[8,100],[5,103],
-      [1,104],[-5,106],[-8,110],[-7,115],[-2,110],[2,108],[5,103],[8,98],
-      [10,80],[15,75],[20,73],[25,68],[25,62],[28,57],[30,48],[32,36],
-      [35,36],[38,42],[40,44],[42,52],[40,50],[38,44],[35,36],[33,35],
-      [30,35],[25,37],[22,40],[20,45],[15,45],[12,45],[10,50],[15,55],
-      [20,58],[22,60],[25,62],[28,62],[30,52],[33,48],[35,45],[37,40],
-      [40,45],[45,50],[50,55],[55,60],[60,60],[65,55],[70,40]
-    ].map(p => latLonToPx(p[0], p[1])),
-    australia: [
-      [-12,130],[-12,137],[-14,142],[-18,146],[-22,150],[-28,153],[-33,152],
-      [-38,146],[-38,140],[-35,137],[-33,132],[-32,128],[-30,115],[-25,113],
-      [-22,114],[-18,122],[-15,125],[-12,130]
-    ].map(p => latLonToPx(p[0], p[1])),
-  }
-
-  // Generate pixel-by-pixel texture
-  for (let py = 0; py < H; py++) {
-    for (let px = 0; px < W; px++) {
-      const i = (py * W + px) * 4
-      const lat = 90 - (py / H) * 180
-      const lon = (px / W) * 360 - 180
-
-      // Check if point is on land
-      let isLand = false
-      for (const poly of Object.values(continentPolys)) {
-        if (pointInPoly(px, py, poly)) { isLand = true; break }
-      }
-
-      // Ice caps
-      const isIce = lat > 72 || lat < -70
-
-      // Noise for terrain detail (reduced octaves for performance)
-      const n1 = fbm(px * 0.008, py * 0.008, 4)
-      const n2 = fbm(px * 0.015 + 100, py * 0.015 + 100, 3)
-      const n3 = fbm(px * 0.003, py * 0.003, 3)
-
-      let r, g, b
-      if (isIce) {
-        // Ice/snow with subtle blue tint
-        const v = 220 + Math.floor(n1 * 30)
-        r = v; g = v + 5; b = v + 15
-      } else if (isLand) {
-        // Land: vary by latitude and noise
-        const absLat = Math.abs(lat)
-        if (absLat > 55) {
-          // Tundra/taiga
-          r = 80 + Math.floor(n1 * 30); g = 90 + Math.floor(n2 * 30); b = 60 + Math.floor(n1 * 15)
-        } else if (absLat > 35) {
-          // Temperate (green forests)
-          r = 40 + Math.floor(n1 * 35); g = 85 + Math.floor(n2 * 40); b = 30 + Math.floor(n1 * 20)
-        } else if (absLat > 20) {
-          // Subtropical
-          r = 70 + Math.floor(n1 * 40); g = 100 + Math.floor(n2 * 35); b = 35 + Math.floor(n1 * 15)
-        } else {
-          // Tropical / desert
-          if (n3 > 0.55) {
-            // Desert (Sahara, Arabian, etc.)
-            r = 180 + Math.floor(n1 * 40); g = 155 + Math.floor(n2 * 35); b = 95 + Math.floor(n1 * 20)
-          } else {
-            // Tropical forest
-            r = 25 + Math.floor(n1 * 25); g = 95 + Math.floor(n2 * 40); b = 20 + Math.floor(n1 * 15)
-          }
-        }
-        // Mountain overlay (highlands)
-        if (n1 > 0.65) {
-          const mt = (n1 - 0.65) * 4
-          r = Math.floor(r + (140 - r) * mt); g = Math.floor(g + (120 - g) * mt); b = Math.floor(b + (100 - b) * mt)
-        }
-      } else {
-        // Ocean with depth variation
-        const depth = n1 * 0.4 + n2 * 0.3
-        const shallow = Math.max(0, 1 - depth * 3) // Shallow near coasts
-        r = Math.floor(8 + depth * 15 + shallow * 25)
-        g = Math.floor(30 + depth * 35 + shallow * 50)
-        b = Math.floor(80 + depth * 50 + shallow * 40)
-        // Sun glint region (specular hint baked in)
-        const glintLon = -30, glintLat = 5
-        const dLon = lon - glintLon, dLat = lat - glintLat
-        const glintDist = Math.sqrt(dLon*dLon + dLat*dLat)
-        if (glintDist < 20) {
-          const glint = Math.max(0, 1 - glintDist / 20) * 0.15
-          r = Math.floor(r + (255-r)*glint); g = Math.floor(g + (255-g)*glint); b = Math.floor(b + (255-b)*glint)
-        }
-      }
-
-      d[i] = Math.max(0, Math.min(255, r))
-      d[i+1] = Math.max(0, Math.min(255, g))
-      d[i+2] = Math.max(0, Math.min(255, b))
-      d[i+3] = 255
-    }
-  }
-  ectx.putImageData(imgData, 0, 0)
-  const earthTex = new THREE.CanvasTexture(eCanvas)
-  earthTex.encoding = THREE.sRGBEncoding
-  earthTex.anisotropy = renderer.capabilities.getMaxAnisotropy()
-
-  // ── Specular map (reduced to 256x128 for performance) ──
-  const specCanvas = document.createElement('canvas'); specCanvas.width = 256; specCanvas.height = 128
-  const sctx = specCanvas.getContext('2d')
-  const specData = sctx.createImageData(256, 128)
-  for (let py = 0; py < 128; py++) {
-    for (let px = 0; px < 256; px++) {
-      const i = (py * 256 + px) * 4
-      const sx = px * 4, sy = py * 4 // Map to the main texture space
-      let isLand = false
-      for (const poly of Object.values(continentPolys)) {
-        if (pointInPoly(sx, sy, poly)) { isLand = true; break }
-      }
-      const val = isLand ? 20 : 200
-      specData.data[i] = val; specData.data[i+1] = val; specData.data[i+2] = val; specData.data[i+3] = 255
-    }
-  }
-  sctx.putImageData(specData, 0, 0)
-  const specTex = new THREE.CanvasTexture(specCanvas)
-
-  // ── Bump/Elevation map (reduced to 256x128, 3 octaves) ──
-  const bumpCanvas = document.createElement('canvas'); bumpCanvas.width = 256; bumpCanvas.height = 128
-  const bctx = bumpCanvas.getContext('2d')
-  const bumpData = bctx.createImageData(256, 128)
-  for (let py = 0; py < 128; py++) {
-    for (let px = 0; px < 256; px++) {
-      const i = (py * 256 + px) * 4
-      const sx = px * 4, sy = py * 4
-      let isLand = false
-      for (const poly of Object.values(continentPolys)) {
-        if (pointInPoly(sx, sy, poly)) { isLand = true; break }
-      }
-      const n = fbm(sx * 0.008, sy * 0.008, 3)
-      const val = isLand ? Math.floor(128 + (n - 0.5) * 120) : 128
-      bumpData.data[i] = val; bumpData.data[i+1] = val; bumpData.data[i+2] = val; bumpData.data[i+3] = 255
-    }
-  }
-  bctx.putImageData(bumpData, 0, 0)
-  const earthBump = new THREE.CanvasTexture(bumpCanvas)
-
-  // ── Earth sphere with specular highlights ──
-  const earthGeo = new THREE.SphereGeometry(1.2, 128, 128)
+  // ── Earth sphere ──
+  const earthGeo = new THREE.SphereGeometry(1.2, 96, 96)
   const earthMat = new THREE.MeshPhongMaterial({
-    map: earthTex,
-    bumpMap: earthBump,
-    bumpScale: 0.035,
-    specularMap: specTex,
+    map: placeholderTex,
+    bumpScale: 0.04,
     specular: new THREE.Color(0x333333),
     shininess: 25,
   })
@@ -585,27 +402,22 @@ function createEarthScene(container) {
   })
   scene.add(new THREE.Mesh(outerGeo, outerMat))
 
-  // ── Cloud layer (reduced from 2048x1024 to 1024x512, 4 octaves) ──
-  const cW = 1024, cH = 512
-  const cloudCanvas = document.createElement('canvas'); cloudCanvas.width = cW; cloudCanvas.height = cH
-  const cctx = cloudCanvas.getContext('2d')
-  const cloudData = cctx.createImageData(cW, cH)
-  for (let py = 0; py < cH; py++) {
-    for (let px = 0; px < cW; px++) {
-      const i = (py * cW + px) * 4
-      const n = fbm(px * 0.006 + 50, py * 0.006 + 50, 4)
-      const cloudVal = Math.max(0, (n - 0.45) * 3.5)
-      const alpha = Math.min(255, Math.floor(cloudVal * 200))
-      cloudData.data[i] = 255; cloudData.data[i+1] = 255; cloudData.data[i+2] = 255
-      cloudData.data[i+3] = alpha
-    }
+  // ── Cloud layer (simple placeholder, will be replaced by NASA texture) ──
+  const cloudPlaceholderCanvas = document.createElement('canvas')
+  cloudPlaceholderCanvas.width = 128; cloudPlaceholderCanvas.height = 64
+  const ccctx = cloudPlaceholderCanvas.getContext('2d')
+  ccctx.clearRect(0, 0, 128, 64)
+  // A few white blobs for quick placeholder clouds
+  for (let i = 0; i < 30; i++) {
+    const x = Math.random() * 128, y = Math.random() * 64, r = Math.random() * 12 + 4
+    ccctx.beginPath(); ccctx.arc(x, y, r, 0, Math.PI*2)
+    ccctx.fillStyle = `rgba(255,255,255,${0.1 + Math.random() * 0.15})`; ccctx.fill()
   }
-  cctx.putImageData(cloudData, 0, 0)
-  const cloudTex = new THREE.CanvasTexture(cloudCanvas)
-  cloudTex.encoding = THREE.sRGBEncoding
+  const cloudPlaceholderTex = new THREE.CanvasTexture(cloudPlaceholderCanvas)
+  cloudPlaceholderTex.encoding = THREE.sRGBEncoding
   const cloudGeo = new THREE.SphereGeometry(1.235, 64, 64)
   const cloudMat = new THREE.MeshPhongMaterial({
-    map: cloudTex,
+    map: cloudPlaceholderTex,
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
@@ -613,65 +425,40 @@ function createEarthScene(container) {
   const cloudMesh = new THREE.Mesh(cloudGeo, cloudMat)
   scene.add(cloudMesh)
 
-  // ── Night Lights (reduced from 2048x1024 to 1024x512) ──
-  const lCanvas = document.createElement('canvas'); lCanvas.width = 1024; lCanvas.height = 512
-  const lctx = lCanvas.getContext('2d')
-  lctx.clearRect(0, 0, 1024, 512)
-  // Real city positions (approximate lat/lon)
-  const cities = [
-    // North America
-    {lat:40.7,lon:-74,s:18},{lat:34,lon:-118,s:16},{lat:41.9,lon:-87.6,s:12},{lat:29.8,lon:-95.4,s:14},
-    {lat:43.7,lon:-79.4,s:10},{lat:19.4,lon:-99.1,s:14},{lat:38.9,lon:-77,s:8},{lat:33.4,lon:-112,s:6},
-    {lat:32.7,lon:-117,s:7},{lat:42.4,lon:-71,s:7},{lat:45.5,lon:-73.6,s:8},{lat:51,lon:-114,s:5},
-    // Europe
-    {lat:51.5,lon:-0.1,s:16},{lat:48.9,lon:2.3,s:14},{lat:52.5,lon:13.4,s:10},{lat:41.9,lon:12.5,s:10},
-    {lat:40.4,lon:-3.7,s:12},{lat:55.8,lon:37.6,s:14},{lat:59.9,lon:30.3,s:10},{lat:50.1,lon:14.4,s:7},
-    {lat:48.2,lon:16.4,s:7},{lat:47.4,lon:8.5,s:7},{lat:52.2,lon:21,s:7},{lat:44.4,lon:26.1,s:7},
-    // Asia
-    {lat:35.7,lon:139.7,s:20},{lat:31.2,lon:121.5,s:18},{lat:39.9,lon:116.4,s:18},{lat:22.3,lon:114.2,s:14},
-    {lat:37.6,lon:127,s:12},{lat:1.3,lon:103.8,s:10},{lat:13.8,lon:100.5,s:10},{lat:25,lon:55.3,s:10},
-    {lat:28.6,lon:77.2,s:14},{lat:19,lon:72.8,s:14},{lat:30,lon:31.2,s:10},{lat:23.8,lon:90.4,s:8},
-    // South America
-    {lat:-23.5,lon:-46.6,s:14},{lat:-34.6,lon:-58.4,s:12},{lat:-33.4,lon:-70.7,s:8},{lat:-12,lon:-77,s:8},
-    {lat:4.7,lon:-74.1,s:8},{lat:10.5,lon:-66.9,s:7},
-    // Africa
-    {lat:6.5,lon:3.4,s:8},{lat:30,lon:31.2,s:8},{lat:-33.9,lon:18.4,s:6},{lat:-1.3,lon:36.8,s:6},
-    {lat:33.6,lon:-7.6,s:6},{lat:9,lon:7.5,s:6},{lat:14.7,lon:-17.5,s:5},
-    // Australia
-    {lat:-33.9,lon:151.2,s:10},{lat:-37.8,lon:145,s:8},{lat:-27.5,lon:153,s:6},
+  // ── Night Lights (simple placeholder) ──
+  const lightsPlaceholderCanvas = document.createElement('canvas')
+  lightsPlaceholderCanvas.width = 256; lightsPlaceholderCanvas.height = 128
+  const lctx = lightsPlaceholderCanvas.getContext('2d')
+  lctx.clearRect(0, 0, 256, 128)
+  // Quick city dots
+  const cityCoords = [
+    {x:68,y:44,s:4},{x:90,y:48,s:3},{x:128,y:38,s:5},{x:135,y:42,s:4},
+    {x:140,y:45,s:3},{x:148,y:40,s:3},{x:155,y:42,s:4},{x:160,y:44,s:5},
+    {x:165,y:46,s:3},{x:170,y:48,s:4},{x:50,y:36,s:3},{x:55,y:40,s:3},
   ]
-  cities.forEach(c => {
-    const cx = ((c.lon + 180) / 360) * 1024
-    const cy = ((90 - c.lat) / 180) * 512
-    const spread = c.s * 3
-    for (let i = 0; i < c.s * 20; i++) {
-      const x = cx + (Math.random()-0.5) * spread
-      const y = cy + (Math.random()-0.5) * spread * 0.5
-      const r = Math.random() * 1.2 + 0.3
-      lctx.beginPath(); lctx.arc(x, y, r, 0, Math.PI*2)
-      const warmth = Math.random()
-      if (warmth > 0.7) {
-        lctx.fillStyle = `rgba(255,${180+Math.floor(Math.random()*60)},${30+Math.floor(Math.random()*40)},${0.5+Math.random()*0.5})`
-      } else {
-        lctx.fillStyle = `rgba(255,${200+Math.floor(Math.random()*55)},${150+Math.floor(Math.random()*60)},${0.4+Math.random()*0.4})`
-      }
+  cityCoords.forEach(c => {
+    for (let i = 0; i < c.s * 15; i++) {
+      const x = c.x + (Math.random()-0.5) * c.s * 4
+      const y = c.y + (Math.random()-0.5) * c.s * 2
+      lctx.beginPath(); lctx.arc(x, y, Math.random() * 0.8 + 0.2, 0, Math.PI*2)
+      lctx.fillStyle = `rgba(255,${200+Math.floor(Math.random()*55)},${100+Math.floor(Math.random()*80)},${0.4+Math.random()*0.5})`
       lctx.fill()
     }
   })
-  const lightsTex = new THREE.CanvasTexture(lCanvas); lightsTex.encoding = THREE.sRGBEncoding
+  const lightsPlaceholderTex = new THREE.CanvasTexture(lightsPlaceholderCanvas)
+  lightsPlaceholderTex.encoding = THREE.sRGBEncoding
   const lightsGeo = new THREE.SphereGeometry(1.205, 64, 64)
   const lightsMat = new THREE.MeshBasicMaterial({
-    map: lightsTex, transparent: true, opacity: 0.85,
+    map: lightsPlaceholderTex, transparent: true, opacity: 0.85,
     blending: THREE.AdditiveBlending, depthWrite: false,
   })
   const lightsMesh = new THREE.Mesh(lightsGeo, lightsMat)
   scene.add(lightsMesh)
 
-  // ── Starfield with color variation (reduced from 8000 to 4000) ──
-  const starCount = 4000
+  // ── Starfield (reduced for performance) ──
+  const starCount = 2500
   const starPos = new Float32Array(starCount*3)
   const starCols = new Float32Array(starCount*3)
-  const starSizes = new Float32Array(starCount)
   for(let i=0;i<starCount;i++){
     const i3=i*3, r=60+Math.random()*400, theta=Math.random()*Math.PI*2, phi=Math.acos(2*Math.random()-1)
     starPos[i3]=r*Math.sin(phi)*Math.cos(theta); starPos[i3+1]=r*Math.sin(phi)*Math.sin(theta); starPos[i3+2]=r*Math.cos(phi)
@@ -679,12 +466,10 @@ function createEarthScene(container) {
     if(t>0.95){starCols[i3]=0.7;starCols[i3+1]=0.8;starCols[i3+2]=1.0}
     else if(t>0.88){starCols[i3]=1.0;starCols[i3+1]=0.9;starCols[i3+2]=0.7}
     else{starCols[i3]=1.0;starCols[i3+1]=1.0;starCols[i3+2]=1.0}
-    starSizes[i] = 0.3 + Math.random() * 0.8
   }
   const starGeo=new THREE.BufferGeometry()
   starGeo.setAttribute('position',new THREE.BufferAttribute(starPos,3))
   starGeo.setAttribute('color',new THREE.BufferAttribute(starCols,3))
-  starGeo.setAttribute('size',new THREE.BufferAttribute(starSizes,1))
   scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({size:0.5,sizeAttenuation:true,vertexColors:true,transparent:true,opacity:0.8,depthWrite:false})))
 
   // ── Lighting ──
@@ -692,17 +477,15 @@ function createEarthScene(container) {
   sunLight.position.set(5, 2, 5)
   scene.add(sunLight)
   scene.add(new THREE.AmbientLight(0x0a0a1e, 0.25))
-  // Subtle earthshine from opposite side
   const earthshine = new THREE.DirectionalLight(0x3355aa, 0.06)
   earthshine.position.set(-5, -1, -5)
   scene.add(earthshine)
 
-  // ── Try loading NASA Blue Marble textures (override procedural, cancellable) ──
+  // ── Load high-quality NASA textures from local files (fast, same-origin) ──
   const textureLoader = new THREE.TextureLoader()
-  textureLoader.crossOrigin = 'anonymous'
   // NASA Blue Marble - day texture
   textureLoader.load(
-    'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57735/land_ocean_ice_cloud_2048.jpg',
+    '/3d-textures/earth_day.jpg',
     (tex) => {
       if (disposed) return
       tex.encoding = THREE.sRGBEncoding
@@ -711,9 +494,9 @@ function createEarthScene(container) {
       earthMat.needsUpdate = true
     }, undefined, () => {}
   )
-  // NASA topography/bump
+  // Bump/elevation map
   textureLoader.load(
-    'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57735/earth_topo_2048.jpg',
+    '/3d-textures/earth_bump.png',
     (tex) => {
       if (disposed) return
       tex.anisotropy = renderer.capabilities.getMaxAnisotropy()
@@ -722,9 +505,18 @@ function createEarthScene(container) {
       earthMat.needsUpdate = true
     }, undefined, () => {}
   )
+  // Specular/water mask
+  textureLoader.load(
+    '/3d-textures/earth_specular.png',
+    (tex) => {
+      if (disposed) return
+      earthMat.specularMap = tex
+      earthMat.needsUpdate = true
+    }, undefined, () => {}
+  )
   // NASA city lights (night)
   textureLoader.load(
-    'https://eoimages.gsfc.nasa.gov/images/imagerecords/55000/55167/earth_lights_lrg.jpg',
+    '/3d-textures/earth_night.jpg',
     (tex) => {
       if (disposed) return
       tex.encoding = THREE.sRGBEncoding
@@ -733,9 +525,9 @@ function createEarthScene(container) {
       lightsMat.needsUpdate = true
     }, undefined, () => {}
   )
-  // NASA cloud layer
+  // Cloud layer
   textureLoader.load(
-    'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57735/earth_clouds_2048.png',
+    '/3d-textures/earth_clouds.png',
     (tex) => {
       if (disposed) return
       tex.encoding = THREE.sRGBEncoding
@@ -913,8 +705,8 @@ function createDeepSpaceScene(container) {
   renderer.toneMappingExposure = 1.4
   let disposed = false
 
-  const textureLoader = new THREE.TextureLoader(); textureLoader.crossOrigin = 'anonymous'
-  const NEBULA_URLS = ['https://cdn.esahubble.org/archives/images/screen/heic1509a.jpg','https://cdn.esahubble.org/archives/images/screen/heic0910h.jpg','https://cdn.esahubble.org/archives/images/screen/heic0109a.jpg']
+  const textureLoader = new THREE.TextureLoader()
+  const NEBULA_URLS = ['/3d-textures/nebula1.jpg','/3d-textures/nebula2.jpg','/3d-textures/nebula3.jpg']
   const nebulaPlanes = []
   function createNebulaPlane(url, z, scale, opacity, rotation) {
     const geo = new THREE.PlaneGeometry(scale, scale, 1, 1)
@@ -1536,9 +1328,15 @@ function createHouseScene(container) {
   scene.fog = new THREE.FogExp2(0x1a2a3a, 0.015)
   const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 200)
   camera.position.set(14, 10, 18)
-  const renderer = createRenderer(container)
+  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', logarithmicDepthBuffer: true })
+  renderer.setSize(container.clientWidth, container.clientHeight)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  renderer.toneMapping = THREE.ACESFilmicToneMapping
+  renderer.toneMappingExposure = 1.2
+  renderer.outputEncoding = THREE.sRGBEncoding
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
+  container.appendChild(renderer.domElement)
 
   // ── Materials ──
   const wallExt = new THREE.MeshStandardMaterial({ color: 0xf5f0e8, roughness: 0.85, metalness: 0.0 })
@@ -1546,7 +1344,8 @@ function createHouseScene(container) {
   const floorWood = new THREE.MeshStandardMaterial({ color: 0x8B6D3F, roughness: 0.6, metalness: 0.05 })
   const floorTile = new THREE.MeshStandardMaterial({ color: 0xd0ccc4, roughness: 0.4, metalness: 0.1 })
   const roofMat = new THREE.MeshStandardMaterial({ color: 0x3a3a40, roughness: 0.7, metalness: 0.3 })
-  const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x88ccff, roughness: 0.05, metalness: 0.1, transmission: 0.8, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
+  // Glass: use simple transparent material (MeshPhysicalMaterial with transmission causes flickering)
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0x88ccff, roughness: 0.1, metalness: 0.2, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false })
   const woodDark = new THREE.MeshStandardMaterial({ color: 0x4a3520, roughness: 0.7, metalness: 0.05 })
   const woodLight = new THREE.MeshStandardMaterial({ color: 0xa08050, roughness: 0.6, metalness: 0.05 })
   const fabricRed = new THREE.MeshStandardMaterial({ color: 0xaa3322, roughness: 0.9, metalness: 0.0 })
@@ -1594,23 +1393,23 @@ function createHouseScene(container) {
   addWall(-4.5, wallH/2+0.8, houseD/2, 3, wallH*0.5, 0.25, wallExt) // above left window
   addWall(4.5, wallH/2+0.8, houseD/2, 3, wallH*0.5, 0.25, wallExt) // above right window
 
-  // Front windows
-  addWall(-4.5, 1.2, houseD/2, 2.4, 1.6, 0.05, glassMat) // left window
-  addWall(4.5, 1.2, houseD/2, 2.4, 1.6, 0.05, glassMat)  // right window
+  // Front windows (glass offset slightly to avoid z-fighting with wall)
+  addWall(-4.5, 1.2, houseD/2 + 0.14, 2.4, 1.6, 0.05, glassMat) // left window
+  addWall(4.5, 1.2, houseD/2 + 0.14, 2.4, 1.6, 0.05, glassMat)  // right window
 
   // Back wall (z = -5)
   addWall(0, wallH/2, -houseD/2, houseW, wallH, 0.25, wallExt)
   // Back windows
-  addWall(-3, 1.5, -houseD/2+0.15, 2, 1.4, 0.05, glassMat)
-  addWall(3, 1.5, -houseD/2+0.15, 2, 1.4, 0.05, glassMat)
+  addWall(-3, 1.5, -houseD/2 - 0.14, 2, 1.4, 0.05, glassMat)
+  addWall(3, 1.5, -houseD/2 - 0.14, 2, 1.4, 0.05, glassMat)
 
   // Left wall (x = -6)
   addWall(-houseW/2, wallH/2, 0, 0.25, wallH, houseD, wallExt)
-  addWall(-houseW/2+0.15, 1.5, 2, 0.05, 1.4, 1.5, glassMat) // left window
+  addWall(-houseW/2 - 0.14, 1.5, 2, 0.05, 1.4, 1.5, glassMat) // left window
 
   // Right wall (x = +6)
   addWall(houseW/2, wallH/2, 0, 0.25, wallH, houseD, wallExt)
-  addWall(houseW/2-0.15, 1.5, -2, 0.05, 1.4, 1.5, glassMat) // right window
+  addWall(houseW/2 + 0.14, 1.5, -2, 0.05, 1.4, 1.5, glassMat) // right window
 
   // Interior dividing wall (living room vs bedroom)
   addWall(0, wallH/2, 0, 0.15, wallH, 5.5, wallInt) // partial wall, with opening
@@ -1677,7 +1476,7 @@ function createHouseScene(container) {
 
   // Rug
   const rug = new THREE.Mesh(new THREE.PlaneGeometry(3, 2.5), new THREE.MeshStandardMaterial({ color: 0x885533, roughness: 0.95 }))
-  rug.rotation.x = -Math.PI/2; rug.position.set(3.5, 0.16, 2.5); scene.add(rug)
+  rug.rotation.x = -Math.PI/2; rug.position.set(3.5, 0.16 + 0.005, 2.5); scene.add(rug)
 
   // ── DINING AREA (front left, x<0, z>0) ──
   // Dining table
@@ -1704,7 +1503,7 @@ function createHouseScene(container) {
   // ── KITCHEN (back left, x<-3, z<0) ──
   // Kitchen floor (tile)
   const kitchenFloor = new THREE.Mesh(new THREE.PlaneGeometry(5.7, 4.7), floorTile)
-  kitchenFloor.rotation.x = -Math.PI/2; kitchenFloor.position.set(-3, 0.16, -2.6); scene.add(kitchenFloor)
+  kitchenFloor.rotation.x = -Math.PI/2; kitchenFloor.position.set(-3, 0.16 + 0.005, -2.6); scene.add(kitchenFloor)
 
   // Counter along left wall
   const counter = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.9, 4), counterMat)
@@ -1768,7 +1567,7 @@ function createHouseScene(container) {
 
   // ── BATHROOM (back left corner, x<-3, z<-3) ──
   const bathFloor = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 2.8), new THREE.MeshStandardMaterial({ color: 0xc8c0b8, roughness: 0.3, metalness: 0.1 }))
-  bathFloor.rotation.x = -Math.PI/2; bathFloor.position.set(-4.6, 0.16, -4.6); scene.add(bathFloor)
+  bathFloor.rotation.x = -Math.PI/2; bathFloor.position.set(-4.6, 0.16 + 0.01, -4.6); scene.add(bathFloor)
 
   // Bathtub
   const tub = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.5, 0.7), new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.2, metalness: 0.1 }))
@@ -1811,10 +1610,11 @@ function createHouseScene(container) {
   // Sun
   const sunLight = new THREE.DirectionalLight(0xfff5dd, 1.8)
   sunLight.position.set(8, 15, 10); sunLight.castShadow = true
-  sunLight.shadow.mapSize.width = 2048; sunLight.shadow.mapSize.height = 2048
+  sunLight.shadow.mapSize.width = 1024; sunLight.shadow.mapSize.height = 1024
   sunLight.shadow.camera.left = -15; sunLight.shadow.camera.right = 15
   sunLight.shadow.camera.top = 15; sunLight.shadow.camera.bottom = -15
-  sunLight.shadow.bias = -0.001
+  sunLight.shadow.bias = -0.002
+  sunLight.shadow.normalBias = 0.02
   scene.add(sunLight)
 
   scene.add(new THREE.AmbientLight(0x334466, 0.4))

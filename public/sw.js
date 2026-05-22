@@ -2,10 +2,16 @@
 const CACHE_NAME = 'kivora-v1'
 const STATIC_ASSETS = [
   '/',
+  '/home',
   '/chat',
   '/devtools',
   '/study',
   '/opportunities',
+  '/explore',
+  '/tools',
+  '/3d',
+  '/dashboard',
+  '/blog',
   '/favicon.svg',
   '/offline.html',
 ]

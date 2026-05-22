@@ -2,9 +2,10 @@ export default function sitemap() {
   const BASE = 'https://kivora.pages.dev'
 
   const staticRoutes = [
-    '', '/about', '/blog', '/chat', '/contact',
-    '/devtools', '/opportunities', '/privacy',
-    '/study', '/terms', '/welcome',
+    '', '/about', '/blog', '/chat', '/community', '/contact',
+    '/dashboard', '/devtools', '/explore', '/home', '/opportunities',
+    '/privacy', '/profile', '/reelpen', '/study', '/terms', '/tools',
+    '/3d', '/welcome',
   ]
 
   return staticRoutes.map(route => ({
