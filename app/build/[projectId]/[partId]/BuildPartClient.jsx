@@ -1,440 +1,607 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useRef, useEffect } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { getProject, getProjectParts, DOOR_TEMPLATES } from '@/components/build/demoData'
-import { IconArrowLeft, IconCode, IconRobot, IconStack, IconSpinner, IconCheck, IconPlay } from '@/components/Icons'
+import { IconBuild, IconCode, IconBulb, IconPlay, IconCheck, IconArrowLeft, IconEye, IconFolder, IconStar, IconSend, IconCopy } from '@/components/Icons'
 
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    if (typeof window === 'undefined') { reject('No window'); return }
-    const existing = document.querySelector(`script[src="${src}"]`)
-    if (existing) { resolve(); return }
-    const s = document.createElement('script')
-    s.src = src
-    s.onload = resolve
-    s.onerror = reject
-    document.head.appendChild(s)
-  })
+// ── Mode tabs ──
+const MODES = [
+  { id: 'code', label: 'Code', icon: IconCode, description: 'Write Three.js code directly' },
+  { id: 'ai', label: 'AI Assist', icon: IconBulb, description: 'Describe what you want, AI builds it' },
+  { id: 'template', label: 'Template', icon: IconFolder, description: 'Start from a pre-built template' },
+]
+
+// ── Project data (shared structure) ──
+const PROJECTS = {
+  'lunar-base': { name: 'Lunar Base Alpha', scene: 'moon', accent: '#94a3b8' },
+  'earth-observatory': { name: 'Earth Observatory', scene: 'earth', accent: '#3b82f6' },
+  'solar-cruiser': { name: 'Solar Cruiser', scene: 'solar', accent: '#f59e0b' },
+  'nebula-lab': { name: 'Nebula Lab', scene: 'deepspace', accent: '#a855f7' },
+  'global-network': { name: 'Global Network Hub', scene: 'globe', accent: '#10b981' },
+  'ocean-rig': { name: 'Deep Ocean Rig', scene: 'ocean', accent: '#0ea5e9' },
+  'mountain-outpost': { name: 'Mountain Outpost', scene: 'terrain', accent: '#22c55e' },
+  'smart-home': { name: 'Smart Home', scene: 'house', accent: '#ef4444' },
+  'art-museum': { name: 'Art Museum', scene: 'museum', accent: '#a8a29e' },
+  'cube-solver': { name: 'Cube Solver Bot', scene: 'cube', accent: '#f43f5e' },
 }
 
-let threeLoaded = false
-async function ensureThreeJS() {
-  if (threeLoaded && window.THREE) return
-  await loadScript('/3d-lib/three.min.js')
-  await loadScript('/3d-lib/OrbitControls.js')
-  threeLoaded = true
+// ── Part data ──
+const PARTS = {
+  'habitat': { name: 'Habitat Module', description: 'Pressurized living quarters with life support systems' },
+  'solar-arrays': { name: 'Solar Arrays', description: 'Photovoltaic panels for power generation' },
+  'rover-bay': { name: 'Rover Docking Bay', description: 'Garage and charging station for lunar rovers' },
+  'comm-tower': { name: 'Communications Tower', description: 'High-gain antenna array for Earth communication' },
+  'airlock': { name: 'Airlock Chamber', description: 'Dual-chamber airlock for EVA operations' },
+  'telescope': { name: 'Main Telescope', description: 'High-resolution optical telescope' },
+  'comms-array': { name: 'Communications Array', description: 'Satellite relay system' },
+  'research-lab': { name: 'Research Laboratory', description: 'Zero-gravity research facility' },
+  'solar-panels': { name: 'Solar Panel Wings', description: 'Deployable solar arrays for power' },
+  'docking-port': { name: 'Docking Port', description: 'Universal docking mechanism' },
+  'crew-quarters': { name: 'Crew Quarters', description: 'Living space for crew members' },
+  'ion-drive': { name: 'Ion Drive Engine', description: 'High-efficiency ion propulsion system' },
+  'crew-module': { name: 'Crew Module', description: 'Rotating habitat ring' },
+  'nav-computer': { name: 'Navigation Computer', description: 'AI-powered navigation system' },
+  'shield-gen': { name: 'Shield Generator', description: 'Electromagnetic radiation shielding' },
+  'cargo-bay': { name: 'Cargo Bay', description: 'Modular cargo storage system' },
+  'science-deck': { name: 'Science Deck', description: 'Onboard laboratory and analysis suite' },
+  'bridge': { name: 'Command Bridge', description: 'Central command and control center' },
+  'life-support': { name: 'Life Support System', description: 'Atmospheric processing and recycling' },
+  'sensor-array': { name: 'Sensor Array', description: 'Multi-spectrum sensor suite' },
+  'dark-matter': { name: 'Dark Matter Detector', description: 'Experimental detection chamber' },
+  'plasma-shield': { name: 'Plasma Shield', description: 'Protective barrier against radiation' },
+  'quantum-lab': { name: 'Quantum Lab', description: 'Quantum computing research facility' },
+  'warp-beacon': { name: 'Warp Beacon', description: 'Faster-than-light communication relay' },
+  'hab-dome': { name: 'Habitat Dome', description: 'Self-sustaining biosphere' },
+  'mining-drone': { name: 'Mining Drone Bay', description: 'Automated resource extraction drones' },
+  'fiber-core': { name: 'Fiber Core', description: 'Transcontinental fiber optic backbone' },
+  'sat-link': { name: 'Satellite Link', description: 'Low-orbit satellite uplink system' },
+  'server-farm': { name: 'Server Cluster', description: 'Distributed computing cluster' },
+  'noc': { name: 'Network Operations Center', description: '24/7 monitoring hub' },
+  'cdn-node': { name: 'CDN Edge Node', description: 'Content delivery edge server' },
+  'security-hub': { name: 'Security Hub', description: 'AI-powered threat detection' },
+  'pressure-hull': { name: 'Pressure Hull', description: 'Reinforced titanium hull' },
+  'sonar-array': { name: 'Sonar Array', description: 'Multi-beam sonar mapping system' },
+  'sub-bay': { name: 'Submersible Bay', description: 'Deployable submarine facility' },
+  'bio-lab': { name: 'Marine Biology Lab', description: 'Pressurized specimen lab' },
+  'quarters': { name: 'Living Quarters', description: 'Underwater habitat for researchers' },
+  'weather-station': { name: 'Weather Station', description: 'Meteorological sensors and forecasting' },
+  'wind-turbines': { name: 'Wind Turbines', description: 'High-altitude wind energy generators' },
+  'observatory': { name: 'Observatory Dome', description: 'Telescope housing with adaptive optics' },
+  'comms-relay': { name: 'Communications Relay', description: 'Mountain-top radio relay station' },
+  'living-room': { name: 'Living Room', description: 'Smart lighting, climate, and entertainment' },
+  'kitchen': { name: 'Smart Kitchen', description: 'Automated appliances and inventory tracking' },
+  'bedroom': { name: 'Master Bedroom', description: 'Sleep optimization and ambient controls' },
+  'security': { name: 'Security System', description: 'AI-powered surveillance and access control' },
+  'garage': { name: 'Smart Garage', description: 'EV charging and vehicle management' },
+  'main-hall': { name: 'Grand Hall', description: 'Columned entrance hall with marble floors' },
+  'gallery-wing-a': { name: 'Gallery Wing A', description: 'Natural lit gallery for paintings' },
+  'sculpture-hall': { name: 'Sculpture Hall', description: 'Climate-controlled hall for 3D artworks' },
+  'interactive-wing': { name: 'Interactive Wing', description: 'Digital and immersive art experiences' },
+  'conservation-lab': { name: 'Conservation Lab', description: 'Restoration and preservation facility' },
+  'cafe': { name: 'Museum Cafe', description: 'Visitor amenities and gift shop' },
+  'vision-system': { name: 'Vision System', description: 'Camera-based cube state detection' },
+  'solver-algo': { name: 'Solver Algorithm', description: 'Kociemba two-phase solving algorithm' },
+  'robot-arm': { name: 'Robotic Arm', description: '6-axis manipulator for physical cube rotation' },
+  'ui-dashboard': { name: 'UI Dashboard', description: 'Real-time visualization and control panel' },
 }
 
-const DEFAULT_CODE = `// Three.js Part Code Template
-// Available: scene, THREE (global)
+// ── Templates per mode ──
+const TEMPLATES = {
+  code: {
+    default: `// Three.js Module — write your 3D code here
+// Available: THREE, scene, camera, renderer
 
-const geometry = new THREE.BoxGeometry(0.8, 1.9, 0.1);
+// Example: Create a simple mesh
+const geometry = new THREE.BoxGeometry(1, 1, 1);
 const material = new THREE.MeshStandardMaterial({
-  color: 0x8B4513,
-  roughness: 0.7,
-  metalness: 0.1,
+  color: 0x4488ff,
+  roughness: 0.4,
+  metalness: 0.6,
 });
 const mesh = new THREE.Mesh(geometry, material);
-mesh.position.set(0, 0.95, 0);
+mesh.position.y = 0.5;
 scene.add(mesh);
 
-// Add a door knob
-const knobGeo = new THREE.SphereGeometry(0.03, 16, 16);
-const knobMat = new THREE.MeshStandardMaterial({
-  color: 0xFFD700,
-  metalness: 0.8,
-  roughness: 0.2,
-});
-const knob = new THREE.Mesh(knobGeo, knobMat);
-knob.position.set(0.3, 0.95, 0.06);
-mesh.add(knob);`
+// Add a light
+const light = new THREE.PointLight(0xffffff, 1, 20);
+light.position.set(2, 3, 2);
+scene.add(light);
+scene.add(new THREE.AmbientLight(0x404040, 0.5));`,
+  },
+  ai: {
+    prompts: [
+      'Create a habitat module with rounded walls and airlock doors',
+      'Build a solar panel array that tracks the sun',
+      'Design a communications tower with blinking antenna lights',
+      'Construct a rover docking bay with vehicle charge stations',
+      'Make a pressurized airlock with rotating inner door',
+    ],
+  },
+  template: {
+    options: [
+      { id: 'basic-mesh', name: 'Basic Mesh', desc: 'Simple geometry with standard material' },
+      { id: 'glowing-object', name: 'Glowing Object', desc: 'Mesh with point light and emissive material' },
+      { id: 'animated-rotation', name: 'Animated Rotation', desc: 'Auto-rotating object with orbit controls' },
+      { id: 'particle-system', name: 'Particle System', desc: 'Floating particles with custom colors' },
+      { id: 'wireframe-structure', name: 'Wireframe Structure', desc: 'Wireframe architectural element' },
+    ],
+  },
+}
 
-const AI_STEPS = ['Analyzing...', 'Modeling...', 'Texturing...', 'Integration...']
-
-export default function BuildPartClient({ projectId, partId }) {
+export default function BuildPartClient() {
+  const params = useParams()
   const router = useRouter()
-  const previewRef = useRef(null)
-  const previewCleanupRef = useRef(null)
-  const updatePreview = useRef(null)
+  const projectId = params.projectId
+  const partId = params.partId
 
-  const [project, setProject] = useState(null)
-  const [part, setPart] = useState(null)
+  const project = PROJECTS[projectId]
+  const part = PARTS[partId]
+
   const [mode, setMode] = useState('code')
-  const [code, setCode] = useState(DEFAULT_CODE)
+  const [code, setCode] = useState(TEMPLATES.code.default)
   const [aiPrompt, setAiPrompt] = useState('')
+  const [aiResponse, setAiResponse] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
-  const [aiStep, setAiStep] = useState(0)
-  const [aiGeneratedCode, setAiGeneratedCode] = useState('')
-  const [selectedTemplate, setSelectedTemplate] = useState('classic')
-  const [templateParams, setTemplateParams] = useState({ width: 0.8, height: 1.9, thickness: 0.1, color: '#8B4513', material: 'wood' })
+  const [selectedTemplate, setSelectedTemplate] = useState(null)
+  const [previewReady, setPreviewReady] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-  const [celebrating, setCelebrating] = useState(false)
+  const [copied, setCopied] = useState(false)
 
-  useEffect(() => {
-    const p = getProject(projectId)
-    setProject(p)
-    const parts = getProjectParts(projectId)
-    const found = parts.find(pt => pt.id === partId)
-    setPart(found)
-  }, [projectId, partId])
+  const previewRef = useRef(null)
+  const cleanupRef = useRef(null)
 
-  useEffect(() => {
-    if (!previewRef.current) return
-    let disposed = false
-
-    async function initPreview() {
-      try { await ensureThreeJS() } catch { return }
-      if (disposed || !previewRef.current) return
-
-      const THREE = window.THREE
-      const container = previewRef.current
-      const scene = new THREE.Scene()
-      scene.background = new THREE.Color(0x0a0a0a)
-      const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 100)
-      camera.position.set(2, 1.5, 2)
-      const renderer = new THREE.WebGLRenderer({ antialias: true })
-      renderer.setSize(container.clientWidth, container.clientHeight)
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-      container.appendChild(renderer.domElement)
-      scene.add(new THREE.GridHelper(4, 4, 0x222222, 0x181818))
-      scene.add(new THREE.AmbientLight(0x404040, 0.8))
-      const dirLight = new THREE.DirectionalLight(0xfff5e6, 1.5)
-      dirLight.position.set(3, 5, 3)
-      scene.add(dirLight)
-
-      let controls = null
-      if (THREE.OrbitControls) {
-        controls = new THREE.OrbitControls(camera, renderer.domElement)
-        controls.enableDamping = true
-        controls.dampingFactor = 0.05
-        controls.minDistance = 1
-        controls.maxDistance = 10
-      }
-
-      const previewGroup = new THREE.Group()
-      scene.add(previewGroup)
-
-      updatePreview.current = (codeStr) => {
-        while (previewGroup.children.length > 0) {
-          const child = previewGroup.children[0]
-          previewGroup.remove(child)
-          if (child.geometry) child.geometry.dispose()
-          if (child.material) { if (Array.isArray(child.material)) child.material.forEach(m => m.dispose()); else child.material.dispose() }
-        }
-        try { new Function('scene', 'THREE', codeStr)(previewGroup, THREE) } catch (e) { console.warn('Preview code error:', e.message) }
-      }
-
-      updatePreview.current(code)
-
-      const clock = new THREE.Clock()
-      let animId
-      function animate() {
-        animId = requestAnimationFrame(animate)
-        if (controls) controls.update()
-        renderer.render(scene, camera)
-      }
-      animate()
-
-      const onResize = () => { camera.aspect = container.clientWidth / container.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(container.clientWidth, container.clientHeight) }
-      window.addEventListener('resize', onResize)
-
-      previewCleanupRef.current = () => {
-        disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize)
-        if (controls) controls.dispose()
-        scene.traverse(obj => { if (obj.geometry) obj.geometry.dispose(); if (obj.material) { if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose()); else obj.material.dispose() } })
-        renderer.dispose(); renderer.forceContextLoss()
-        if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement)
-      }
-    }
-
-    initPreview()
-    return () => { if (previewCleanupRef.current) { previewCleanupRef.current(); previewCleanupRef.current = null } }
-  }, [])
-
-  useEffect(() => { if (updatePreview.current && mode === 'code') updatePreview.current(code) }, [code, mode])
-
-  const generateTemplateCode = (templateId, params) => {
-    const { width, height, thickness, color, material: mat } = params
-    const colorNum = parseInt(color.replace('#', ''), 16)
-    let roughness = 0.7, metalness = 0.1
-    if (mat === 'metal') { roughness = 0.3; metalness = 0.8 }
-    if (mat === 'glass') { roughness = 0.1; metalness = 0.1 }
-    if (mat === 'concrete') { roughness = 0.95; metalness = 0.0 }
-    const transparentStr = mat === 'glass' ? 'transparent: true,\n  opacity: 0.5,' : ''
-
-    let extraCode = ''
-    if (templateId === 'classic') {
-      extraCode = `
-  const panelGeo = new THREE.BoxGeometry(${(width * 0.6).toFixed(2)}, ${(height * 0.35).toFixed(2)}, ${(thickness * 0.5).toFixed(3)});
-  const panelMat = new THREE.MeshStandardMaterial({ color: ${colorNum}, roughness: ${roughness + 0.1} });
-  const topPanel = new THREE.Mesh(panelGeo, panelMat);
-  topPanel.position.set(0, ${(height * 0.22).toFixed(2)}, ${(thickness * 0.5).toFixed(3)});
-  mesh.add(topPanel);
-  const botPanel = new THREE.Mesh(panelGeo.clone(), panelMat);
-  botPanel.position.set(0, ${(-height * 0.18).toFixed(2)}, ${(thickness * 0.5).toFixed(3)});
-  mesh.add(botPanel);
-  const knobGeo = new THREE.SphereGeometry(0.03, 12, 12);
-  const knobMat = new THREE.MeshStandardMaterial({ color: 0xFFD700, metalness: 0.8, roughness: 0.2 });
-  const knob = new THREE.Mesh(knobGeo, knobMat);
-  knob.position.set(${(width * 0.38).toFixed(2)}, 0, ${(thickness * 0.6).toFixed(3)});
-  mesh.add(knob);`
-    } else if (templateId === 'modern') {
-      extraCode = `
-  const handleGeo = new THREE.BoxGeometry(0.02, ${(height * 0.5).toFixed(2)}, 0.02);
-  const handleMat = new THREE.MeshStandardMaterial({ color: 0xCCCCCC, metalness: 0.9, roughness: 0.1 });
-  const handle = new THREE.Mesh(handleGeo, handleMat);
-  handle.position.set(${(width * 0.4).toFixed(2)}, 0, ${(thickness * 0.6).toFixed(3)});
-  mesh.add(handle);`
-    } else if (templateId === 'glass') {
-      extraCode = `
-  const frameMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.8, roughness: 0.2 });
-  const topF = new THREE.Mesh(new THREE.BoxGeometry(${(width + 0.04).toFixed(2)}, 0.04, ${(thickness + 0.02).toFixed(3)}), frameMat);
-  topF.position.y = ${(height / 2).toFixed(2)}; mesh.add(topF);
-  const botF = topF.clone(); botF.position.y = ${(-height / 2).toFixed(2)}; mesh.add(botF);`
-    } else if (templateId === 'sliding') {
-      extraCode = `
-  const railGeo = new THREE.BoxGeometry(${(width * 1.3).toFixed(2)}, 0.03, 0.05);
-  const railMat = new THREE.MeshStandardMaterial({ color: 0x666666, metalness: 0.7, roughness: 0.3 });
-  const rail = new THREE.Mesh(railGeo, railMat);
-  rail.position.set(0, ${(height / 2 + 0.05).toFixed(2)}, 0);
-  mesh.add(rail);`
-    }
-
-    return `const geometry = new THREE.BoxGeometry(${width.toFixed(2)}, ${height.toFixed(2)}, ${thickness.toFixed(3)});
-const material = new THREE.MeshStandardMaterial({
-  color: ${colorNum},
-  roughness: ${roughness},
-  metalness: ${metalness},
-  ${transparentStr}
-});
-const mesh = new THREE.Mesh(geometry, material);
-mesh.position.set(0, ${(height / 2).toFixed(2)}, 0);
-scene.add(mesh);
-${extraCode}`
+  // 404 if project or part not found
+  if (!project || !part) {
+    return (
+      <main className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center">
+        <div className="text-center">
+          <IconBuild size={40} className="mx-auto mb-4 text-[#333]" />
+          <h1 className="text-xl font-semibold mb-2">Part Not Found</h1>
+          <p className="text-sm text-[#737373] mb-4">This build part doesn&apos;t exist.</p>
+          <Link
+            href={`/build/${projectId || ''}`}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-[#111] border border-[#1f1f1f] text-[#a3a3a3] hover:bg-[#1a1a1a] transition-colors"
+          >
+            <IconArrowLeft size={14} />
+            Back to Project
+          </Link>
+        </div>
+      </main>
+    )
   }
 
-  useEffect(() => {
-    if (mode === 'template' && updatePreview.current) updatePreview.current(generateTemplateCode(selectedTemplate, templateParams))
-  }, [mode, selectedTemplate, templateParams])
-
-  const handleAIGenerate = async () => {
+  // Handle AI assist
+  async function handleAiGenerate() {
     if (!aiPrompt.trim()) return
     setAiLoading(true)
-    setAiStep(0)
-    const stepInterval = setInterval(() => { setAiStep(prev => { if (prev >= AI_STEPS.length - 1) { clearInterval(stepInterval); return prev }; return prev + 1 }) }, 1200)
+    setAiResponse('')
 
-    try {
-      const ZAI = (await import('z-ai-web-dev-sdk')).default
-      const zai = await ZAI.create()
-      const completion = await zai.chat.completions.create({
-        messages: [
-          { role: 'system', content: 'You generate Three.js code snippets. Output ONLY valid JavaScript code that creates 3D objects using THREE global. The code receives "scene" (a THREE.Group) and "THREE" as globals. Do not use import statements. Do not use async. Keep it under 30 lines.' },
-          { role: 'user', content: `Generate Three.js code for: ${aiPrompt}. The part is for a ${part?.name || '3D object'} in the ${project?.title || 'project'} project.` }
-        ],
-      })
-      clearInterval(stepInterval)
-      const generatedCode = completion.choices?.[0]?.message?.content || ''
-      // Strip markdown code fences if present
-      const cleanCode = generatedCode.replace(/^```(?:javascript|js)?\n?/m, '').replace(/\n?```$/m, '').trim()
-      setAiGeneratedCode(cleanCode)
-      if (updatePreview.current) updatePreview.current(cleanCode)
-    } catch {
-      clearInterval(stepInterval)
-      // Fallback demo code
-      const fallbackCode = `const geometry = new THREE.BoxGeometry(0.8, 1.9, 0.1);
-const material = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.7, metalness: 0.1 });
-const mesh = new THREE.Mesh(geometry, material);
-mesh.position.set(0, 0.95, 0);
-scene.add(mesh);
-const frameMat = new THREE.MeshStandardMaterial({ color: 0x654321, roughness: 0.6 });
-const topFrame = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.05, 0.12), frameMat);
-topFrame.position.set(0, 1.92, 0); scene.add(topFrame);
-const leftFrame = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.9, 0.12), frameMat);
-leftFrame.position.set(-0.42, 0.95, 0); scene.add(leftFrame);
-const rightFrame = leftFrame.clone(); rightFrame.position.x = 0.42; scene.add(rightFrame);
-const knobGeo = new THREE.SphereGeometry(0.035, 16, 16);
-const knobMat = new THREE.MeshStandardMaterial({ color: 0xD4AF37, metalness: 0.9, roughness: 0.1 });
-const knob = new THREE.Mesh(knobGeo, knobMat);
-knob.position.set(0.3, 0.95, 0.06); mesh.add(knob);`
-      setAiGeneratedCode(fallbackCode)
-      if (updatePreview.current) updatePreview.current(fallbackCode)
-    }
+    // Simulate AI response (no real API call yet)
+    await new Promise(resolve => setTimeout(resolve, 1500))
+
+    const generatedCode = `// AI Generated: ${aiPrompt}
+const group = new THREE.Group();
+
+// Main structure
+const mainGeo = new THREE.CylinderGeometry(0.8, 1.0, 1.5, 32);
+const mainMat = new THREE.MeshStandardMaterial({
+  color: 0x${project.accent.replace('#', '')},
+  roughness: 0.5,
+  metalness: 0.3,
+});
+const mainMesh = new THREE.Mesh(mainGeo, mainMat);
+group.add(mainMesh);
+
+// Detail elements
+const detailGeo = new THREE.SphereGeometry(0.3, 16, 16);
+const detailMat = new THREE.MeshStandardMaterial({
+  color: 0xcccccc,
+  emissive: 0x222244,
+  roughness: 0.2,
+  metalness: 0.8,
+});
+const detail = new THREE.Mesh(detailGeo, detailMat);
+detail.position.y = 1.0;
+group.add(detail);
+
+// Lights
+const light = new THREE.PointLight(0xffffff, 0.8, 15);
+light.position.set(2, 3, 2);
+scene.add(light);
+scene.add(new THREE.AmbientLight(0x404040, 0.4));
+
+scene.add(group);`
+
+    setAiResponse(generatedCode)
+    setCode(generatedCode)
     setAiLoading(false)
   }
 
-  const handleRunCode = () => { if (updatePreview.current) updatePreview.current(code) }
+  // Handle template selection
+  function handleTemplateSelect(templateId) {
+    setSelectedTemplate(templateId)
+    const templateCodes = {
+      'basic-mesh': `// Basic Mesh Template
+const geometry = new THREE.BoxGeometry(1, 1, 1);
+const material = new THREE.MeshStandardMaterial({
+  color: 0x${project.accent.replace('#', '')},
+  roughness: 0.5,
+  metalness: 0.3,
+});
+const mesh = new THREE.Mesh(geometry, material);
+mesh.position.y = 0.5;
+scene.add(mesh);
+scene.add(new THREE.AmbientLight(0x404040, 0.5));
+const light = new THREE.PointLight(0xffffff, 1, 20);
+light.position.set(2, 3, 2);
+scene.add(light);`,
+      'glowing-object': `// Glowing Object Template
+const geo = new THREE.SphereGeometry(0.6, 32, 32);
+const mat = new THREE.MeshStandardMaterial({
+  color: 0x${project.accent.replace('#', '')},
+  emissive: 0x${project.accent.replace('#', '')},
+  emissiveIntensity: 0.3,
+  roughness: 0.2,
+  metalness: 0.8,
+});
+const mesh = new THREE.Mesh(geo, mat);
+mesh.position.y = 1;
+scene.add(mesh);
+const glow = new THREE.PointLight(0x${project.accent.replace('#', '')}, 1.5, 10);
+glow.position.copy(mesh.position);
+scene.add(glow);
+scene.add(new THREE.AmbientLight(0x202020, 0.3));`,
+      'animated-rotation': `// Animated Rotation Template
+const geo = new THREE.TorusKnotGeometry(0.5, 0.15, 100, 16);
+const mat = new THREE.MeshStandardMaterial({
+  color: 0x${project.accent.replace('#', '')},
+  roughness: 0.3,
+  metalness: 0.7,
+});
+const mesh = new THREE.Mesh(geo, mat);
+mesh.position.y = 1;
+scene.add(mesh);
+scene.add(new THREE.AmbientLight(0x404040, 0.4));
+const light = new THREE.PointLight(0xffffff, 1, 20);
+light.position.set(3, 4, 3);
+scene.add(light);
+// Animate (handled by render loop)
+mesh.userData.animate = (t) => {
+  mesh.rotation.x = t * 0.5;
+  mesh.rotation.y = t * 0.7;
+};`,
+      'particle-system': `// Particle System Template
+const count = 500;
+const positions = new Float32Array(count * 3);
+const colors = new Float32Array(count * 3);
+for (let i = 0; i < count; i++) {
+  positions[i*3] = (Math.random()-0.5)*6;
+  positions[i*3+1] = Math.random()*4;
+  positions[i*3+2] = (Math.random()-0.5)*6;
+  colors[i*3] = ${parseFloat(parseInt(project.accent.replace('#','').substr(0,2),16)/255).toFixed(2)};
+  colors[i*3+1] = ${parseFloat(parseInt(project.accent.replace('#','').substr(2,2),16)/255).toFixed(2)};
+  colors[i*3+2] = ${parseFloat(parseInt(project.accent.replace('#','').substr(4,2),16)/255).toFixed(2)};
+}
+const geo = new THREE.BufferGeometry();
+geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+const mat = new THREE.PointsMaterial({ size: 0.05, vertexColors: true, transparent: true, opacity: 0.8 });
+const particles = new THREE.Points(geo, mat);
+scene.add(particles);
+scene.add(new THREE.AmbientLight(0x404040, 0.3));`,
+      'wireframe-structure': `// Wireframe Structure Template
+const geo = new THREE.IcosahedronGeometry(1, 1);
+const mat = new THREE.MeshBasicMaterial({
+  color: 0x${project.accent.replace('#', '')},
+  wireframe: true,
+  transparent: true,
+  opacity: 0.6,
+});
+const mesh = new THREE.Mesh(geo, mat);
+mesh.position.y = 1;
+scene.add(mesh);
+// Solid inner
+const innerMat = new THREE.MeshStandardMaterial({
+  color: 0x${project.accent.replace('#', '')},
+  transparent: true,
+  opacity: 0.15,
+  roughness: 0.8,
+});
+const inner = new THREE.Mesh(geo.clone(), innerMat);
+inner.position.copy(mesh.position);
+inner.scale.setScalar(0.98);
+scene.add(inner);
+scene.add(new THREE.AmbientLight(0x404040, 0.5));
+const light = new THREE.PointLight(0xffffff, 1, 20);
+light.position.set(2, 3, 2);
+scene.add(light);`,
+    }
 
-  const handleSubmitPart = () => {
-    setCelebrating(true)
-    setTimeout(() => {
-      setSubmitted(true)
-      setCelebrating(false)
-    }, 1500)
+    if (templateCodes[templateId]) {
+      setCode(templateCodes[templateId])
+    }
   }
 
-  if (!project || !part) {
-    return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center"><div className="text-sm text-[#737373]">Part not found</div></div>
+  // Copy code
+  function handleCopy() {
+    navigator.clipboard?.writeText(code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  // Submit part
+  function handleSubmit() {
+    setSubmitted(true)
   }
 
   return (
-    <div className="h-dvh flex flex-col bg-[#0a0a0a] -m-4 md:-m-6 relative">
-      {/* Celebration overlay */}
-      {celebrating && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="text-center animate-bounce">
-            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center">
-              <IconCheck size={32} className="text-green-400" />
+    <main className="min-h-screen bg-[#0a0a0a] text-white">
+      {/* ── Header ── */}
+      <div className="border-b border-[#1a1a1a]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <Link
+                href={`/build/${projectId}`}
+                className="w-8 h-8 rounded-lg bg-[#1a1a1a] flex items-center justify-center text-[#737373] hover:text-white transition-colors shrink-0"
+              >
+                <IconArrowLeft size={14} />
+              </Link>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg font-semibold tracking-tight truncate">{part.name}</h1>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold shrink-0" style={{ backgroundColor: `${project.accent}15`, color: project.accent }}>
+                    {project.name}
+                  </span>
+                </div>
+                <p className="text-xs text-[#737373] truncate">{part.description}</p>
+              </div>
             </div>
-            <p className="text-xl font-bold text-white">Part Complete!</p>
-            <p className="text-sm text-[#737373] mt-1">{part.name} has been added</p>
+            <div className="flex items-center gap-2 shrink-0">
+              <a
+                href={`/3d?scene=${project.scene}`}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-white/5 text-white/60 border border-white/10 hover:bg-white/10 transition-colors"
+              >
+                <IconEye size={10} />
+                Scene
+              </a>
+              {!submitted ? (
+                <button
+                  onClick={handleSubmit}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/25 transition-colors"
+                >
+                  <IconCheck size={10} />
+                  Submit Part
+                </button>
+              ) : (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/25">
+                  <IconCheck size={10} />
+                  Submitted
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      )}
-
-      {/* Submitted success state */}
-      {submitted && !celebrating && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#0a0a0a]">
-          <div className="text-center max-w-sm px-6">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/15 flex items-center justify-center">
-              <IconCheck size={28} className="text-green-400" />
-            </div>
-            <h2 className="text-xl font-bold text-white mb-2">Part Submitted</h2>
-            <p className="text-sm text-[#737373] mb-6">{part.name} has been completed and added to {project.title}</p>
-            <div className="flex gap-3 justify-center">
-              <Link href={`/build/${projectId}`} className="px-5 py-2.5 bg-[#1a1a1a] border border-[rgba(255,255,255,0.06)] rounded-lg text-sm font-medium text-white hover:bg-[#222] transition-colors">Back to Build Room</Link>
-              <Link href="/build" className="px-5 py-2.5 bg-[#dc2626] rounded-lg text-sm font-semibold text-white hover:bg-red-700 transition-colors">All Projects</Link>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Top bar */}
-      <div className="shrink-0 flex items-center gap-3 px-4 py-3 bg-[#111111] border-b border-[rgba(255,255,255,0.06)]">
-        <Link href={`/build/${projectId}`} className="flex items-center gap-1 text-[#737373] hover:text-white transition-colors text-sm">
-          <IconArrowLeft size={14} />
-          <span className="hidden sm:inline">Back</span>
-        </Link>
-        <div className="h-4 w-px bg-[#1a1a1a]" />
-        <h1 className="text-sm font-semibold text-white truncate">{part.name}</h1>
-        <span className="text-xs text-[#737373]">·</span>
-        <span className="text-xs text-[#737373] truncate">{project.title}</span>
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex min-h-0">
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          {/* Mode selector */}
-          <div className="shrink-0 grid grid-cols-3 gap-2 p-3 bg-[#0d0d0d] border-b border-[rgba(255,255,255,0.06)]">
-            {[
-              { key: 'code', label: 'Code', icon: IconCode, color: 'text-green-400' },
-              { key: 'ai', label: 'AI', icon: IconRobot, color: 'text-purple-400' },
-              { key: 'template', label: 'Template', icon: IconStack, color: 'text-teal-400' },
-            ].map(m => (
-              <button key={m.key} onClick={() => setMode(m.key)} className={`flex flex-col items-center gap-1 py-3 rounded-lg transition-colors ${mode === m.key ? 'bg-[#1a1a1a] border border-[rgba(255,255,255,0.1)]' : 'bg-[#111111] border border-[rgba(255,255,255,0.04)] hover:bg-[#141414]'}`}>
-                <m.icon size={16} className={mode === m.key ? m.color : 'text-[#737373]'} />
-                <span className={`text-xs font-medium ${mode === m.key ? 'text-white' : 'text-[#737373]'}`}>{m.label}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Mode interface */}
-          <div className="flex-1 overflow-y-auto p-3">
-            {mode === 'code' && (
-              <div className="h-full flex flex-col gap-3">
-                <div className="flex-1 min-h-0">
-                  <textarea value={code} onChange={e => setCode(e.target.value)} className="w-full h-full min-h-[300px] bg-[#0d0d0d] border border-[rgba(255,255,255,0.06)] rounded-lg p-4 font-mono text-sm text-[#d4d4d4] resize-none focus:outline-none focus:border-[rgba(255,255,255,0.1)]" spellCheck={false} placeholder={DEFAULT_CODE} />
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <button onClick={handleRunCode} className="flex items-center gap-1.5 px-4 py-2 bg-[#16a34a]/15 text-green-400 border border-green-500/20 rounded-lg text-sm font-medium hover:bg-[#16a34a]/25 transition-colors">
-                    <IconPlay size={12} /> Run
-                  </button>
-                  <button onClick={handleSubmitPart} className="flex items-center gap-1.5 px-4 py-2 bg-[#dc2626] hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition-colors">Submit Part</button>
-                </div>
-              </div>
-            )}
-
-            {mode === 'ai' && (
-              <div className="flex flex-col gap-4">
-                <div>
-                  <label className="block text-xs text-[#737373] mb-2 font-medium">Describe the part you want to build</label>
-                  <textarea value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} className="w-full h-32 bg-[#0d0d0d] border border-[rgba(255,255,255,0.06)] rounded-lg p-3 text-sm text-[#d4d4d4] resize-none focus:outline-none focus:border-[rgba(255,255,255,0.1)]" placeholder="A wooden door with two panels, a brass handle, and a decorative frame..." />
-                </div>
-                <button onClick={handleAIGenerate} disabled={aiLoading || !aiPrompt.trim()} className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors ${aiLoading ? 'bg-purple-500/15 text-purple-300 cursor-wait' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}>
-                  {aiLoading ? <><IconSpinner size={14} />{AI_STEPS[aiStep]}</> : <><IconRobot size={14} />Generate with AI</>}
+      {/* ── Mode Tabs ── */}
+      <div className="border-b border-[#1a1a1a]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex gap-1">
+            {MODES.map(m => {
+              const Icon = m.icon
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setMode(m.id)}
+                  className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors duration-200 ${
+                    mode === m.id
+                      ? 'text-white border-red-500'
+                      : 'text-[#737373] border-transparent hover:text-[#a3a3a3] hover:border-[#333]'
+                  }`}
+                >
+                  <Icon size={12} />
+                  {m.label}
                 </button>
-                {aiLoading && (
-                  <div className="space-y-1.5">
-                    {AI_STEPS.map((step, i) => (
-                      <div key={step} className="flex items-center gap-2 text-xs">
-                        {i < aiStep ? <IconCheck size={12} className="text-green-400" /> : i === aiStep ? <IconSpinner size={12} className="text-purple-400" /> : <span className="w-3 h-3 rounded-full border border-[#404040]" />}
-                        <span className={i <= aiStep ? 'text-[#d4d4d4]' : 'text-[#404040]'}>{step}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {aiGeneratedCode && !aiLoading && (
-                  <div>
-                    <label className="block text-xs text-[#737373] mb-2 font-medium">Generated Code</label>
-                    <pre className="bg-[#0d0d0d] border border-[rgba(255,255,255,0.06)] rounded-lg p-3 text-xs font-mono text-[#d4d4d4] overflow-x-auto max-h-60 overflow-y-auto">{aiGeneratedCode}</pre>
-                    <button onClick={handleSubmitPart} className="mt-3 flex items-center gap-1.5 px-4 py-2 bg-[#dc2626] hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition-colors">Submit Part</button>
-                  </div>
-                )}
-              </div>
-            )}
+              )
+            })}
+          </div>
+        </div>
+      </div>
 
-            {mode === 'template' && (
-              <div className="flex flex-col gap-4">
-                <div>
-                  <label className="block text-xs text-[#737373] mb-2 font-medium">Choose a Template</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {DOOR_TEMPLATES.map(tmpl => (
-                      <button key={tmpl.id} onClick={() => setSelectedTemplate(tmpl.id)} className={`p-3 rounded-lg text-left transition-colors ${selectedTemplate === tmpl.id ? 'bg-[#1a1a1a] border-2 border-teal-500/40' : 'bg-[#111111] border border-[rgba(255,255,255,0.06)] hover:bg-[#141414]'}`}>
-                        <div className="w-8 h-8 rounded mb-2" style={{ backgroundColor: tmpl.color, opacity: 0.7 }} />
-                        <p className="text-xs font-medium text-white">{tmpl.name}</p>
-                        <p className="text-[10px] text-[#737373] mt-0.5">{tmpl.description}</p>
+      {/* ── Main Content: Editor + Preview ── */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+        {/* Mode description */}
+        <p className="text-[11px] text-[#525252] mb-4">
+          {mode === 'code' && 'Write Three.js code directly. The scene, camera, and renderer are pre-configured.'}
+          {mode === 'ai' && 'Describe what you want to build and AI will generate the Three.js code for you.'}
+          {mode === 'template' && 'Pick a pre-built template to get started quickly, then customize the code.'}
+        </p>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Left: Editor / AI / Template picker */}
+          <div className="rounded-xl bg-[#0f0f0f] border border-[#1a1a1a] overflow-hidden">
+            {/* Editor header */}
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1a1a1a]">
+              <span className="text-[11px] text-[#525252] font-medium">
+                {mode === 'code' && 'three-module.js'}
+                {mode === 'ai' && 'AI Prompt'}
+                {mode === 'template' && 'Choose Template'}
+              </span>
+              {mode !== 'template' && (
+                <button
+                  onClick={handleCopy}
+                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] text-[#525252] hover:text-[#737373] transition-colors"
+                >
+                  <IconCopy size={10} />
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+              )}
+            </div>
+
+            {/* Editor content */}
+            <div className="h-[400px] overflow-auto">
+              {mode === 'code' && (
+                <textarea
+                  value={code}
+                  onChange={e => setCode(e.target.value)}
+                  className="w-full h-full bg-transparent text-[13px] text-[#d4d4d4] font-mono p-4 resize-none focus:outline-none leading-relaxed"
+                  spellCheck={false}
+                  placeholder="// Write your Three.js code here..."
+                />
+              )}
+
+              {mode === 'ai' && (
+                <div className="p-4 h-full flex flex-col">
+                  <textarea
+                    value={aiPrompt}
+                    onChange={e => setAiPrompt(e.target.value)}
+                    className="w-full bg-[#111] border border-[#1f1f1f] rounded-lg px-3 py-2.5 text-sm text-white resize-none focus:outline-none focus:border-[#333] transition-colors mb-3"
+                    rows={3}
+                    placeholder="Describe what you want to build..."
+                    spellCheck={false}
+                  />
+                  <button
+                    onClick={handleAiGenerate}
+                    disabled={!aiPrompt.trim() || aiLoading}
+                    className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-colors mb-3 ${
+                      aiPrompt.trim() && !aiLoading
+                        ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20 hover:bg-amber-500/25'
+                        : 'bg-[#111] text-[#525252] border border-[#1f1f1f] cursor-not-allowed'
+                    }`}
+                  >
+                    {aiLoading ? (
+                      <>
+                        <div className="w-3 h-3 border border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <IconBulb size={12} />
+                        Generate Code
+                      </>
+                    )}
+                  </button>
+
+                  {/* Quick prompts */}
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {TEMPLATES.ai.prompts.slice(0, 3).map((prompt, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setAiPrompt(prompt)}
+                        className="px-2.5 py-1 rounded-full text-[10px] bg-[#111] border border-[#1f1f1f] text-[#737373] hover:text-[#a3a3a3] hover:bg-[#1a1a1a] transition-colors"
+                      >
+                        {prompt.slice(0, 40)}...
                       </button>
                     ))}
                   </div>
-                </div>
-                <div className="space-y-3">
-                  <label className="block text-xs text-[#737373] font-medium">Parameters</label>
-                  {[['Width', 'width', 0.3, 1.5, 0.05], ['Height', 'height', 0.5, 3.0, 0.1], ['Thickness', 'thickness', 0.02, 0.3, 0.01]].map(([label, key, min, max, step]) => (
-                    <div key={key}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs text-[#d4d4d4]">{label}</span>
-                        <span className="text-xs text-[#737373] font-mono">{templateParams[key].toFixed(key === 'thickness' ? 3 : 2)}</span>
-                      </div>
-                      <input type="range" min={min} max={max} step={step} value={templateParams[key]} onChange={e => setTemplateParams(p => ({ ...p, [key]: parseFloat(e.target.value) }))} className="w-full h-1 bg-[#1a1a1a] rounded-full appearance-none cursor-pointer accent-[#dc2626]" />
-                    </div>
-                  ))}
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-[#d4d4d4]">Color</span>
-                    <input type="color" value={templateParams.color} onChange={e => setTemplateParams(p => ({ ...p, color: e.target.value }))} className="w-8 h-6 rounded border border-[rgba(255,255,255,0.1)] bg-transparent cursor-pointer" />
-                    <span className="text-xs text-[#737373] font-mono">{templateParams.color}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-[#d4d4d4]">Material</span>
-                    <select value={templateParams.material} onChange={e => setTemplateParams(p => ({ ...p, material: e.target.value }))} className="bg-[#111111] border border-[rgba(255,255,255,0.06)] rounded-md px-2 py-1 text-xs text-[#d4d4d4] focus:outline-none focus:border-[rgba(255,255,255,0.1)]">
-                      <option value="wood">Wood</option><option value="metal">Metal</option><option value="glass">Glass</option><option value="concrete">Concrete</option>
-                    </select>
-                  </div>
-                </div>
-                <button onClick={handleSubmitPart} className="flex items-center justify-center gap-1.5 px-4 py-2 bg-[#dc2626] hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition-colors">Submit Part</button>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Right panel: Live 3D preview */}
-        <div className="w-80 lg:w-96 border-l border-[rgba(255,255,255,0.06)] bg-[#0d0d0d] flex flex-col shrink-0 hidden md:flex">
-          <div className="px-3 py-2 border-b border-[rgba(255,255,255,0.06)]">
-            <span className="text-xs font-semibold text-[#737373] uppercase tracking-wider">Live Preview</span>
+                  {/* Generated code preview */}
+                  {aiResponse && (
+                    <div className="flex-1 overflow-auto rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] p-3">
+                      <pre className="text-[11px] text-[#a3a3a3] font-mono leading-relaxed whitespace-pre-wrap">{aiResponse}</pre>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {mode === 'template' && (
+                <div className="p-4 space-y-2">
+                  {TEMPLATES.template.options.map(tpl => (
+                    <button
+                      key={tpl.id}
+                      onClick={() => handleTemplateSelect(tpl.id)}
+                      className={`w-full text-left p-3 rounded-lg border transition-colors duration-200 ${
+                        selectedTemplate === tpl.id
+                          ? 'bg-white/5 border-white/10'
+                          : 'bg-transparent border-[#1a1a1a] hover:border-[#2a2a2a]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`w-6 h-6 rounded flex items-center justify-center ${
+                          selectedTemplate === tpl.id ? 'bg-red-500/15 text-red-400' : 'bg-[#1a1a1a] text-[#525252]'
+                        }`}>
+                          <IconFolder size={12} />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-medium text-white">{tpl.name}</h4>
+                          <p className="text-[10px] text-[#525252]">{tpl.desc}</p>
+                        </div>
+                        {selectedTemplate === tpl.id && (
+                          <IconCheck size={12} className="ml-auto text-red-400 shrink-0" />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-          <div className="flex-1 min-h-0" ref={previewRef} />
+
+          {/* Right: 3D Preview */}
+          <div className="rounded-xl bg-[#0f0f0f] border border-[#1a1a1a] overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1a1a1a]">
+              <span className="text-[11px] text-[#525252] font-medium">3D Preview</span>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`/3d?scene=${project.scene}`}
+                  className="text-[10px] text-[#525252] hover:text-[#737373] transition-colors flex items-center gap-1"
+                >
+                  <IconEye size={10} />
+                  Full Viewer
+                </a>
+              </div>
+            </div>
+            <div
+              ref={previewRef}
+              className="h-[400px] bg-[#050505] flex items-center justify-center"
+            >
+              <div className="text-center">
+                <div
+                  className="w-16 h-16 rounded-xl mx-auto mb-3 flex items-center justify-center"
+                  style={{ backgroundColor: `${project.accent}10`, color: `${project.accent}60` }}
+                >
+                  <IconBuild size={28} />
+                </div>
+                <p className="text-xs text-[#525252]">3D preview will render here</p>
+                <p className="text-[10px] text-[#404040] mt-1">Write code and click Run to preview</p>
+                <button
+                  className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold mx-auto"
+                  style={{ backgroundColor: `${project.accent}15`, color: project.accent, border: `1px solid ${project.accent}30` }}
+                >
+                  <IconPlay size={10} />
+                  Run Preview
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+
+      <style jsx>{`
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out forwards;
+        }
+        /* Custom scrollbar for code editor */
+        textarea::-webkit-scrollbar {
+          width: 6px;
+        }
+        textarea::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        textarea::-webkit-scrollbar-thumb {
+          background: #1a1a1a;
+          border-radius: 3px;
+        }
+        textarea::-webkit-scrollbar-thumb:hover {
+          background: #2a2a2a;
+        }
+      `}</style>
+    </main>
   )
 }

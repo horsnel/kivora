@@ -1,341 +1,378 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { getProject, getProjectParts, PART_POSITIONS, RED_HOUSE_PARTS } from '@/components/build/demoData'
-import { IconArrowLeft, IconLock, IconCheck, IconUser, IconChevronDown, IconChevronUp, IconEye } from '@/components/Icons'
+import { IconBuild, IconPlay, IconCode, IconBulb, IconCheck, IconArrowLeft, IconEye, IconFolder, IconStar } from '@/components/Icons'
 
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    if (typeof window === 'undefined') { reject('No window'); return }
-    const existing = document.querySelector(`script[src="${src}"]`)
-    if (existing) { resolve(); return }
-    const s = document.createElement('script')
-    s.src = src
-    s.onload = resolve
-    s.onerror = reject
-    document.head.appendChild(s)
-  })
+// ── Project definitions (shared with BuildClient) ──
+const PROJECTS = {
+  'lunar-base': {
+    id: 'lunar-base', name: 'Lunar Base Alpha', scene: 'moon', accent: '#94a3b8',
+    description: 'Build a modular Moon base with habitat modules, solar arrays, and rover docking stations.',
+    difficulty: 'Beginner', category: 'Space',
+    parts: [
+      { id: 'habitat', name: 'Habitat Module', description: 'Pressurized living quarters with life support systems', status: 'complete', builder: 'You' },
+      { id: 'solar-arrays', name: 'Solar Arrays', description: 'Photovoltaic panels for power generation', status: 'complete', builder: 'You' },
+      { id: 'rover-bay', name: 'Rover Docking Bay', description: 'Garage and charging station for lunar rovers', status: 'available', builder: null },
+      { id: 'comm-tower', name: 'Communications Tower', description: 'High-gain antenna array for Earth communication', status: 'available', builder: null },
+      { id: 'airlock', name: 'Airlock Chamber', description: 'Dual-chamber airlock for EVA operations', status: 'available', builder: null },
+    ],
+  },
+  'earth-observatory': {
+    id: 'earth-observatory', name: 'Earth Observatory', scene: 'earth', accent: '#3b82f6',
+    description: 'Construct an orbital station with telescopes, comms arrays, and research labs.',
+    difficulty: 'Intermediate', category: 'Space',
+    parts: [
+      { id: 'telescope', name: 'Main Telescope', description: 'High-resolution optical telescope for Earth observation', status: 'available', builder: null },
+      { id: 'comms-array', name: 'Communications Array', description: 'Satellite relay system for data transmission', status: 'available', builder: null },
+      { id: 'research-lab', name: 'Research Laboratory', description: 'Zero-gravity research facility', status: 'in-progress', builder: 'You' },
+      { id: 'solar-panels', name: 'Solar Panel Wings', description: 'Deployable solar arrays for power', status: 'available', builder: null },
+      { id: 'docking-port', name: 'Docking Port', description: 'Universal docking mechanism for supply ships', status: 'available', builder: null },
+      { id: 'crew-quarters', name: 'Crew Quarters', description: 'Living space for 6 crew members', status: 'available', builder: null },
+    ],
+  },
+  'solar-cruiser': {
+    id: 'solar-cruiser', name: 'Solar Cruiser', scene: 'solar', accent: '#f59e0b',
+    description: 'Design and assemble a multi-planet spacecraft with engine modules and crew quarters.',
+    difficulty: 'Advanced', category: 'Space',
+    parts: [
+      { id: 'ion-drive', name: 'Ion Drive Engine', description: 'High-efficiency ion propulsion system', status: 'complete', builder: 'You' },
+      { id: 'crew-module', name: 'Crew Module', description: 'Rotating habitat ring with artificial gravity', status: 'available', builder: null },
+      { id: 'nav-computer', name: 'Navigation Computer', description: 'AI-powered navigation and course plotting', status: 'available', builder: null },
+      { id: 'shield-gen', name: 'Shield Generator', description: 'Electromagnetic radiation shielding', status: 'available', builder: null },
+      { id: 'cargo-bay', name: 'Cargo Bay', description: 'Modular cargo storage system', status: 'available', builder: null },
+      { id: 'science-deck', name: 'Science Deck', description: 'Onboard laboratory and analysis suite', status: 'available', builder: null },
+      { id: 'bridge', name: 'Command Bridge', description: 'Central command and control center', status: 'available', builder: null },
+      { id: 'life-support', name: 'Life Support System', description: 'Atmospheric processing and water recycling', status: 'available', builder: null },
+    ],
+  },
+  'nebula-lab': {
+    id: 'nebula-lab', name: 'Nebula Lab', scene: 'deepspace', accent: '#a855f7',
+    description: 'Build a deep-space research facility inside a nebula with sensor arrays and dark matter detectors.',
+    difficulty: 'Advanced', category: 'Research',
+    parts: [
+      { id: 'sensor-array', name: 'Sensor Array', description: 'Multi-spectrum sensor suite for nebula analysis', status: 'available', builder: null },
+      { id: 'dark-matter', name: 'Dark Matter Detector', description: 'Experimental dark matter detection chamber', status: 'available', builder: null },
+      { id: 'plasma-shield', name: 'Plasma Shield', description: 'Protective barrier against nebula radiation', status: 'available', builder: null },
+      { id: 'quantum-lab', name: 'Quantum Lab', description: 'Quantum computing research facility', status: 'available', builder: null },
+      { id: 'warp-beacon', name: 'Warp Beacon', description: 'Faster-than-light communication relay', status: 'available', builder: null },
+      { id: 'hab-dome', name: 'Habitat Dome', description: 'Self-sustaining biosphere for crew', status: 'available', builder: null },
+      { id: 'mining-drone', name: 'Mining Drone Bay', description: 'Automated resource extraction drones', status: 'available', builder: null },
+    ],
+  },
+  'global-network': {
+    id: 'global-network', name: 'Global Network Hub', scene: 'globe', accent: '#10b981',
+    description: 'Construct a worldwide data network with fiber nodes, satellite links, and server clusters.',
+    difficulty: 'Intermediate', category: 'Infrastructure',
+    parts: [
+      { id: 'fiber-core', name: 'Fiber Core', description: 'Transcontinental fiber optic backbone', status: 'complete', builder: 'You' },
+      { id: 'sat-link', name: 'Satellite Link', description: 'Low-orbit satellite uplink system', status: 'complete', builder: 'You' },
+      { id: 'server-farm', name: 'Server Cluster', description: 'Distributed computing cluster with edge nodes', status: 'complete', builder: 'You' },
+      { id: 'noc', name: 'Network Operations Center', description: '24/7 monitoring and management hub', status: 'available', builder: null },
+      { id: 'cdn-node', name: 'CDN Edge Node', description: 'Content delivery network edge server', status: 'available', builder: null },
+      { id: 'security-hub', name: 'Security Hub', description: 'AI-powered threat detection and response', status: 'available', builder: null },
+    ],
+  },
+  'ocean-rig': {
+    id: 'ocean-rig', name: 'Deep Ocean Rig', scene: 'ocean', accent: '#0ea5e9',
+    description: 'Build an underwater research platform with submersible bays, sonar arrays, and living quarters.',
+    difficulty: 'Intermediate', category: 'Research',
+    parts: [
+      { id: 'pressure-hull', name: 'Pressure Hull', description: 'Reinforced titanium hull for deep-sea operations', status: 'available', builder: null },
+      { id: 'sonar-array', name: 'Sonar Array', description: 'Multi-beam sonar mapping system', status: 'available', builder: null },
+      { id: 'sub-bay', name: 'Submersible Bay', description: 'Deployable submarine docking facility', status: 'available', builder: null },
+      { id: 'bio-lab', name: 'Marine Biology Lab', description: 'Pressurized laboratory for specimen analysis', status: 'available', builder: null },
+      { id: 'quarters', name: 'Living Quarters', description: 'Underwater habitat for 12 researchers', status: 'available', builder: null },
+    ],
+  },
+  'mountain-outpost': {
+    id: 'mountain-outpost', name: 'Mountain Outpost', scene: 'terrain', accent: '#22c55e',
+    description: 'Construct a high-altitude base with weather stations, wind turbines, and observatory domes.',
+    difficulty: 'Beginner', category: 'Infrastructure',
+    parts: [
+      { id: 'weather-station', name: 'Weather Station', description: 'Meteorological sensors and forecasting system', status: 'complete', builder: 'You' },
+      { id: 'wind-turbines', name: 'Wind Turbines', description: 'High-altitude wind energy generators', status: 'complete', builder: 'You' },
+      { id: 'observatory', name: 'Observatory Dome', description: 'Telescope housing with adaptive optics', status: 'complete', builder: 'You' },
+      { id: 'comms-relay', name: 'Communications Relay', description: 'Mountain-top radio relay station', status: 'complete', builder: 'You' },
+    ],
+  },
+  'smart-home': {
+    id: 'smart-home', name: 'Smart Home', scene: 'house', accent: '#ef4444',
+    description: 'Design and build a modern smart home with interconnected rooms, IoT devices, and automation.',
+    difficulty: 'Beginner', category: 'Architecture',
+    parts: [
+      { id: 'living-room', name: 'Living Room', description: 'Smart lighting, climate control, and entertainment hub', status: 'complete', builder: 'You' },
+      { id: 'kitchen', name: 'Smart Kitchen', description: 'Automated appliances and inventory tracking', status: 'available', builder: null },
+      { id: 'bedroom', name: 'Master Bedroom', description: 'Sleep optimization and ambient controls', status: 'available', builder: null },
+      { id: 'security', name: 'Security System', description: 'AI-powered surveillance and access control', status: 'available', builder: null },
+      { id: 'garage', name: 'Smart Garage', description: 'EV charging and vehicle management', status: 'available', builder: null },
+    ],
+  },
+  'art-museum': {
+    id: 'art-museum', name: 'Art Museum', scene: 'museum', accent: '#a8a29e',
+    description: 'Build a grand museum with gallery wings, sculpture halls, and interactive exhibits.',
+    difficulty: 'Intermediate', category: 'Architecture',
+    parts: [
+      { id: 'main-hall', name: 'Grand Hall', description: 'Columned entrance hall with marble floors', status: 'complete', builder: 'You' },
+      { id: 'gallery-wing-a', name: 'Gallery Wing A', description: 'Natural lit gallery for paintings', status: 'complete', builder: 'You' },
+      { id: 'sculpture-hall', name: 'Sculpture Hall', description: 'Climate-controlled hall for 3D artworks', status: 'available', builder: null },
+      { id: 'interactive-wing', name: 'Interactive Wing', description: 'Digital and immersive art experiences', status: 'available', builder: null },
+      { id: 'conservation-lab', name: 'Conservation Lab', description: 'Restoration and preservation facility', status: 'available', builder: null },
+      { id: 'cafe', name: 'Museum Cafe', description: 'Visitor amenities and gift shop', status: 'available', builder: null },
+    ],
+  },
+  'cube-solver': {
+    id: 'cube-solver', name: 'Cube Solver Bot', scene: 'cube', accent: '#f43f5e',
+    description: "Program an AI-powered Rubik's Cube solver with move optimization and pattern recognition.",
+    difficulty: 'Advanced', category: 'AI & Robotics',
+    parts: [
+      { id: 'vision-system', name: 'Vision System', description: 'Camera-based cube state detection', status: 'available', builder: null },
+      { id: 'solver-algo', name: 'Solver Algorithm', description: 'Kociemba two-phase solving algorithm', status: 'available', builder: null },
+      { id: 'robot-arm', name: 'Robotic Arm', description: '6-axis manipulator for physical cube rotation', status: 'available', builder: null },
+      { id: 'ui-dashboard', name: 'UI Dashboard', description: 'Real-time visualization and control panel', status: 'available', builder: null },
+    ],
+  },
 }
 
-let threeLoaded = false
-async function ensureThreeJS() {
-  if (threeLoaded && window.THREE) return
-  await loadScript('/3d-lib/three.min.js')
-  await loadScript('/3d-lib/OrbitControls.js')
-  threeLoaded = true
+// ── Status colors ──
+const STATUS_CONFIG = {
+  'complete': { bg: 'bg-emerald-500/15', text: 'text-emerald-400', label: 'Complete', icon: IconCheck },
+  'in-progress': { bg: 'bg-amber-500/15', text: 'text-amber-400', label: 'In Progress', icon: IconBuild },
+  'available': { bg: 'bg-[#1a1a1a]', text: 'text-[#737373]', label: 'Available', icon: IconPlay },
 }
 
-function StatusDot({ status }) {
-  const colors = { completed: 'bg-green-500', incomplete: 'bg-cyan-400', locked: 'bg-gray-500' }
-  return <span className={`w-2 h-2 rounded-full shrink-0 ${colors[status] || 'bg-gray-500'}`} />
-}
-
-function ColorSwatch({ color }) {
-  const hex = typeof color === 'number' ? '#' + color.toString(16).padStart(6, '0') : color
-  return <span className="w-3 h-3 rounded-sm shrink-0 border border-white/10" style={{ backgroundColor: hex }} />
-}
-
-export default function BuildRoomClient({ projectId }) {
+export default function BuildRoomClient() {
+  const params = useParams()
   const router = useRouter()
-  const canvasRef = useRef(null)
-  const [project, setProject] = useState(null)
-  const [parts, setParts] = useState([])
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [focusedPart, setFocusedPart] = useState(null)
-  const [celebratingPart, setCelebratingPart] = useState(null)
-  const threeCleanupRef = useRef(null)
-  const controlsRef = useRef(null)
-  const cameraRef = useRef(null)
-  const meshMapRef = useRef({})
+  const projectId = params.projectId
+  const project = PROJECTS[projectId]
+  const [selectedPart, setSelectedPart] = useState(null)
+  const [celebration, setCelebration] = useState(false)
 
+  // Celebration effect when a part is completed
   useEffect(() => {
-    const p = getProject(projectId)
-    setProject(p)
-    setParts(getProjectParts(projectId))
-  }, [projectId])
-
-  useEffect(() => {
-    if (!canvasRef.current || !project) return
-    let disposed = false
-
-    async function initScene() {
-      try { await ensureThreeJS() } catch { return }
-      if (disposed) return
-
-      const THREE = window.THREE
-      const container = canvasRef.current
-      if (!container) return
-
-      const scene = new THREE.Scene()
-      scene.background = new THREE.Color(0x080808)
-      scene.fog = new THREE.Fog(0x080808, 15, 30)
-
-      const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 100)
-      camera.position.set(6, 5, 8)
-      cameraRef.current = camera
-
-      const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
-      renderer.setSize(container.clientWidth, container.clientHeight)
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-      renderer.toneMapping = THREE.ACESFilmicToneMapping
-      renderer.toneMappingExposure = 1.2
-      renderer.outputEncoding = THREE.sRGBEncoding
-      container.appendChild(renderer.domElement)
-
-      const gridHelper = new THREE.GridHelper(20, 20, 0x222222, 0x181818)
-      scene.add(gridHelper)
-
-      scene.add(new THREE.AmbientLight(0x404040, 0.8))
-      const dirLight = new THREE.DirectionalLight(0xfff5e6, 1.8)
-      dirLight.position.set(5, 8, 5)
-      scene.add(dirLight)
-      const fillLight = new THREE.DirectionalLight(0x4488cc, 0.3)
-      fillLight.position.set(-5, 3, -5)
-      scene.add(fillLight)
-
-      const currentParts = getProjectParts(projectId)
-      const meshMap = {}
-      meshMapRef.current = meshMap
-
-      currentParts.forEach(part => {
-        const pos = projectId === 'red-house'
-          ? PART_POSITIONS[part.id]
-          : { x: (Math.random() - 0.5) * 6, y: 1, z: (Math.random() - 0.5) * 6, w: 1, h: 1, d: 1 }
-
-        if (!pos) return
-
-        let geometry
-        if (pos.isRoof) {
-          const shape = new THREE.Shape()
-          shape.moveTo(-pos.w / 2, 0)
-          shape.lineTo(0, pos.h * 8)
-          shape.lineTo(pos.w / 2, 0)
-          shape.lineTo(-pos.w / 2, 0)
-          geometry = new THREE.ExtrudeGeometry(shape, { depth: pos.d, bevelEnabled: false })
-          geometry.center()
-        } else {
-          geometry = new THREE.BoxGeometry(pos.w, pos.h, pos.d)
-        }
-
-        let mesh
-        if (part.status === 'completed') {
-          const material = new THREE.MeshStandardMaterial({ color: part.color, roughness: 0.7, metalness: 0.1 })
-          mesh = new THREE.Mesh(geometry, material)
-
-          // Avatar sprite label above completed parts
-          if (part.builder) {
-            const canvas = document.createElement('canvas')
-            canvas.width = 128
-            canvas.height = 48
-            const ctx = canvas.getContext('2d')
-            ctx.fillStyle = '#1a1a1a'
-            ctx.roundRect(0, 0, 128, 48, 8)
-            ctx.fill()
-            ctx.strokeStyle = '#333'
-            ctx.lineWidth = 1
-            ctx.roundRect(0, 0, 128, 48, 8)
-            ctx.stroke()
-            ctx.fillStyle = '#d4d4d4'
-            ctx.font = 'bold 16px Inter, sans-serif'
-            ctx.textAlign = 'center'
-            ctx.textBaseline = 'middle'
-            ctx.fillText(part.builder, 64, 24)
-            const texture = new THREE.CanvasTexture(canvas)
-            const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.9 })
-            const sprite = new THREE.Sprite(spriteMat)
-            sprite.scale.set(1.2, 0.45, 1)
-            sprite.position.y = (pos.isRoof ? pos.h * 4 : pos.h / 2) + 0.6
-            mesh.add(sprite)
-          }
-        } else if (part.status === 'incomplete') {
-          const wireframeMat = new THREE.MeshBasicMaterial({ color: 0x00CED1, wireframe: true, transparent: true, opacity: 0.6 })
-          mesh = new THREE.Mesh(geometry, wireframeMat)
-          const fillMat = new THREE.MeshStandardMaterial({ color: part.color, transparent: true, opacity: 0.15, roughness: 0.8 })
-          const fillMesh = new THREE.Mesh(geometry.clone(), fillMat)
-          mesh.add(fillMesh)
-          const edgesGeo = new THREE.EdgesGeometry(geometry)
-          const edgesMat = new THREE.LineBasicMaterial({ color: 0x00CED1, transparent: true, opacity: 0.8 })
-          mesh.add(new THREE.LineSegments(edgesGeo, edgesMat))
-        } else {
-          const material = new THREE.MeshStandardMaterial({ color: 0x888888, transparent: true, opacity: 0.3, roughness: 0.9 })
-          mesh = new THREE.Mesh(geometry, material)
-        }
-
-        mesh.position.set(pos.x, pos.y, pos.z)
-        mesh.userData = { partId: part.id, partStatus: part.status, partName: part.name }
-        scene.add(mesh)
-        meshMap[part.id] = mesh
-      })
-
-      let controls = null
-      if (THREE.OrbitControls) {
-        controls = new THREE.OrbitControls(camera, renderer.domElement)
-        controls.enableDamping = true
-        controls.dampingFactor = 0.05
-        controls.enablePan = true
-        controls.minDistance = 3
-        controls.maxDistance = 25
-        controls.rotateSpeed = 0.5
-        controls.autoRotate = true
-        controls.autoRotateSpeed = 0.3
-        controlsRef.current = controls
-        let autoTimer
-        controls.addEventListener('start', () => { controls.autoRotate = false })
-        controls.addEventListener('end', () => { clearTimeout(autoTimer); autoTimer = setTimeout(() => { controls.autoRotate = true }, 5000) })
-      }
-
-      const raycaster = new THREE.Raycaster()
-      const mouse = new THREE.Vector2()
-
-      function onCanvasClick(event) {
-        const rect = renderer.domElement.getBoundingClientRect()
-        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
-        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
-        raycaster.setFromCamera(mouse, camera)
-        const clickableMeshes = Object.values(meshMap).filter(m => m.userData.partStatus === 'incomplete')
-        const intersects = raycaster.intersectObjects(clickableMeshes, false)
-        if (intersects.length > 0) {
-          const partId = intersects[0].object.userData.partId
-          router.push(`/build/${projectId}/${partId}`)
-        }
-      }
-      renderer.domElement.addEventListener('click', onCanvasClick)
-
-      const clock = new THREE.Clock()
-      let animId
-      function animate() {
-        animId = requestAnimationFrame(animate)
-        const t = clock.getElapsedTime()
-        Object.values(meshMap).forEach(mesh => {
-          if (mesh.userData.partStatus === 'incomplete') {
-            const scale = 1.0 + Math.sin(t * 2) * 0.015
-            mesh.scale.set(scale, scale, scale)
-          }
-        })
-        if (controls) controls.update()
-        renderer.render(scene, camera)
-      }
-      animate()
-
-      const onResize = () => {
-        camera.aspect = container.clientWidth / container.clientHeight
-        camera.updateProjectionMatrix()
-        renderer.setSize(container.clientWidth, container.clientHeight)
-      }
-      window.addEventListener('resize', onResize)
-
-      threeCleanupRef.current = () => {
-        disposed = true
-        cancelAnimationFrame(animId)
-        window.removeEventListener('resize', onResize)
-        renderer.domElement.removeEventListener('click', onCanvasClick)
-        if (controls) controls.dispose()
-        scene.traverse(obj => {
-          if (obj.geometry) obj.geometry.dispose()
-          if (obj.material) {
-            if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose())
-            else obj.material.dispose()
-          }
-        })
-        scene.clear()
-        renderer.dispose()
-        renderer.forceContextLoss()
-        if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement)
-      }
+    if (celebration) {
+      const timer = setTimeout(() => setCelebration(false), 3000)
+      return () => clearTimeout(timer)
     }
+  }, [celebration])
 
-    initScene()
-    return () => { if (threeCleanupRef.current) { threeCleanupRef.current(); threeCleanupRef.current = null } }
-  }, [project, projectId, router])
-
-  // Camera animation when focusing on a part
-  const focusOnPart = useCallback((partId) => {
-    setFocusedPart(partId)
-    const mesh = meshMapRef.current[partId]
-    const controls = controlsRef.current
-    const camera = cameraRef.current
-    if (!mesh || !controls || !camera) return
-
-    const targetPos = mesh.position.clone()
-    const cameraOffset = new window.THREE.Vector3(3, 2.5, 3)
-    const newCameraPos = targetPos.clone().add(cameraOffset)
-
-    // Animate camera over 700ms
-    const startPos = camera.position.clone()
-    const startTarget = controls.target.clone()
-    const startTime = performance.now()
-    const duration = 700
-
-    controls.autoRotate = false
-    function animateCamera(now) {
-      const elapsed = now - startTime
-      const t = Math.min(elapsed / duration, 1)
-      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t // ease-in-out
-
-      camera.position.lerpVectors(startPos, newCameraPos, ease)
-      controls.target.lerpVectors(startTarget, targetPos, ease)
-      controls.update()
-
-      if (t < 1) requestAnimationFrame(animateCamera)
-    }
-    requestAnimationFrame(animateCamera)
-  }, [])
-
+  // 404 if project not found
   if (!project) {
-    return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center"><div className="text-sm text-[#737373]">Project not found</div></div>
+    return (
+      <main className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center">
+        <div className="text-center">
+          <IconBuild size={40} className="mx-auto mb-4 text-[#333]" />
+          <h1 className="text-xl font-semibold mb-2">Project Not Found</h1>
+          <p className="text-sm text-[#737373] mb-4">This build project doesn&apos;t exist yet.</p>
+          <Link
+            href="/build"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-[#111] border border-[#1f1f1f] text-[#a3a3a3] hover:bg-[#1a1a1a] transition-colors"
+          >
+            <IconArrowLeft size={14} />
+            Back to Build Studio
+          </Link>
+        </div>
+      </main>
+    )
   }
 
-  const completedCount = parts.filter(p => p.status === 'completed').length
+  const partsComplete = project.parts.filter(p => p.status === 'complete').length
+  const partsTotal = project.parts.length
+  const progress = Math.round((partsComplete / partsTotal) * 100)
+  const isComplete = progress === 100
 
   return (
-    <div className="h-dvh flex flex-col bg-[#0a0a0a] -m-4 md:-m-6">
-      <div className="shrink-0 flex items-center gap-3 px-4 py-3 bg-[#111111] border-b border-[rgba(255,255,255,0.06)]">
-        <Link href="/build" className="flex items-center gap-1 text-[#737373] hover:text-white transition-colors text-sm">
-          <IconArrowLeft size={14} />
-          <span className="hidden sm:inline">Back</span>
-        </Link>
-        <div className="h-4 w-px bg-[#1a1a1a]" />
-        <h1 className="text-sm font-semibold text-white truncate">{project.title}</h1>
-        <div className="flex items-center gap-2 ml-auto text-xs text-[#737373]">
-          <span>{completedCount}/{parts.length} parts</span>
-          <div className="h-3 w-px bg-[#1a1a1a]" />
-          <div className="flex items-center gap-1"><IconUser size={11} /><span>{project.builders}</span></div>
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="md:hidden flex items-center justify-center w-7 h-7 rounded-md bg-[#1a1a1a] text-[#737373] hover:text-white transition-colors">
-            {sidebarOpen ? <IconChevronUp size={12} /> : <IconChevronDown size={12} />}
-          </button>
-        </div>
-      </div>
-
-      <div className="flex-1 flex min-h-0">
-        <div className="flex-1 relative min-w-0" ref={canvasRef} style={{ cursor: 'default' }} />
-
-        <div className={`shrink-0 border-l border-[rgba(255,255,255,0.06)] bg-[#111111] flex flex-col transition-all duration-200 ${sidebarOpen ? 'w-64 md:w-72' : 'w-0 overflow-hidden'}`}>
-          <div className="px-3 py-2 border-b border-[rgba(255,255,255,0.06)]">
-            <h2 className="text-xs font-semibold text-[#737373] uppercase tracking-wider">Parts</h2>
-          </div>
-          <div className="flex-1 overflow-y-auto overscroll-behavior-contain" style={{ scrollbarWidth: 'thin' }}>
-            <div className="p-2 space-y-0.5">
-              {parts.map(part => (
-                <div key={part.id} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors ${focusedPart === part.id ? 'bg-[#1a1a1a] text-white' : 'hover:bg-[#141414] text-[#d4d4d4]'}`} onClick={() => focusOnPart(part.id)}>
-                  <ColorSwatch color={part.color} />
-                  <StatusDot status={part.status} />
-                  <span className="text-xs font-medium flex-1 truncate">{part.name}</span>
-                  {part.status === 'completed' && part.builder && <span className="text-[10px] text-[#737373]">{part.builder}</span>}
-                  {part.status === 'incomplete' && (
-                    <Link href={`/build/${projectId}/${part.id}`} className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-400 hover:bg-cyan-500/25 transition-colors" onClick={e => e.stopPropagation()}>Build</Link>
-                  )}
-                  {part.status === 'locked' && <IconLock size={10} className="text-[#404040]" />}
-                </div>
-              ))}
+    <main className="min-h-screen bg-[#0a0a0a] text-white">
+      {/* Celebration overlay */}
+      {celebration && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+          <div className="text-center animate-celebrate">
+            <div className="text-4xl mb-2">
+              <IconStar size={48} className="mx-auto text-amber-400" />
             </div>
+            <h2 className="text-2xl font-bold text-white">Part Completed!</h2>
+            <p className="text-sm text-[#a3a3a3] mt-1">Great work, Builder</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Header ── */}
+      <div className="border-b border-[#1a1a1a]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <Link
+                href="/build"
+                className="w-8 h-8 rounded-lg bg-[#1a1a1a] flex items-center justify-center text-[#737373] hover:text-white transition-colors shrink-0 mt-0.5"
+              >
+                <IconArrowLeft size={14} />
+              </Link>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl font-semibold tracking-tight">{project.name}</h1>
+                  {isComplete && (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 flex items-center gap-1">
+                      <IconStar size={10} />
+                      Complete
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-[#737373] mt-0.5">{project.description}</p>
+              </div>
+            </div>
+            <a
+              href={`/3d?scene=${project.scene}`}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/5 text-white/60 border border-white/10 hover:bg-white/10 transition-colors shrink-0"
+            >
+              <IconEye size={12} />
+              View Scene
+            </a>
+          </div>
+
+          {/* Progress bar */}
+          <div className="mt-4 flex items-center gap-3">
+            <div className="flex-1 h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-700 ease-in-out"
+                style={{
+                  width: `${progress}%`,
+                  backgroundColor: isComplete ? '#10b981' : project.accent,
+                }}
+              />
+            </div>
+            <span className="text-xs text-[#737373] font-medium whitespace-nowrap">
+              {partsComplete}/{partsTotal} parts ({progress}%)
+            </span>
           </div>
         </div>
       </div>
 
-      <div className="shrink-0 h-1 bg-[#1a1a1a]">
-        <div className="h-full progress-3d transition-all duration-500" style={{ width: `${(completedCount / parts.length) * 100}%` }} />
+      {/* ── Parts Grid ── */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {project.parts.map((part, index) => (
+            <PartCard
+              key={part.id}
+              part={part}
+              project={project}
+              index={index}
+              selected={selectedPart === part.id}
+              onSelect={() => setSelectedPart(selectedPart === part.id ? null : part.id)}
+              onComplete={() => setCelebration(true)}
+            />
+          ))}
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes celebrate {
+          0% { opacity: 0; transform: scale(0.5); }
+          50% { opacity: 1; transform: scale(1.1); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        .animate-celebrate {
+          animation: celebrate 0.5s ease-out forwards;
+        }
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out forwards;
+        }
+      `}</style>
+    </main>
+  )
+}
+
+/* ── Part Card ── */
+function PartCard({ part, project, index, selected, onSelect, onComplete }) {
+  const statusConfig = STATUS_CONFIG[part.status]
+  const StatusIcon = statusConfig.icon
+
+  return (
+    <div className="animate-fade-in" style={{ animationDelay: `${index * 60}ms` }}>
+      <div
+        className={`group rounded-xl bg-[#0f0f0f] border overflow-hidden transition-colors duration-200 cursor-pointer ${
+          selected ? 'border-[#333]' : 'border-[#1a1a1a] hover:border-[#2a2a2a]'
+        }`}
+        onClick={onSelect}
+      >
+        {/* Top bar with status */}
+        <div
+          className="relative h-20 flex items-center justify-center"
+          style={{ background: `linear-gradient(135deg, ${project.accent}10, ${project.accent}05)` }}
+        >
+          {/* Status badge */}
+          <div className={`absolute top-2.5 left-2.5 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 ${statusConfig.bg} ${statusConfig.text}`}>
+            <StatusIcon size={10} />
+            {statusConfig.label}
+          </div>
+
+          {/* Part number */}
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
+            style={{ backgroundColor: `${project.accent}15`, color: project.accent }}
+          >
+            {index + 1}
+          </div>
+
+          {/* Builder avatar (if completed) */}
+          {part.status === 'complete' && (
+            <div className="absolute bottom-2 right-2.5 w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
+              <IconCheck size={10} className="text-emerald-400" />
+            </div>
+          )}
+        </div>
+
+        {/* Info */}
+        <div className="p-3.5">
+          <h3 className="text-sm font-semibold text-white mb-0.5">{part.name}</h3>
+          <p className="text-[11px] text-[#525252] leading-relaxed mb-3">{part.description}</p>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2">
+            {part.status === 'complete' ? (
+              <Link
+                href={`/build/${project.id}/${part.id}`}
+                onClick={e => e.stopPropagation()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/15 hover:bg-emerald-500/20 transition-colors"
+              >
+                <IconEye size={10} />
+                View
+              </Link>
+            ) : part.status === 'in-progress' ? (
+              <Link
+                href={`/build/${project.id}/${part.id}`}
+                onClick={e => e.stopPropagation()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/15 hover:bg-amber-500/20 transition-colors"
+              >
+                <IconBuild size={10} />
+                Continue
+              </Link>
+            ) : (
+              <Link
+                href={`/build/${project.id}/${part.id}`}
+                onClick={e => e.stopPropagation()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium bg-[#111] text-[#a3a3a3] border border-[#1f1f1f] hover:bg-[#1a1a1a] hover:text-white transition-colors"
+              >
+                <IconPlay size={10} />
+                Start Building
+              </Link>
+            )}
+
+            <a
+              href={`/3d?scene=${project.scene}`}
+              onClick={e => e.stopPropagation()}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] text-[#525252] hover:text-[#737373] transition-colors"
+            >
+              <IconEye size={10} />
+              Scene
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   )
