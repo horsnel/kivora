@@ -42,16 +42,16 @@ const SAMPLE_WEBSITES = [
 ]
 
 const THREE_D_SCENES = [
-  { id: 'moon', label: 'Moon', desc: 'Procedural textures with NASA data', gradient: 'from-gray-800/60 to-gray-900/80', accent: '#94a3b8', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg> },
-  { id: 'earth', label: 'Earth', desc: 'Atmosphere, clouds, and city lights', gradient: 'from-blue-900/60 to-cyan-900/80', accent: '#3b82f6', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2c3 3 3 15 0 20M12 2c-3 3-3 15 0 20"/></svg> },
-  { id: 'solar', label: 'Solar System', desc: 'Orbiting planets with particle trails', gradient: 'from-amber-900/60 to-orange-900/80', accent: '#f59e0b', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7" strokeDasharray="2 3"/><circle cx="12" cy="12" r="10" strokeDasharray="1 4"/></svg> },
-  { id: 'deepspace', label: 'Deep Space', desc: 'Nebula exploration with Hubble imagery', gradient: 'from-purple-900/60 to-indigo-900/80', accent: '#a855f7', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="2"/><circle cx="12" cy="12" r="6" strokeDasharray="2 3"/><circle cx="12" cy="12" r="10" strokeDasharray="1 4"/></svg> },
-  { id: 'globe', label: 'Globe', desc: 'Interactive procedural surface details', gradient: 'from-emerald-900/60 to-teal-900/80', accent: '#10b981', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2c2.5 3 2.5 15 0 20"/><path d="M12 2c-2.5 3-2.5 15 0 20"/></svg> },
-  { id: 'ocean', label: 'Ocean', desc: 'Animated waves under golden sunset', gradient: 'from-sky-900/60 to-blue-900/80', accent: '#0ea5e9', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 16c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><circle cx="18" cy="5" r="2"/></svg> },
-  { id: 'terrain', label: 'Terrain', desc: 'Mountain landscape with atmospheric fog', gradient: 'from-green-900/60 to-lime-900/80', accent: '#22c55e', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="2,20 7,8 11,14 15,6 22,20"/><polyline points="5,20 9,12 13,16 18,10 22,20" opacity="0.5"/></svg> },
-  { id: 'house', label: 'House', desc: 'Interior rooms with furniture & lighting', gradient: 'from-red-900/60 to-orange-900/80', accent: '#ef4444', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 12L12 3l9 9"/><path d="M5 10v9a1 1 0 001 1h3v-5h6v5h3a1 1 0 001-1v-9"/></svg> },
-  { id: 'museum', label: 'Museum', desc: 'Columns, sculptures & dramatic lighting', gradient: 'from-stone-800/60 to-neutral-900/80', accent: '#a8a29e', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><line x1="8" y1="21" x2="8" y2="10"/><line x1="12" y1="21" x2="12" y2="10"/><line x1="16" y1="21" x2="16" y2="10"/></svg> },
-  { id: 'cube', label: 'Rubik\'s Cube', desc: 'Interactive 3x3 with face rotation', gradient: 'from-rose-900/60 to-pink-900/80', accent: '#f43f5e', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg> },
+  { id: 'moon', label: 'Moon', desc: 'Procedural textures with NASA data', accent: '#94a3b8', img: '/images/3d-moon.png' },
+  { id: 'earth', label: 'Earth', desc: 'Atmosphere, clouds, and city lights', accent: '#3b82f6', img: '/images/3d-earth.png' },
+  { id: 'solar', label: 'Solar System', desc: 'Orbiting planets with particle trails', accent: '#f59e0b', img: '/images/3d-solar.png' },
+  { id: 'deepspace', label: 'Deep Space', desc: 'Nebula exploration with Hubble imagery', accent: '#a855f7', img: '/images/3d-deepspace.png' },
+  { id: 'globe', label: 'Globe', desc: 'Interactive procedural surface details', accent: '#10b981', img: '/images/3d-globe.png' },
+  { id: 'ocean', label: 'Ocean', desc: 'Animated waves under golden sunset', accent: '#0ea5e9', img: '/images/3d-ocean.png' },
+  { id: 'terrain', label: 'Terrain', desc: 'Mountain landscape with atmospheric fog', accent: '#22c55e', img: '/images/3d-terrain.png' },
+  { id: 'house', label: 'House', desc: 'Interior rooms with furniture & lighting', accent: '#ef4444', img: '/images/3d-house.png' },
+  { id: 'museum', label: 'Museum', desc: 'Columns, sculptures & dramatic lighting', accent: '#a8a29e', img: '/images/3d-museum.png' },
+  { id: 'cube', label: 'Rubik\'s Cube', desc: 'Interactive 3x3 with face rotation', accent: '#f43f5e', img: '/images/3d-cube.png' },
 ]
 
 // ── SVG Icon Components ──
@@ -311,7 +311,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── Section 3: 3D Viewer ── Carousel with Kimi-style minimal animation */}
+        {/* ── Section 3: 3D Viewer ── Kimi-style rolling promo cards + real preview images */}
         <section>
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 rounded-xl bg-[#1a1a1a] flex items-center justify-center text-[#737373]">
@@ -330,56 +330,106 @@ export default function HomePage() {
             </a>
           </div>
 
-          {/* Carousel track — transform 700ms ease-in-out (Kimi style) */}
-          <div className="relative">
-            <div className="overflow-hidden rounded-xl">
+          {/* ── Hero preview — large image of current scene ── */}
+          <div className="relative rounded-xl overflow-hidden border border-[#1a1a1a] hover:border-[#2a2a2a] transition-colors duration-300 mb-4">
+            <a
+              href={`/3d?scene=${THREE_D_SCENES[carouselIndex].id}`}
+              className="group block relative w-full aspect-[2.4/1]"
+            >
+              {/* Real scene preview image */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={THREE_D_SCENES[carouselIndex].img}
+                alt={THREE_D_SCENES[carouselIndex].label}
+                className="w-full h-full object-cover transition-all duration-700 ease-in-out group-hover:scale-[1.02]"
+              />
+              {/* Dark gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+              {/* Accent glow */}
               <div
-                className="flex transition-transform duration-700 ease-in-out"
-                style={{ transform: `translateX(-${carouselIndex * 100}%)` }}
-              >
-                {THREE_D_SCENES.map(scene => (
-                  <div key={scene.id} className="w-full shrink-0 px-0.5">
-                    <a
-                      href={`/3d?scene=${scene.id}`}
-                      className="group block relative w-full aspect-[2.2/1] rounded-xl overflow-hidden bg-gradient-to-br ${scene.gradient} border border-[#1a1a1a] hover:border-[#2a2a2a] transition-colors duration-300"
-                    >
-                      {/* Grid pattern overlay */}
-                      <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
-                      {/* Accent glow */}
-                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full opacity-20 blur-3xl" style={{ backgroundColor: scene.accent }} />
-                      {/* Content */}
-                      <div className="relative h-full flex flex-col items-center justify-center gap-3 p-6">
-                        <div className="w-12 h-12 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110" style={{ backgroundColor: `${scene.accent}20`, color: scene.accent }}>
-                          {scene.icon}
-                        </div>
-                        <div className="text-center">
-                          <h3 className="text-lg font-semibold text-white tracking-tight">{scene.label}</h3>
-                          <p className="text-xs text-white/50 mt-0.5">{scene.desc}</p>
-                        </div>
-                      </div>
-                    </a>
+                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-48 h-24 rounded-full opacity-30 blur-3xl transition-colors duration-700"
+                style={{ backgroundColor: THREE_D_SCENES[carouselIndex].accent }}
+              />
+              {/* Scene info — bottom left */}
+              <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
+                <div className="flex items-end justify-between">
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-semibold text-white tracking-tight transition-all duration-500">
+                      {THREE_D_SCENES[carouselIndex].label}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-white/50 mt-0.5 transition-all duration-500">
+                      {THREE_D_SCENES[carouselIndex].desc}
+                    </p>
                   </div>
-                ))}
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    Explore
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                  </div>
+                </div>
               </div>
+            </a>
+          </div>
+
+          {/* ── Kimi-style rolling promo cards ── Vertical carousel with 0.7s ease-in-out */}
+          <div className="relative overflow-hidden rounded-xl bg-[#111] border border-[#1a1a1a]" style={{ height: 72 }}>
+            {/* Slider dots — top right */}
+            <div className="absolute top-2 right-3 z-10 flex items-center gap-1">
+              {THREE_D_SCENES.map((_, i) => (
+                <div
+                  key={i}
+                  className={`rounded-full transition-all duration-300 ${
+                    carouselIndex === i ? 'w-4 h-1.5 bg-white/60' : 'w-1.5 h-1.5 bg-white/15'
+                  }`}
+                />
+              ))}
             </div>
 
-            {/* Carousel dots */}
-            <div className="flex items-center justify-center gap-1.5 mt-3">
-              {THREE_D_SCENES.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCarouselIndex(i)}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    carouselIndex === i ? 'w-6 bg-white' : 'w-1.5 bg-white/20 hover:bg-white/40'
-                  }`}
-                  aria-label={`Go to scene ${i + 1}`}
-                />
+            {/* Vertical carousel track — Kimi: translateY + 0.7s ease-in-out */}
+            <div
+              className="scene-slider-track"
+              style={{
+                height: `${THREE_D_SCENES.length * 100}%`,
+                transform: `translateY(-${carouselIndex * (100 / THREE_D_SCENES.length)}%)`,
+                transition: 'transform 0.7s ease-in-out',
+              }}
+            >
+              {THREE_D_SCENES.map(scene => (
+                <a
+                  key={scene.id}
+                  href={`/3d?scene=${scene.id}`}
+                  className="group flex items-center gap-3 px-4 cursor-pointer hover:bg-white/[0.03] transition-colors duration-200"
+                  style={{ height: 72 }}
+                >
+                  {/* Thumbnail image — scene preview */}
+                  <div className="w-11 h-11 rounded-lg overflow-hidden shrink-0 border border-[#222]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={scene.img}
+                      alt={scene.label}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                  {/* Title + subtitle */}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-[#e0e0e0] group-hover:text-white transition-colors truncate">
+                      {scene.label}
+                    </div>
+                    <div className="text-xs text-[#525252] group-hover:text-[#737373] transition-colors truncate">
+                      {scene.desc}
+                    </div>
+                  </div>
+                  {/* Arrow */}
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 text-[#333] group-hover:text-[#666] transition-colors">
+                    <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </a>
               ))}
             </div>
           </div>
 
           {/* Scene quick-access pills + Build CTA */}
-          <div className="flex flex-wrap gap-2 mt-4">
+          <div className="flex flex-wrap gap-2 mt-3">
             {['Moon', 'Earth', 'Solar System', 'Ocean', 'Rubik\'s Cube'].map(tag => {
               const scene = THREE_D_SCENES.find(s => s.label === tag)
               return (
@@ -557,6 +607,14 @@ export default function HomePage() {
         }
         .image-scroll-track:hover {
           animation-play-state: paused;
+        }
+
+        /* Kimi-style vertical slider */
+        .scene-slider-track {
+          width: 100%;
+        }
+        .scene-slider-track > a {
+          width: 100%;
         }
       `}</style>
     </main>
