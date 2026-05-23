@@ -161,7 +161,7 @@ export default function BuildClient() {
       <div className="border-b border-[#1a1a1a]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
           <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-xl bg-[#1a1a1a] flex items-center justify-center text-amber-400">
+            <div className="w-10 h-10 rounded-xl bg-[#1a1a1a] flex items-center justify-center text-red-400">
               <IconBuild size={20} />
             </div>
             <div>
@@ -173,19 +173,18 @@ export default function BuildClient() {
       </div>
 
       {/* ── Tabs ── */}
-      <div className="border-b border-[#1a1a1a]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="flex gap-1">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-2">
+        <div className="flex gap-1 bg-[#111111] rounded-lg p-0.5 border border-[#1a1a1a]">
             {TABS.map(tab => {
               const Icon = tab.icon
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors duration-200 ${
+                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors duration-200 ${
                     activeTab === tab.id
-                      ? 'text-white border-red-500'
-                      : 'text-[#737373] border-transparent hover:text-[#a3a3a3] hover:border-[#333]'
+                      ? 'bg-[#dc2626] text-white rounded-md'
+                      : 'text-[#737373] hover:text-white hover:bg-[#1a1a1a] rounded-md'
                   }`}
                 >
                   <Icon size={14} />
@@ -194,7 +193,6 @@ export default function BuildClient() {
               )
             })}
           </div>
-        </div>
       </div>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
@@ -244,14 +242,14 @@ function GalleryView({ projects, category, setCategory, search, setSearch, sortB
             placeholder="Search projects..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-lg bg-[#111] border border-[#1f1f1f] text-sm text-white placeholder-[#525252] focus:outline-none focus:border-[#333] transition-colors"
+            className="w-full pl-9 pr-4 py-2 rounded-lg bg-[#111] border border-[#1a1a1a] text-sm text-white placeholder-[#525252] focus:outline-none focus:border-[#2a2a2a] transition-colors"
           />
         </div>
         {/* Sort */}
         <select
           value={sortBy}
           onChange={e => setSortBy(e.target.value)}
-          className="px-3 py-2 rounded-lg bg-[#111] border border-[#1f1f1f] text-sm text-[#a3a3a3] focus:outline-none focus:border-[#333] transition-colors cursor-pointer"
+          className="px-3 py-2 rounded-lg bg-[#111] border border-[#1a1a1a] text-sm text-[#a3a3a3] focus:outline-none focus:border-[#2a2a2a] transition-colors cursor-pointer"
         >
           <option value="name">Sort by Name</option>
           <option value="difficulty">Sort by Difficulty</option>
@@ -267,8 +265,8 @@ function GalleryView({ projects, category, setCategory, search, setSearch, sortB
             onClick={() => setCategory(cat)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
               category === cat
-                ? 'bg-white/10 text-white border border-white/15'
-                : 'bg-[#111] border border-[#1f1f1f] text-[#737373] hover:bg-[#1a1a1a] hover:text-[#a3a3a3]'
+                ? 'bg-[#dc2626] text-white'
+                : 'bg-[#111] text-[#737373] hover:text-white hover:bg-[#1a1a1a]'
             }`}
           >
             {cat}
@@ -333,8 +331,8 @@ function ProjectCard({ project }) {
         </div>
         {/* Difficulty badge */}
         <div className={`absolute top-2.5 right-2.5 px-2 py-0.5 rounded text-[10px] font-semibold ${
-          project.difficulty === 'Beginner' ? 'bg-green-500/15 text-green-400' :
-          project.difficulty === 'Intermediate' ? 'bg-amber-500/15 text-amber-400' :
+          project.difficulty === 'Beginner' ? 'bg-emerald-500/15 text-emerald-400' :
+          project.difficulty === 'Intermediate' ? 'bg-red-500/15 text-red-400' :
           'bg-red-500/15 text-red-400'
         }`}>
           {project.difficulty}
@@ -390,7 +388,7 @@ function BuildView({ projects }) {
       {/* Active Projects */}
       <section>
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <IconBuild size={16} className="text-amber-400" />
+          <IconBuild size={16} className="text-red-400" />
           Active Projects
         </h2>
         {activeProjects.length > 0 ? (

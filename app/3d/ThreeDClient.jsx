@@ -2001,9 +2001,9 @@ export default function ThreeDClient() {
             </h1>
             <Link
               href="/build"
-              className="ml-3 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#111111] border border-[#1a1a1a] text-[10px] text-amber-400 hover:text-amber-300 hover:border-amber-500/30 transition-colors uppercase tracking-wider font-medium"
+              className="ml-3 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#111111] border border-[#1a1a1a] text-[10px] text-red-400 hover:text-red-300 hover:border-red-500/30 transition-colors uppercase tracking-wider font-medium"
             >
-              <IconBuild size={12} className="text-amber-400" /> Build Projects
+              <IconBuild size={12} className="text-red-400" /> Build Projects
             </Link>
           </div>
 
@@ -2053,12 +2053,12 @@ export default function ThreeDClient() {
       </div>
 
       {/* Mobile scene selector */}
-      <div className="sm:hidden border-b border-[#1a1a1a] bg-[#0d0d0d] p-2 flex gap-1 overflow-x-auto relative z-30">
+      <div className="sm:hidden border-b border-[#1a1a1a] bg-[#0a0a0a] p-2 flex gap-1 overflow-x-auto relative z-30">
         <Link
           href="/build"
-          className="flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs font-medium whitespace-nowrap bg-amber-500/15 text-amber-400 border border-amber-500/20"
+          className="flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs font-medium whitespace-nowrap bg-red-500/15 text-red-400 border border-red-500/20"
         >
-          <IconBuild size={12} className="text-amber-400" /> Build
+          <IconBuild size={12} className="text-red-400" /> Build
         </Link>
         {SCENES.map((scene) => (
           <button
@@ -2078,7 +2078,7 @@ export default function ThreeDClient() {
 
       {/* Cube mobile buttons */}
       {activeScene === 'cube' && (
-        <div className="sm:hidden flex gap-2 p-2 border-b border-[#1a1a1a] bg-[#0d0d0d]">
+        <div className="sm:hidden flex gap-2 p-2 border-b border-[#1a1a1a] bg-[#0a0a0a]">
           <button onClick={handleCubeScramble} className="flex-1 text-[10px] py-1.5 rounded bg-[#111111] border border-[#1a1a1a] text-[#737373] hover:text-white transition-colors uppercase tracking-wider">Scramble</button>
           <button onClick={handleCubeReset} className="flex-1 text-[10px] py-1.5 rounded bg-[#111111] border border-[#1a1a1a] text-[#737373] hover:text-white transition-colors uppercase tracking-wider">Reset</button>
         </div>

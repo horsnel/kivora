@@ -138,7 +138,7 @@ const PROJECTS = {
 // ── Status colors ──
 const STATUS_CONFIG = {
   'complete': { bg: 'bg-emerald-500/15', text: 'text-emerald-400', label: 'Complete', icon: IconCheck },
-  'in-progress': { bg: 'bg-amber-500/15', text: 'text-amber-400', label: 'In Progress', icon: IconBuild },
+  'in-progress': { bg: 'bg-red-500/15', text: 'text-red-400', label: 'In Progress', icon: IconBuild },
   'available': { bg: 'bg-[#1a1a1a]', text: 'text-[#737373]', label: 'Available', icon: IconPlay },
 }
 
@@ -168,7 +168,7 @@ export default function BuildRoomClient() {
           <p className="text-sm text-[#737373] mb-4">This build project doesn&apos;t exist yet.</p>
           <Link
             href="/build"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-[#111] border border-[#1f1f1f] text-[#a3a3a3] hover:bg-[#1a1a1a] transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-[#111] border border-[#1a1a1a] text-[#a3a3a3] hover:bg-[#1a1a1a] hover:text-white transition-colors"
           >
             <IconArrowLeft size={14} />
             Back to Build Studio
@@ -190,7 +190,7 @@ export default function BuildRoomClient() {
         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
           <div className="text-center animate-celebrate">
             <div className="text-4xl mb-2">
-              <IconStar size={48} className="mx-auto text-amber-400" />
+              <IconStar size={48} className="mx-auto text-red-400" />
             </div>
             <h2 className="text-2xl font-bold text-white">Part Completed!</h2>
             <p className="text-sm text-[#a3a3a3] mt-1">Great work, Builder</p>
@@ -347,7 +347,7 @@ function PartCard({ part, project, index, selected, onSelect, onComplete }) {
               <Link
                 href={`/build/${project.id}/${part.id}`}
                 onClick={e => e.stopPropagation()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/15 hover:bg-amber-500/20 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium bg-red-500/10 text-red-400 border border-red-500/15 hover:bg-red-500/20 transition-colors"
               >
                 <IconBuild size={10} />
                 Continue
@@ -356,7 +356,7 @@ function PartCard({ part, project, index, selected, onSelect, onComplete }) {
               <Link
                 href={`/build/${project.id}/${part.id}`}
                 onClick={e => e.stopPropagation()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium bg-[#111] text-[#a3a3a3] border border-[#1f1f1f] hover:bg-[#1a1a1a] hover:text-white transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium bg-[#111] text-[#a3a3a3] border border-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-white transition-colors"
               >
                 <IconPlay size={10} />
                 Start Building

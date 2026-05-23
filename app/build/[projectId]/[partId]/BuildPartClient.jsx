@@ -161,7 +161,7 @@ export default function BuildPartClient() {
           <p className="text-sm text-[#737373] mb-4">This build part doesn&apos;t exist.</p>
           <Link
             href={`/build/${projectId || ''}`}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-[#111] border border-[#1f1f1f] text-[#a3a3a3] hover:bg-[#1a1a1a] transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-[#111] border border-[#1a1a1a] text-[#a3a3a3] hover:bg-[#1a1a1a] hover:text-white transition-colors"
           >
             <IconArrowLeft size={14} />
             Back to Project
@@ -386,19 +386,18 @@ scene.add(light);`,
       </div>
 
       {/* ── Mode Tabs ── */}
-      <div className="border-b border-[#1a1a1a]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex gap-1">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-2">
+        <div className="flex gap-1 bg-[#111111] rounded-lg p-0.5 border border-[#1a1a1a]">
             {MODES.map(m => {
               const Icon = m.icon
               return (
                 <button
                   key={m.id}
                   onClick={() => setMode(m.id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors duration-200 ${
+                  className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium transition-colors duration-200 ${
                     mode === m.id
-                      ? 'text-white border-red-500'
-                      : 'text-[#737373] border-transparent hover:text-[#a3a3a3] hover:border-[#333]'
+                      ? 'bg-[#dc2626] text-white rounded-md'
+                      : 'text-[#737373] hover:text-white hover:bg-[#1a1a1a] rounded-md'
                   }`}
                 >
                   <Icon size={12} />
@@ -407,7 +406,6 @@ scene.add(light);`,
               )
             })}
           </div>
-        </div>
       </div>
 
       {/* ── Main Content: Editor + Preview ── */}
@@ -457,7 +455,7 @@ scene.add(light);`,
                   <textarea
                     value={aiPrompt}
                     onChange={e => setAiPrompt(e.target.value)}
-                    className="w-full bg-[#111] border border-[#1f1f1f] rounded-lg px-3 py-2.5 text-sm text-white resize-none focus:outline-none focus:border-[#333] transition-colors mb-3"
+                    className="w-full bg-[#111] border border-[#1a1a1a] rounded-lg px-3 py-2.5 text-sm text-white resize-none focus:outline-none focus:border-[#2a2a2a] transition-colors mb-3"
                     rows={3}
                     placeholder="Describe what you want to build..."
                     spellCheck={false}
@@ -467,13 +465,13 @@ scene.add(light);`,
                     disabled={!aiPrompt.trim() || aiLoading}
                     className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-colors mb-3 ${
                       aiPrompt.trim() && !aiLoading
-                        ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20 hover:bg-amber-500/25'
-                        : 'bg-[#111] text-[#525252] border border-[#1f1f1f] cursor-not-allowed'
+                        ? 'bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/25'
+                        : 'bg-[#111] text-[#525252] border border-[#1a1a1a] cursor-not-allowed'
                     }`}
                   >
                     {aiLoading ? (
                       <>
-                        <div className="w-3 h-3 border border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
+                        <div className="w-3 h-3 border border-red-400/30 border-t-red-400 rounded-full animate-spin" />
                         Generating...
                       </>
                     ) : (
@@ -490,7 +488,7 @@ scene.add(light);`,
                       <button
                         key={i}
                         onClick={() => setAiPrompt(prompt)}
-                        className="px-2.5 py-1 rounded-full text-[10px] bg-[#111] border border-[#1f1f1f] text-[#737373] hover:text-[#a3a3a3] hover:bg-[#1a1a1a] transition-colors"
+                        className="px-2.5 py-1 rounded-full text-[10px] bg-[#111] text-[#737373] hover:text-white hover:bg-[#1a1a1a] transition-colors"
                       >
                         {prompt.slice(0, 40)}...
                       </button>
