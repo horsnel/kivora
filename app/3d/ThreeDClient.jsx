@@ -1989,103 +1989,65 @@ export default function ThreeDClient() {
       ref={outerRef}
       className={`bg-[#0a0a0a] text-white ${fullscreen ? 'fixed inset-0 z-50' : 'min-h-screen'}`}
     >
-      {/* Header bar */}
-      <div className="border-b border-[#1a1a1a] bg-[#0a0a0a]/95 backdrop-blur-md z-30 relative">
-        <div className="max-w-full mx-auto px-4 sm:px-6 h-12 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 bg-[#dc2626] rounded-lg flex items-center justify-center">
-              <IconEye size={14} className="text-white" />
-            </div>
-            <h1 className="font-bold text-sm tracking-tight">
-              3D <span className="text-red-500">Viewer</span>
-            </h1>
-            <Link
-              href="/build"
-              className="ml-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#111111] border border-[#1a1a1a] text-[10px] text-red-400 hover:text-red-300 hover:border-red-500/30 transition-colors uppercase tracking-wider font-medium"
-            >
-              <IconBuild size={12} className="text-red-400" /> Build Projects
-            </Link>
-          </div>
+      {/* Header */}
+      <div className="mb-6 animate-fade-up px-4 sm:px-6 pt-2">
+        <h1 className="text-display font-semibold mb-2 tracking-tight">
+          3D <span className="text-red-500">Viewer</span>
+        </h1>
+        <p className="text-muted text-body-sm mt-0.5">
+          Explore interactive 3D scenes in your browser
+        </p>
+      </div>
 
-          {/* Scene tabs - scrollable on desktop */}
-          <div className="hidden sm:flex items-center gap-0.5 bg-[#111111] rounded-lg p-0.5 border border-[#1a1a1a] overflow-x-auto max-w-[60vw] relative z-30">
-            {SCENES.map((scene) => (
-              <button
-                key={scene.id}
-                onClick={() => switchScene(scene.id)}
-                title={scene.label}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 whitespace-nowrap ${
-                  activeScene === scene.id
-                    ? 'bg-[#dc2626] text-white shadow-sm'
-                    : 'text-[#737373] hover:text-white hover:bg-[#1a1a1a]'
-                }`}
-              >
-                {scene.icon}
-                <span className="hidden lg:inline">{scene.label}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {activeScene === 'cube' && (
-              <div className="hidden sm:flex items-center gap-1.5">
-                <button onClick={handleCubeScramble} className="text-[10px] px-2.5 py-1 rounded bg-[#111111] border border-[#1a1a1a] text-[#737373] hover:text-white hover:border-[#2a2a2a] transition-colors uppercase tracking-wider">Scramble</button>
-                <button onClick={handleCubeReset} className="text-[10px] px-2.5 py-1 rounded bg-[#111111] border border-[#1a1a1a] text-[#737373] hover:text-white hover:border-[#2a2a2a] transition-colors uppercase tracking-wider">Reset</button>
-              </div>
-            )}
+      {/* Scene tabs */}
+      <div className="px-4 sm:px-6 mb-6">
+        <div className="flex flex-wrap gap-2">
+          {SCENES.map((scene) => (
             <button
-              onClick={handleScreenshot}
-              title="Save screenshot"
-              className="flex items-center gap-1.5 bg-[#111111] border border-[#1a1a1a] hover:border-[#2a2a2a] text-[#737373] hover:text-white text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
+              key={scene.id}
+              onClick={() => switchScene(scene.id)}
+              title={scene.label}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium border transition-all ${
+                activeScene === scene.id
+                  ? 'bg-red-600 border-red-600 text-white'
+                  : 'bg-[#141414] border-[#262626] text-[#737373] hover:text-white hover:border-[#3a3a3a]'
+              }`}
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Save
+              {scene.icon}
+              {scene.label}
             </button>
-            <button
-              onClick={toggleFullscreen}
-              className="flex items-center gap-1.5 bg-[#111111] border border-[#1a1a1a] hover:border-[#2a2a2a] text-white text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
-            >
-              {fullscreen ? <IconMinimize size={12} /> : <IconMaximize size={12} />}
-              {fullscreen ? 'Exit' : 'Fullscreen'}
-            </button>
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* Mobile scene selector */}
-      <div className="sm:hidden border-b border-[#1a1a1a] bg-[#0a0a0a] p-2 flex gap-1 overflow-x-auto relative z-30">
-        <Link
-          href="/build"
-          className="flex items-center gap-1 px-2.5 py-2 rounded-full text-xs font-medium whitespace-nowrap bg-red-500/15 text-red-400 border border-red-500/20"
+      {/* Action buttons row */}
+      <div className="px-4 sm:px-6 mb-4 flex items-center gap-2">
+        {activeScene === 'cube' && (
+          <div className="flex items-center gap-1.5">
+            <button onClick={handleCubeScramble} className="text-[10px] px-3 py-1.5 rounded-full bg-[#141414] border border-[#262626] text-[#737373] hover:text-white hover:border-[#3a3a3a] transition-all uppercase tracking-wider font-medium">Scramble</button>
+            <button onClick={handleCubeReset} className="text-[10px] px-3 py-1.5 rounded-full bg-[#141414] border border-[#262626] text-[#737373] hover:text-white hover:border-[#3a3a3a] transition-all uppercase tracking-wider font-medium">Reset</button>
+          </div>
+        )}
+        <div className="flex-1" />
+        <button
+          onClick={handleScreenshot}
+          title="Save screenshot"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border bg-[#141414] border-[#262626] text-[#737373] hover:text-white hover:border-[#3a3a3a] transition-all"
         >
-          <IconBuild size={12} className="text-red-400" /> Build
-        </Link>
-        {SCENES.map((scene) => (
-          <button
-            key={scene.id}
-            onClick={() => setActiveScene(scene.id)}
-            className={`flex items-center gap-1 px-2.5 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 ${
-              activeScene === scene.id
-                ? 'bg-[#dc2626] text-white'
-                : 'bg-[#111111] text-[#737373] hover:text-white border border-[#1a1a1a]'
-            }`}
-          >
-            {scene.icon}
-            {scene.label}
-          </button>
-        ))}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Save
+        </button>
+        <button
+          onClick={toggleFullscreen}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border bg-[#141414] border-[#262626] text-[#737373] hover:text-white hover:border-[#3a3a3a] transition-all"
+        >
+          {fullscreen ? <IconMinimize size={12} /> : <IconMaximize size={12} />}
+          {fullscreen ? 'Exit' : 'Fullscreen'}
+        </button>
       </div>
-
-      {/* Cube mobile buttons */}
-      {activeScene === 'cube' && (
-        <div className="sm:hidden flex gap-2 p-2 border-b border-[#1a1a1a] bg-[#0a0a0a]">
-          <button onClick={handleCubeScramble} className="flex-1 text-[10px] py-1.5 rounded bg-[#111111] border border-[#1a1a1a] text-[#737373] hover:text-white transition-colors uppercase tracking-wider">Scramble</button>
-          <button onClick={handleCubeReset} className="flex-1 text-[10px] py-1.5 rounded bg-[#111111] border border-[#1a1a1a] text-[#737373] hover:text-white transition-colors uppercase tracking-wider">Reset</button>
-        </div>
-      )}
 
       {/* 3D Canvas container */}
-      <div className={`${fullscreen ? 'h-[calc(100vh-48px)]' : 'h-[calc(100vh-96px)] sm:h-[calc(100vh-48px)]'} relative bg-black`}>
+      <div className={`${fullscreen ? 'h-[calc(100vh-48px)]' : 'h-[calc(100vh-200px)] sm:h-[calc(100vh-180px)]'} relative bg-black`}>
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/80 pointer-events-none">
             <div className="text-center">

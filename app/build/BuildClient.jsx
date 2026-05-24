@@ -158,23 +158,18 @@ export default function BuildClient() {
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white">
       {/* ── Header ── */}
-      <div className="border-b border-[#1a1a1a]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-xl bg-[#1a1a1a] flex items-center justify-center text-red-400">
-              <IconBuild size={20} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Build Studio</h1>
-              <p className="text-sm text-[#737373]">Construct modular 3D projects part by part</p>
-            </div>
-          </div>
-        </div>
+      <div className="mb-6 animate-fade-up px-4 sm:px-6 pt-2">
+        <h1 className="text-display font-semibold mb-2 tracking-tight">
+          Build <span className="text-red-500">Studio</span>
+        </h1>
+        <p className="text-muted text-body-sm mt-0.5">
+          Construct modular 3D projects part by part
+        </p>
       </div>
 
       {/* ── Tabs ── */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-2">
-        <div className="flex gap-1 bg-[#111111] rounded-lg p-0.5 border border-[#1a1a1a]">
+      <div className="px-4 sm:px-6 mb-8">
+        <div className="flex flex-wrap gap-2">
             {TABS.map(tab => {
               const Icon = tab.icon
               return (
