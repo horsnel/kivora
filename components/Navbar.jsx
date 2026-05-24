@@ -108,9 +108,9 @@ export default function Navbar() {
           </div>
         </nav>
 
-        {/* Mobile hamburger */}
+        {/* Mobile hamburger — fixed, top-left like chat page */}
         <button
-          className="lg:hidden w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors -ml-1"
+          className="fixed top-3 left-4 lg:hidden z-50 w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors"
           onClick={() => setMobileOpen(true)}
           aria-label="Open menu"
         >
@@ -150,9 +150,9 @@ export default function Navbar() {
         <SidebarContent user={user} pathname={pathname} onClose={() => setMobileOpen(false)} currencyOpen={currencyOpen} setCurrencyOpen={setCurrencyOpen} currencyDropdownRef={currencyDropdownRef} />
       </aside>
 
-      {/* Mobile hamburger */}
+      {/* Mobile hamburger — fixed, top-left like chat page */}
       <button
-        className="lg:hidden w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors -ml-1"
+        className="fixed top-3 left-4 lg:hidden z-50 w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors"
         onClick={() => setMobileOpen(true)}
         aria-label="Open sidebar"
       >

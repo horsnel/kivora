@@ -19,7 +19,7 @@ export default function PageContent({ children }) {
   // On mobile, sidebar pages show a fixed hamburger icon at top-left (48px tall).
   // Add mobile-only top padding so page titles don't overlap it.
   // On md+ the sidebar is always visible inline, so no extra padding needed.
-  const hamburgerPadding = hasSidebar ? 'pt-14 lg:pt-0' : ''
+  const hamburgerPadding = hasSidebar ? 'pt-12 lg:pt-0' : ''
 
   // Full-viewport pages (like chat) manage their own scrolling internally.
   // Use overflow-hidden so the page's own scroll containers work correctly.
