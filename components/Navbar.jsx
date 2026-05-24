@@ -31,9 +31,11 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [user, setUser] = useState(null)
   const [currencyOpen, setCurrencyOpen] = useState(false)
+  const [hamburgerVisible, setHamburgerVisible] = useState(true)
   const pathname = usePathname()
   const currencyDropdownRef = useRef(null)
   const sidebarRef = useRef(null)
+  const scrollRef = useRef({ y: 0, ticking: false })
 
   const isMinimal = MINIMAL_ROUTES.some(r => pathname.startsWith(r))
   const hideSidebar = pathname === '/' || pathname.startsWith('/auth') || pathname.startsWith('/onboarding') || pathname.startsWith('/chat')
@@ -46,6 +48,28 @@ export default function Navbar() {
       setUser(session?.user ?? null)
     })
     return () => subscription.unsubscribe()
+  }, [])
+
+  // Hide hamburger on scroll down, show on scroll up
+  useEffect(() => {
+    function handleScroll() {
+      const currentY = window.scrollY
+      const prevY = scrollRef.current.y
+      if (!scrollRef.current.ticking) {
+        scrollRef.current.ticking = true
+        window.requestAnimationFrame(() => {
+          if (currentY > prevY && currentY > 60) {
+            setHamburgerVisible(false)
+          } else {
+            setHamburgerVisible(true)
+          }
+          scrollRef.current.y = currentY
+          scrollRef.current.ticking = false
+        })
+      }
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
   // Close mobile sidebar on route change
@@ -110,7 +134,7 @@ export default function Navbar() {
 
         {/* Mobile hamburger — top-left, same position as other pages */}
         <button
-          className="fixed top-3 left-3 md:hidden z-50 w-9 h-9 flex items-center justify-center bg-[#141414]/90 backdrop-blur-sm border border-[#262626] rounded-lg text-[#737373] hover:text-white transition-colors"
+          className={`fixed top-3 left-3 md:hidden z-50 w-9 h-9 flex items-center justify-center bg-[#141414]/90 backdrop-blur-sm border border-[#262626] rounded-lg text-[#737373] hover:text-white transition-all duration-300 ${hamburgerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-3 pointer-events-none'}`}
           onClick={() => setMobileOpen(true)}
           aria-label="Open menu"
         >
@@ -152,7 +176,7 @@ export default function Navbar() {
 
       {/* Mobile hamburger — top-left, only on small screens */}
       <button
-        className="fixed top-3 left-3 md:hidden z-50 w-9 h-9 flex items-center justify-center bg-[#141414]/90 backdrop-blur-sm border border-[#262626] rounded-lg text-[#737373] hover:text-white transition-colors"
+        className={`fixed top-3 left-3 md:hidden z-50 w-9 h-9 flex items-center justify-center bg-[#141414]/90 backdrop-blur-sm border border-[#262626] rounded-lg text-[#737373] hover:text-white transition-all duration-300 ${hamburgerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-3 pointer-events-none'}`}
         onClick={() => setMobileOpen(true)}
         aria-label="Open sidebar"
       >
