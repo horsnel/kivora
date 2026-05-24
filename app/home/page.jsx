@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/LanguageProvider'
+import { useCurrency } from '@/components/CurrencyToggle'
 import { supabasePublic } from '@/lib/supabase'
 
 const TYPEWRITER_PHRASES = [
@@ -64,15 +65,32 @@ function CubeIcon({ size = 20 }) {
 function WebIcon({ size = 20 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
 }
+function TrendIcon({ size = 20 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+}
+function MoneyIcon({ size = 14 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+}
+function LightningIcon({ size = 12 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+}
+function ToolIcon({ size = 12 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+}
+function EyeIcon({ size = 12 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+}
 
 export default function HomePage() {
   const router = useRouter()
   const { t } = useTranslation()
+  const { format } = useCurrency()
   const [user, setUser] = useState(null)
   const [input, setInput] = useState('')
   const [focused, setFocused] = useState(false)
   const [placeholderText, setPlaceholderText] = useState('')
   const [carouselIndex, setCarouselIndex] = useState(0)
+  const [opps, setOpps] = useState([])
   const textareaRef = useRef(null)
   const typewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
 
@@ -116,6 +134,21 @@ export default function HomePage() {
   useEffect(() => {
     if (!supabasePublic) return
     supabasePublic.auth.getUser().then(({ data: { user } }) => setUser(user))
+  }, [])
+
+  // Fetch top opportunities
+  useEffect(() => {
+    async function loadOpps() {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/explore_cache?select=slug,query,result,views,category&order=views.desc&limit=6`,
+          { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}` } }
+        )
+        const data = await res.json()
+        if (Array.isArray(data)) setOpps(data)
+      } catch (_) {}
+    }
+    loadOpps()
   }, [])
 
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || null
@@ -451,6 +484,73 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* ── Section 4: Opportunities ── Cards with income, cost, tags */}
+        {opps.length > 0 && (
+          <section>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 rounded-xl bg-[#1a1a1a] flex items-center justify-center text-[#737373]">
+                <TrendIcon size={16} />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-base font-semibold tracking-tight text-white">Opportunities</h2>
+                <p className="text-xs text-[#737373]">Discover income streams and business ideas</p>
+              </div>
+              <a
+                href="/opportunities"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#dc2626]/15 text-red-400 border border-red-500/20 hover:bg-[#dc2626]/25 transition-colors duration-300"
+              >
+                View all
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              </a>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {opps.map(opp => (
+                <a
+                  key={opp.slug}
+                  href={`/explore/${opp.slug}`}
+                  className="group bg-[#111] border border-[#1a1a1a] rounded-xl p-4 sm:p-5 text-left transition-all hover:-translate-y-0.5 hover:border-[#2a2a2a] hover:bg-[#131313]"
+                >
+                  <h3 className="font-semibold text-sm mb-2 group-hover:text-red-400 transition-colors line-clamp-2 leading-snug tracking-tight text-[#a3a3a3]">
+                    {opp.result?.title || opp.query}
+                  </h3>
+                  {opp.result && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-[#d4d4d4] text-sm font-medium">
+                        <MoneyIcon size={14} />
+                        {format(opp.result.income_min || 0)}–{format(opp.result.income_max || 0)}
+                        <span className="text-[#525252] text-xs font-normal">/{opp.result.income_period || 'mo'}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-[#525252]">
+                        <span className="flex items-center gap-1"><LightningIcon size={12} />{opp.result.start_days}d</span>
+                        <span className="flex items-center gap-1"><ToolIcon size={12} />{format(opp.result.monthly_cost || 0)}/mo</span>
+                        <span className="flex items-center gap-1"><EyeIcon size={12} />{(opp.views || 0).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-1 mt-2.5">
+                    {(opp.result?.tags || []).slice(0, 2).map(tag => (
+                      <span key={tag} className="text-[10px] text-[#525252] bg-[#0a0a0a] px-2 py-0.5 rounded-full font-mono">#{tag}</span>
+                    ))}
+                  </div>
+                </a>
+              ))}
+            </div>
+
+            {/* Quick prompts */}
+            <div className="flex flex-wrap gap-2 mt-3">
+              {['AI Business', 'YouTube', 'E-commerce', 'Freelance', 'SaaS'].map(tag => (
+                <a
+                  key={tag}
+                  href={`/explore?q=${encodeURIComponent(tag.toLowerCase())}`}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium bg-[#111] border border-[#1f1f1f] text-[#737373] hover:bg-[#1a1a1a] hover:border-[#2a2a2a] hover:text-white transition-all duration-200"
+                >
+                  {tag}
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
 
       </div>
 
