@@ -31,11 +31,9 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [user, setUser] = useState(null)
   const [currencyOpen, setCurrencyOpen] = useState(false)
-  const [hamburgerVisible, setHamburgerVisible] = useState(true)
   const pathname = usePathname()
   const currencyDropdownRef = useRef(null)
   const sidebarRef = useRef(null)
-  const scrollRef = useRef({ y: 0, ticking: false })
 
   const isMinimal = MINIMAL_ROUTES.some(r => pathname.startsWith(r))
   const hideSidebar = pathname === '/' || pathname.startsWith('/auth') || pathname.startsWith('/onboarding') || pathname.startsWith('/chat')
@@ -48,28 +46,6 @@ export default function Navbar() {
       setUser(session?.user ?? null)
     })
     return () => subscription.unsubscribe()
-  }, [])
-
-  // Hide hamburger on scroll down, show on scroll up
-  useEffect(() => {
-    function handleScroll() {
-      const currentY = window.scrollY
-      const prevY = scrollRef.current.y
-      if (!scrollRef.current.ticking) {
-        scrollRef.current.ticking = true
-        window.requestAnimationFrame(() => {
-          if (currentY > prevY && currentY > 60) {
-            setHamburgerVisible(false)
-          } else {
-            setHamburgerVisible(true)
-          }
-          scrollRef.current.y = currentY
-          scrollRef.current.ticking = false
-        })
-      }
-    }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
   // Close mobile sidebar on route change
@@ -132,23 +108,23 @@ export default function Navbar() {
           </div>
         </nav>
 
-        {/* Mobile hamburger — top-left, same position as other pages */}
+        {/* Mobile hamburger */}
         <button
-          className={`fixed top-3 left-3 md:hidden z-50 w-9 h-9 flex items-center justify-center bg-[#141414]/90 backdrop-blur-sm border border-[#262626] rounded-lg text-[#737373] hover:text-white transition-all duration-300 ${hamburgerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-3 pointer-events-none'}`}
+          className="lg:hidden w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors -ml-1"
           onClick={() => setMobileOpen(true)}
           aria-label="Open menu"
         >
-          <IconMenu size={14} />
+          <IconMenu size={16} />
         </button>
 
         {/* Mobile sidebar overlay */}
         {mobileOpen && (
-          <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setMobileOpen(false)} />
+          <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
         )}
         <aside
           ref={sidebarRef}
-          className={`fixed z-50 md:hidden top-0 left-0 h-full w-60 bg-[#0f0f0f] border-r border-[#181818] flex flex-col transition-transform duration-200 ${
-            mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          className={`fixed lg:relative z-50 lg:z-auto top-0 left-0 h-full w-60 bg-[#0f0f0f] border-r border-[#181818] flex flex-col transition-transform duration-200 ${
+            mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
           }`}
         >
           <SidebarContent user={user} pathname={pathname} onClose={() => setMobileOpen(false)} currencyOpen={currencyOpen} setCurrencyOpen={setCurrencyOpen} currencyDropdownRef={currencyDropdownRef} />
@@ -161,26 +137,26 @@ export default function Navbar() {
     <>
       {/* Mobile overlay */}
       {mobileOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setMobileOpen(false)} />
+        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
       )}
 
       {/* Sidebar — full height, always visible on desktop, slide-in on mobile */}
       <aside
         ref={sidebarRef}
-        className={`fixed md:relative z-50 md:z-auto top-0 left-0 h-full w-60 bg-[#0f0f0f] border-r border-[#181818] flex flex-col transition-transform duration-200 ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        className={`fixed lg:relative z-50 lg:z-auto top-0 left-0 h-full w-60 bg-[#0f0f0f] border-r border-[#181818] flex flex-col transition-transform duration-200 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         <SidebarContent user={user} pathname={pathname} onClose={() => setMobileOpen(false)} currencyOpen={currencyOpen} setCurrencyOpen={setCurrencyOpen} currencyDropdownRef={currencyDropdownRef} />
       </aside>
 
-      {/* Mobile hamburger — top-left, only on small screens */}
+      {/* Mobile hamburger */}
       <button
-        className={`fixed top-3 left-3 md:hidden z-50 w-9 h-9 flex items-center justify-center bg-[#141414]/90 backdrop-blur-sm border border-[#262626] rounded-lg text-[#737373] hover:text-white transition-all duration-300 ${hamburgerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-3 pointer-events-none'}`}
+        className="lg:hidden w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors -ml-1"
         onClick={() => setMobileOpen(true)}
         aria-label="Open sidebar"
       >
-        <IconMenu size={14} />
+        <IconMenu size={16} />
       </button>
     </>
   )
@@ -247,7 +223,7 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
             </span>
           </Link>
           <button
-            className="md:hidden w-7 h-7 flex items-center justify-center text-[#737373] hover:text-white transition-colors"
+            className="lg:hidden w-7 h-7 flex items-center justify-center text-[#525252] hover:text-white transition-colors"
             onClick={onClose}
           >
             <IconClose size={14} />
