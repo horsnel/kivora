@@ -2291,7 +2291,6 @@ export default function ChatClient() {
           min-height: 56px;
           transition: border-color 0.3s ease;
           position: relative;
-          isolation: isolate;
         }
         .chat-bar-collapsed:focus-within {
           border-color: transparent;
@@ -2311,20 +2310,6 @@ export default function ChatClient() {
           mask-composite: exclude;
           pointer-events: none;
         }
-        /* Gradient glow halo */
-        .chat-bar-collapsed:focus-within::after {
-          content: '';
-          position: absolute;
-          inset: -8px;
-          border-radius: 36px;
-          background: linear-gradient(90deg, #ececec, #22c55e);
-          filter: blur(20px);
-          opacity: 0.22;
-          z-index: -1;
-          pointer-events: none;
-          animation: glowPulse 3.5s ease-in-out infinite;
-        }
-
         .chat-collapsed-btn-circle {
           width: 36px;
           height: 36px;
@@ -2422,7 +2407,6 @@ export default function ChatClient() {
           animation: expandBar 0.25s ease-out;
           overflow: visible;
           position: relative;
-          isolation: isolate;
         }
         @keyframes expandBar {
           from {
@@ -2453,29 +2437,6 @@ export default function ChatClient() {
           -webkit-mask-composite: xor;
           mask-composite: exclude;
           pointer-events: none;
-        }
-        /* Gradient glow halo */
-        .chat-container-expanded:focus-within::after {
-          content: '';
-          position: absolute;
-          inset: -8px;
-          border-radius: 28px;
-          background: linear-gradient(90deg, #ececec, #22c55e);
-          filter: blur(20px);
-          opacity: 0.22;
-          z-index: -1;
-          pointer-events: none;
-          animation: glowPulse 3.5s ease-in-out infinite;
-        }
-        @keyframes glowPulse {
-          0%, 100% {
-            opacity: 0.18;
-            filter: blur(18px);
-          }
-          50% {
-            opacity: 0.32;
-            filter: blur(24px);
-          }
         }
 
         .chat-textarea-expanded {
