@@ -2302,7 +2302,7 @@ export default function ChatClient() {
           inset: 0;
           border-radius: 28px;
           padding: 1.5px;
-          background: linear-gradient(90deg, #ececec, #22c55e);
+          background: linear-gradient(90deg, #a855f7, #ef4444);
           -webkit-mask:
             linear-gradient(#fff 0 0) content-box,
             linear-gradient(#fff 0 0);
@@ -2430,7 +2430,7 @@ export default function ChatClient() {
           inset: 0;
           border-radius: 20px;
           padding: 1.5px;
-          background: linear-gradient(90deg, #ececec, #22c55e);
+          background: linear-gradient(90deg, #a855f7, #ef4444);
           -webkit-mask:
             linear-gradient(#fff 0 0) content-box,
             linear-gradient(#fff 0 0);
