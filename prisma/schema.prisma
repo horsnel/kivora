@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Conversation {
+  id        String    @id @default(cuid())
+  title     String    @default("New Chat")
+  projectId String?
+  project   Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  messages  Message[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String       // "user" | "assistant" | "system"
+  content        String
+  artifacts      Artifact[]
+  searchResults  String?      // JSON string of search results
+  codeExecuted   Boolean      @default(false)
+  codeOutput     String?
+  images         String?      // JSON array of image URLs
+  createdAt      DateTime     @default(now())
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  name        String
+  description String        @default("")
+  instructions String       @default("")
+  files       ProjectFile[]
+  conversations Conversation[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model ProjectFile {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  content   String  @default("")
+  type      String  @default("text") // "text" | "image" | "code" | "document"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Artifact {
+  id        String  @id @default(cuid())
+  messageId String
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  type      String  // "react" | "html" | "svg" | "mermaid" | "markdown" | "code"
+  title     String  @default("Untitled")
+  code      String
+  createdAt DateTime @default(now())
+}
+
+model GeneratedImage {
+  id        String   @id @default(cuid())
+  prompt    String
+  url       String
+  source    String   @default("pollinations") // "zai" | "pollinations" | "groq"
+  createdAt DateTime @default(now())
+}
+
+model GeneratedWebsite {
+  id        String   @id @default(cuid())
+  title     String
+  prompt    String
+  code      String   // HTML/CSS/JS code
+  thumbnail String?  // Screenshot URL
+  createdAt DateTime @default(now())
+}
