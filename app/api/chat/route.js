@@ -35,7 +35,7 @@ export async function POST(req) {
     if (!groqClient || !admin) {
       return Response.json({ error: 'Service not configured' }, { status: 503 })
     }
-    const { messages, sessionId, userId, model: requestedModel, systemPrompt } = await req.json()
+    const { messages, sessionId, userId, model: requestedModel, systemPrompt, focusMode, proMode, proModeType } = await req.json()
     if (!messages?.length) {
       return Response.json({ error: 'messages required' }, { status: 400 })
     }
@@ -76,7 +76,7 @@ export async function POST(req) {
     }
 
     // ── System Prompt ──
-    const SYSTEM_PROMPT = buildSystemPrompt({ systemPrompt, wikiContext, toolInstructions: TOOL_INSTRUCTIONS })
+    const SYSTEM_PROMPT = buildSystemPrompt({ systemPrompt, wikiContext, toolInstructions: TOOL_INSTRUCTIONS, focusMode, proMode, proModeType })
 
     // Build messages array
     let apiMessages
@@ -216,6 +216,14 @@ export async function POST(req) {
               response.imageGenerated = true
               response.imageData = `data:image/jpeg;base64,${imgResult.base64}`
               response.imagePrompt = imgResult.prompt
+            }
+          } catch {}
+        }
+        if (name === 'recommend_opportunities') {
+          try {
+            const oppResult = JSON.parse(toolResults[toolCall.id])
+            if (oppResult.opportunities && oppResult.opportunities.length > 0) {
+              response.opportunityCards = oppResult.opportunities
             }
           } catch {}
         }

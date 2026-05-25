@@ -592,7 +592,10 @@ export default function ChatClient() {
           sessionId,
           userId: user?.id || null,
           model: wasImage ? undefined : model, // Vision model is auto-selected by API
-          systemPrompt: customSystemPrompt || undefined
+          systemPrompt: customSystemPrompt || undefined,
+          focusMode: focusMode || 'All',
+          proMode: proMode || false,
+          proModeType: proMode ? proModeType : undefined
         })
       })
       const data = await res.json()
@@ -623,6 +626,9 @@ export default function ChatClient() {
       }
       if (data.artifacts && data.artifacts.length > 0) {
         assistantMsg.artifacts = data.artifacts
+      }
+      if (data.opportunityCards && data.opportunityCards.length > 0) {
+        assistantMsg.opportunityCards = data.opportunityCards
       }
       setMessages(prev => [...prev, assistantMsg])
     } catch {
@@ -1588,6 +1594,29 @@ export default function ChatClient() {
                             <span className="text-red-400/50">&middot; {artifact.title}</span>
                           </button>
                         ))}
+                      </div>
+                    )}
+                    {msg.role === 'assistant' && msg.opportunityCards && msg.opportunityCards.length > 0 && (
+                      <div className="mt-2 space-y-1.5">
+                        <p className="text-[10px] text-muted2 font-medium uppercase tracking-wider">Related Opportunities</p>
+                        <div className="grid gap-1.5">
+                          {msg.opportunityCards.map((opp, oi) => (
+                            <Link key={oi} href={opp.url}
+                              className="flex items-center gap-3 bg-[#111] border border-white/[0.05] rounded-lg px-3 py-2.5 hover:bg-[#181818] hover:border-[#333] transition-all group">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-[13px] font-medium text-[#999] group-hover:text-white transition-colors line-clamp-1">{opp.title}</h4>
+                                <div className="flex items-center gap-2.5 text-[10px] text-[#555] mt-0.5">
+                                  <span className="flex items-center gap-0.5"><IconMoney size={9} />${opp.income_min?.toLocaleString()}-${opp.income_max?.toLocaleString()}/{opp.income_period}</span>
+                                  <span className="flex items-center gap-0.5"><IconLightning size={9} />{opp.start_days}d</span>
+                                  {opp.monthly_cost > 0 && <span className="flex items-center gap-0.5"><IconTool size={9} />${opp.monthly_cost}/mo</span>}
+                                </div>
+                              </div>
+                              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="text-[#333] group-hover:text-red-400 transition-colors shrink-0">
+                                <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            </Link>
+                          ))}
+                        </div>
                       </div>
                     )}
                     {msg.role === 'assistant' ? (
