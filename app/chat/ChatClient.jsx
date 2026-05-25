@@ -2292,8 +2292,13 @@ export default function ChatClient() {
           transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
         .chat-bar-collapsed:focus-within {
-          border-color: #3a3a3a;
-          box-shadow: 0 0 40px -10px rgba(220,38,38,0.25), 0 0 0 1px #3a3a3a;
+          border-color: rgba(236,236,236,0.35);
+          box-shadow:
+            0 0 0 1px rgba(236,236,236,0.35),
+            0 0 24px 3px rgba(236,236,236,0.12),
+            0 0 56px 6px rgba(236,236,236,0.05),
+            0 0 80px 8px rgba(34,197,94,0.03);
+          animation: glowPulse 3.5s ease-in-out infinite;
         }
 
         .chat-collapsed-btn-circle {
@@ -2406,8 +2411,29 @@ export default function ChatClient() {
           }
         }
         .chat-container-expanded:focus-within {
-          border-color: #3a3a3a;
-          box-shadow: 0 0 40px -10px rgba(220,38,38,0.25), 0 0 0 1px #3a3a3a;
+          border-color: rgba(236,236,236,0.35);
+          box-shadow:
+            0 0 0 1px rgba(236,236,236,0.35),
+            0 0 24px 3px rgba(236,236,236,0.12),
+            0 0 56px 6px rgba(236,236,236,0.05),
+            0 0 80px 8px rgba(34,197,94,0.03);
+          animation: glowPulse 3.5s ease-in-out infinite;
+        }
+        @keyframes glowPulse {
+          0%, 100% {
+            box-shadow:
+              0 0 0 1px rgba(236,236,236,0.35),
+              0 0 24px 3px rgba(236,236,236,0.12),
+              0 0 56px 6px rgba(236,236,236,0.05),
+              0 0 80px 8px rgba(34,197,94,0.03);
+          }
+          50% {
+            box-shadow:
+              0 0 0 1px rgba(236,236,236,0.5),
+              0 0 30px 5px rgba(236,236,236,0.18),
+              0 0 64px 8px rgba(236,236,236,0.08),
+              0 0 90px 10px rgba(34,197,94,0.05);
+          }
         }
 
         .chat-textarea-expanded {
