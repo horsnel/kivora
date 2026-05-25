@@ -2289,15 +2289,39 @@ export default function ChatClient() {
           gap: 8px;
           border: 1px solid rgba(255,255,255,0.06);
           min-height: 56px;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+          transition: border-color 0.3s ease;
+          position: relative;
+          isolation: isolate;
         }
         .chat-bar-collapsed:focus-within {
-          border-color: rgba(236,236,236,0.35);
-          box-shadow:
-            0 0 0 1px rgba(236,236,236,0.35),
-            0 0 24px 3px rgba(236,236,236,0.12),
-            0 0 56px 6px rgba(236,236,236,0.05),
-            0 0 80px 8px rgba(34,197,94,0.03);
+          border-color: transparent;
+        }
+        /* Gradient border ring */
+        .chat-bar-collapsed:focus-within::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 28px;
+          padding: 1.5px;
+          background: linear-gradient(90deg, #ececec, #22c55e);
+          -webkit-mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          pointer-events: none;
+        }
+        /* Gradient glow halo */
+        .chat-bar-collapsed:focus-within::after {
+          content: '';
+          position: absolute;
+          inset: -8px;
+          border-radius: 36px;
+          background: linear-gradient(90deg, #ececec, #22c55e);
+          filter: blur(20px);
+          opacity: 0.22;
+          z-index: -1;
+          pointer-events: none;
           animation: glowPulse 3.5s ease-in-out infinite;
         }
 
@@ -2394,9 +2418,11 @@ export default function ChatClient() {
           padding: 16px 16px 10px 16px;
           display: flex;
           flex-direction: column;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+          transition: border-color 0.3s ease;
           animation: expandBar 0.25s ease-out;
           overflow: visible;
+          position: relative;
+          isolation: isolate;
         }
         @keyframes expandBar {
           from {
@@ -2411,28 +2437,44 @@ export default function ChatClient() {
           }
         }
         .chat-container-expanded:focus-within {
-          border-color: rgba(236,236,236,0.35);
-          box-shadow:
-            0 0 0 1px rgba(236,236,236,0.35),
-            0 0 24px 3px rgba(236,236,236,0.12),
-            0 0 56px 6px rgba(236,236,236,0.05),
-            0 0 80px 8px rgba(34,197,94,0.03);
+          border-color: transparent;
+        }
+        /* Gradient border ring */
+        .chat-container-expanded:focus-within::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 20px;
+          padding: 1.5px;
+          background: linear-gradient(90deg, #ececec, #22c55e);
+          -webkit-mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          pointer-events: none;
+        }
+        /* Gradient glow halo */
+        .chat-container-expanded:focus-within::after {
+          content: '';
+          position: absolute;
+          inset: -8px;
+          border-radius: 28px;
+          background: linear-gradient(90deg, #ececec, #22c55e);
+          filter: blur(20px);
+          opacity: 0.22;
+          z-index: -1;
+          pointer-events: none;
           animation: glowPulse 3.5s ease-in-out infinite;
         }
         @keyframes glowPulse {
           0%, 100% {
-            box-shadow:
-              0 0 0 1px rgba(236,236,236,0.35),
-              0 0 24px 3px rgba(236,236,236,0.12),
-              0 0 56px 6px rgba(236,236,236,0.05),
-              0 0 80px 8px rgba(34,197,94,0.03);
+            opacity: 0.18;
+            filter: blur(18px);
           }
           50% {
-            box-shadow:
-              0 0 0 1px rgba(236,236,236,0.5),
-              0 0 30px 5px rgba(236,236,236,0.18),
-              0 0 64px 8px rgba(236,236,236,0.08),
-              0 0 90px 10px rgba(34,197,94,0.05);
+            opacity: 0.32;
+            filter: blur(24px);
           }
         }
 
