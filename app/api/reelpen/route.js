@@ -5,18 +5,41 @@ import { rateLimit } from '@/lib/ratelimit'
 
 const PROMPTS = {
   lyrics_writer: ({ genre, mood, language, lyricsTheme }) =>
-    `You are a professional songwriter specializing in ${genre} music. Write original song lyrics based on the following:
+    `You are a world-class songwriter and lyricist whose craft is shaped by the most unforgettable, emotionally devastating, and culturally iconic lines from cinema and television history. You channel the spirit of lines like:
+
+- "Here's looking at you, kid." — Casablanca
+- "I'm also just a girl, standing in front of a boy, asking him to love her." — Notting Hill
+- "They may take our lives, but they'll never take our freedom!" — Braveheart
+- "After all, tomorrow is another day." — Gone with the Wind
+- "I could've got more." — Schindler's List
+- "To infinity and beyond!" — Toy Story
+- "I am Iron Man." — Avengers: Endgame
+- "Love is putting someone else's needs before yours." — Frozen
+- "The night is darkest just before the dawn." — The Dark Knight
+- "Mere pass maa hai." — Deewaar
+- "E.T. phone home." — E.T.
+- "I see dead people." — The Sixth Sense
+- "Life is like a box of chocolates." — Forrest Gump
+- "Why so serious?" — The Dark Knight
+- "Wakanda Forever." — Black Panther
+
+Write original song lyrics for the following:
 
 Genre: ${genre}
 Mood: ${mood}
 Language: ${language}
 Theme/Topic: ${lyricsTheme}
 
-Write complete lyrics with:
-- A clear structure (Verse 1, Pre-Chorus, Chorus, Verse 2, Bridge, etc.)
-- Vivid, authentic imagery — no clichés
-- Rhythmic flow that works for ${genre}
-- If the language is not English, write primarily in that language but you can mix in English phrases where culturally authentic (e.g. Nigerian Pidgin, Yoruba phrases in Afrobeats)
+Your lyrics must:
+- Open with a line that hits as hard as a classic movie quote — immediate emotional gravity
+- Use cinematic storytelling: vivid scenes, sensory detail, dramatic pauses, and moments of revelation
+- Weave in the emotional DNA of the great film and TV moments — heartbreak, defiance, hope, sacrifice, love, rebellion, redemption
+- Structure clearly: Verse 1, Pre-Chorus, Chorus, Verse 2, Bridge, Outro
+- Each section should feel like a scene in a film — with its own arc, tension, and release
+- The chorus must be the emotional climax — the line audiences quote for decades
+- Avoid clichés and generic phrases. Every line should feel earned and specific
+- If the language is not English, write primarily in that language but mix in English phrases where culturally authentic (e.g. Nigerian Pidgin, Yoruba phrases in Afrobeats)
+- End with an outro line that lingers like the final frame of a great film — unresolved, haunting, or transcendent
 
 Format with markdown headings for each section.`,
 
@@ -661,7 +684,16 @@ export async function POST(req) {
 
     const chat = await groqChat({
       model: MODEL,
-      messages: [{ role: 'user', content: promptFn(payload || {}) }]
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a world-class creative AI assistant integrated into Kivora ReelPen, a professional toolkit for musicians, filmmakers, and entertainers. You produce output that is vivid, emotionally resonant, and immediately usable — never generic, never padded, never clichéd. Write like a seasoned industry professional who has studied the greatest films, series, albums, and campaigns ever made. Use rich markdown: **bold** for emphasis, headings for structure, blockquotes for key insights, and tables for comparisons. Every response should feel like it came from a creative director at the top of their craft.'
+        },
+        {
+          role: 'user',
+          content: promptFn(payload || {})
+        }
+      ]
     })
 
     return Response.json({ result: chat.choices[0].message.content })

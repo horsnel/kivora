@@ -110,14 +110,14 @@ function AuthForm() {
         <>
         {/* Logo + Back to home on same line */}
         <div className="flex items-center justify-between mb-8">
-          <Link href="/" className="inline-flex items-center gap-2">
+          <Link href="/home" className="inline-flex items-center gap-2">
             <div className="w-8 h-8 bg-[#dc2626] rounded-lg flex items-center justify-center">
               <svg width="16" height="16" viewBox="0 0 32 32" fill="none"><path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95"/><path d="M16 4L26 24L16 18Z" fill="white" opacity="0.55"/><rect x="6" y="26" width="20" height="3" rx="1.5" fill="white" opacity="0.3"/></svg>
             </div>
             <span className="font-bold text-base">Ki<span className="text-red-500">vora</span></span>
           </Link>
           {mode === 'signin' && (
-            <Link href="/" className="text-muted hover:text-white text-xs transition-colors">
+            <Link href="/home" className="text-muted hover:text-white text-xs transition-colors">
               {t('auth.back_home')}
             </Link>
           )}
