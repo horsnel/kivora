@@ -358,7 +358,7 @@ export default function DevToolsClient() {
   const currentCat = CATEGORIES.find(c => c.id === activeCat)
   const currentTool = ALL_TOOLS.find(tool => tool.id === active)
 
-  const inp   = "w-full bg-[#0a0a0a] border border-[#262626] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors"
+  const inp   = "w-full bg-[#0a0a0a] border border-[#262626] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#404040] focus:outline-none transition-colors"
   const mono  = `${inp} font-mono`
   const ta    = `${inp} resize-none leading-relaxed`
   const tamono= `${inp} resize-none leading-relaxed font-mono`

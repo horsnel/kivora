@@ -4,7 +4,7 @@ import { supabasePublic } from '@/lib/supabase'
 import { useTranslation } from '@/components/LanguageProvider'
 import { IconChat, IconArrowLeft, IconPlus, IconSpinner, IconTrash, IconSend, IconUser } from '@/components/Icons'
 
-const inputClass = "w-full bg-[#0a0a0a] border border-[#262626] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors"
+const inputClass = "w-full bg-[#0a0a0a] border border-[#262626] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#404040] focus:outline-none transition-colors"
 
 export default function CommunityPage() {
   const { t } = useTranslation()

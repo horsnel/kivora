@@ -317,7 +317,7 @@ export default function StudyClient() {
 
   const meta = TOOLS.find(tool => tool.id === active)
 
-  const inputClass = "w-full bg-[#0a0a0a] border border-[#262626] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#404040] focus:border-red-500 focus:outline-none focus:shadow-[0_0_0_2px_rgba(220,38,38,0.15),0_0_16px_rgba(220,38,38,0.06)] transition-all duration-200"
+  const inputClass = "w-full bg-[#0a0a0a] border border-[#262626] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#404040] focus:outline-none transition-all duration-200"
   const textareaClass = `${inputClass} resize-none leading-relaxed`
 
   // Quiz score calculation

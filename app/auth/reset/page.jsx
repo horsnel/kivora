@@ -75,7 +75,7 @@ export default function ResetPage() {
               </label>
               <input
                 type="email"
-                className="w-full bg-[#0d0d0d] border border-[#262626] rounded-xl px-4 py-3 text-sm text-white placeholder-[#404040] transition-all duration-200 focus:border-red-500 focus:outline-none focus:shadow-[0_0_0_2px_rgba(220,38,38,0.15),0_0_16px_rgba(220,38,38,0.06)]"
+                className="w-full bg-[#0d0d0d] border border-[#262626] rounded-xl px-4 py-3 text-sm text-white placeholder-[#404040] transition-all duration-200 focus:outline-none"
                 placeholder="you@example.com"
                 value={email}
                 onChange={e => setEmail(e.target.value)}

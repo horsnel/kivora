@@ -113,7 +113,7 @@ export default function HomePage() {
               </div>
               <input
                 ref={inputRef}
-                className="w-full bg-[#141414] border border-[#262626] rounded-2xl pl-16 pr-16 py-10 sm:py-12 text-2xl sm:text-3xl text-white placeholder-muted2 transition-all focus:border-red-500/60 focus:shadow-[0_0_0_3px_rgba(220,38,38,0.1),0_0_24px_rgba(220,38,38,0.06)]"
+                className="w-full bg-[#141414] border border-[#262626] rounded-2xl pl-16 pr-16 py-10 sm:py-12 text-2xl sm:text-3xl text-white placeholder-muted2 transition-all focus:outline-none"
                 placeholder={displayText || t('home.placeholder')}
                 value={query}
                 onChange={e => setQuery(e.target.value)}

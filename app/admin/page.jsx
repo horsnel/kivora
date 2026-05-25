@@ -80,7 +80,7 @@ export default function AdminPage() {
               onChange={e => { setPasswordInput(e.target.value); setPasswordError(false) }}
               placeholder="Password"
               autoFocus
-              className={`w-full bg-[#0a0a0a] border ${passwordError ? 'border-red-500/60' : 'border-[#262626]'} rounded-xl px-4 py-3 text-[15px] text-white placeholder-[#525252] outline-none focus:border-white/[0.15] transition-colors mb-1`}
+              className={`w-full bg-[#0a0a0a] border ${passwordError ? 'border-red-500/60' : 'border-[#262626]'} rounded-xl px-4 py-3 text-[15px] text-white placeholder-[#525252] outline-none transition-colors mb-1`}
             />
             {passwordError && (
               <p className="text-[12px] text-red-400 mb-3 px-1">Incorrect password</p>

@@ -633,7 +633,7 @@ export default function DashboardPage() {
                             <div>
                               <label className="text-[10px] text-muted block mb-1">{t('discover.goals.gap.current_label')}</label>
                               <input
-                                className="w-full bg-[#141414] border border-[#262626] rounded-lg px-3 py-2 text-xs text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors"
+                                className="w-full bg-[#141414] border border-[#262626] rounded-lg px-3 py-2 text-xs text-white placeholder-[#404040] focus:outline-none transition-colors"
                                 placeholder={t('discover.goals.gap.current_placeholder')}
                                 value={gapInput.current}
                                 onChange={e => setGapInput(prev => ({ ...prev, current: e.target.value }))}
@@ -642,7 +642,7 @@ export default function DashboardPage() {
                             <div>
                               <label className="text-[10px] text-muted block mb-1">{t('discover.goals.gap.target_label')}</label>
                               <input
-                                className="w-full bg-[#141414] border border-[#262626] rounded-lg px-3 py-2 text-xs text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors"
+                                className="w-full bg-[#141414] border border-[#262626] rounded-lg px-3 py-2 text-xs text-white placeholder-[#404040] focus:outline-none transition-colors"
                                 placeholder={t('discover.goals.gap.target_placeholder')}
                                 value={gapInput.target}
                                 onChange={e => setGapInput(prev => ({ ...prev, target: e.target.value }))}
@@ -747,7 +747,7 @@ export default function DashboardPage() {
                   <div>
                     <label className="text-[10px] text-muted block mb-1.5">{t('discover.modal.goal_title')}</label>
                     <input
-                      className="w-full bg-[#0a0a0a] border border-[#262626] rounded-lg px-3 py-2.5 text-xs text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors"
+                      className="w-full bg-[#0a0a0a] border border-[#262626] rounded-lg px-3 py-2.5 text-xs text-white placeholder-[#404040] focus:outline-none transition-colors"
                       placeholder={t('discover.modal.goal_title_placeholder')}
                       value={customGoalTitle}
                       onChange={e => setCustomGoalTitle(e.target.value)}
@@ -756,7 +756,7 @@ export default function DashboardPage() {
                   <div>
                     <label className="text-[10px] text-muted block mb-1.5">{t('discover.modal.milestones')}</label>
                     <textarea
-                      className="w-full bg-[#0a0a0a] border border-[#262626] rounded-lg px-3 py-2.5 text-xs text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors min-h-[120px] resize-none"
+                      className="w-full bg-[#0a0a0a] border border-[#262626] rounded-lg px-3 py-2.5 text-xs text-white placeholder-[#404040] focus:outline-none transition-colors min-h-[120px] resize-none"
                       placeholder={`Build portfolio\nPrepare resume\nApply to 20 companies\nPractice interviews\nAccept offer`}
                       value={customGoalMilestones}
                       onChange={e => setCustomGoalMilestones(e.target.value)}

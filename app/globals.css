@@ -82,13 +82,13 @@ code, pre, kbd, .font-mono {
   outline: none;
 }
 
-/* Text inputs get a soft glow instead of hard outline */
+/* Text inputs get a purple→red gradient ring on focus */
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
-  border-color: var(--red) !important;
+  border-color: transparent !important;
+  border-image: linear-gradient(90deg, #a855f7, #ef4444) 1 !important;
 }
 
 /* Buttons keep a minimal focus ring for accessibility */

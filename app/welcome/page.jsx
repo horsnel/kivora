@@ -239,7 +239,7 @@ export default function WelcomePage() {
         </p>
         <div className="flex flex-col sm:flex-row gap-2 max-w-lg mx-auto mb-4">
           <input
-            className="flex-1 bg-[#141414] border border-[#262626] rounded-xl px-4 py-3.5 text-sm text-white placeholder-[#404040] focus:border-red-500 focus:outline-none transition-colors"
+            className="flex-1 bg-[#141414] border border-[#262626] rounded-xl px-4 py-3.5 text-sm text-white placeholder-[#404040] focus:outline-none transition-colors"
             placeholder={t('welcome.cta_bottom.placeholder')}
             value={query}
             onChange={e => setQuery(e.target.value)}

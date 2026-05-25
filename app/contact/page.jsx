@@ -80,8 +80,8 @@ export default function ContactPage() {
     }
   }
 
-  const inputClass = "w-full bg-[#0d0d0d] border border-[#262626] rounded-xl px-4 py-3 text-sm text-white placeholder-[#404040] transition-all duration-200 focus:border-red-500 focus:outline-none focus:shadow-[0_0_0_2px_rgba(220,38,38,0.15),0_0_16px_rgba(220,38,38,0.06)]"
-  const errorInputClass = "w-full bg-[#0d0d0d] border border-red-900/60 rounded-xl px-4 py-3 text-sm text-white placeholder-[#404040] transition-all duration-200 focus:border-red-500 focus:outline-none focus:shadow-[0_0_0_2px_rgba(220,38,38,0.15),0_0_16px_rgba(220,38,38,0.06)]"
+  const inputClass = "w-full bg-[#0d0d0d] border border-[#262626] rounded-xl px-4 py-3 text-sm text-white placeholder-[#404040] transition-all duration-200 focus:outline-none"
+  const errorInputClass = "w-full bg-[#0d0d0d] border border-red-900/60 rounded-xl px-4 py-3 text-sm text-white placeholder-[#404040] transition-all duration-200 focus:outline-none"
 
   return (
     <main className="min-h-screen bg-[#0a0a0a]">
