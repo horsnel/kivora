@@ -66,17 +66,7 @@ export default function Navbar() {
   // Close currency dropdown on route change
   useEffect(() => setCurrencyOpen(false), [pathname])
 
-  // Close mobile sidebar on click outside
-  useEffect(() => {
-    if (!mobileOpen) return
-    function handleClick(e) {
-      if (sidebarRef.current && !sidebarRef.current.contains(e.target)) {
-        setMobileOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [mobileOpen])
+  // Overlay onClick handles closing — no separate mousedown listener needed
 
   // Auth pages manage their own layout — render nothing
   if (hideSidebar) return null
@@ -108,18 +98,20 @@ export default function Navbar() {
           </div>
         </nav>
 
-        {/* Mobile hamburger — fixed, top-left like chat page */}
-        <button
-          className="fixed top-3 left-4 lg:hidden z-50 w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors"
-          onClick={() => setMobileOpen(true)}
-          aria-label="Open menu"
-        >
-          <IconMenu size={16} />
-        </button>
+        {/* Mobile hamburger — fixed, top-left like chat page; hidden when sidebar is open */}
+        {!mobileOpen && (
+          <button
+            className="fixed top-3 left-4 lg:hidden z-50 w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+          >
+            <IconMenu size={16} />
+          </button>
+        )}
 
         {/* Mobile sidebar overlay */}
         {mobileOpen && (
-          <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
         )}
         <aside
           ref={sidebarRef}
@@ -137,7 +129,7 @@ export default function Navbar() {
     <>
       {/* Mobile overlay */}
       {mobileOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
       )}
 
       {/* Sidebar — full height, always visible on desktop, slide-in on mobile */}
@@ -150,14 +142,16 @@ export default function Navbar() {
         <SidebarContent user={user} pathname={pathname} onClose={() => setMobileOpen(false)} currencyOpen={currencyOpen} setCurrencyOpen={setCurrencyOpen} currencyDropdownRef={currencyDropdownRef} />
       </aside>
 
-      {/* Mobile hamburger — fixed, top-left like chat page */}
-      <button
-        className="fixed top-3 left-4 lg:hidden z-50 w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors"
-        onClick={() => setMobileOpen(true)}
-        aria-label="Open sidebar"
-      >
-        <IconMenu size={16} />
-      </button>
+      {/* Mobile hamburger — fixed, top-left like chat page; hidden when sidebar is open */}
+      {!mobileOpen && (
+        <button
+          className="fixed top-3 left-4 lg:hidden z-50 w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open sidebar"
+        >
+          <IconMenu size={16} />
+        </button>
+      )}
     </>
   )
 }

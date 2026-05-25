@@ -260,17 +260,7 @@ export default function ChatClient() {
 
   useEffect(() => { setHistoryOpen(false) }, [pathname])
 
-  // Close history panel on click outside (mobile)
-  useEffect(() => {
-    if (!historyOpen) return
-    function handleClick(e) {
-      if (historyRef.current && !historyRef.current.contains(e.target)) {
-        setHistoryOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [historyOpen])
+  // Overlay onClick handles closing — no separate mousedown listener needed
 
   // Close model dropdown on click outside
   useEffect(() => {
@@ -1136,7 +1126,7 @@ export default function ChatClient() {
       )}
       {/* ── Chat Sidebar ── */}
       {historyOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setHistoryOpen(false)} />
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden" onClick={() => setHistoryOpen(false)} />
       )}
       <aside
         ref={historyRef}
