@@ -459,18 +459,33 @@ export default function HomePage() {
         .chat-container-expanded {
           width: 100%;
           position: relative;
+          isolation: isolate;
           background-color: rgba(255,255,255,0.03);
           border: 1px solid rgba(255,255,255,0.06);
           border-radius: 20px;
           padding: 16px 16px 10px 16px;
           display: flex;
           flex-direction: column;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+          transition: border-color 0.3s ease;
           overflow: visible;
         }
         .chat-container-expanded:focus-within {
-          border-color: rgba(255,255,255,0.12);
-          box-shadow: 0 0 0 3px rgba(255,255,255,0.03);
+          border-color: transparent;
+        }
+        /* Gradient border ring */
+        .chat-container-expanded:focus-within::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 20px;
+          padding: 1.5px;
+          background: linear-gradient(90deg, #a855f7, #ef4444);
+          -webkit-mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          pointer-events: none;
         }
 
         .chat-textarea-expanded {
