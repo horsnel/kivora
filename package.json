@@ -32,6 +32,8 @@
     "rehype-highlight": "^7.0.2",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
+    "socket.io-client": "^4.8.3",
+    "tailwindcss-animate": "^1.0.7",
     "z-ai-web-dev-sdk": "^0.0.18"
   },
   "devDependencies": {
