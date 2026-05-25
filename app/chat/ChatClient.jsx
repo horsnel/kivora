@@ -2273,8 +2273,8 @@ export default function ChatClient() {
           transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
         .chat-bar-collapsed:focus-within {
-          border-color: rgba(255,255,255,0.12);
-          box-shadow: 0 0 0 3px rgba(255,255,255,0.03);
+          border-color: #3a3a3a;
+          box-shadow: 0 0 40px -10px rgba(220,38,38,0.08), 0 0 0 1px #3a3a3a;
         }
 
         .chat-collapsed-btn-circle {
@@ -2387,8 +2387,8 @@ export default function ChatClient() {
           }
         }
         .chat-container-expanded:focus-within {
-          border-color: rgba(255,255,255,0.12);
-          box-shadow: 0 0 0 3px rgba(255,255,255,0.03);
+          border-color: #3a3a3a;
+          box-shadow: 0 0 40px -10px rgba(220,38,38,0.08), 0 0 0 1px #3a3a3a;
         }
 
         .chat-textarea-expanded {
