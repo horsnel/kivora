@@ -2,15 +2,15 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useTranslation } from '@/components/LanguageProvider'
-import { IconEye, IconMaximize, IconMinimize, IconBuild } from '@/components/Icons'
+import { IconEye, IconMaximize, IconMinimize, IconBuild, IconGrid, IconPlanet, IconNebula, IconNature, IconBuildings, IconMoon, IconEarth, IconSun, IconGlobe, IconTelescope, IconWaves, IconMountain, IconHome, IconMuseum, IconCube } from '@/components/Icons'
 import Link from 'next/link'
 
 const CATEGORIES = [
-  { id: 'all',         label: 'All',                  emoji: '✦',  color: '#ef4444' },
-  { id: 'planetary',   label: 'Planetary',            emoji: '🪐', color: '#a855f7' },
-  { id: 'deepspace',   label: 'Deep Space',            emoji: '🌌', color: '#6366f1' },
-  { id: 'environment',  label: 'Environment',            emoji: '🌍', color: '#16a34a' },
-  { id: 'structures',  label: 'Structures & Objects',  emoji: '🏛', color: '#f59e0b' },
+  { id: 'all',         label: 'All',                  icon: IconGrid,      color: '#ef4444' },
+  { id: 'planetary',   label: 'Planetary',            icon: IconPlanet,    color: '#a855f7' },
+  { id: 'deepspace',   label: 'Deep Space',            icon: IconNebula,    color: '#6366f1' },
+  { id: 'environment',  label: 'Environment',            icon: IconNature,    color: '#16a34a' },
+  { id: 'structures',  label: 'Structures & Objects',  icon: IconBuildings, color: '#f59e0b' },
 ]
 
 const SCENES = [
@@ -19,135 +19,70 @@ const SCENES = [
     label: 'Moon',
     category: 'planetary',
     description: 'Interactive 3D Moon with procedural textures and NASA data',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <circle cx="12" cy="12" r="10" />
-        <path d="M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" />
-      </svg>
-    ),
+    icon: IconMoon,
   },
   {
     id: 'earth',
     label: 'Earth',
     category: 'planetary',
     description: 'Our blue planet with atmosphere, clouds, and city lights',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <circle cx="12" cy="12" r="10" />
-        <path d="M2 12h20M12 2c3 3 3 15 0 20M12 2c-3 3-3 15 0 20" />
-      </svg>
-    ),
+    icon: IconEarth,
   },
   {
     id: 'solar',
     label: 'Solar System',
     category: 'planetary',
     description: 'Planets orbiting a glowing sun with particle trails',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <circle cx="12" cy="12" r="3" />
-        <circle cx="12" cy="12" r="7" strokeDasharray="2 3" />
-        <circle cx="12" cy="12" r="10" strokeDasharray="1 4" />
-      </svg>
-    ),
+    icon: IconSun,
   },
   {
     id: 'globe',
     label: 'Globe',
     category: 'planetary',
     description: 'Interactive 3D Globe with procedural surface details',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <circle cx="12" cy="12" r="10" />
-        <path d="M2 12h20" />
-        <path d="M12 2c2.5 3 2.5 15 0 20" />
-        <path d="M12 2c-2.5 3-2.5 15 0 20" />
-        <path d="M5 7h14" opacity="0.5" />
-        <path d="M5 17h14" opacity="0.5" />
-      </svg>
-    ),
+    icon: IconGlobe,
   },
   {
     id: 'deepspace',
     label: 'Deep Space',
     category: 'deepspace',
     description: 'Nebula exploration with Hubble telescope imagery',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <circle cx="12" cy="12" r="2" />
-        <circle cx="12" cy="12" r="6" strokeDasharray="2 3" />
-        <circle cx="12" cy="12" r="10" strokeDasharray="1 4" />
-      </svg>
-    ),
+    icon: IconTelescope,
   },
   {
     id: 'ocean',
     label: 'Ocean',
     category: 'environment',
     description: 'Animated ocean waves under a golden sunset sky',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0" />
-        <path d="M2 16c2-2 4-2 6 0s4 2 6 0 4-2 6 0" />
-        <circle cx="18" cy="5" r="2" />
-      </svg>
-    ),
+    icon: IconWaves,
   },
   {
     id: 'terrain',
     label: 'Terrain',
     category: 'environment',
     description: 'Procedural mountain landscape with atmospheric fog',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <polyline points="2,20 7,8 11,14 15,6 22,20" />
-        <polyline points="5,20 9,12 13,16 18,10 22,20" opacity="0.5" />
-      </svg>
-    ),
+    icon: IconMountain,
   },
   {
     id: 'house',
     label: 'House',
     category: 'structures',
     description: 'Modern house with interior rooms, furniture, and warm lighting',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M3 12L12 3l9 9" />
-        <path d="M5 10v9a1 1 0 001 1h3v-5h6v5h3a1 1 0 001-1v-9" />
-        <rect x="9" y="15" width="6" height="5" />
-      </svg>
-    ),
+    icon: IconHome,
   },
   {
     id: 'museum',
     label: 'Museum',
     category: 'structures',
     description: 'Grand museum hall with columns, sculptures, and dramatic lighting',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M3 21h18" />
-        <path d="M5 21V7l7-4 7 4v14" />
-        <line x1="8" y1="21" x2="8" y2="10" />
-        <line x1="12" y1="21" x2="12" y2="10" />
-        <line x1="16" y1="21" x2="16" y2="10" />
-        <path d="M3 7h18" />
-      </svg>
-    ),
+    icon: IconMuseum,
   },
   {
     id: 'cube',
     label: "Rubik's Cube",
     category: 'structures',
     description: "Interactive 3x3 Rubik's Cube with face rotation",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <line x1="3" y1="9" x2="21" y2="9" />
-        <line x1="3" y1="15" x2="21" y2="15" />
-        <line x1="9" y1="3" x2="9" y2="21" />
-        <line x1="15" y1="3" x2="15" y2="21" />
-      </svg>
-    ),
+    icon: IconCube,
   },
 ]
 
@@ -2055,7 +1990,7 @@ export default function ThreeDClient() {
                   }`}
                   style={activeCategory === cat.id ? { background: cat.color, borderColor: cat.color } : {}}
                 >
-                  <span className="text-base leading-none">{cat.emoji}</span>
+                  <cat.icon size={14} />
                   {cat.label}
                 </button>
               )
@@ -2075,7 +2010,7 @@ export default function ThreeDClient() {
                     : 'bg-[#141414] border-[#262626] text-[#737373] hover:text-white hover:border-[#3a3a3a]'
                 }`}
               >
-                {scene.icon}
+                <scene.icon size={14} />
                 {scene.label}
               </button>
             ))}
