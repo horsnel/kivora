@@ -82,8 +82,27 @@ code, pre, kbd, .font-mono {
   outline: none;
 }
 
-/* Text inputs get a purple→red gradient ring on focus */
-/* We use a wrapper class .kivora-input-wrap for true gradient rings via ::before */
+/* ── Gradient ring on text inputs (purple → red) ──
+   Uses background-clip technique: two layered backgrounds on the input itself.
+   Layer 1 (top): solid fill clipped to padding-box (hides gradient inside)
+   Layer 2 (bottom): purple→red gradient clipped to border-box (visible in border area)
+   Works with border-radius, no wrapper needed.
+*/
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  background-image:
+    linear-gradient(var(--bg), var(--bg)),
+    linear-gradient(90deg, #a855f7, #ef4444) !important;
+  background-origin: border-box !important;
+  background-clip: padding-box, border-box !important;
+  border-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Wrapper class for pages that already use the ::before mask technique
+   (chat bar, home page). The wrapper must be position:relative. */
 .kivora-input-wrap {
   position: relative;
   isolation: isolate;
@@ -109,43 +128,13 @@ code, pre, kbd, .font-mono {
 .kivora-input-wrap:focus-within select {
   border-color: transparent !important;
   box-shadow: none !important;
+  background-image: none !important;
 }
 .kivora-input-wrap input:focus-visible,
 .kivora-input-wrap textarea:focus-visible,
 .kivora-input-wrap select:focus-visible {
   box-shadow: none !important;
-}
-
-/* ── Auto-detect: any <div> that directly contains a focused input/textarea gets the gradient ring ── */
-div:has(> input:focus-visible),
-div:has(> textarea:focus-visible),
-div:has(> select:focus-visible) {
-  position: relative;
-  isolation: isolate;
-}
-div:has(> input:focus-visible)::before,
-div:has(> textarea:focus-visible)::before,
-div:has(> select:focus-visible)::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 12px;
-  padding: 1.5px;
-  background: linear-gradient(90deg, #a855f7, #ef4444);
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-  z-index: 1;
-}
-/* Hide original border on focused inputs inside any div */
-div:has(> input:focus-visible) > input,
-div:has(> textarea:focus-visible) > textarea,
-div:has(> select:focus-visible) > select {
-  border-color: transparent !important;
-  box-shadow: none !important;
+  background-image: none !important;
 }
 
 /* Buttons keep a minimal focus ring for accessibility */
