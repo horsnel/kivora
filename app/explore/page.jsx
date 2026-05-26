@@ -107,7 +107,7 @@ export default function HomePage() {
 
           {/* Search row — larger, more prominent */}
           <div className="flex flex-col sm:flex-row gap-2 animate-fade-up animate-fade-up-3">
-            <div className="relative flex-1 explore-search-wrap">
+            <div className="relative flex-1 kivora-input-wrap rounded-2xl">
               <div className="absolute left-6 top-1/2 -translate-y-1/2 text-muted2 pointer-events-none z-10">
                 <IconSearch size={24} />
               </div>

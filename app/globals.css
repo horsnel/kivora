@@ -83,29 +83,16 @@ code, pre, kbd, .font-mono {
 }
 
 /* Text inputs get a purple→red gradient ring on focus */
-/* border-image can't do border-radius, so we use box-shadow layers */
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible {
-  outline: none;
-  border-color: transparent !important;
-  box-shadow:
-    inset 0 0 0 1px rgba(168,85,247,0.5),
-    inset 0 0 0 1.5px rgba(239,68,68,0.35),
-    0 0 0 0.5px rgba(168,85,247,0.3),
-    0 0 0 0.5px rgba(239,68,68,0.2) !important;
-}
-
-/* ── Gradient ring wrapper for rounded inputs (border-image can't do border-radius) ── */
-.explore-search-wrap {
+/* We use a wrapper class .kivora-input-wrap for true gradient rings via ::before */
+.kivora-input-wrap {
   position: relative;
   isolation: isolate;
 }
-.explore-search-wrap:focus-within::before {
+.kivora-input-wrap:focus-within::before {
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: 1rem;
+  border-radius: inherit;
   padding: 1.5px;
   background: linear-gradient(90deg, #a855f7, #ef4444);
   -webkit-mask:
@@ -115,6 +102,50 @@ select:focus-visible {
   mask-composite: exclude;
   pointer-events: none;
   z-index: 1;
+}
+/* Hide the original border on focus when inside wrapper */
+.kivora-input-wrap:focus-within input,
+.kivora-input-wrap:focus-within textarea,
+.kivora-input-wrap:focus-within select {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.kivora-input-wrap input:focus-visible,
+.kivora-input-wrap textarea:focus-visible,
+.kivora-input-wrap select:focus-visible {
+  box-shadow: none !important;
+}
+
+/* ── Auto-detect: any <div> that directly contains a focused input/textarea gets the gradient ring ── */
+div:has(> input:focus-visible),
+div:has(> textarea:focus-visible),
+div:has(> select:focus-visible) {
+  position: relative;
+  isolation: isolate;
+}
+div:has(> input:focus-visible)::before,
+div:has(> textarea:focus-visible)::before,
+div:has(> select:focus-visible)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  padding: 1.5px;
+  background: linear-gradient(90deg, #a855f7, #ef4444);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+}
+/* Hide original border on focused inputs inside any div */
+div:has(> input:focus-visible) > input,
+div:has(> textarea:focus-visible) > textarea,
+div:has(> select:focus-visible) > select {
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
 /* Buttons keep a minimal focus ring for accessibility */
