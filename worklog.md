@@ -20,3 +20,31 @@ Stage Summary:
 - Changed from `div:has(> input)::before` to `background-clip` technique on input elements directly
 - All pages now show purple→red gradient ring perfectly contained within input boundaries
 - Deployed to kivora.pages.dev
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Add categories to 3D Viewer page replacing flat pill list
+
+Work Log:
+- Read ThreeDClient.jsx and understood the SCENES array and scene tab UI
+- Added CATEGORIES array with 5 categories: All, Planetary, Deep Space, Environment, Structures & Objects
+- Added `category` field to each SCENES entry matching user's specification
+- Replaced flat pill list with two-level UI: category tabs (colored) + scene pills below
+- Category tabs use colored background when active (matching DevTools/ReelPen pattern)
+- "All" tab shows all 10 scenes in current format (not preview)
+- Added activeCategory state that derives from activeScene
+- Category auto-updates when switching scenes
+- Fixed build by excluding src/, examples/, sandbox-worker/ from tsconfig
+- Verified in browser: All, Planetary, Deep Space, Structures & Objects categories all work correctly
+- Deployed to kivora.pages.dev
+- Pushed to GitHub
+
+Stage Summary:
+- 3D Viewer now has organized categories instead of flat pill list
+- Categories: ✦ All, 🪐 Planetary, 🌌 Deep Space, 🌍 Environment, 🏛 Structures & Objects
+- Planetary: Moon, Earth, Solar System, Globe
+- Deep Space: Deep Space
+- Environment: Ocean, Terrain
+- Structures & Objects: House, Museum, Rubik's Cube
+- All: shows all 10 scenes in current card format
