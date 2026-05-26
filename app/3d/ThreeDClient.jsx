@@ -5,10 +5,19 @@ import { useTranslation } from '@/components/LanguageProvider'
 import { IconEye, IconMaximize, IconMinimize, IconBuild } from '@/components/Icons'
 import Link from 'next/link'
 
+const CATEGORIES = [
+  { id: 'all',         label: 'All',                  emoji: '✦',  color: '#ef4444' },
+  { id: 'planetary',   label: 'Planetary',            emoji: '🪐', color: '#a855f7' },
+  { id: 'deepspace',   label: 'Deep Space',            emoji: '🌌', color: '#6366f1' },
+  { id: 'environment',  label: 'Environment',            emoji: '🌍', color: '#16a34a' },
+  { id: 'structures',  label: 'Structures & Objects',  emoji: '🏛', color: '#f59e0b' },
+]
+
 const SCENES = [
   {
     id: 'moon',
     label: 'Moon',
+    category: 'planetary',
     description: 'Interactive 3D Moon with procedural textures and NASA data',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -20,6 +29,7 @@ const SCENES = [
   {
     id: 'earth',
     label: 'Earth',
+    category: 'planetary',
     description: 'Our blue planet with atmosphere, clouds, and city lights',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -31,6 +41,7 @@ const SCENES = [
   {
     id: 'solar',
     label: 'Solar System',
+    category: 'planetary',
     description: 'Planets orbiting a glowing sun with particle trails',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -41,20 +52,9 @@ const SCENES = [
     ),
   },
   {
-    id: 'deepspace',
-    label: 'Deep Space',
-    description: 'Nebula exploration with Hubble telescope imagery',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <circle cx="12" cy="12" r="2" />
-        <circle cx="12" cy="12" r="6" strokeDasharray="2 3" />
-        <circle cx="12" cy="12" r="10" strokeDasharray="1 4" />
-      </svg>
-    ),
-  },
-  {
     id: 'globe',
     label: 'Globe',
+    category: 'planetary',
     description: 'Interactive 3D Globe with procedural surface details',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -68,8 +68,22 @@ const SCENES = [
     ),
   },
   {
+    id: 'deepspace',
+    label: 'Deep Space',
+    category: 'deepspace',
+    description: 'Nebula exploration with Hubble telescope imagery',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <circle cx="12" cy="12" r="2" />
+        <circle cx="12" cy="12" r="6" strokeDasharray="2 3" />
+        <circle cx="12" cy="12" r="10" strokeDasharray="1 4" />
+      </svg>
+    ),
+  },
+  {
     id: 'ocean',
     label: 'Ocean',
+    category: 'environment',
     description: 'Animated ocean waves under a golden sunset sky',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -82,6 +96,7 @@ const SCENES = [
   {
     id: 'terrain',
     label: 'Terrain',
+    category: 'environment',
     description: 'Procedural mountain landscape with atmospheric fog',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -93,6 +108,7 @@ const SCENES = [
   {
     id: 'house',
     label: 'House',
+    category: 'structures',
     description: 'Modern house with interior rooms, furniture, and warm lighting',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -105,6 +121,7 @@ const SCENES = [
   {
     id: 'museum',
     label: 'Museum',
+    category: 'structures',
     description: 'Grand museum hall with columns, sculptures, and dramatic lighting',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -120,6 +137,7 @@ const SCENES = [
   {
     id: 'cube',
     label: "Rubik's Cube",
+    category: 'structures',
     description: "Interactive 3x3 Rubik's Cube with face rotation",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -1859,6 +1877,17 @@ export default function ThreeDClient() {
     }
     return 'moon'
   })
+  const [activeCategory, setActiveCategory] = useState(() => {
+    // Derive category from the active scene
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('kivora-3d-last-scene') || 'moon'
+        const scene = SCENES.find(s => s.id === saved)
+        return scene?.category || 'all'
+      } catch { return 'all' }
+    }
+    return 'all'
+  })
   const [fullscreen, setFullscreen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -1932,6 +1961,8 @@ export default function ThreeDClient() {
     const sceneParam = params.get('scene')
     if (sceneParam && SCENES.some(s => s.id === sceneParam)) {
       setActiveScene(sceneParam)
+      const scene = SCENES.find(s => s.id === sceneParam)
+      if (scene) setActiveCategory(scene.category)
     }
   }, [])
 
@@ -1949,6 +1980,11 @@ export default function ThreeDClient() {
   const switchScene = useCallback((sceneId) => {
     if (sceneId === activeScene || transitioning) return
     setTransitioning(true)
+    // Update category when switching scenes
+    const scene = SCENES.find(s => s.id === sceneId)
+    if (scene && activeCategory !== 'all' && scene.category !== activeCategory) {
+      setActiveCategory(scene.category)
+    }
     const container = canvasContainerRef.current
     if (container) {
       container.style.transition = 'opacity 0.3s ease'
@@ -1964,7 +2000,7 @@ export default function ThreeDClient() {
       setActiveScene(sceneId)
       setTransitioning(false)
     }
-  }, [activeScene, transitioning])
+  }, [activeScene, transitioning, activeCategory])
 
   // Fullscreen
   useEffect(() => {
@@ -2001,11 +2037,34 @@ export default function ThreeDClient() {
         </div>
       )}
 
-      {/* Scene tabs */}
+      {/* Category tabs + Scene pills */}
       {!fullscreen && (
-        <div className="px-4 sm:px-6 mb-6">
+        <div className="px-4 sm:px-6 mb-6 space-y-3">
+          {/* Category tabs */}
           <div className="flex flex-wrap gap-2">
-            {SCENES.map((scene) => (
+            {CATEGORIES.map((cat) => {
+              const catColor = activeCategory === cat.id ? cat.color : undefined
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setActiveCategory(cat.id)}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold border transition-all ${
+                    activeCategory === cat.id
+                      ? 'text-[#0a0a0a] border-transparent'
+                      : 'bg-[#141414] border-[#262626] text-[#737373] hover:text-white hover:border-[#3a3a3a]'
+                  }`}
+                  style={activeCategory === cat.id ? { background: cat.color, borderColor: cat.color } : {}}
+                >
+                  <span className="text-base leading-none">{cat.emoji}</span>
+                  {cat.label}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Scene pills for active category */}
+          <div className="flex flex-wrap gap-2">
+            {(activeCategory === 'all' ? SCENES : SCENES.filter(s => s.category === activeCategory)).map((scene) => (
               <button
                 key={scene.id}
                 onClick={() => switchScene(scene.id)}
