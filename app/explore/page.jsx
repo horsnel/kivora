@@ -109,19 +109,19 @@ export default function HomePage() {
           {/* Search row — larger, more prominent */}
           <div className="flex flex-col sm:flex-row gap-2 animate-fade-up animate-fade-up-3">
             <div className="relative flex-1 kivora-input-wrap rounded-2xl">
-              <div className="absolute left-6 top-1/2 -translate-y-1/2 text-muted2 pointer-events-none z-10">
-                <IconSearch size={24} />
+              <div className="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 text-muted2 pointer-events-none z-10">
+                <IconSearch size={20} />
               </div>
               <input
                 ref={inputRef}
-                className="w-full bg-[#141414] border border-[#262626] rounded-2xl pl-16 pr-16 py-10 sm:py-12 text-2xl sm:text-3xl text-white placeholder-muted2 transition-all focus:outline-none"
+                className="w-full bg-[#141414] border border-[#262626] rounded-2xl pl-11 sm:pl-16 pr-11 sm:pr-16 py-5 sm:py-10 text-lg sm:text-2xl lg:text-3xl text-white placeholder-muted2 transition-all focus:outline-none"
                 placeholder={displayText || t('home.placeholder')}
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
               />
               {query && (
-                <button onClick={() => setQuery('')} className="absolute right-6 top-1/2 -translate-y-1/2 text-muted2 hover:text-white transition-colors">
+                <button onClick={() => setQuery('')} className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 text-muted2 hover:text-white transition-colors">
                   <svg width={14} height={14} viewBox="0 0 12 12" fill="none"><path d="M2 2l8 8M10 2L2 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                 </button>
               )}

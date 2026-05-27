@@ -100,7 +100,7 @@ export default function Navbar() {
 
         {/* Mobile hamburger — scroll-away bar; hidden when sidebar is open */}
         {!mobileOpen && (
-          <div className="lg:hidden shrink-0 h-12 flex items-center px-4 bg-[#0a0a0a] border-b border-[#141414]/60">
+          <div className="lg:hidden shrink-0 w-full h-12 flex items-center px-4 bg-[#0a0a0a] border-b border-[#141414]/60">
             <button
               className="w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors"
               onClick={() => setMobileOpen(true)}
@@ -147,9 +147,9 @@ export default function Navbar() {
         <SidebarContent user={user} pathname={pathname} onClose={() => setMobileOpen(false)} currencyOpen={currencyOpen} setCurrencyOpen={setCurrencyOpen} currencyDropdownRef={currencyDropdownRef} />
       </aside>
 
-      {/* Mobile hamburger — scrolls away with content; only visible on mobile when sidebar is closed */}
+      {/* Mobile hamburger — full-width bar at the top on mobile; scrolls away with content */}
       {!mobileOpen && (
-        <div className="lg:hidden shrink-0 h-12 flex items-center px-4 bg-[#0a0a0a] border-b border-[#141414]/60">
+        <div className="lg:hidden shrink-0 w-full h-12 flex items-center px-4 bg-[#0a0a0a] border-b border-[#141414]/60">
           <button
             className="w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors"
             onClick={() => setMobileOpen(true)}

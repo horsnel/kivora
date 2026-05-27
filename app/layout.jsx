@@ -50,7 +50,7 @@ export default function RootLayout({ children }) {
         <LanguageProvider>
           <CurrencyProvider>
             {/* App shell: full viewport, sidebar + content side by side */}
-            <div className="h-dvh flex overflow-hidden">
+            <div className="h-dvh flex flex-col lg:flex-row overflow-hidden">
               <Navbar />
               <PageContent>
                 {children}

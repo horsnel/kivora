@@ -74,7 +74,7 @@ export default function ToolsPage() {
         </div>
 
         {/* CTA */}
-        <div className="bg-[#141414] rounded-xl p-8 text-center">
+        <div className="bg-[#141414] rounded-xl p-5 sm:p-8 text-center">
           <h3 className="font-semibold text-xl tracking-tight mb-2 text-muted">Ready to get started?</h3>
           <p className="text-muted text-sm mb-6">Access all tools for free. No credit card required.</p>
           <div className="flex gap-3 justify-center flex-wrap">

@@ -84,7 +84,7 @@ export default function AboutPage() {
         </div>
 
         {/* CTA */}
-        <div className="bg-[#141414] rounded-xl p-8 text-center">
+        <div className="bg-[#141414] rounded-xl p-5 sm:p-8 text-center">
           <h3 className="font-semibold text-xl tracking-tight mb-2 text-muted">{t('about.cta')}</h3>
           <p className="text-muted text-sm mb-6">{t('about.cta_sub')}</p>
           <div className="flex gap-3 justify-center flex-wrap">

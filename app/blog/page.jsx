@@ -103,10 +103,10 @@ export default function BlogPage() {
         </div>
 
         {/* Blog info */}
-        <div className="bg-[#141414] border border-[#262626] rounded-xl px-5 py-4 mb-10 flex items-center justify-between gap-4">
-          <div>
+        <div className="bg-[#141414] border border-[#262626] rounded-xl px-5 py-4 mb-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="min-w-0">
             <p className="text-sm font-medium mb-0.5">Kivora Blog</p>
-            <p className="text-xs text-muted">Deep dives on AI opportunities, automation strategies, and honest breakdowns of what actually works.</p>
+            <p className="text-xs text-muted line-clamp-2">Deep dives on AI opportunities, automation strategies, and honest breakdowns of what actually works.</p>
           </div>
           <Link
             href="/home"

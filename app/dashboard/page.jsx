@@ -412,7 +412,7 @@ export default function DashboardPage() {
           </div>
           <div className="skeleton w-20 h-7 rounded-lg" />
         </div>
-        <div className="grid grid-cols-4 gap-3 mb-7">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-7">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="skeleton border border-[#262626] rounded-xl px-4 py-3 text-center">
               <div className="skeleton w-8 h-5 rounded mx-auto mb-1.5" />
@@ -479,7 +479,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-7">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-7">
           {[
             { label: t('dashboard.streak'), value: streakInfo.current > 0 ? `${streakInfo.current}d` : '0d', icon: streakInfo.current > 0 ? 'flame' : null },
             { label: 'Goals', value: goals.length },

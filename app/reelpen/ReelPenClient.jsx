@@ -495,7 +495,7 @@ export default function ReelPenClient() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
           {/* ── Input Panel ─────────────────────────────────── */}
-          <div className="bg-[#141414] rounded-xl p-7">
+          <div className="bg-[#141414] rounded-xl p-4 sm:p-7">
             <div className="flex items-center gap-2.5 mb-5">
               <div className="w-8 h-8 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
                 <currentTool.Icon size={15} className="text-muted" />
@@ -902,7 +902,7 @@ export default function ReelPenClient() {
           </div>
 
           {/* ── Output Panel ─────────────────────────────────── */}
-          <div className="bg-[#141414] rounded-xl p-6 flex flex-col min-h-[500px]">
+          <div className="bg-[#141414] rounded-xl p-4 sm:p-6 flex flex-col min-h-[300px] sm:min-h-[500px]">
             <div className="flex items-center justify-between mb-4 shrink-0">
               <h2 className="font-semibold text-sm tracking-tight text-muted">
                 {active === 'bpm_tapper' ? 'BPM Detector' : t('reelpen.output')}

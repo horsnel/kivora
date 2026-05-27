@@ -2058,7 +2058,7 @@ export default function ThreeDClient() {
       )}
 
       {/* 3D Canvas container */}
-      <div className={`${fullscreen ? 'h-screen' : 'h-[calc(100vh-200px)] sm:h-[calc(100vh-180px)]'} relative bg-black`}>
+      <div className={`${fullscreen ? 'h-screen' : 'h-[calc(100vh-280px)] sm:h-[calc(100vh-200px)] lg:h-[calc(100vh-180px)]'} relative bg-black`}>
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/80 pointer-events-none">
             <div className="text-center">
@@ -2081,7 +2081,7 @@ export default function ThreeDClient() {
         <div ref={canvasContainerRef} className="w-full h-full" />
 
         {/* Scene info overlay */}
-        <div className="absolute bottom-3 left-3 bg-[#0a0a0a]/70 backdrop-blur-md border border-[#1a1a1a] rounded-lg px-3 py-2 pointer-events-none max-w-[260px]">
+        <div className="absolute bottom-3 left-3 bg-[#0a0a0a]/70 backdrop-blur-md border border-[#1a1a1a] rounded-lg px-3 py-2 pointer-events-none max-w-[200px] sm:max-w-[260px]">
           <p className="text-[11px] font-semibold text-white/80 mb-0.5">{SCENES.find(s => s.id === activeScene)?.label}</p>
           <p className="text-[10px] text-[#737373] leading-relaxed">{SCENES.find(s => s.id === activeScene)?.description}</p>
         </div>

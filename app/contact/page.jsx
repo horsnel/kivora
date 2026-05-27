@@ -86,7 +86,7 @@ export default function ContactPage() {
   return (
     <main className="min-h-screen bg-[#0a0a0a]">
       <div className="max-w-3xl mx-auto px-4 py-14">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
           {/* Left */}
           <div>
             <h1 className="text-3xl font-semibold tracking-tight mb-4">{t('contact.title')}</h1>
@@ -121,7 +121,7 @@ export default function ContactPage() {
           {/* Right — Form */}
           <div>
             {status === 'success' ? (
-              <div className="bg-[#141414] rounded-xl p-8 text-center h-full flex flex-col items-center justify-center">
+              <div className="bg-[#141414] rounded-xl p-5 sm:p-8 text-center h-full flex flex-col items-center justify-center">
                 <div className="w-12 h-12 bg-emerald-950/30 border border-emerald-900/40 rounded-full flex items-center justify-center mb-4">
                   <IconCheck size={20} className="text-emerald-400" />
                 </div>

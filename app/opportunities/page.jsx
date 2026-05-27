@@ -196,9 +196,9 @@ export default function OpportunitiesPage() {
         </div>
 
         {/* Generate new */}
-        <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mb-10">
+        <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-4 sm:p-6 mb-10">
           <p className="text-caption text-muted font-medium mb-3 flex items-center gap-1.5"><IconPlus size={12} /> {t('opportunities.generate_new')}</p>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <IconSearch size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted2 pointer-events-none" />
               <input
