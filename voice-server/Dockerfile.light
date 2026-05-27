@@ -1,0 +1,100 @@
+# =============================================================================
+# Kivora Voice Server - LIGHTWEIGHT Dockerfile
+# Only core services (Edge TTS + Whisper + Argos Translate) - runs on FREE tiers
+# ~2GB image vs ~8GB for full build
+# =============================================================================
+# Use this for: Railway free tier, Render free tier, Hugging Face Spaces (free)
+# Services available: TTS (Edge), STT (Whisper), Translation (Argos)
+# Services NOT available: Coqui TTS, AudioSeal, Demucs, Pyannote (need GPU)
+# =============================================================================
+
+FROM python:3.11-slim
+
+LABEL maintainer="Kivora Team <dev@kivora.app>"
+LABEL description="Kivora Voice Server - Lightweight (3 core services)"
+LABEL org.opencontainers.image.source="https://github.com/horsnel/kivora"
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PORT=3900
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    libsndfile1 \
+    ffmpeg \
+    git \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install ONLY core packages (fast to build, small image)
+RUN pip install --no-cache-dir \
+    fastapi>=0.115.0 \
+    uvicorn[standard]>=0.32.0 \
+    python-multipart>=0.0.12 \
+    python-dotenv>=1.0.1 \
+    httpx>=0.27.0 \
+    soundfile>=0.12.1 \
+    numpy>=1.26.0 \
+    scipy>=1.14.0 \
+    pydub>=0.25.1 \
+    edge-tts>=6.1.0 \
+    faster-whisper>=1.1.0 \
+    argostranslate>=1.9.0
+
+# Install Argos Translate language packs (7 languages)
+RUN python -c " \
+    import argostranslate.package; \
+    argostranslate.package.update_package_index(); \
+    available = argostranslate.package.get_available_packages(); \
+    langs = ['en', 'es', 'fr', 'de', 'pt', 'zh', 'ja']; \
+    installed = []; \
+    for p in available: \
+        if p.from_code in langs and p.to_code in langs and p.from_code != p.to_code: \
+            try: \
+                argostranslate.package.install_from_path(p.download()); \
+                installed.append(f'{p.from_code}->{p.to_code}'); \
+            except: pass; \
+    print(f'Installed Argos packs: {len(installed)}'); \
+" || echo "Argos language packs install skipped"
+
+# Copy application source
+COPY backend/ /app/backend/
+
+WORKDIR /app
+
+# Create non-root user
+RUN groupadd -r voiceuser && useradd -r -g voiceuser -d /app -s /sbin/nologin voiceuser \
+    && mkdir -p /data && chown -R voiceuser:voiceuser /app /data
+
+# Entrypoint
+COPY --chmod=755 <<'ENTRYPOINT' /app/entrypoint.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+PORT="${PORT:-3900}"
+
+echo "=========================================="
+echo "  Kivora Voice Server (Lightweight)"
+echo "  Core Services: Edge TTS, Whisper, Argos"
+echo "=========================================="
+echo "  Port: ${PORT}"
+echo "  Data: ${OMNIVOICE_DATA_DIR:-/data}"
+
+exec uvicorn backend.main:app \
+    --host 0.0.0.0 \
+    --port "${PORT}" \
+    --workers 1 \
+    --log-level ${OMNIVOICE_LOG_LEVEL:-info}
+ENTRYPOINT
+
+VOLUME ["/data"]
+EXPOSE 3900
+
+HEALTHCHECK --interval=30s --timeout=10s --retries=5 --start-period=60s \
+    CMD curl -f http://localhost:${PORT:-3900}/health || exit 1
+
+USER voiceuser
+ENTRYPOINT ["/app/entrypoint.sh"]

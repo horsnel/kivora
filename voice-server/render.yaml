@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: kivora-voice-server
+    runtime: docker
+    dockerfilePath: ./Dockerfile.light
+    plan: starter
+    region: oregon
+    branch: main
+    numInstances: 1
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 3900
+      - key: OMNIVOICE_CORS_ORIGINS
+        value: "*"
+      - key: OMNIVOICE_WHISPER_MODEL
+        value: tiny
+      - key: OMNIVOICE_WHISPER_DEVICE
+        value: cpu
+      - key: HF_TOKEN
+        sync: false

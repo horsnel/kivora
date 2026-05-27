@@ -1,34 +1,71 @@
 # =============================================================================
 # Kivora Voice Server - Docker Compose Configuration
-# OmniVoice Studio FastAPI Backend for Voice AI
 # =============================================================================
-#
 # Usage:
-#   CPU mode:  docker compose --profile cpu up -d
-#   GPU mode:  docker compose --profile gpu up -d
+#   Lightweight (free tier):   docker compose up -d
+#   Full (all services):       docker compose --profile full up -d
+#   GPU (production):          docker compose --profile gpu up -d
 #
 # Manage:
-#   docker compose --profile <cpu|gpu> [start|stop|restart|down]
-#   docker compose logs -f omnivoice
+#   docker compose [start|stop|restart|down]
+#   docker compose logs -f
 # =============================================================================
 
 services:
-  omnivoice:
-    image: ghcr.io/debpalash/omnivoice-studio:latest
+  # ── Lightweight: 3 core services (Edge TTS + Whisper + Argos) ──
+  kivora-voice:
+    build:
+      context: .
+      dockerfile: Dockerfile.light
     container_name: kivora-voice-server
-    profiles:
-      - cpu
     ports:
-      - "3900:3900"
+      - "${PORT:-3900}:3900"
     volumes:
-      - omnivoice-data:${OMNIVOICE_DATA_DIR:-/data}
+      - kivora-voice-data:/data
     environment:
       - HF_TOKEN=${HF_TOKEN:-}
-      - OMNIVOICE_BIND_HOST=0.0.0.0
-      - OMNIVOICE_DATA_DIR=${OMNIVOICE_DATA_DIR:-/data}
+      - PORT=3900
+      - OMNIVOICE_DATA_DIR=/data
       - OMNIVOICE_API_KEY=${OMNIVOICE_API_KEY:-}
-      - OMNIVOICE_TTS_BACKEND=${OMNIVOICE_TTS_BACKEND:-coqui}
-      - OMNIVOICE_ASR_BACKEND=${OMNIVOICE_ASR_BACKEND:-whisper}
+      - OMNIVOICE_CORS_ORIGINS=${OMNIVOICE_CORS_ORIGINS:-*}
+      - OMNIVOICE_WHISPER_MODEL=${OMNIVOICE_WHISPER_MODEL:-base}
+      - OMNIVOICE_WHISPER_DEVICE=cpu
+      - OMNIVOICE_LOG_LEVEL=${OMNIVOICE_LOG_LEVEL:-info}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3900/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - kivora-voice
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ── Full: All 10 services (needs 4GB+ RAM) ──
+  kivora-voice-full:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kivora-voice-server-full
+    profiles:
+      - full
+    ports:
+      - "${PORT:-3900}:3900"
+    volumes:
+      - kivora-voice-data:/data
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+      - PORT=3900
+      - OMNIVOICE_DATA_DIR=/data
+      - OMNIVOICE_API_KEY=${OMNIVOICE_API_KEY:-}
+      - OMNIVOICE_CORS_ORIGINS=${OMNIVOICE_CORS_ORIGINS:-*}
+      - OMNIVOICE_WHISPER_MODEL=${OMNIVOICE_WHISPER_MODEL:-base}
+      - OMNIVOICE_WHISPER_DEVICE=cpu
       - OMNIVOICE_LOG_LEVEL=${OMNIVOICE_LOG_LEVEL:-info}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3900/health"]
@@ -44,24 +81,27 @@ services:
       options:
         max-size: "50m"
         max-file: "5"
-        tag: "kivora-voice|{{.Name}}"
 
-  omnivoice-gpu:
-    image: ghcr.io/debpalash/omnivoice-studio:latest
+  # ── GPU: All services with NVIDIA GPU acceleration ──
+  kivora-voice-gpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: kivora-voice-server-gpu
     profiles:
       - gpu
     ports:
-      - "3900:3900"
+      - "${PORT:-3900}:3900"
     volumes:
-      - omnivoice-data:${OMNIVOICE_DATA_DIR:-/data}
+      - kivora-voice-data:/data
     environment:
       - HF_TOKEN=${HF_TOKEN:-}
-      - OMNIVOICE_BIND_HOST=0.0.0.0
-      - OMNIVOICE_DATA_DIR=${OMNIVOICE_DATA_DIR:-/data}
+      - PORT=3900
+      - OMNIVOICE_DATA_DIR=/data
       - OMNIVOICE_API_KEY=${OMNIVOICE_API_KEY:-}
-      - OMNIVOICE_TTS_BACKEND=${OMNIVOICE_TTS_BACKEND:-coqui}
-      - OMNIVOICE_ASR_BACKEND=${OMNIVOICE_ASR_BACKEND:-whisper}
+      - OMNIVOICE_CORS_ORIGINS=${OMNIVOICE_CORS_ORIGINS:-*}
+      - OMNIVOICE_WHISPER_MODEL=${OMNIVOICE_WHISPER_MODEL:-base}
+      - OMNIVOICE_WHISPER_DEVICE=cuda
       - OMNIVOICE_LOG_LEVEL=${OMNIVOICE_LOG_LEVEL:-info}
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
@@ -86,10 +126,9 @@ services:
       options:
         max-size: "50m"
         max-file: "5"
-        tag: "kivora-voice-gpu|{{.Name}}"
 
 volumes:
-  omnivoice-data:
+  kivora-voice-data:
     name: kivora-voice-data
     driver: local
 
@@ -97,6 +136,3 @@ networks:
   kivora-voice:
     name: kivora-voice
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.30.0.0/16

@@ -122,13 +122,23 @@ app = FastAPI(
 
 # ── CORS ──
 cors_origins = os.environ.get("OMNIVOICE_CORS_ORIGINS", "http://localhost:3000,https://kivora.app")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[o.strip() for o in cors_origins.split(",") if o.strip()],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if cors_origins.strip() == "*":
+    # Allow all origins (useful for development / cloud deployment)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[o.strip() for o in cors_origins.split(",") if o.strip()],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
 # ── API Key Auth Middleware ──

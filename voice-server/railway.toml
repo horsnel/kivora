@@ -1,0 +1,26 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.light"
+
+[deploy]
+startCommand = "/app/entrypoint.sh"
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+[[deploy.envVars]]
+name = "PORT"
+value = "3900"
+
+[[deploy.envVars]]
+name = "OMNIVOICE_CORS_ORIGINS"
+value = "*"
+
+[[deploy.envVars]]
+name = "OMNIVOICE_WHISPER_MODEL"
+value = "tiny"
+
+[[deploy.envVars]]
+name = "OMNIVOICE_WHISPER_DEVICE"
+value = "cpu"
