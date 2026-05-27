@@ -1,5 +1,5 @@
 export const runtime = 'edge'
-import { groq, MODEL, VISION_MODEL, groqChat, GroqError, ALLOWED_MODELS, getPrimaryClientAsync } from '@/lib/groq'
+import { groq, MODEL, VISION_MODEL, groqChat, GroqError, ALLOWED_MODELS, getPrimaryClientAsync, setGeminiApiKey } from '@/lib/groq'
 import { createClient } from '@supabase/supabase-js'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit } from '@/lib/ratelimit'
@@ -28,8 +28,10 @@ export async function POST(req) {
   try {
     // Access Cloudflare Workers secrets via getEnvVar (process.env has empty values for secrets)
     const groqKey = await getEnvVar('GROQ_API_KEY')
+    const geminiKey = await getEnvVar('GEMINI_API_KEY')
     const supaUrl = await getEnvVar('NEXT_PUBLIC_SUPABASE_URL')
     const supaKey = await getEnvVar('SUPABASE_SERVICE_ROLE_KEY')
+    setGeminiApiKey(geminiKey)
     const groqClient = await getPrimaryClientAsync(groqKey)
     const admin = supaUrl && supaKey ? createClient(supaUrl, supaKey) : null
     if (!groqClient || !admin) {
@@ -176,7 +178,7 @@ export async function POST(req) {
       }
 
       // Build response metadata
-      const response = { reply, model }
+      const response = { reply, model: chat._provider === 'gemini' ? (chat.model || model) : model }
       // Check which tools were used for UI indicators
       for (const toolCall of message.tool_calls) {
         const name = toolCall.function.name

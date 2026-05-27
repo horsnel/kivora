@@ -1,11 +1,13 @@
 export const runtime = 'edge'
 import { createClient } from '@supabase/supabase-js'
-import { groq, MODEL, MODEL_FAST, groqChat, GroqError, getPrimaryClientAsync } from '@/lib/groq'
+import { groq, MODEL, MODEL_FAST, groqChat, GroqError, getPrimaryClientAsync, setGeminiApiKey } from '@/lib/groq'
 import { getEnvVar } from '@/lib/cfEnv'
 
 export async function POST(req) {
   try {
     const groqKey = await getEnvVar('GROQ_API_KEY')
+    const geminiKey = await getEnvVar('GEMINI_API_KEY')
+    setGeminiApiKey(geminiKey)
     const groqClient = await getPrimaryClientAsync(groqKey)
     const supaUrl = await getEnvVar('NEXT_PUBLIC_SUPABASE_URL')
     const supaKey = await getEnvVar('SUPABASE_SERVICE_ROLE_KEY')

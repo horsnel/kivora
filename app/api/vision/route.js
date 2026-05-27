@@ -1,7 +1,7 @@
 export const runtime = 'edge'
 
 import { rateLimit } from '@/lib/ratelimit'
-import { groq, getPrimaryClientAsync, GroqError } from '@/lib/groq'
+import { groq, groqChat, getPrimaryClientAsync, GroqError, setGeminiApiKey } from '@/lib/groq'
 import { getEnvVar } from '@/lib/cfEnv'
 
 const VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct'
@@ -20,6 +20,8 @@ export async function POST(req) {
     }
 
     const groqKey = await getEnvVar('GROQ_API_KEY')
+    const geminiKey = await getEnvVar('GEMINI_API_KEY')
+    setGeminiApiKey(geminiKey)
     const groqClient = await getPrimaryClientAsync(groqKey)
     if (!groqClient) {
       return Response.json({ error: 'Vision service not configured' }, { status: 503 })
@@ -44,8 +46,8 @@ export async function POST(req) {
       }
     }
 
-    // Call Groq Vision API
-    const chat = await groq.chat.completions.create({
+    // Call Groq Vision API (with Gemini fallback)
+    const chat = await groqChat({
       model: VISION_MODEL,
       messages: [
         {
