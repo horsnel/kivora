@@ -3,19 +3,13 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 
 /* ═══════════════════════════════════════════════════════════════
    ThinkingState — Professional AI thinking indicator
-   Inspired by Claude's expandable thinking, Replit's step progress,
-   and Bolt's rich stage descriptions.
-
-   Usage:
-     <ThinkingState
-       stages={[
-         { label: 'Understanding your message...', icon: 'brain' },
-         { label: 'Searching knowledge base...', icon: 'search' },
-         { label: 'Generating response...', icon: 'sparkle' },
-       ]}
-       active={loading}
-       compact={true}
-     />
+   5 unique visual modes for each focus mode:
+     • compact  → All focus (professional pill with gradient border)
+     • orb      → Code focus (neural node with pipeline + depth)
+     • academic → Academic focus (research cards + source counter)
+     • writing  → Writing focus (typewriter cursor + word count)
+     • math     → Math focus (equation symbols + derivation chain)
+     • full     → DevTools/Study/Explore (full vertical stage list)
    ═══════════════════════════════════════════════════════════════ */
 
 // ── Stage Icons ──────────────────────────────────────────────
@@ -67,7 +61,7 @@ function StageIcon({ type, size = 14, className = '' }) {
     ),
     file: (
       <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
-        <path d="M9 2H4a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V6L9 2zM9 2v4h4" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+        <path d="M9 2H4a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V6L9 2zM9 2v4h4" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
       </svg>
     ),
     database: (
@@ -79,12 +73,12 @@ function StageIcon({ type, size = 14, className = '' }) {
     ),
     zap: (
       <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
-        <path d="M9 2L4 9h4l-1 5 5-7H8l1-5z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+        <path d="M9 2L4 9h4l-1 5 5-7H8l1-5z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
     mail: (
       <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
-        <path d="M2 4h12v8H2zM2 4l6 5 6-5" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+        <path d="M2 4h12v8H2zM2 4l6 5 6-5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
       </svg>
     ),
     check: (
@@ -239,6 +233,7 @@ export default function ThinkingState({
   const [completedStages, setCompletedStages] = useState([])
   const [elapsedMs, setElapsedMs] = useState(0)
   const [finishing, setFinishing] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const timerRef = useRef(null)
   const stageTimerRef = useRef(null)
   const startTimeRef = useRef(null)
@@ -249,6 +244,7 @@ export default function ThinkingState({
     setCompletedStages([])
     setElapsedMs(0)
     setFinishing(false)
+    setDetailsOpen(false)
     startTimeRef.current = Date.now()
   }, [])
 
@@ -279,7 +275,7 @@ export default function ThinkingState({
     if (currentStage >= stages.length) return
 
     const stageDuration = stages[currentStage]?.duration
-    if (!stageDuration || stageDuration === Infinity) return // Last stage — wait
+    if (!stageDuration || stageDuration === Infinity) return
 
     stageTimerRef.current = setTimeout(() => {
       setCompletedStages(prev => [...prev, currentStage])
@@ -293,7 +289,6 @@ export default function ThinkingState({
   useEffect(() => {
     if (active || currentStage === 0) return
 
-    // Animate through remaining stages quickly
     setFinishing(true)
     let remaining = []
     for (let i = 0; i < stages.length; i++) {
@@ -302,10 +297,8 @@ export default function ThinkingState({
       }
     }
 
-    // Mark current as complete
     setCompletedStages(prev => [...new Set([...prev, currentStage])])
 
-    // Quickly mark remaining stages
     remaining.forEach((stageIdx, i) => {
       setTimeout(() => {
         setCompletedStages(prev => [...new Set([...prev, stageIdx])])
@@ -317,7 +310,6 @@ export default function ThinkingState({
       }, 120 * (i + 1))
     })
 
-    // If no remaining stages
     if (remaining.length === 0) {
       setTimeout(() => {
         setCurrentStage(stages.length)
@@ -338,11 +330,17 @@ export default function ThinkingState({
 
   const allDone = currentStage >= stages.length
   const activeIdx = Math.min(currentStage, stages.length - 1)
+  const completedCount = completedStages.length
+  const progress = stages.length > 0 ? (completedCount / stages.length) * 100 : 0
 
-  // ── Compact mode (for Chat inline) ──────────────────────
+  // ── Compact mode (All focus — professional pill with gradient border) ──
   if (compact) {
     return (
-      <div className={`thinking-compact ${allDone ? 'thinking-compact-done' : ''} ${className}`}>
+      <div
+        className={`thinking-compact ${allDone ? 'thinking-compact-done' : ''} ${className}`}
+        onMouseEnter={() => setDetailsOpen(true)}
+        onMouseLeave={() => setDetailsOpen(false)}
+      >
         <div className="thinking-compact-header">
           <div className="thinking-compact-orb">
             {allDone ? (
@@ -352,39 +350,33 @@ export default function ThinkingState({
             )}
           </div>
           <span className="thinking-compact-label">
-            {allDone ? 'Complete' : stages[activeIdx]?.label || 'Thinking'}
+            {allDone ? 'Done' : stages[activeIdx]?.label || 'Thinking'}
           </span>
           <span className="thinking-compact-time">{formatTime(elapsedMs)}</span>
         </div>
 
-        {/* Stage progress dots */}
-        <div className="thinking-compact-stages">
-          {stages.map((stage, i) => (
-            <div
-              key={i}
-              className={`thinking-compact-dot ${
-                completedStages.includes(i) ? 'done' :
-                i === activeIdx && !allDone ? 'active' : 'pending'
-              }`}
-            />
-          ))}
+        {/* Progress bar replacing dots */}
+        <div className="thinking-compact-bar-track">
+          <div
+            className="thinking-compact-bar-fill"
+            style={{ width: `${allDone ? 100 : progress}%` }}
+          />
         </div>
 
-        {/* Expandable stage list */}
-        <div className="thinking-compact-details">
+        {/* Expandable stage details with slide animation */}
+        <div className={`thinking-compact-details ${detailsOpen ? 'open' : ''}`}>
           {stages.map((stage, i) => {
             const isDone = completedStages.includes(i)
             const isActive = i === activeIdx && !allDone
-            const isPending = !isDone && !isActive
             return (
               <div
                 key={i}
                 className={`thinking-compact-step ${isDone ? 'done' : isActive ? 'active' : 'pending'}`}
               >
                 {isDone ? (
-                  <CompletedCheck size={11} />
+                  <CompletedCheck size={10} />
                 ) : isActive ? (
-                  <ActiveSpinner size={11} />
+                  <ActiveSpinner size={10} />
                 ) : (
                   <div className="thinking-step-dot-pending" />
                 )}
@@ -398,13 +390,17 @@ export default function ThinkingState({
     )
   }
 
-  // ── Orb mode (for Chat Focus Code — classic neural node + enhanced text) ──
+  // ── Orb mode (Code focus — neural node with pipeline + depth counter) ──
   if (orb) {
     return (
       <div className={`thinking-orb ${allDone ? 'thinking-orb-done' : ''} ${className}`}>
+        {/* Faint matrix background */}
+        <div className="thinking-orb-matrix" />
+
         <div className="thinking-orb-inner">
+          <div className="thinking-orb-glow" />
           <div className="thinking-orb-svg">
-            <svg width="16" height="16" viewBox="0 0 32 32" fill="none">
+            <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
               <circle cx="16" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" className="thinking-orb-node thinking-orb-top" />
               <circle cx="7" cy="24" r="3" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" className="thinking-orb-node thinking-orb-left" />
               <circle cx="25" cy="24" r="3" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" className="thinking-orb-node thinking-orb-right" />
@@ -413,60 +409,37 @@ export default function ThinkingState({
               <line x1="7" y1="24" x2="25" y2="24" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" className="thinking-orb-line" />
             </svg>
           </div>
-          <span className="thinking-orb-label">
-            {allDone ? 'Complete' : stages[activeIdx]?.label || 'Thinking'}
-          </span>
-          <span className="thinking-orb-dots">
-            <span className="thinking-orb-dot" />
-            <span className="thinking-orb-dot" />
-            <span className="thinking-orb-dot" />
-          </span>
-          <span className="thinking-orb-time">{formatTime(elapsedMs)}</span>
-        </div>
-        {/* Mini progress dots for stages */}
-        <div className="thinking-orb-stages">
-          {stages.map((_, i) => (
-            <div
-              key={i}
-              className={`thinking-orb-stage-dot ${
-                completedStages.includes(i) ? 'done' :
-                i === activeIdx && !allDone ? 'active' : 'pending'
-              }`}
-            />
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  // ── Academic mode (Chat Focus Academic — scholarly/research theme) ──
-  if (academic) {
-    return (
-      <div className={`thinking-academic ${allDone ? 'thinking-academic-done' : ''} ${className}`}>
-        <div className="thinking-academic-inner">
-          <div className="thinking-academic-icon">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-              <path d="M2 3h5a2 2 0 012 2v1M2 3a1 1 0 00-1 1v10l3-2 3 2V6" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="thinking-academic-book"/>
-              <path d="M10 6h3a1 1 0 011 1v8l-2.5-1.5L9 15V7a1 1 0 011-1z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="thinking-academic-book2"/>
-            </svg>
+          <div className="thinking-orb-text-block">
+            <div className="thinking-orb-label-row">
+              <span className="thinking-orb-label">
+                {allDone ? 'Complete' : stages[activeIdx]?.label || 'Thinking'}
+              </span>
+              <span className="thinking-orb-blink">|</span>
+            </div>
+            <div className="thinking-orb-meta">
+              <span className="thinking-orb-depth">depth:{' '}{allDone ? stages.length : activeIdx + 1}</span>
+              <span className="thinking-orb-time">{formatTime(elapsedMs)}</span>
+            </div>
           </div>
-          <span className="thinking-academic-label">
-            {allDone ? 'Complete' : stages[activeIdx]?.label || 'Researching'}
-          </span>
-          <span className="thinking-academic-time">{formatTime(elapsedMs)}</span>
         </div>
-        {/* Citation progress dots */}
-        <div className="thinking-academic-progress">
+
+        {/* Pipeline visualization */}
+        <div className="thinking-orb-pipeline">
           {stages.map((_, i) => (
-            <div
-              key={i}
-              className={`thinking-academic-dot ${
-                completedStages.includes(i) ? 'done' :
-                i === activeIdx && !allDone ? 'active' : 'pending'
-              }`}
-            >
-              {completedStages.includes(i) && (
-                <span className="thinking-academic-check">&#10003;</span>
+            <div key={i} className="thinking-orb-pipe-segment">
+              <div
+                className={`thinking-orb-pipe-node ${
+                  completedStages.includes(i) ? 'done' :
+                  i === activeIdx && !allDone ? 'active' : 'pending'
+                }`}
+              />
+              {i < stages.length - 1 && (
+                <div
+                  className={`thinking-orb-pipe-line ${
+                    completedStages.includes(i) ? 'done' :
+                    i === activeIdx && !allDone ? 'active' : 'pending'
+                  }`}
+                />
               )}
             </div>
           ))}
@@ -475,10 +448,58 @@ export default function ThinkingState({
     )
   }
 
-  // ── Writing mode (Chat Focus Writing — pen/typewriter theme) ──
+  // ── Academic mode (research cards + source counter + peer review stamps) ──
+  if (academic) {
+    return (
+      <div className={`thinking-academic ${allDone ? 'thinking-academic-done' : ''} ${className}`}>
+        {/* Faint lined-paper texture */}
+        <div className="thinking-academic-paper" />
+
+        <div className="thinking-academic-inner">
+          <div className="thinking-academic-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M2 3h5a2 2 0 012 2v1M2 3a1 1 0 00-1 1v10l3-2 3 2V6" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="thinking-academic-book"/>
+              <path d="M10 6h3a1 1 0 011 1v8l-2.5-1.5L9 15V7a1 1 0 011-1z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="thinking-academic-book2"/>
+            </svg>
+          </div>
+          <div className="thinking-academic-text">
+            <span className="thinking-academic-label">
+              {allDone ? 'Research complete' : stages[activeIdx]?.label || 'Researching'}
+            </span>
+            <span className="thinking-academic-sources">
+              {completedCount}{completedCount === 1 ? ' source' : ' sources'} consulted
+            </span>
+          </div>
+          <span className="thinking-academic-time">{formatTime(elapsedMs)}</span>
+        </div>
+
+        {/* Citation index cards */}
+        <div className="thinking-academic-cards">
+          {stages.map((_, i) => (
+            <div
+              key={i}
+              className={`thinking-academic-card ${
+                completedStages.includes(i) ? 'done' :
+                i === activeIdx && !allDone ? 'active' : 'pending'
+              }`}
+            >
+              {completedStages.includes(i) && (
+                <span className="thinking-academic-stamp">&#10003;</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Writing mode (typewriter cursor + word count + draft badge) ──
   if (writing) {
     return (
       <div className={`thinking-writing ${allDone ? 'thinking-writing-done' : ''} ${className}`}>
+        {/* Faint paper texture */}
+        <div className="thinking-writing-paper" />
+
         <div className="thinking-writing-inner">
           <div className="thinking-writing-pen">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -486,59 +507,86 @@ export default function ThinkingState({
               <path d="M10 4l2 2" stroke="currentColor" strokeWidth="1" strokeLinecap="round" className="thinking-writing-pen-line"/>
             </svg>
           </div>
-          <span className="thinking-writing-label">
-            {allDone ? 'Complete' : stages[activeIdx]?.label || 'Writing'}
-          </span>
-          <span className="thinking-writing-dots">
-            <span className="thinking-writing-dot" />
-            <span className="thinking-writing-dot" />
-            <span className="thinking-writing-dot" />
+          <div className="thinking-writing-text">
+            <span className="thinking-writing-label">
+              {allDone ? 'Final draft ready' : stages[activeIdx]?.label || 'Writing'}
+            </span>
+            <span className="thinking-writing-cursor">|</span>
+          </div>
+          <span className={`thinking-writing-badge ${allDone ? 'final' : 'draft'}`}>
+            {allDone ? 'final' : 'draft'}
           </span>
           <span className="thinking-writing-time">{formatTime(elapsedMs)}</span>
         </div>
-        {/* Ink progress line */}
+
+        {/* Word count + ink strokes */}
         <div className="thinking-writing-ink">
-          {stages.map((_, i) => (
-            <div
-              key={i}
-              className={`thinking-writing-ink-segment ${
-                completedStages.includes(i) ? 'done' :
-                i === activeIdx && !allDone ? 'active' : 'pending'
-              }`}
-            />
-          ))}
+          <span className="thinking-writing-wordcount">
+            {Math.min(Math.floor(elapsedMs / 40), 500)} words crafted
+          </span>
+          <div className="thinking-writing-strokes">
+            {stages.map((_, i) => (
+              <div
+                key={i}
+                className={`thinking-writing-ink-segment ${
+                  completedStages.includes(i) ? 'done' :
+                  i === activeIdx && !allDone ? 'active' : 'pending'
+                }`}
+              />
+            ))}
+          </div>
         </div>
       </div>
     )
   }
 
-  // ── Math mode (Chat Focus Math — equation/calculation theme) ──
+  // ── Math mode (equation symbols + derivation chain + verification badges) ──
   if (math) {
+    const mathSymbols = ['\u222B', '\u2211', '\u2202', '\u2200', '\u221A', '\u2220']
+    const connectors = ['\u2192', '\u21D2', '\u2234']
+
     return (
       <div className={`thinking-math ${allDone ? 'thinking-math-done' : ''} ${className}`}>
+        {/* Faint graph paper texture */}
+        <div className="thinking-math-grid" />
+
         <div className="thinking-math-inner">
           <div className="thinking-math-symbol">
             <span className="thinking-math-sym-char">
-              {['&#8747;', '&#8721;', '&#8730;', '&#8736;'][activeIdx % 4]}
+              {mathSymbols[activeIdx % mathSymbols.length]}
             </span>
           </div>
-          <span className="thinking-math-label">
-            {allDone ? 'Complete' : stages[activeIdx]?.label || 'Computing'}
-          </span>
+          <div className="thinking-math-text">
+            <span className="thinking-math-label">
+              {allDone ? 'Solution verified' : stages[activeIdx]?.label || 'Computing'}
+            </span>
+            <span className="thinking-math-ops">
+              {completedCount} op{completedCount !== 1 ? 's' : ''}
+            </span>
+          </div>
           <span className="thinking-math-time">{formatTime(elapsedMs)}</span>
         </div>
-        {/* Equation progress steps */}
-        <div className="thinking-math-steps">
-          {stages.map((stage, i) => (
-            <div
-              key={i}
-              className={`thinking-math-step ${
-                completedStages.includes(i) ? 'done' :
-                i === activeIdx && !allDone ? 'active' : 'pending'
-              }`}
-            >
-              <span className="thinking-math-step-num">{i + 1}</span>
-              <span className="thinking-math-step-line" />
+
+        {/* Derivation chain */}
+        <div className="thinking-math-chain">
+          {stages.map((_, i) => (
+            <div key={i} className="thinking-math-chain-step">
+              <div
+                className={`thinking-math-chain-node ${
+                  completedStages.includes(i) ? 'done' :
+                  i === activeIdx && !allDone ? 'active' : 'pending'
+                }`}
+              >
+                <span className="thinking-math-chain-num">{i + 1}</span>
+                {completedStages.includes(i) && (
+                  <span className="thinking-math-chain-check">&#10003;</span>
+                )}
+              </div>
+              {i < stages.length - 1 && (
+                <span className="thinking-math-chain-connector">
+                  {connectors[i % connectors.length]}
+                </span>
+              )}
             </div>
           ))}
         </div>
@@ -572,7 +620,6 @@ export default function ThinkingState({
           const isPending = !isDone && !isActive
           return (
             <div key={i} className="thinking-full-stage-row">
-              {/* Vertical connector line */}
               {i < stages.length - 1 && (
                 <div className={`thinking-connector ${isDone ? 'done' : ''}`} />
               )}

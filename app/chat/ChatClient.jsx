@@ -567,6 +567,10 @@ export default function ChatClient() {
     setMessages(newMessages)
     setInput('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
+
+    // Capture attachment state before clearing
+    const wasImage = attachedIsImage
+
     // Select thinking stage config based on context
     if (wasImage) {
       setThinkingConfig('chatWithVision')
@@ -589,7 +593,6 @@ export default function ChatClient() {
     setBarExpanded(false)
 
     // Clear attachment after sending
-    const wasImage = attachedIsImage
     setAttachedFile(null)
     setAttachedContent('')
     setAttachedIsImage(false)

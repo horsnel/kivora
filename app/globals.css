@@ -263,21 +263,80 @@ input, textarea, select {
 
 /* ═══════════════════════════════════════════════════════════════
    ThinkingState — Professional AI thinking indicator
-   Claude-inspired expandable thinking + Replit step progress + Bolt rich stages
+   5 focus-mode designs: compact(All), orb(Code), academic, writing, math
+   + full mode for DevTools/Study/Explore
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── Compact mode (Chat inline) ── */
+/* ── Shared elements ── */
+.thinking-step-dot-pending {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #262626;
+  flex-shrink: 0;
+}
+.thinking-step-label {
+  font-size: 10px;
+  transition: color 0.3s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.thinking-step-check {
+  color: #22c55e;
+  font-size: 9px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   COMPACT MODE — All focus (professional pill with gradient border)
+   ═══════════════════════════════════════════════════════════════ */
 .thinking-compact {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0;
   padding: 8px 12px;
   border-radius: 14px;
-  background: rgba(255,255,255,0.015);
-  border: 1px solid rgba(255,255,255,0.04);
+  background: rgba(10,10,10,0.95);
   max-width: 320px;
   animation: thinkingFadeIn 0.3s ease-out;
   transition: all 0.3s ease;
+  isolation: isolate;
+}
+/* Gradient border using ::before mask */
+.thinking-compact::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(90deg, #a855f7, #ef4444);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.4;
+  transition: opacity 0.3s ease;
+}
+.thinking-compact:hover::before {
+  opacity: 0.8;
+}
+/* Subtle shimmer background */
+.thinking-compact::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(168,85,247,0.02) 25%, rgba(239,68,68,0.04) 50%, rgba(168,85,247,0.02) 75%);
+  background-size: 200% 100%;
+  animation: thinkingShimmerBg 3s ease-in-out infinite;
+  pointer-events: none;
+  z-index: -1;
 }
 .thinking-compact-done {
   animation: thinkingFadeOut 0.5s ease-out forwards;
@@ -308,49 +367,59 @@ input, textarea, select {
   font-variant-numeric: tabular-nums;
   margin-left: auto;
 }
-/* Stage progress dots */
-.thinking-compact-stages {
-  display: flex;
-  gap: 3px;
-  margin-top: 5px;
-  margin-left: 18px;
-}
-.thinking-compact-dot {
-  width: 16px;
+/* Progress bar */
+.thinking-compact-bar-track {
   height: 2px;
   border-radius: 1px;
-  background: rgba(255,255,255,0.06);
-  transition: all 0.4s ease;
+  background: rgba(255,255,255,0.04);
+  margin-top: 6px;
+  margin-left: 18px;
+  overflow: hidden;
 }
-.thinking-compact-dot.done {
+.thinking-compact-bar-fill {
+  height: 100%;
+  border-radius: 1px;
   background: linear-gradient(90deg, #a855f7, #ef4444);
+  transition: width 0.6s cubic-bezier(0.16,1,0.3,1);
+  position: relative;
 }
-.thinking-compact-dot.active {
-  background: linear-gradient(90deg, #a855f7, #ef4444);
-  animation: thinkingDotPulse 1s ease-in-out infinite;
+.thinking-compact-bar-fill::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: -1px;
+  width: 12px;
+  height: 4px;
+  border-radius: 2px;
+  background: #ef4444;
+  opacity: 0.6;
+  animation: thinkingBarPulse 1.2s ease-in-out infinite;
 }
-.thinking-compact-dot.pending {
-  background: rgba(255,255,255,0.06);
-}
-/* Expandable stage details */
+/* Expandable stage details with slide animation */
 .thinking-compact-details {
-  display: none;
+  display: flex;
   flex-direction: column;
   gap: 1px;
-  margin-top: 4px;
+  margin-top: 0;
   margin-left: 18px;
-  padding-top: 4px;
+  padding-top: 0;
   border-top: 1px solid rgba(255,255,255,0.04);
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.35s cubic-bezier(0.16,1,0.3,1), opacity 0.25s ease, margin-top 0.3s ease, padding-top 0.3s ease;
 }
-.thinking-compact:hover .thinking-compact-details {
-  display: flex;
+.thinking-compact-details.open {
+  max-height: 200px;
+  opacity: 1;
+  margin-top: 4px;
+  padding-top: 4px;
 }
 .thinking-compact-step {
   display: flex;
   align-items: center;
   gap: 5px;
   padding: 2px 0;
-  font-size: 10px;
 }
 .thinking-compact-step.done .thinking-step-label {
   color: #525252;
@@ -363,22 +432,650 @@ input, textarea, select {
 .thinking-compact-step.pending .thinking-step-label {
   color: #333;
 }
-.thinking-step-dot-pending {
+
+/* ═══════════════════════════════════════════════════════════════
+   ORB MODE — Code focus (neural node + pipeline + depth)
+   ═══════════════════════════════════════════════════════════════ */
+.thinking-orb {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 8px 12px;
+  border-radius: 16px;
+  background: rgba(10,10,10,0.95);
+  border: 1px solid rgba(168,85,247,0.10);
+  max-width: 320px;
+  animation: thinkingFadeIn 0.3s ease-out;
+  transition: all 0.3s ease;
+  overflow: hidden;
+  isolation: isolate;
+}
+/* Faint matrix-rain background */
+.thinking-orb-matrix {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(168,85,247,0.015) 3px,
+    rgba(168,85,247,0.015) 4px
+  );
+  animation: thinkingMatrixScroll 8s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+.thinking-orb-done {
+  animation: thinkingFadeOut 0.5s ease-out forwards;
+}
+.thinking-orb-inner {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1;
+}
+/* Pulsing glow around orb */
+.thinking-orb-glow {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(168,85,247,0.25), rgba(239,68,68,0.15), transparent 70%);
+  animation: thinkingOrbGlowPulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+.thinking-orb-svg {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #737373;
+  animation: thinkingOrbSpin 4s linear infinite;
+  z-index: 1;
+}
+@keyframes thinkingOrbSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.thinking-orb-node {
+  animation: thinkingOrbNodeGlow 1.2s ease-in-out infinite;
+}
+.thinking-orb-top { animation-delay: 0s; }
+.thinking-orb-left { animation-delay: 0.15s; }
+.thinking-orb-right { animation-delay: 0.3s; }
+@keyframes thinkingOrbNodeGlow {
+  0%, 100% { stroke: #525252; }
+  50% { stroke: #a855f7; }
+}
+.thinking-orb-line {
+  animation: thinkingOrbLinePulse 1.2s ease-in-out infinite;
+}
+.thinking-orb-line:nth-child(4) { animation-delay: 0.1s; }
+.thinking-orb-line:nth-child(5) { animation-delay: 0.2s; }
+.thinking-orb-line:nth-child(6) { animation-delay: 0.3s; }
+@keyframes thinkingOrbLinePulse {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.6; }
+}
+/* Text block with label + meta */
+.thinking-orb-text-block {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.thinking-orb-label-row {
+  display: flex;
+  align-items: baseline;
+  gap: 1px;
+}
+.thinking-orb-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #d4d4d4;
+  letter-spacing: 0.01em;
+}
+/* Blinking terminal cursor */
+.thinking-orb-blink {
+  font-size: 10px;
+  font-weight: 400;
+  color: #a855f7;
+  animation: thinkingCursorBlink 0.8s steps(1) infinite;
+  margin-left: 1px;
+}
+.thinking-orb-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.thinking-orb-depth {
+  font-size: 9px;
+  color: #737373;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+.thinking-orb-time {
+  font-size: 9px;
+  color: #525252;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+/* Pipeline visualization */
+.thinking-orb-pipeline {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-top: 5px;
+  margin-left: 26px;
+  position: relative;
+  z-index: 1;
+}
+.thinking-orb-pipe-segment {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.thinking-orb-pipe-node {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #262626;
+  transition: all 0.4s ease;
+  flex-shrink: 0;
 }
-.thinking-step-label {
-  transition: color 0.3s ease;
+.thinking-orb-pipe-node.done {
+  background: #a855f7;
+  box-shadow: 0 0 4px rgba(168,85,247,0.3);
 }
-.thinking-step-check {
-  color: #22c55e;
-  font-size: 9px;
-  margin-left: auto;
+.thinking-orb-pipe-node.active {
+  background: #ef4444;
+  animation: thinkingPipeNodePulse 1s ease-in-out infinite;
+}
+.thinking-orb-pipe-node.pending {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.thinking-orb-pipe-line {
+  width: 12px;
+  height: 1px;
+  transition: all 0.4s ease;
+  flex-shrink: 0;
+}
+.thinking-orb-pipe-line.done {
+  background: linear-gradient(90deg, #a855f7, rgba(168,85,247,0.4));
+}
+.thinking-orb-pipe-line.active {
+  background: linear-gradient(90deg, rgba(168,85,247,0.4), rgba(239,68,68,0.3));
+  animation: thinkingPipeLinePulse 1.5s ease-in-out infinite;
+}
+.thinking-orb-pipe-line.pending {
+  background: rgba(255,255,255,0.03);
 }
 
-/* ── Full mode (DevTools, Study, Explore) ── */
+/* ═══════════════════════════════════════════════════════════════
+   ACADEMIC MODE — research cards + source counter + peer review
+   ═══════════════════════════════════════════════════════════════ */
+.thinking-academic {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: rgba(10,10,10,0.95);
+  border: 1px solid rgba(59,130,246,0.10);
+  max-width: 320px;
+  animation: thinkingFadeIn 0.3s ease-out;
+  transition: all 0.3s ease;
+  overflow: hidden;
+  isolation: isolate;
+}
+/* Lined-paper texture */
+.thinking-academic-paper {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 7px,
+    rgba(59,130,246,0.018) 7px,
+    rgba(59,130,246,0.018) 8px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+.thinking-academic-done {
+  animation: thinkingFadeOut 0.5s ease-out forwards;
+}
+.thinking-academic-inner {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1;
+}
+.thinking-academic-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6;
+  animation: thinkingAcademicPulse 2s ease-in-out infinite;
+}
+.thinking-academic-book {
+  animation: thinkingBookFlip 2.5s ease-in-out infinite;
+}
+.thinking-academic-book2 {
+  opacity: 0.5;
+  animation: thinkingBookFlip 2.5s ease-in-out infinite 0.3s;
+}
+@keyframes thinkingAcademicPulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+@keyframes thinkingBookFlip {
+  0%, 100% { transform: scaleX(1); }
+  50% { transform: scaleX(0.85); }
+}
+.thinking-academic-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.thinking-academic-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #93c5fd;
+  letter-spacing: 0.01em;
+}
+.thinking-academic-sources {
+  font-size: 9px;
+  color: #737373;
+  font-variant-numeric: tabular-nums;
+}
+.thinking-academic-time {
+  font-size: 9px;
+  color: #525252;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+/* Citation index cards */
+.thinking-academic-cards {
+  display: flex;
+  gap: 4px;
+  margin-top: 5px;
+  margin-left: 22px;
+  position: relative;
+  z-index: 1;
+}
+.thinking-academic-card {
+  width: 20px;
+  height: 14px;
+  border-radius: 2px;
+  transition: all 0.4s ease;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.thinking-academic-card.done {
+  background: rgba(59,130,246,0.12);
+  border: 1px solid rgba(59,130,246,0.25);
+  box-shadow: inset 0 0 0 1px rgba(212,160,23,0.10);
+}
+.thinking-academic-card.active {
+  background: rgba(59,130,246,0.06);
+  border: 1px solid rgba(59,130,246,0.2);
+  animation: thinkingAcademicCardPulse 1.2s ease-in-out infinite;
+}
+.thinking-academic-card.pending {
+  background: rgba(255,255,255,0.015);
+  border: 1px solid rgba(255,255,255,0.04);
+}
+/* Peer review stamp on completed cards */
+.thinking-academic-stamp {
+  font-size: 7px;
+  color: #d4a017;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   WRITING MODE — typewriter cursor + word count + draft badge
+   ═══════════════════════════════════════════════════════════════ */
+.thinking-writing {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: rgba(10,10,10,0.95);
+  border: 1px solid rgba(16,185,129,0.10);
+  max-width: 320px;
+  animation: thinkingFadeIn 0.3s ease-out;
+  transition: all 0.3s ease;
+  overflow: hidden;
+  isolation: isolate;
+}
+/* Paper texture */
+.thinking-writing-paper {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 7px,
+    rgba(16,185,129,0.012) 7px,
+    rgba(16,185,129,0.012) 8px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+.thinking-writing-done {
+  animation: thinkingFadeOut 0.5s ease-out forwards;
+}
+.thinking-writing-inner {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  z-index: 1;
+}
+.thinking-writing-pen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #10b981;
+  animation: thinkingWritingWrite 1.5s ease-in-out infinite;
+}
+@keyframes thinkingWritingWrite {
+  0%, 100% { transform: rotate(-5deg) translateY(0); }
+  30% { transform: rotate(-2deg) translateY(-1px); }
+  60% { transform: rotate(-8deg) translateY(0); }
+}
+.thinking-writing-pen-path {
+  stroke-dasharray: 40;
+  animation: thinkingPenDraw 2s ease-in-out infinite;
+}
+@keyframes thinkingPenDraw {
+  0% { stroke-dashoffset: 40; }
+  50% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -40; }
+}
+.thinking-writing-pen-line {
+  opacity: 0.4;
+}
+.thinking-writing-text {
+  display: flex;
+  align-items: baseline;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.thinking-writing-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #6ee7b7;
+  letter-spacing: 0.01em;
+  font-style: italic;
+}
+/* Typewriter cursor */
+.thinking-writing-cursor {
+  font-size: 11px;
+  font-weight: 300;
+  color: #10b981;
+  animation: thinkingCursorBlink 0.8s steps(1) infinite;
+  margin-left: 1px;
+}
+/* Draft/final badge */
+.thinking-writing-badge {
+  font-size: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.thinking-writing-badge.draft {
+  background: rgba(16,185,129,0.08);
+  color: #10b981;
+  border: 1px solid rgba(16,185,129,0.15);
+}
+.thinking-writing-badge.final {
+  background: rgba(245,158,11,0.10);
+  color: #f59e0b;
+  border: 1px solid rgba(245,158,11,0.20);
+  animation: thinkingBadgeFinal 0.6s ease-out;
+}
+.thinking-writing-time {
+  font-size: 9px;
+  color: #525252;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+/* Word count + ink strokes */
+.thinking-writing-ink {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+  margin-left: 21px;
+  position: relative;
+  z-index: 1;
+}
+.thinking-writing-wordcount {
+  font-size: 8px;
+  color: #525252;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.thinking-writing-strokes {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+}
+.thinking-writing-ink-segment {
+  height: 2px;
+  border-radius: 1px;
+  flex: 1;
+  max-width: 24px;
+  transition: all 0.5s ease;
+}
+.thinking-writing-ink-segment.done {
+  background: linear-gradient(90deg, #10b981, rgba(16,185,129,0.6));
+}
+.thinking-writing-ink-segment.active {
+  background: linear-gradient(90deg, #10b981, rgba(245,158,11,0.4));
+  animation: thinkingInkBleed 1.5s ease-in-out infinite;
+}
+.thinking-writing-ink-segment.pending {
+  background: rgba(255,255,255,0.03);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MATH MODE — equation symbols + derivation chain + verification
+   ═══════════════════════════════════════════════════════════════ */
+.thinking-math {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: rgba(10,10,10,0.95);
+  border: 1px solid rgba(245,158,11,0.10);
+  max-width: 320px;
+  animation: thinkingFadeIn 0.3s ease-out;
+  transition: all 0.3s ease;
+  overflow: hidden;
+  isolation: isolate;
+}
+/* Graph paper texture */
+.thinking-math-grid {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 7px,
+      rgba(245,158,11,0.012) 7px,
+      rgba(245,158,11,0.012) 8px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 7px,
+      rgba(245,158,11,0.008) 7px,
+      rgba(245,158,11,0.008) 8px
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+.thinking-math-done {
+  animation: thinkingFadeOut 0.5s ease-out forwards;
+}
+.thinking-math-inner {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  z-index: 1;
+}
+.thinking-math-symbol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.thinking-math-sym-char {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f59e0b;
+  animation: thinkingMathSymbol 2s ease-in-out infinite;
+  font-family: 'Times New Roman', 'Noto Serif SC', serif;
+  line-height: 1;
+}
+@keyframes thinkingMathSymbol {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+.thinking-math-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.thinking-math-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #fbbf24;
+  letter-spacing: 0.01em;
+}
+.thinking-math-ops {
+  font-size: 9px;
+  color: #737373;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+.thinking-math-time {
+  font-size: 9px;
+  color: #525252;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+/* Derivation chain */
+.thinking-math-chain {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-top: 5px;
+  margin-left: 25px;
+  position: relative;
+  z-index: 1;
+}
+.thinking-math-chain-step {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.thinking-math-chain-node {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.4s ease;
+  position: relative;
+}
+.thinking-math-chain-num {
+  font-size: 7px;
+  font-weight: 700;
+  font-family: 'Times New Roman', serif;
+  line-height: 1;
+}
+.thinking-math-chain-check {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  font-size: 6px;
+  color: #3b82f6;
+  font-weight: 700;
+}
+.thinking-math-chain-node.done {
+  background: rgba(245,158,11,0.15);
+  border: 1px solid rgba(245,158,11,0.30);
+}
+.thinking-math-chain-node.done .thinking-math-chain-num {
+  color: #f59e0b;
+}
+.thinking-math-chain-node.active {
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.20);
+  animation: thinkingMathChainPulse 1s ease-in-out infinite;
+}
+.thinking-math-chain-node.active .thinking-math-chain-num {
+  color: #fbbf24;
+}
+.thinking-math-chain-node.pending {
+  background: rgba(255,255,255,0.015);
+  border: 1px solid rgba(255,255,255,0.04);
+}
+.thinking-math-chain-node.pending .thinking-math-chain-num {
+  color: #404040;
+}
+/* Equation-style connectors between chain nodes */
+.thinking-math-chain-connector {
+  font-size: 8px;
+  color: #525252;
+  font-family: 'Times New Roman', serif;
+  margin: 0 2px;
+  transition: color 0.3s ease;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FULL MODE — DevTools, Study, Explore (vertical stage list)
+   ═══════════════════════════════════════════════════════════════ */
 .thinking-full {
   display: flex;
   flex-direction: column;
@@ -430,7 +1127,6 @@ input, textarea, select {
   font-variant-numeric: tabular-nums;
   font-weight: 500;
 }
-/* Stage list */
 .thinking-full-stages {
   display: flex;
   flex-direction: column;
@@ -465,59 +1161,33 @@ input, textarea, select {
   flex-shrink: 0;
   margin-top: 1px;
 }
-.thinking-stage-icon-wrap.done {
-  color: #22c55e;
-}
-.thinking-stage-icon-wrap.active {
-  color: #a855f7;
-}
-.thinking-stage-icon-wrap.pending {
-  color: #333;
-}
-.thinking-stage-dot-pending {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #333;
-}
+.thinking-stage-icon-wrap.done { color: #22c55e; }
+.thinking-stage-icon-wrap.active { color: #a855f7; }
+.thinking-stage-icon-wrap.pending { color: #333; }
 .thinking-stage-content {
   display: flex;
   flex-direction: column;
   gap: 2px;
   transition: all 0.3s ease;
 }
-.thinking-stage-content.done {
-  opacity: 0.5;
-}
-.thinking-stage-content.active {
-  opacity: 1;
-}
-.thinking-stage-content.pending {
-  opacity: 0.25;
-}
+.thinking-stage-content.done { opacity: 0.5; }
+.thinking-stage-content.active { opacity: 1; }
+.thinking-stage-content.pending { opacity: 0.25; }
 .thinking-stage-icon-label {
   display: flex;
   align-items: center;
   gap: 5px;
 }
-.thinking-stage-sicon {
-  flex-shrink: 0;
-}
+.thinking-stage-sicon { flex-shrink: 0; }
 .thinking-stage-text {
   font-size: 12px;
   font-weight: 450;
   letter-spacing: 0.01em;
   transition: color 0.3s ease;
 }
-.thinking-stage-content.done .thinking-stage-text {
-  color: #525252;
-}
-.thinking-stage-content.active .thinking-stage-text {
-  color: #d4d4d4;
-}
-.thinking-stage-content.pending .thinking-stage-text {
-  color: #404040;
-}
+.thinking-stage-content.done .thinking-stage-text { color: #525252; }
+.thinking-stage-content.active .thinking-stage-text { color: #d4d4d4; }
+.thinking-stage-content.pending .thinking-stage-text { color: #404040; }
 .thinking-stage-pulse {
   width: 100%;
   max-width: 120px;
@@ -526,7 +1196,6 @@ input, textarea, select {
   background: linear-gradient(90deg, #a855f7, #ef4444);
   animation: thinkingPulseWidth 1.5s ease-in-out infinite;
 }
-/* Shimmer bar at bottom */
 .thinking-full-shimmer-bar {
   margin-top: 12px;
   height: 2px;
@@ -542,427 +1211,7 @@ input, textarea, select {
   animation: thinkingShimmerSlide 2s ease-in-out infinite;
 }
 
-/* ── Orb mode (Chat Focus Code — enhanced neural node + thinking text) ── */
-.thinking-orb {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 6px 10px;
-  border-radius: 16px;
-  background: rgba(255,255,255,0.02);
-  border: 1px solid rgba(255,255,255,0.05);
-  max-width: 300px;
-  animation: thinkingFadeIn 0.3s ease-out;
-  transition: all 0.3s ease;
-}
-.thinking-orb-done {
-  animation: thinkingFadeOut 0.5s ease-out forwards;
-}
-.thinking-orb-inner {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.thinking-orb-svg {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #525252;
-  animation: thinkingOrbSpin 3s linear infinite;
-}
-@keyframes thinkingOrbSpin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-.thinking-orb-node {
-  animation: thinkingOrbGlow 1.2s ease-in-out infinite;
-}
-.thinking-orb-top { animation-delay: 0s; }
-.thinking-orb-left { animation-delay: 0.15s; }
-.thinking-orb-right { animation-delay: 0.3s; }
-@keyframes thinkingOrbGlow {
-  0%, 100% { stroke: #525252; }
-  50% { stroke: #ef4444; }
-}
-.thinking-orb-line {
-  animation: thinkingOrbLinePulse 1.2s ease-in-out infinite;
-}
-.thinking-orb-line:nth-child(4) { animation-delay: 0.1s; }
-.thinking-orb-line:nth-child(5) { animation-delay: 0.2s; }
-.thinking-orb-line:nth-child(6) { animation-delay: 0.3s; }
-@keyframes thinkingOrbLinePulse {
-  0%, 100% { opacity: 0.2; }
-  50% { opacity: 0.7; }
-}
-.thinking-orb-label {
-  font-size: 11px;
-  font-weight: 500;
-  color: #a3a3a3;
-  letter-spacing: 0.01em;
-}
-.thinking-orb-dots {
-  display: inline-flex;
-  gap: 2px;
-  margin-left: 1px;
-}
-.thinking-orb-dot {
-  width: 2px;
-  height: 2px;
-  border-radius: 50%;
-  background: #525252;
-  animation: thinkingOrbDotBounce 0.9s ease-in-out infinite;
-}
-.thinking-orb-dot:nth-child(1) { animation-delay: 0s; }
-.thinking-orb-dot:nth-child(2) { animation-delay: 0.12s; }
-.thinking-orb-dot:nth-child(3) { animation-delay: 0.24s; }
-@keyframes thinkingOrbDotBounce {
-  0%, 60%, 100% { opacity: 0.2; transform: translateY(0); }
-  30% { opacity: 1; transform: translateY(-2px); background: #ef4444; }
-}
-.thinking-orb-time {
-  font-size: 9px;
-  color: #525252;
-  font-variant-numeric: tabular-nums;
-  margin-left: auto;
-}
-.thinking-orb-stages {
-  display: flex;
-  gap: 3px;
-  margin-top: 4px;
-  margin-left: 22px;
-}
-.thinking-orb-stage-dot {
-  width: 14px;
-  height: 2px;
-  border-radius: 1px;
-  background: rgba(255,255,255,0.06);
-  transition: all 0.4s ease;
-}
-.thinking-orb-stage-dot.done {
-  background: linear-gradient(90deg, #a855f7, #ef4444);
-}
-.thinking-orb-stage-dot.active {
-  background: linear-gradient(90deg, #a855f7, #ef4444);
-  animation: thinkingDotPulse 1s ease-in-out infinite;
-}
-.thinking-orb-stage-dot.pending {
-  background: rgba(255,255,255,0.06);
-}
-
-/* ── Academic mode (Chat Focus Academic — scholarly/research theme) ── */
-.thinking-academic {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 7px 11px;
-  border-radius: 14px;
-  background: rgba(59,130,246,0.03);
-  border: 1px solid rgba(59,130,246,0.08);
-  max-width: 280px;
-  animation: thinkingFadeIn 0.3s ease-out;
-  transition: all 0.3s ease;
-}
-.thinking-academic-done {
-  animation: thinkingFadeOut 0.5s ease-out forwards;
-}
-.thinking-academic-inner {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
-.thinking-academic-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #3b82f6;
-  animation: thinkingAcademicPulse 2s ease-in-out infinite;
-}
-.thinking-academic-book {
-  animation: thinkingBookFlip 2.5s ease-in-out infinite;
-}
-.thinking-academic-book2 {
-  opacity: 0.5;
-  animation: thinkingBookFlip 2.5s ease-in-out infinite 0.3s;
-}
-@keyframes thinkingAcademicPulse {
-  0%, 100% { opacity: 0.7; }
-  50% { opacity: 1; }
-}
-@keyframes thinkingBookFlip {
-  0%, 100% { transform: scaleX(1); }
-  50% { transform: scaleX(0.85); }
-}
-.thinking-academic-label {
-  font-size: 11px;
-  font-weight: 500;
-  color: #93c5fd;
-  letter-spacing: 0.01em;
-}
-.thinking-academic-time {
-  font-size: 9px;
-  color: #525252;
-  font-variant-numeric: tabular-nums;
-  margin-left: auto;
-}
-.thinking-academic-progress {
-  display: flex;
-  gap: 4px;
-  margin-top: 5px;
-  margin-left: 21px;
-}
-.thinking-academic-dot {
-  width: 16px;
-  height: 16px;
-  border-radius: 3px;
-  background: rgba(59,130,246,0.06);
-  border: 1px solid rgba(59,130,246,0.08);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.4s ease;
-  position: relative;
-}
-.thinking-academic-dot.done {
-  background: rgba(59,130,246,0.12);
-  border-color: rgba(59,130,246,0.25);
-}
-.thinking-academic-dot.active {
-  background: rgba(59,130,246,0.08);
-  border-color: rgba(59,130,246,0.2);
-  animation: thinkingAcademicDotPulse 1.2s ease-in-out infinite;
-}
-.thinking-academic-dot.pending {
-  background: rgba(255,255,255,0.02);
-  border-color: rgba(255,255,255,0.04);
-}
-.thinking-academic-check {
-  font-size: 8px;
-  color: #3b82f6;
-  line-height: 1;
-}
-@keyframes thinkingAcademicDotPulse {
-  0%, 100% { border-color: rgba(59,130,246,0.15); }
-  50% { border-color: rgba(59,130,246,0.4); }
-}
-
-/* ── Writing mode (Chat Focus Writing — pen/typewriter theme) ── */
-.thinking-writing {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 7px 11px;
-  border-radius: 14px;
-  background: rgba(16,185,129,0.03);
-  border: 1px solid rgba(16,185,129,0.08);
-  max-width: 280px;
-  animation: thinkingFadeIn 0.3s ease-out;
-  transition: all 0.3s ease;
-}
-.thinking-writing-done {
-  animation: thinkingFadeOut 0.5s ease-out forwards;
-}
-.thinking-writing-inner {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
-.thinking-writing-pen {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #10b981;
-  animation: thinkingWritingWrite 1.5s ease-in-out infinite;
-}
-@keyframes thinkingWritingWrite {
-  0%, 100% { transform: rotate(-5deg) translateY(0); }
-  30% { transform: rotate(-2deg) translateY(-1px); }
-  60% { transform: rotate(-8deg) translateY(0); }
-}
-.thinking-writing-pen-path {
-  stroke-dasharray: 40;
-  animation: thinkingPenDraw 2s ease-in-out infinite;
-}
-@keyframes thinkingPenDraw {
-  0% { stroke-dashoffset: 40; }
-  50% { stroke-dashoffset: 0; }
-  100% { stroke-dashoffset: -40; }
-}
-.thinking-writing-pen-line {
-  opacity: 0.4;
-}
-.thinking-writing-label {
-  font-size: 11px;
-  font-weight: 500;
-  color: #6ee7b7;
-  letter-spacing: 0.01em;
-  font-style: italic;
-}
-.thinking-writing-dots {
-  display: inline-flex;
-  gap: 2px;
-  margin-left: 1px;
-}
-.thinking-writing-dot {
-  width: 2px;
-  height: 2px;
-  border-radius: 50%;
-  background: #10b981;
-  animation: thinkingWritingDotBounce 0.9s ease-in-out infinite;
-}
-.thinking-writing-dot:nth-child(1) { animation-delay: 0s; }
-.thinking-writing-dot:nth-child(2) { animation-delay: 0.15s; }
-.thinking-writing-dot:nth-child(3) { animation-delay: 0.3s; }
-@keyframes thinkingWritingDotBounce {
-  0%, 60%, 100% { opacity: 0.2; transform: translateY(0); }
-  30% { opacity: 1; transform: translateY(-2px); background: #10b981; }
-}
-.thinking-writing-time {
-  font-size: 9px;
-  color: #525252;
-  font-variant-numeric: tabular-nums;
-  margin-left: auto;
-}
-.thinking-writing-ink {
-  display: flex;
-  gap: 2px;
-  margin-top: 5px;
-  margin-left: 21px;
-}
-.thinking-writing-ink-segment {
-  height: 2px;
-  border-radius: 1px;
-  flex: 1;
-  max-width: 20px;
-  transition: all 0.4s ease;
-}
-.thinking-writing-ink-segment.done {
-  background: #10b981;
-}
-.thinking-writing-ink-segment.active {
-  background: linear-gradient(90deg, #10b981, rgba(16,185,129,0.3));
-  animation: thinkingInkBleed 1.5s ease-in-out infinite;
-}
-.thinking-writing-ink-segment.pending {
-  background: rgba(255,255,255,0.04);
-}
-@keyframes thinkingInkBleed {
-  0%, 100% { max-width: 20px; opacity: 0.6; }
-  50% { max-width: 28px; opacity: 1; }
-}
-
-/* ── Math mode (Chat Focus Math — equation/calculation theme) ── */
-.thinking-math {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 7px 11px;
-  border-radius: 14px;
-  background: rgba(245,158,11,0.03);
-  border: 1px solid rgba(245,158,11,0.08);
-  max-width: 280px;
-  animation: thinkingFadeIn 0.3s ease-out;
-  transition: all 0.3s ease;
-}
-.thinking-math-done {
-  animation: thinkingFadeOut 0.5s ease-out forwards;
-}
-.thinking-math-inner {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
-.thinking-math-symbol {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-}
-.thinking-math-sym-char {
-  font-size: 12px;
-  font-weight: 600;
-  color: #f59e0b;
-  animation: thinkingMathSymbol 2s ease-in-out infinite;
-  font-family: 'Times New Roman', serif;
-}
-@keyframes thinkingMathSymbol {
-  0%, 100% { opacity: 0.5; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.1); }
-}
-.thinking-math-label {
-  font-size: 11px;
-  font-weight: 500;
-  color: #fbbf24;
-  letter-spacing: 0.01em;
-  font-family: 'Times New Roman', serif;
-}
-.thinking-math-time {
-  font-size: 9px;
-  color: #525252;
-  font-variant-numeric: tabular-nums;
-  margin-left: auto;
-}
-.thinking-math-steps {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  margin-top: 5px;
-  margin-left: 21px;
-}
-.thinking-math-step {
-  display: flex;
-  align-items: center;
-  gap: 0;
-}
-.thinking-math-step-num {
-  font-size: 8px;
-  font-weight: 600;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.4s ease;
-  font-family: 'Times New Roman', serif;
-}
-.thinking-math-step.done .thinking-math-step-num {
-  background: rgba(245,158,11,0.15);
-  color: #f59e0b;
-  border: 1px solid rgba(245,158,11,0.3);
-}
-.thinking-math-step.active .thinking-math-step-num {
-  background: rgba(245,158,11,0.1);
-  color: #fbbf24;
-  border: 1px solid rgba(245,158,11,0.2);
-  animation: thinkingMathStepPulse 1s ease-in-out infinite;
-}
-.thinking-math-step.pending .thinking-math-step-num {
-  background: rgba(255,255,255,0.02);
-  color: #404040;
-  border: 1px solid rgba(255,255,255,0.04);
-}
-.thinking-math-step-line {
-  width: 8px;
-  height: 1px;
-  transition: background 0.4s ease;
-}
-.thinking-math-step.done .thinking-math-step-line {
-  background: rgba(245,158,11,0.3);
-}
-.thinking-math-step.active .thinking-math-step-line {
-  background: rgba(245,158,11,0.15);
-}
-.thinking-math-step.pending .thinking-math-step-line {
-  background: rgba(255,255,255,0.04);
-}
-@keyframes thinkingMathStepPulse {
-  0%, 100% { border-color: rgba(245,158,11,0.15); }
-  50% { border-color: rgba(245,158,11,0.4); }
-}
-
-/* ── Animations ── */
+/* ── Thinking Animations ── */
 @keyframes thinkingFadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -983,6 +1232,51 @@ input, textarea, select {
 @keyframes thinkingShimmerSlide {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(400%); }
+}
+@keyframes thinkingCursorBlink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+@keyframes thinkingShimmerBg {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@keyframes thinkingBarPulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+@keyframes thinkingOrbGlowPulse {
+  0%, 100% { opacity: 0.4; transform: translateY(-50%) scale(1); }
+  50% { opacity: 0.8; transform: translateY(-50%) scale(1.3); }
+}
+@keyframes thinkingPipeNodePulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(239,68,68,0.3); }
+  50% { box-shadow: 0 0 8px rgba(239,68,68,0.6); }
+}
+@keyframes thinkingPipeLinePulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+@keyframes thinkingMatrixScroll {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(4px); }
+}
+@keyframes thinkingAcademicCardPulse {
+  0%, 100% { border-color: rgba(59,130,246,0.15); }
+  50% { border-color: rgba(59,130,246,0.35); }
+}
+@keyframes thinkingInkBleed {
+  0%, 100% { max-width: 24px; opacity: 0.6; }
+  50% { max-width: 32px; opacity: 1; }
+}
+@keyframes thinkingBadgeFinal {
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes thinkingMathChainPulse {
+  0%, 100% { border-color: rgba(245,158,11,0.15); }
+  50% { border-color: rgba(245,158,11,0.4); }
 }
 
 .line-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
