@@ -1,0 +1,36 @@
+INFO:     Started server process [10791]
+INFO:     Waiting for application startup.
+INFO:kivora-voice:=======================================================
+INFO:kivora-voice:  Kivora Voice Server v1.0 — Starting Up
+INFO:kivora-voice:=======================================================
+INFO:kivora-voice:  HF Token:     configured
+INFO:kivora-voice:  Data Dir:     /home/z/my-project/voice-server/data
+INFO:kivora-voice:  Auth:         disabled
+INFO:kivora-voice:-------------------------------------------------------
+INFO:kivora-voice:  Installed Packages:
+INFO:kivora-voice:    faster-whisper  OK
+INFO:kivora-voice:    edge-tts        OK
+INFO:kivora-voice:    TTS (Coqui)     NOT INSTALLED
+INFO:kivora-voice:    argostranslate  NOT INSTALLED
+INFO:kivora-voice:    audioseal       NOT INSTALLED
+INFO:kivora-voice:    demucs          NOT INSTALLED
+INFO:kivora-voice:    pyannote.audio  NOT INSTALLED
+INFO:kivora-voice:-------------------------------------------------------
+INFO:kivora-voice:  Active Services (available NOW):
+INFO:kivora-voice:    TTS  → Edge TTS (cloud, 12 languages)
+INFO:kivora-voice:    STT  → WhisperX (base, 99 languages)
+INFO:kivora-voice:    TRN  → LLM fallback (Groq API)
+INFO:kivora-voice:-------------------------------------------------------
+INFO:kivora-voice:  Endpoints:
+INFO:kivora-voice:    POST /v1/audio/speech         — TTS
+INFO:kivora-voice:    POST /v1/audio/transcriptions  — STT
+INFO:kivora-voice:    POST /dub/translate            — Translation
+INFO:kivora-voice:    POST /profiles                 — Voice Cloning
+INFO:kivora-voice:    POST /watermark/detect         — Watermark
+INFO:kivora-voice:    POST /tools/isolate-vocals     — Vocal Isolation
+INFO:kivora-voice:    POST /tools/diarize            — Speaker Diarization
+INFO:kivora-voice:    GET  /health                   — Health Check
+INFO:kivora-voice:    GET  /engines/{tts,asr,translation}
+INFO:kivora-voice:=======================================================
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:3900 (Press CTRL+C to quit)
