@@ -153,6 +153,7 @@ function CodeBlock({ langLabel, codeText, codeClassName }) {
   const [runResult, setRunResult] = useState(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [codeExpanded, setCodeExpanded] = useState(false)
   const iframeRef = useRef(null)
 
   const langId = getLangId(codeClassName)
@@ -240,6 +241,9 @@ function CodeBlock({ langLabel, codeText, codeClassName }) {
   // Split view: code on left, console on right (for non-browser languages with Run support)
   const showSplitView = langId && !canPreview && runResult
 
+  // Count lines for collapsed preview
+  const lineCount = codeText.split('\n').length
+
   return (
     <div
       className="my-3 overflow-hidden max-w-full"
@@ -255,11 +259,22 @@ function CodeBlock({ langLabel, codeText, codeClassName }) {
         style={{
           minHeight: '40px',
           padding: '0 12px',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          borderBottom: codeExpanded ? '1px solid rgba(255,255,255,0.06)' : 'none',
         }}
       >
-        {/* Left: </> icon + language */}
-        <div className="flex items-center gap-2">
+        {/* Left: expand/collapse toggle + language */}
+        <button
+          onClick={() => setCodeExpanded(!codeExpanded)}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          aria-label={codeExpanded ? 'Collapse code' : 'Expand code'}
+        >
+          <svg
+            width="12" height="12" viewBox="0 0 16 16" fill="none"
+            stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+            className={`transition-transform ${codeExpanded ? 'rotate-90' : ''}`}
+          >
+            <path d="M6 4l4 4-4 4" />
+          </svg>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="16 18 22 12 16 6" />
             <polyline points="8 6 2 12 8 18" />
@@ -267,7 +282,12 @@ function CodeBlock({ langLabel, codeText, codeClassName }) {
           <span className="text-[12px] font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
             {langLabel || 'Code'}
           </span>
-        </div>
+          {!codeExpanded && (
+            <span className="text-[10px] font-mono" style={{ color: 'rgba(255,255,255,0.25)' }}>
+              {lineCount} line{lineCount !== 1 ? 's' : ''}
+            </span>
+          )}
+        </button>
         {/* Right: Copy + Preview (for HTML) + Run (for executable) */}
         <div className="flex items-center" style={{ gap: '8px' }}>
           {/* Copy button */}
@@ -357,6 +377,9 @@ function CodeBlock({ langLabel, codeText, codeClassName }) {
         </div>
       </div>
 
+      {/* ── Code body — only shown when expanded ── */}
+      {codeExpanded && (
+      <>
       {/* ── Code + Console split view (for non-browser languages with run results) ── */}
       {showSplitView ? (
         <div className="flex flex-col sm:flex-row" style={{ minHeight: 0 }}>
@@ -468,7 +491,10 @@ function CodeBlock({ langLabel, codeText, codeClassName }) {
         </div>
       )}
 
-      {/* ── Browser Preview (HTML only) ── */}
+      </>
+      )}
+
+      {/* ── Browser Preview (HTML only) — shown even when code is collapsed ── */}
       {canPreview && previewOpen && (
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="flex items-center gap-1.5 px-3 py-1.5" style={{ background: '#1a1a1a', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>

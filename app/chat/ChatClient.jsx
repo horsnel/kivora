@@ -1639,10 +1639,6 @@ export default function ChatClient() {
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={msg.imageData} alt="AI Generated" className="w-full h-auto" />
                           </div>
-                          <div className="flex items-center gap-1.5 text-[10px] text-muted">
-                            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1.5"/><path d="M2 11l3.5-3.5 2.5 2.5 2-2L14 11"/></svg>
-                            <span>AI Generated &middot; {msg.imageSize} &middot; {msg.imageModel || 'Flux'}</span>
-                          </div>
                           {msg.imageUrl && (
                             <a
                               href={msg.imageUrl}

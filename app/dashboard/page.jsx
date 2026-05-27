@@ -28,6 +28,31 @@ const TOOL_LABELS = {
   devtools_readme: 'README Generator',
   devtools_sql_builder: 'SQL Builder',
   devtools_api_analyzer: 'API Analyzer',
+  devtools_code_reviewer: 'Code Reviewer',
+  devtools_math_solver: 'Math Solver',
+  devtools_email_writer: 'Email Writer',
+  devtools_cold_email: 'Cold Email',
+  devtools_pitch_writer: 'Pitch Writer',
+  devtools_job_desc: 'Job Description',
+  devtools_sop_writer: 'SOP Writer',
+  devtools_terminal: 'Terminal Helper',
+  devtools_text_improver: 'Text Improver',
+  devtools_translator: 'Translator',
+  devtools_summariser: 'Summariser',
+  devtools_api_tester: 'API Tester',
+  devtools_diff_checker: 'Diff Checker',
+  devtools_base64: 'Base64',
+  devtools_jwt_decoder: 'JWT Decoder',
+  devtools_csv_analyser: 'CSV Analyser',
+  devtools_data_to_schema: 'Schema Generator',
+  devtools_git_helper: 'Git Helper',
+  devtools_env_checker: 'Env Auditor',
+  explore: 'Explore',
+  reelpen: 'ReelPen',
+  vision: 'Vision',
+  image_gen: 'Image Generation',
+  image3d: '3D Viewer',
+  sandbox: 'Sandbox',
 }
 
 const TOOL_CATEGORIES = {
@@ -44,6 +69,44 @@ const TOOL_CATEGORIES = {
   devtools_readme: 'DevTools',
   devtools_sql_builder: 'DevTools',
   devtools_api_analyzer: 'DevTools',
+  devtools_code_reviewer: 'DevTools',
+  devtools_math_solver: 'DevTools',
+  devtools_email_writer: 'DevTools',
+  devtools_cold_email: 'DevTools',
+  devtools_pitch_writer: 'DevTools',
+  devtools_job_desc: 'DevTools',
+  devtools_sop_writer: 'DevTools',
+  devtools_terminal: 'DevTools',
+  devtools_text_improver: 'DevTools',
+  devtools_translator: 'DevTools',
+  devtools_summariser: 'DevTools',
+  devtools_api_tester: 'DevTools',
+  devtools_diff_checker: 'DevTools',
+  devtools_base64: 'DevTools',
+  devtools_jwt_decoder: 'DevTools',
+  devtools_csv_analyser: 'DevTools',
+  devtools_data_to_schema: 'DevTools',
+  devtools_git_helper: 'DevTools',
+  devtools_env_checker: 'DevTools',
+  explore: 'Explore',
+  reelpen: 'ReelPen',
+  vision: 'Vision',
+  image_gen: 'Image Gen',
+  image3d: '3D Viewer',
+  sandbox: 'Sandbox',
+}
+
+// Icon colors per category
+const CATEGORY_COLORS = {
+  Chat: { dot: 'bg-red-500', text: 'text-red-400' },
+  StudyDesk: { dot: 'bg-emerald-400', text: 'text-emerald-400' },
+  DevTools: { dot: 'bg-blue-400', text: 'text-blue-400' },
+  Explore: { dot: 'bg-amber-400', text: 'text-amber-400' },
+  ReelPen: { dot: 'bg-pink-400', text: 'text-pink-400' },
+  Vision: { dot: 'bg-cyan-400', text: 'text-cyan-400' },
+  'Image Gen': { dot: 'bg-purple-400', text: 'text-purple-400' },
+  '3D Viewer': { dot: 'bg-indigo-400', text: 'text-indigo-400' },
+  Sandbox: { dot: 'bg-yellow-400', text: 'text-yellow-400' },
 }
 
 function formatDuration(ms) {
@@ -241,9 +304,9 @@ export default function DashboardPage() {
     } catch {}
   }
 
-  // Load activity when tab is switched to activity or range changes
+  // Load activity when tab is switched to activity/tools or range changes
   useEffect(() => {
-    if (tab === 'activity' && user) loadActivity()
+    if ((tab === 'activity' || tab === 'tools') && user) loadActivity()
   }, [tab, activityRange, user])
 
   async function deleteSave(id) {
@@ -505,6 +568,7 @@ export default function DashboardPage() {
           {[
             { id: 'saved', label: t('dashboard.tab_saved'), shortLabel: t('dashboard.tab_saved'), Icon: IconBookmark },
             { id: 'goals', label: 'Goals', shortLabel: 'Goals', Icon: IconTarget },
+            { id: 'tools', label: 'Tools', shortLabel: 'Tools', Icon: IconCode },
             { id: 'chats', label: t('dashboard.tab_chats'), shortLabel: t('dashboard.chats'), Icon: IconChat },
             { id: 'messages', label: `${t('dashboard.tab_messages')}${unreadCount > 0 ? ` (${unreadCount})` : ''}`, shortLabel: unreadCount > 0 ? `Msgs (${unreadCount})` : 'Msgs', Icon: IconMail },
             { id: 'activity', label: t('dashboard.tab_activity'), shortLabel: t('dashboard.tab_activity'), Icon: IconActivity },
@@ -775,6 +839,75 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* Tools Usage */}
+        {tab === 'tools' && (
+          !activityData ? (
+            <div className="space-y-4">
+              <div className="skeleton border border-[#262626] rounded-xl p-5 h-48" />
+              <div className="skeleton border border-[#262626] rounded-xl p-5 h-64" />
+            </div>
+          ) : totalSessions === 0 ? (
+            <Empty icon={<IconCode size={20} className="text-[#2e2e2e]" />} title="No tool usage yet" desc="Use any tool on the platform while signed in to see your usage stats here." action={{ label: 'Try a tool', href: '/home' }} router={router} />
+          ) : (
+            <div className="space-y-4">
+              {/* Category overview cards */}
+              {Object.keys(categoryBreakdown).length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {Object.entries(categoryBreakdown)
+                    .sort((a, b) => b[1].count - a[1].count)
+                    .map(([cat, data]) => {
+                      const colors = CATEGORY_COLORS[cat] || { dot: 'bg-[#404040]', text: 'text-[#888]' }
+                      return (
+                        <div key={cat} className="bg-[#141414] border border-white/[0.06] rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className={`w-2.5 h-2.5 rounded-full ${colors.dot}`} />
+                            <span className={`text-[13px] font-semibold ${colors.text}`}>{cat}</span>
+                          </div>
+                          <div className="text-2xl font-bold tracking-tight text-white">{data.count}</div>
+                          <div className="text-[11px] text-muted mt-0.5">session{data.count !== 1 ? 's' : ''} · {formatDurationShort(data.timeMs)}</div>
+                        </div>
+                      )
+                    })}
+                </div>
+              )}
+
+              {/* Per-tool breakdown */}
+              {Object.keys(toolBreakdown).length > 0 && (
+                <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
+                  <h3 className="font-semibold text-body mb-4 text-muted">Tool Breakdown</h3>
+                  <div className="space-y-1.5">
+                    {Object.entries(toolBreakdown)
+                      .sort((a, b) => b[1].count - a[1].count)
+                      .map(([tool, data]) => {
+                        const cat = TOOL_CATEGORIES[tool] || 'Other'
+                        const colors = CATEGORY_COLORS[cat] || { dot: 'bg-[#404040]', text: 'text-[#888]' }
+                        const maxCount = Math.max(...Object.values(toolBreakdown).map(d => d.count), 1)
+                        const pct = Math.round((data.count / maxCount) * 100)
+                        return (
+                          <div key={tool} className="flex items-center gap-3">
+                            <div className={`w-2 h-2 rounded-full shrink-0 ${colors.dot}`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[13px] text-[#d4d4d4] truncate">{TOOL_LABELS[tool] || tool}</span>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-[11px] font-mono text-muted">{data.count}×</span>
+                                  <span className="text-[10px] text-muted2">{formatDurationShort(data.timeMs)}</span>
+                                </div>
+                              </div>
+                              <div className="h-1 bg-[#1a1a1a] rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full transition-all ${colors.dot} opacity-60`} style={{ width: `${pct}%` }} />
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        )}
+
         {/* Saved */}
         {tab === 'saved' && (
           saves.length === 0 ? (
@@ -987,9 +1120,7 @@ export default function DashboardPage() {
                         <div key={s.id} className="flex items-center justify-between py-2 border-b border-[#1a1a1a] last:border-0">
                           <div className="flex items-center gap-3 min-w-0">
                             <div className={`w-2 h-2 rounded-full shrink-0 ${
-                              TOOL_CATEGORIES[s.tool_type] === 'Chat' ? 'bg-red-500' :
-                              TOOL_CATEGORIES[s.tool_type] === 'StudyDesk' ? 'bg-emerald-400' :
-                              TOOL_CATEGORIES[s.tool_type] === 'DevTools' ? 'bg-red-600' : 'bg-[#404040]'
+                              (CATEGORY_COLORS[TOOL_CATEGORIES[s.tool_type]] || {}).dot || 'bg-[#404040]'
                             }`} />
                             <div className="min-w-0">
                               <div className="text-body text-[#d4d4d4] truncate">{TOOL_LABELS[s.tool_type] || s.tool_type}</div>
