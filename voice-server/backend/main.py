@@ -915,7 +915,7 @@ async def detect_watermark(file: UploadFile = File(...)):
         if _audioseal_detector is None:
             try:
                 from audioseal import AudioSeal
-                _audioseal_detector = AudioSeal.detect_from_pretrained("facebook/audioseal")
+                _audioseal_detector = AudioSeal.load_detector("facebook/audioseal", nbits=0)
                 logger.info("AudioSeal detector loaded")
             except Exception as e:
                 logger.warning(f"AudioSeal load failed: {e}")
@@ -928,7 +928,11 @@ async def detect_watermark(file: UploadFile = File(...)):
         import torch
         import torchaudio
         waveform, sr = torchaudio.load(str(input_path))
-        result = _audioseal_detector(waveform, sr)
+        # Resample to 16kHz if needed
+        if sr != 16000:
+            waveform = torchaudio.functional.resample(waveform, sr, 16000)
+            sr = 16000
+        result, _ = _audioseal_detector(waveform, sample_rate=sr)
         detected = bool(result.mean().item() > 0.5)
         score = round(result.mean().item(), 4)
 
@@ -982,22 +986,35 @@ async def isolate_vocals(file: UploadFile = File(...)):
     try:
         if _demucs_model is None:
             try:
-                import demucs.api
-                _demucs_model = demucs.api.Separator(model="htdemucs")
-                logger.info("Demucs model loaded")
+                from demucs.pretrained import get_model
+                from demucs.apply import apply_model
+                import torch
+                _demucs_model = get_model('htdemucs')
+                _demucs_model.eval()
+                logger.info("Demucs model loaded (htdemucs)")
             except Exception as e:
                 logger.warning(f"Demucs load failed: {e}")
                 raise HTTPException(503, f"Demucs failed to load: {str(e)}")
 
-        _, separated = _demucs_model.separate_audio_file(str(input_path))
-        vocals = separated.get("vocals", separated.get("drums", None))
-        if vocals is None:
-            raise HTTPException(500, "Failed to extract vocals from audio")
+        import torch
+        import torchaudio
+        waveform, sr = torchaudio.load(str(input_path))
+        # Resample to 44100Hz if needed (demucs native rate)
+        if sr != 44100:
+            waveform = torchaudio.functional.resample(waveform, sr, 44100)
+            sr = 44100
+        # Demucs expects [batch, channels, length]
+        ref = waveform.mean(0)
+        waveform_input = waveform.unsqueeze(0)
+        with torch.no_grad():
+            sources = apply_model(_demucs_model, waveform_input, progress=False)[0]
+        sources = sources * ref.std() + ref.mean()
+        # Index 0 is usually drums, 1 is bass, 2 is other, 3 is vocals for htdemucs
+        vocals_idx = _demucs_model.sources.index('vocals') if 'vocals' in _demucs_model.sources else 3
+        vocals = sources[vocals_idx]
 
         output_path = Path(DATA_DIR) / f"vocals_{int(time.time() * 1000)}.wav"
-
-        import soundfile as sf
-        sf.write(str(output_path), vocals.cpu().numpy().T, _demucs_model.samplerate)
+        torchaudio.save(str(output_path), vocals.cpu(), 44100)
 
         async def stream_file():
             with open(output_path, "rb") as f:
