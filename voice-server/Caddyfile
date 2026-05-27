@@ -1,0 +1,224 @@
+# =============================================================================
+# Kivora Voice Server - Caddy Reverse Proxy Configuration
+# Secures and manages access to the OmniVoice FastAPI backend
+# =============================================================================
+
+# Replace {VOICE_DOMAIN} with your actual domain (e.g., voice.kivora.app)
+{VOICE_DOMAIN} {
+    # -----------------------------------------------------------------
+    # TLS Configuration - Automatic HTTPS via Let's Encrypt
+    # -----------------------------------------------------------------
+    tls {
+        protocols tls1.2 tls1.3
+        ciphers TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305 TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305 TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+    }
+
+    # -----------------------------------------------------------------
+    # API Key Authentication
+    # Validates X-API-Key header; exempt paths bypass this check
+    # -----------------------------------------------------------------
+    @hasApiKey header X-API-Key *
+    @noApiKey !header X-API-Key *
+
+    # Public endpoints that skip API key validation
+    @public path /health /docs /openapi.json /redoc
+
+    # Reject requests without API key on protected endpoints
+    handle @noApiKey {
+        respond @public "" 200
+        respond {"detail":"Missing X-API-Key header"} 401
+    }
+
+    # -----------------------------------------------------------------
+    # Rate Limiting
+    # Protects against abuse and ensures fair resource usage
+    # -----------------------------------------------------------------
+    rate_limit {
+        zone dynamic_zone {
+            key    {remote_host}
+            events 30
+            window 1s
+        }
+        zone tts_zone {
+            key    {remote_host}
+            events 10
+            window 1s
+        }
+    }
+
+    # -----------------------------------------------------------------
+    # Compression
+    # -----------------------------------------------------------------
+    encode {
+        gzip 6
+        zstd
+    }
+
+    # -----------------------------------------------------------------
+    # CORS Headers - Allow Kivora frontend origins
+    # -----------------------------------------------------------------
+    @cors_preflight method OPTIONS
+    handle @cors_preflight {
+        header Access-Control-Allow-Origin "https://kivora.app"
+        header Access-Control-Allow-Origin "https://*.kivora.app"
+        header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        header Access-Control-Allow-Headers "Content-Type, X-API-Key, Authorization, X-Request-ID"
+        header Access-Control-Max-Age "86400"
+        header Access-Control-Allow-Credentials "true"
+        respond 204
+    }
+
+    # -----------------------------------------------------------------
+    # TTS Streaming Endpoint (WebSocket support)
+    # -----------------------------------------------------------------
+    handle_path /api/tts/stream* {
+        reverse_proxy omnivoice:3900 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Request-ID {uuid}
+
+            # WebSocket support for streaming TTS
+            header_up Connection {>Connection}
+            header_up Upgrade {>Upgrade}
+
+            # Streaming timeouts
+            transport http {
+                read_timeout 300s
+                write_timeout 300s
+                dial_timeout 30s
+            }
+
+            flush_interval -1
+        }
+    }
+
+    # -----------------------------------------------------------------
+    # ASR (Speech-to-Text) Endpoints
+    # -----------------------------------------------------------------
+    handle_path /api/asr* {
+        reverse_proxy omnivoice:3900 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Request-ID {uuid}
+
+            transport http {
+                read_timeout 120s
+                write_timeout 120s
+            }
+        }
+    }
+
+    # -----------------------------------------------------------------
+    # All Other API Endpoints
+    # -----------------------------------------------------------------
+    handle_path /api/* {
+        reverse_proxy omnivoice:3900 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Request-ID {uuid}
+
+            transport http {
+                read_timeout 60s
+                write_timeout 60s
+            }
+        }
+    }
+
+    # -----------------------------------------------------------------
+    # Health Check Endpoint (no auth required)
+    # -----------------------------------------------------------------
+    handle /health {
+        reverse_proxy omnivoice:3900
+    }
+
+    # -----------------------------------------------------------------
+    # API Documentation (restricted access)
+    # -----------------------------------------------------------------
+    handle /docs* {
+        reverse_proxy omnivoice:3900
+    }
+
+    handle /openapi.json {
+        reverse_proxy omnivoice:3900
+    }
+
+    handle /redoc* {
+        reverse_proxy omnivoice:3900
+    }
+
+    # -----------------------------------------------------------------
+    # Default: Return 404 for unmatched routes
+    # -----------------------------------------------------------------
+    handle {
+        respond "Not Found" 404
+    }
+
+    # -----------------------------------------------------------------
+    # Security Headers
+    # -----------------------------------------------------------------
+    header {
+        # CORS on all responses
+        Access-Control-Allow-Origin "https://kivora.app"
+        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        Access-Control-Allow-Headers "Content-Type, X-API-Key, Authorization, X-Request-ID"
+        Access-Control-Allow-Credentials "true"
+
+        # Security hardening
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        -Server
+    }
+
+    # -----------------------------------------------------------------
+    # Logging
+    # -----------------------------------------------------------------
+    log {
+        output file /var/log/caddy/kivora-voice.log {
+            roll_size 50mb
+            roll_keep 5
+            roll_keep_for 720h
+        }
+        format json
+        level INFO
+    }
+}
+
+# =============================================================================
+# Local development / fallback configuration
+# =============================================================================
+:3901 {
+    # Simple reverse proxy for local dev without TLS
+    reverse_proxy omnivoice:3900 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+
+        # WebSocket support
+        header_up Connection {>Connection}
+        header_up Upgrade {>Upgrade}
+        flush_interval -1
+    }
+
+    # CORS for local development
+    header {
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        Access-Control-Allow-Headers "Content-Type, X-API-Key, Authorization, X-Request-ID"
+        Access-Control-Max-Age "86400"
+    }
+
+    handle @cors_preflight method OPTIONS {
+        respond 204
+    }
+}

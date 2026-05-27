@@ -1,0 +1,102 @@
+# =============================================================================
+# Kivora Voice Server - Docker Compose Configuration
+# OmniVoice Studio FastAPI Backend for Voice AI
+# =============================================================================
+#
+# Usage:
+#   CPU mode:  docker compose --profile cpu up -d
+#   GPU mode:  docker compose --profile gpu up -d
+#
+# Manage:
+#   docker compose --profile <cpu|gpu> [start|stop|restart|down]
+#   docker compose logs -f omnivoice
+# =============================================================================
+
+services:
+  omnivoice:
+    image: ghcr.io/debpalash/omnivoice-studio:latest
+    container_name: kivora-voice-server
+    profiles:
+      - cpu
+    ports:
+      - "3900:3900"
+    volumes:
+      - omnivoice-data:${OMNIVOICE_DATA_DIR:-/data}
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+      - OMNIVOICE_BIND_HOST=0.0.0.0
+      - OMNIVOICE_DATA_DIR=${OMNIVOICE_DATA_DIR:-/data}
+      - OMNIVOICE_API_KEY=${OMNIVOICE_API_KEY:-}
+      - OMNIVOICE_TTS_BACKEND=${OMNIVOICE_TTS_BACKEND:-coqui}
+      - OMNIVOICE_ASR_BACKEND=${OMNIVOICE_ASR_BACKEND:-whisper}
+      - OMNIVOICE_LOG_LEVEL=${OMNIVOICE_LOG_LEVEL:-info}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3900/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
+    networks:
+      - kivora-voice
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+        tag: "kivora-voice|{{.Name}}"
+
+  omnivoice-gpu:
+    image: ghcr.io/debpalash/omnivoice-studio:latest
+    container_name: kivora-voice-server-gpu
+    profiles:
+      - gpu
+    ports:
+      - "3900:3900"
+    volumes:
+      - omnivoice-data:${OMNIVOICE_DATA_DIR:-/data}
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+      - OMNIVOICE_BIND_HOST=0.0.0.0
+      - OMNIVOICE_DATA_DIR=${OMNIVOICE_DATA_DIR:-/data}
+      - OMNIVOICE_API_KEY=${OMNIVOICE_API_KEY:-}
+      - OMNIVOICE_TTS_BACKEND=${OMNIVOICE_TTS_BACKEND:-coqui}
+      - OMNIVOICE_ASR_BACKEND=${OMNIVOICE_ASR_BACKEND:-whisper}
+      - OMNIVOICE_LOG_LEVEL=${OMNIVOICE_LOG_LEVEL:-info}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3900/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+    restart: unless-stopped
+    networks:
+      - kivora-voice
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+        tag: "kivora-voice-gpu|{{.Name}}"
+
+volumes:
+  omnivoice-data:
+    name: kivora-voice-data
+    driver: local
+
+networks:
+  kivora-voice:
+    name: kivora-voice
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16

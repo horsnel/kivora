@@ -2,12 +2,15 @@
 import Link from 'next/link'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings, IconCopy as IconClipboard, IconWrite, IconFilter, IconRobot, IconTarget, IconDatabase, IconStack } from '@/components/Icons'
+import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings, IconCopy as IconClipboard, IconWrite, IconFilter, IconRobot, IconTarget, IconDatabase, IconStack, IconSpeaker } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
 import ArtifactViewer from '@/components/ArtifactViewer'
 import ThinkingState, { STAGE_CONFIGS } from '@/components/ThinkingState'
+import VoiceOutput from '@/components/VoiceOutput'
+import VoiceSettings from '@/components/VoiceSettings'
+import { useVoiceTTS } from '@/hooks/useVoiceTTS'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
 import dynamic from 'next/dynamic'
@@ -150,6 +153,10 @@ export default function ChatClient() {
   const [voiceToast, setVoiceToast] = useState(null) // { type: 'error'|'info', message: string }
   const voiceToastTimer = useRef(null)
   const recognitionRef = useRef(null)
+
+  // ── Voice TTS (Text-to-Speech) ──
+  const tts = useVoiceTTS()
+  const [voiceSettingsOpen, setVoiceSettingsOpen] = useState(false)
 
   function showVoiceToast(type, message) {
     if (voiceToastTimer.current) clearTimeout(voiceToastTimer.current)
@@ -1844,6 +1851,7 @@ export default function ChatClient() {
                     )}
                     {msg.role === 'assistant' && (
                       <div className="opacity-0 group-hover:opacity-100 mt-1.5 flex items-center gap-3 transition-all">
+                        <VoiceOutput text={msg.content} />
                         <button
                           onClick={() => copy(msg.content, i)}
                           className="flex items-center justify-center text-muted hover:text-[#e2e2e2] transition-colors"
@@ -2097,6 +2105,15 @@ export default function ChatClient() {
                       </svg>
                     </button>
 
+                    {/* Voice Settings */}
+                    <button
+                      className={`chat-toolbar-btn ${voiceSettingsOpen ? 'chat-toolbar-btn-active' : ''}`}
+                      onClick={() => setVoiceSettingsOpen(!voiceSettingsOpen)}
+                      title="Voice settings"
+                    >
+                      <IconSpeaker size={16} />
+                    </button>
+
                     {/* System Templates picker */}
                     <div className="relative">
                       <button
@@ -2243,6 +2260,13 @@ export default function ChatClient() {
         </div>
         )}
       </div>
+
+      {/* ── Voice Settings Panel ── */}
+      <VoiceSettings
+        isOpen={voiceSettingsOpen}
+        onClose={() => setVoiceSettingsOpen(false)}
+        ttsHook={tts}
+      />
 
       {/* ── Microphone Permission Modal ── */}
       {micPermModal && (
