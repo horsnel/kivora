@@ -16,10 +16,10 @@ export default function PageContent({ children }) {
   const hasFixedNav = FIXED_NAV.some(p => pathname.startsWith(p))
   const isFullViewport = FULL_VIEWPORT.some(p => pathname === p || pathname.startsWith(p + '/'))
 
-  // On mobile, sidebar pages show a fixed hamburger icon at top-left (48px tall).
-  // Add mobile-only top padding so page titles don't overlap it.
-  // On md+ the sidebar is always visible inline, so no extra padding needed.
-  const hamburgerPadding = hasSidebar ? 'pt-12 lg:pt-0' : ''
+  // On mobile, sidebar pages have a scroll-away hamburger bar (48px tall) that's
+  // part of the page flow — no extra padding needed since it scrolls with content.
+  // On lg+ the sidebar is always visible inline, so no extra padding needed.
+  const hamburgerPadding = ''
 
   // Full-viewport pages (like chat) manage their own scrolling internally.
   // Use overflow-hidden so the page's own scroll containers work correctly.

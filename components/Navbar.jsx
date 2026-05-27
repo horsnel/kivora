@@ -98,15 +98,20 @@ export default function Navbar() {
           </div>
         </nav>
 
-        {/* Mobile hamburger — fixed, top-left like chat page; hidden when sidebar is open */}
+        {/* Mobile hamburger — scroll-away bar; hidden when sidebar is open */}
         {!mobileOpen && (
-          <button
-            className="fixed top-3 left-4 lg:hidden z-50 w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
-          >
-            <IconMenu size={16} />
-          </button>
+          <div className="lg:hidden shrink-0 h-12 flex items-center px-4 bg-[#0a0a0a] border-b border-[#141414]/60">
+            <button
+              className="w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open menu"
+            >
+              <IconMenu size={16} />
+            </button>
+            <span className="ml-2.5 font-bold text-[15px] tracking-tight">
+              Ki<span className="text-red-500">vora</span>
+            </span>
+          </div>
         )}
 
         {/* Mobile sidebar overlay */}
@@ -142,15 +147,20 @@ export default function Navbar() {
         <SidebarContent user={user} pathname={pathname} onClose={() => setMobileOpen(false)} currencyOpen={currencyOpen} setCurrencyOpen={setCurrencyOpen} currencyDropdownRef={currencyDropdownRef} />
       </aside>
 
-      {/* Mobile hamburger — fixed, top-left like chat page; hidden when sidebar is open */}
+      {/* Mobile hamburger — scrolls away with content; only visible on mobile when sidebar is closed */}
       {!mobileOpen && (
-        <button
-          className="fixed top-3 left-4 lg:hidden z-50 w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors"
-          onClick={() => setMobileOpen(true)}
-          aria-label="Open sidebar"
-        >
-          <IconMenu size={16} />
-        </button>
+        <div className="lg:hidden shrink-0 h-12 flex items-center px-4 bg-[#0a0a0a] border-b border-[#141414]/60">
+          <button
+            className="w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open sidebar"
+          >
+            <IconMenu size={16} />
+          </button>
+          <span className="ml-2.5 font-bold text-[15px] tracking-tight">
+            Ki<span className="text-red-500">vora</span>
+          </span>
+        </div>
       )}
     </>
   )
