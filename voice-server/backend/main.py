@@ -50,7 +50,13 @@ logging.basicConfig(level=getattr(logging, LOG_LEVEL.upper(), logging.INFO))
 logger = logging.getLogger("kivora-voice")
 
 # ── Ensure data directory exists ──
-Path(DATA_DIR).mkdir(parents=True, exist_ok=True)
+try:
+    Path(DATA_DIR).mkdir(parents=True, exist_ok=True)
+except PermissionError:
+    # Fall back to /tmp/data if the default dir isn't writable (e.g. Docker containers)
+    DATA_DIR = "/tmp/kivora-data"
+    Path(DATA_DIR).mkdir(parents=True, exist_ok=True)
+    logger.warning(f"DATA_DIR fell back to {DATA_DIR} (permission denied on original path)")
 
 # ── Check available packages at startup ──
 HAS_COQUI_TTS = False
