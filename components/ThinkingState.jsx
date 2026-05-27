@@ -203,6 +203,7 @@ export default function ThinkingState({
   stages = STAGE_CONFIGS.chat,
   active = false,
   compact = false,
+  orb = false,
   className = '',
   onComplete,
 }) {
@@ -364,6 +365,47 @@ export default function ThinkingState({
               </div>
             )
           })}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Orb mode (for Chat Focus Code — classic neural node + enhanced text) ──
+  if (orb) {
+    return (
+      <div className={`thinking-orb ${allDone ? 'thinking-orb-done' : ''} ${className}`}>
+        <div className="thinking-orb-inner">
+          <div className="thinking-orb-svg">
+            <svg width="16" height="16" viewBox="0 0 32 32" fill="none">
+              <circle cx="16" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" className="thinking-orb-node thinking-orb-top" />
+              <circle cx="7" cy="24" r="3" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" className="thinking-orb-node thinking-orb-left" />
+              <circle cx="25" cy="24" r="3" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" className="thinking-orb-node thinking-orb-right" />
+              <line x1="16" y1="11.5" x2="7" y2="21" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" className="thinking-orb-line" />
+              <line x1="16" y1="11.5" x2="25" y2="21" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" className="thinking-orb-line" />
+              <line x1="7" y1="24" x2="25" y2="24" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" className="thinking-orb-line" />
+            </svg>
+          </div>
+          <span className="thinking-orb-label">
+            {allDone ? 'Complete' : stages[activeIdx]?.label || 'Thinking'}
+          </span>
+          <span className="thinking-orb-dots">
+            <span className="thinking-orb-dot" />
+            <span className="thinking-orb-dot" />
+            <span className="thinking-orb-dot" />
+          </span>
+          <span className="thinking-orb-time">{formatTime(elapsedMs)}</span>
+        </div>
+        {/* Mini progress dots for stages */}
+        <div className="thinking-orb-stages">
+          {stages.map((_, i) => (
+            <div
+              key={i}
+              className={`thinking-orb-stage-dot ${
+                completedStages.includes(i) ? 'done' :
+                i === activeIdx && !allDone ? 'active' : 'pending'
+              }`}
+            />
+          ))}
         </div>
       </div>
     )

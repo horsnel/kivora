@@ -572,6 +572,8 @@ export default function ChatClient() {
       setThinkingConfig('chatWithVision')
     } else if (webSearch) {
       setThinkingConfig('chatWithSearch')
+    } else if (focusMode === 'Code') {
+      setThinkingConfig('chatWithCode')
     } else {
       setThinkingConfig('chat')
     }
@@ -1852,7 +1854,8 @@ export default function ChatClient() {
                 <ThinkingState
                   stages={STAGE_CONFIGS[thinkingConfig] || STAGE_CONFIGS.chat}
                   active={loading}
-                  compact={true}
+                  compact={focusMode !== 'Code'}
+                  orb={focusMode === 'Code'}
                 />
               </div>
             )}

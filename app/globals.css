@@ -542,6 +542,114 @@ input, textarea, select {
   animation: thinkingShimmerSlide 2s ease-in-out infinite;
 }
 
+/* ── Orb mode (Chat Focus Code — enhanced neural node + thinking text) ── */
+.thinking-orb {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 6px 10px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  max-width: 300px;
+  animation: thinkingFadeIn 0.3s ease-out;
+  transition: all 0.3s ease;
+}
+.thinking-orb-done {
+  animation: thinkingFadeOut 0.5s ease-out forwards;
+}
+.thinking-orb-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.thinking-orb-svg {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #525252;
+  animation: thinkingOrbSpin 3s linear infinite;
+}
+@keyframes thinkingOrbSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.thinking-orb-node {
+  animation: thinkingOrbGlow 1.2s ease-in-out infinite;
+}
+.thinking-orb-top { animation-delay: 0s; }
+.thinking-orb-left { animation-delay: 0.15s; }
+.thinking-orb-right { animation-delay: 0.3s; }
+@keyframes thinkingOrbGlow {
+  0%, 100% { stroke: #525252; }
+  50% { stroke: #ef4444; }
+}
+.thinking-orb-line {
+  animation: thinkingOrbLinePulse 1.2s ease-in-out infinite;
+}
+.thinking-orb-line:nth-child(4) { animation-delay: 0.1s; }
+.thinking-orb-line:nth-child(5) { animation-delay: 0.2s; }
+.thinking-orb-line:nth-child(6) { animation-delay: 0.3s; }
+@keyframes thinkingOrbLinePulse {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.7; }
+}
+.thinking-orb-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #a3a3a3;
+  letter-spacing: 0.01em;
+}
+.thinking-orb-dots {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 1px;
+}
+.thinking-orb-dot {
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #525252;
+  animation: thinkingOrbDotBounce 0.9s ease-in-out infinite;
+}
+.thinking-orb-dot:nth-child(1) { animation-delay: 0s; }
+.thinking-orb-dot:nth-child(2) { animation-delay: 0.12s; }
+.thinking-orb-dot:nth-child(3) { animation-delay: 0.24s; }
+@keyframes thinkingOrbDotBounce {
+  0%, 60%, 100% { opacity: 0.2; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); background: #ef4444; }
+}
+.thinking-orb-time {
+  font-size: 9px;
+  color: #525252;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+.thinking-orb-stages {
+  display: flex;
+  gap: 3px;
+  margin-top: 4px;
+  margin-left: 22px;
+}
+.thinking-orb-stage-dot {
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(255,255,255,0.06);
+  transition: all 0.4s ease;
+}
+.thinking-orb-stage-dot.done {
+  background: linear-gradient(90deg, #a855f7, #ef4444);
+}
+.thinking-orb-stage-dot.active {
+  background: linear-gradient(90deg, #a855f7, #ef4444);
+  animation: thinkingDotPulse 1s ease-in-out infinite;
+}
+.thinking-orb-stage-dot.pending {
+  background: rgba(255,255,255,0.06);
+}
+
 /* ── Animations ── */
 @keyframes thinkingFadeIn {
   from { opacity: 0; transform: translateY(4px); }
