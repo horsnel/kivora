@@ -1,8 +1,40 @@
 #!/bin/bash
-# Start Kivora Voice Server
+# Start Kivora Voice Server — auto-installs missing packages
 cd "$(dirname "$0")"
 mkdir -p data logs
 
+# ── Auto-setup virtual environment if needed ──
+if [ ! -d ".venv" ]; then
+    echo "No virtual environment found. Running auto-setup..."
+    bash setup-vps.sh
+    exit $?
+fi
+
+source .venv/bin/activate
+
+# ── Auto-install critical packages if missing ──
+MISSING=""
+for pkg in fastapi uvicorn faster_whisper edge_tts; do
+    python3 -c "import $pkg" 2>/dev/null || MISSING="$MISSING $pkg"
+done
+
+if [ -n "$MISSING" ]; then
+    echo "Installing missing packages:$MISSING"
+    pip install $MISSING python-multipart python-dotenv httpx > /dev/null 2>&1
+fi
+
+# ── Stop existing server ──
+if [ -f logs/server.pid ]; then
+    OLD_PID=$(cat logs/server.pid)
+    if kill -0 "$OLD_PID" 2>/dev/null; then
+        echo "Stopping existing server (PID $OLD_PID)..."
+        kill "$OLD_PID" 2>/dev/null
+        sleep 2
+    fi
+    rm -f logs/server.pid
+fi
+
+# ── Start server ──
 echo "Starting Kivora Voice Server on port 3900..."
 nohup python3 -m uvicorn backend.main:app \
   --host 0.0.0.0 \
