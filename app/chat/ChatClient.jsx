@@ -7,6 +7,7 @@ import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
 import ArtifactViewer from '@/components/ArtifactViewer'
+import ThinkingState, { STAGE_CONFIGS } from '@/components/ThinkingState'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
 import dynamic from 'next/dynamic'
@@ -126,6 +127,7 @@ export default function ChatClient() {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [thinkingConfig, setThinkingConfig] = useState('chat')
   const [sessionId, setSessionId] = useState(() => crypto.randomUUID())
   const [copiedIndex, setCopiedIndex] = useState(null)
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -565,6 +567,14 @@ export default function ChatClient() {
     setMessages(newMessages)
     setInput('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
+    // Select thinking stage config based on context
+    if (wasImage) {
+      setThinkingConfig('chatWithVision')
+    } else if (webSearch) {
+      setThinkingConfig('chatWithSearch')
+    } else {
+      setThinkingConfig('chat')
+    }
     setLoading(true)
 
     // Collapse bar after sending
@@ -649,6 +659,7 @@ export default function ChatClient() {
     const loadingMsg = { role: 'assistant', content: '', isImageLoading: true, promptImage: q }
     setMessages(prev => [...prev, userMsg, loadingMsg])
     setInput('')
+    setThinkingConfig('chatWithImage')
     setImageGenLoading(true)
 
     try {
@@ -1838,24 +1849,11 @@ export default function ChatClient() {
 
             {loading && (
               <div className="flex justify-start">
-                <div className="ai-thinking-indicator">
-                  <div className="ai-thinking-orb">
-                    <svg width="16" height="16" viewBox="0 0 32 32" fill="none">
-                      <circle cx="16" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" className="ai-orb-node ai-orb-top" />
-                      <circle cx="7" cy="24" r="3" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" className="ai-orb-node ai-orb-left" />
-                      <circle cx="25" cy="24" r="3" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" className="ai-orb-node ai-orb-right" />
-                      <line x1="16" y1="11.5" x2="7" y2="21" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" className="ai-orb-line" />
-                      <line x1="16" y1="11.5" x2="25" y2="21" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" className="ai-orb-line" />
-                      <line x1="7" y1="24" x2="25" y2="24" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" className="ai-orb-line" />
-                    </svg>
-                  </div>
-                  <span className="ai-thinking-label">Thinking</span>
-                  <span className="ai-thinking-dots">
-                    <span className="ai-dot" />
-                    <span className="ai-dot" />
-                    <span className="ai-dot" />
-                  </span>
-                </div>
+                <ThinkingState
+                  stages={STAGE_CONFIGS[thinkingConfig] || STAGE_CONFIGS.chat}
+                  active={loading}
+                  compact={true}
+                />
               </div>
             )}
             <div ref={bottomRef} />
@@ -2934,74 +2932,6 @@ export default function ChatClient() {
         @keyframes pencilStroke {
           0%   { stroke-dashoffset: 200; }
           100% { stroke-dashoffset: 0; }
-        }
-
-        /* ── AI Thinking Indicator — Compact Claude/Replit-style ── */
-        .ai-thinking-indicator {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 6px 10px;
-          border-radius: 16px;
-          background: rgba(255,255,255,0.02);
-          border: 1px solid rgba(255,255,255,0.05);
-        }
-        .ai-thinking-orb {
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #525252;
-          animation: aiOrbSpin 3s linear infinite;
-        }
-        @keyframes aiOrbSpin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        .ai-orb-node {
-          animation: aiOrbGlow 1.2s ease-in-out infinite;
-        }
-        .ai-orb-top { animation-delay: 0s; }
-        .ai-orb-left { animation-delay: 0.15s; }
-        .ai-orb-right { animation-delay: 0.3s; }
-        @keyframes aiOrbGlow {
-          0%, 100% { stroke: #525252; }
-          50% { stroke: #dc2626; }
-        }
-        .ai-orb-line {
-          animation: aiLinePulse 1.2s ease-in-out infinite;
-        }
-        .ai-orb-line:nth-child(4) { animation-delay: 0.1s; }
-        .ai-orb-line:nth-child(5) { animation-delay: 0.2s; }
-        .ai-orb-line:nth-child(6) { animation-delay: 0.3s; }
-        @keyframes aiLinePulse {
-          0%, 100% { opacity: 0.2; }
-          50% { opacity: 0.7; }
-        }
-        .ai-thinking-label {
-          font-size: 11px;
-          font-weight: 500;
-          color: #525252;
-          letter-spacing: 0.01em;
-        }
-        .ai-thinking-dots {
-          display: inline-flex;
-          gap: 2px;
-          margin-left: 1px;
-        }
-        .ai-dot {
-          width: 2px;
-          height: 2px;
-          border-radius: 50%;
-          background: #525252;
-          animation: aiDotBounce 0.9s ease-in-out infinite;
-        }
-        .ai-dot:nth-child(1) { animation-delay: 0s; }
-        .ai-dot:nth-child(2) { animation-delay: 0.12s; }
-        .ai-dot:nth-child(3) { animation-delay: 0.24s; }
-        @keyframes aiDotBounce {
-          0%, 60%, 100% { opacity: 0.2; transform: translateY(0); }
-          30% { opacity: 1; transform: translateY(-2px); background: #dc2626; }
         }
 
         /* ═══════════════════════════════════════

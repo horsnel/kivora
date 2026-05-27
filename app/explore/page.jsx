@@ -8,6 +8,7 @@ import {
   IconChat, IconSearch, IconFlame, IconTrending, IconArrowRight,
   IconLightning, IconTool, IconSpinner, IconGlobe, IconEye
 } from '@/components/Icons'
+import ThinkingState, { STAGE_CONFIGS } from '@/components/ThinkingState'
 
 const PILL_KEYS = [
   { key: 'make_money',  Icon: IconMoney,  query: 'make money with AI automation 2024' },
@@ -136,16 +137,26 @@ export default function HomePage() {
           </div>
 
           <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2 mt-3 animate-fade-up animate-fade-up-4">
-            {PILL_KEYS.map(({ key, Icon, query: q, href }) => (
-              <button
-                key={key}
-                onClick={() => href ? router.push(href) : handleSearch(q)}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-[#141414] border border-[#262626] hover:border-[#3a3a3a] hover:text-white text-muted rounded-full text-caption transition-all"
-              >
-                <Icon size={12} />
-                {t(`home.pill.${key}`)}
-              </button>
-            ))}
+            {loading ? (
+              <div className="w-full max-w-xs mx-auto">
+                <ThinkingState
+                  stages={STAGE_CONFIGS.explore}
+                  active={loading}
+                  compact={true}
+                />
+              </div>
+            ) : (
+              PILL_KEYS.map(({ key, Icon, query: q, href }) => (
+                <button
+                  key={key}
+                  onClick={() => href ? router.push(href) : handleSearch(q)}
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-[#141414] border border-[#262626] hover:border-[#3a3a3a] hover:text-white text-muted rounded-full text-caption transition-all"
+                >
+                  <Icon size={12} />
+                  {t(`home.pill.${key}`)}
+                </button>
+              ))
+            )}
           </div>
         </div>
       </section>

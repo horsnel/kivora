@@ -6,6 +6,7 @@ import {
 } from '@/components/Icons'
 import Select from '@/components/Select'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
+import ThinkingState, { STAGE_CONFIGS } from '@/components/ThinkingState'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
@@ -113,6 +114,7 @@ export default function DevToolsClient() {
   const [active, setActive]         = useState('code_explainer')
   const [result, setResult]         = useState('')
   const [loading, setLoading]       = useState(false)
+  const [thinkingConfig, setThinkingConfig] = useState('devtools')
   const [copied, setCopied]         = useState(false)
   const [diffResult, setDiffResult] = useState(null)
   const [apiTestResult, setApiTestResult] = useState(null)
@@ -280,6 +282,9 @@ export default function DevToolsClient() {
     // End previous session if exists
     if (sessionRef.current) { endSession(sessionRef.current); sessionRef.current = null }
     setLoading(true); setResult(''); setDiffResult(null); setApiTestResult(null)
+    // Select thinking config based on category
+    const catConfig = { code: 'devtoolsCode', data: 'devtoolsData', content: 'devtoolsContent', business: 'devtoolsContent', education: 'devtoolsCode' }
+    setThinkingConfig(catConfig[activeCat] || 'devtools')
     // Start new session (silently fails for anonymous)
     const { inputSummary, subject } = getSessionMeta()
     sessionRef.current = await startSession(`devtools_${active}`, subject, inputSummary)
@@ -988,13 +993,21 @@ export default function DevToolsClient() {
               )
               : (
                 <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-12 h-12 bg-[#1a1a1a] rounded-xl flex items-center justify-center mx-auto mb-3">
-                      <currentTool.Icon size={20} className="text-[#2e2e2e]" />
+                  {loading ? (
+                    <ThinkingState
+                      stages={STAGE_CONFIGS[thinkingConfig] || STAGE_CONFIGS.devtools}
+                      active={loading}
+                      compact={false}
+                    />
+                  ) : (
+                    <div className="text-center">
+                      <div className="w-12 h-12 bg-[#1a1a1a] rounded-xl flex items-center justify-center mx-auto mb-3">
+                        <currentTool.Icon size={20} className="text-[#2e2e2e]" />
+                      </div>
+                      <p className="text-muted2 text-sm">{t('devtools.output_appears_here')}</p>
+                      <p className="text-[#2e2e2e] text-xs mt-1">{t('devtools.fill_and_run')}</p>
                     </div>
-                    <p className="text-muted2 text-sm">{loading ? t('devtools.running') : t('devtools.output_appears_here')}</p>
-                    <p className="text-[#2e2e2e] text-xs mt-1">{t('devtools.fill_and_run')}</p>
-                  </div>
+                  )}
                 </div>
               )
             }

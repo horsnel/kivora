@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { IconCopy, IconCheck, IconSpinner } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
+import ThinkingState, { STAGE_CONFIGS } from '@/components/ThinkingState'
 import Select from '@/components/Select'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
@@ -946,12 +947,20 @@ export default function ReelPenClient() {
               <MarkdownRenderer content={result} className="flex-1 overflow-auto overscroll-behavior-contain" />
             ) : (
               <div className="flex-1 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="w-10 h-10 bg-[#1a1a1a] rounded-xl flex items-center justify-center mx-auto mb-3">
-                    <currentTool.Icon size={18} className="text-[#2e2e2e]" />
+                {loading ? (
+                  <ThinkingState
+                    stages={STAGE_CONFIGS.devtoolsContent}
+                    active={loading}
+                    compact={false}
+                  />
+                ) : (
+                  <div className="text-center">
+                    <div className="w-10 h-10 bg-[#1a1a1a] rounded-xl flex items-center justify-center mx-auto mb-3">
+                      <currentTool.Icon size={18} className="text-[#2e2e2e]" />
+                    </div>
+                    <p className="text-muted2 text-sm">{t('reelpen.empty_hint')}</p>
                   </div>
-                  <p className="text-muted2 text-sm">{loading ? t('common.loading') : t('reelpen.empty_hint')}</p>
-                </div>
+                )}
               </div>
             )}
           </div>
