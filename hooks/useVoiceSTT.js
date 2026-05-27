@@ -217,8 +217,9 @@ export function useVoiceSTT({ language = 'en-US', continuous = true, interimResu
   async function sendToServer(audioBlob) {
     try {
       const formData = new FormData()
-      formData.append('audio', audioBlob, 'recording.webm')
-      formData.append('language', language)
+      formData.append('file', audioBlob, 'recording.webm')
+      formData.append('language', language.split('-')[0]) // en-US → en
+      formData.append('model', 'whisperx')
 
       const res = await fetch('/api/voice/stt', {
         method: 'POST',
@@ -227,8 +228,9 @@ export function useVoiceSTT({ language = 'en-US', continuous = true, interimResu
 
       if (res.ok) {
         const data = await res.json()
-        if (data.transcript) {
-          finalTranscriptRef.current += data.transcript + ' '
+        const text = data.text || data.transcript || ''
+        if (text) {
+          finalTranscriptRef.current += text + ' '
           setTranscript(finalTranscriptRef.current.trim())
         }
       }

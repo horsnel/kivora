@@ -20,3 +20,10 @@ build/
 .vercel
 .turbo
 .env.local
+
+# Voice Server data (models, logs, temp files)
+voice-server/data/
+voice-server/logs/
+voice-server/.env
+*.mp3
+*.wav

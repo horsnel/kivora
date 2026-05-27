@@ -30,17 +30,24 @@ export async function POST(req) {
   try {
     const body = await req.json()
     const {
-      text,
+      text: textField,
+      input: inputField,
       voice = 'default',
       language = 'en',
-      engine = 'coqui',
+      engine: engineField,
+      model: modelField,
       speed = 1.0,
       format = 'mp3',
       instruct,
     } = body
 
+    // Support both 'text' and 'input' (OpenAI format)
+    const text = (textField || inputField || '').trim()
+    // Support both 'engine' and 'model' (OpenAI format), default to 'edge'
+    const engine = (engineField || modelField || 'edge').toLowerCase()
+
     // ── Validate required fields ──
-    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+    if (!text) {
       return Response.json({ error: 'Text is required for TTS generation.' }, { status: 400 })
     }
 
@@ -75,8 +82,8 @@ export async function POST(req) {
         speed: clampedSpeed,
       }
 
-      // Add language hint for multilingual engines
-      if (language && language !== 'en') {
+      // Add language hint for all engines
+      if (language) {
         payload.language = language
       }
 

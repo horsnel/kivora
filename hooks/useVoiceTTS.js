@@ -243,10 +243,13 @@ export function useVoiceTTS() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text,
+            input: text,  // OpenAI-compatible field
             engine: currentEngine,
+            model: currentEngine,  // OpenAI-compatible field
             voice: voiceId,
             speed: voiceSpeed,
-            language: detectLanguage(text),
+            language: detectLanguage(text).split('-')[0],  // en-US → en
+            response_format: 'mp3',
           }),
         })
 
