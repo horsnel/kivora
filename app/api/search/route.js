@@ -31,7 +31,7 @@ function increment(tier) {
 export async function POST(req) {
   const ip = req.headers.get('x-forwarded-for') || 'unknown'
   if (!rateLimit(ip).ok) {
-    return Response.json({ error: 'Too many requests. Try again in a minute.' }, { status: 429 })
+    return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
   }
 
   try {

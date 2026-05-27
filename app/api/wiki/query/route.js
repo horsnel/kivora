@@ -1,6 +1,6 @@
 export const runtime = 'edge'
 import { createClient } from '@supabase/supabase-js'
-import { groq, MODEL_FAST, groqChat, getPrimaryClientAsync } from '@/lib/groq'
+import { groq, MODEL_FAST, groqChat, GroqError, getPrimaryClientAsync } from '@/lib/groq'
 import { getEnvVar } from '@/lib/cfEnv'
 
 export async function POST(req) {
@@ -53,6 +53,9 @@ Be factual, practical, and concise. Max 250 words.`
     })
   } catch (err) {
     console.error('[wiki/query]', err)
+    if (err instanceof GroqError && err.code === 'GROQ_QUOTA_EXCEEDED') {
+      return Response.json({ error: 'Too many requests, try again later.', quotaExceeded: true }, { status: 429 })
+    }
     return Response.json({ context: null, pages: [] })
   }
 }

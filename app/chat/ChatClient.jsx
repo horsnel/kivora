@@ -600,6 +600,9 @@ export default function ChatClient() {
       })
       const data = await res.json()
       const assistantMsg = { role: 'assistant', content: data.reply || data.error || t('chat.error.general') }
+      if (data.quotaExceeded) {
+        assistantMsg.quotaExceeded = true
+      }
       if (data.searchUsed) {
         assistantMsg.searchUsed = true
         assistantMsg.searchQuery = data.searchQuery || ''
@@ -1620,7 +1623,17 @@ export default function ChatClient() {
                       </div>
                     )}
                     {msg.role === 'assistant' ? (
-                      msg.isImage && msg.imageData ? (
+                      msg.quotaExceeded ? (
+                        <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-xl px-4 py-3 max-w-md">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                            <span className="text-[13px] font-medium text-amber-300">Service temporarily limited</span>
+                          </div>
+                          <p className="text-[12px] text-amber-200/70 leading-relaxed">{msg.content}</p>
+                        </div>
+                      ) : msg.isImage && msg.imageData ? (
                         <div className="space-y-2">
                           <div className="rounded-xl overflow-hidden border border-white/[0.06] max-w-md">
                             {/* eslint-disable-next-line @next/next/no-img-element */}

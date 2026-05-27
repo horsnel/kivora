@@ -1,6 +1,6 @@
 export const runtime = 'edge'
 import { createClient } from '@supabase/supabase-js'
-import { groq, MODEL, groqChat, getPrimaryClientAsync } from '@/lib/groq'
+import { groq, MODEL, groqChat, GroqError, getPrimaryClientAsync } from '@/lib/groq'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit } from '@/lib/ratelimit'
 
@@ -16,7 +16,7 @@ function slugify(text) {
 export async function POST(req) {
   const ip = req.headers.get('x-forwarded-for') || 'unknown'
   if (!rateLimit(ip).ok) {
-    return Response.json({ error: 'Too many requests. Try again in a minute.' }, { status: 429 })
+    return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
   }
 
   try {
@@ -165,6 +165,9 @@ Return a JSON object with EXACTLY this shape:
     return Response.json({ slug, result, cached: false })
   } catch (err) {
     console.error('[explore]', err)
+    if (err instanceof GroqError && err.code === 'GROQ_QUOTA_EXCEEDED') {
+      return Response.json({ error: 'Too many requests, try again later.', quotaExceeded: true }, { status: 429 })
+    }
     return Response.json({ error: err.message || 'Server error' }, { status: 500 })
   }
 }

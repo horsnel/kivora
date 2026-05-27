@@ -1,5 +1,5 @@
 export const runtime = 'edge'
-import { groq, MODEL, groqChat, getPrimaryClientAsync } from '@/lib/groq'
+import { groq, MODEL, groqChat, GroqError, getPrimaryClientAsync } from '@/lib/groq'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit } from '@/lib/ratelimit'
 
@@ -559,7 +559,7 @@ Explain the key mathematical concepts used in this solution. What type of equati
 export async function POST(req) {
   const ip = req.headers.get('x-forwarded-for') || 'unknown'
   if (!rateLimit(ip).ok) {
-    return Response.json({ error: 'Too many requests. Try again in a minute.' }, { status: 429 })
+    return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
   }
 
   try {
@@ -592,6 +592,9 @@ export async function POST(req) {
     return Response.json({ result: chat.choices[0].message.content })
   } catch (err) {
     console.error('[devtools]', err)
+    if (err instanceof GroqError && err.code === 'GROQ_QUOTA_EXCEEDED') {
+      return Response.json({ error: 'Too many requests, try again later.', quotaExceeded: true }, { status: 429 })
+    }
     return Response.json({ error: err.message || 'Server error' }, { status: 500 })
   }
 }

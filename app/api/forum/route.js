@@ -79,7 +79,7 @@ export async function GET(req) {
 export async function POST(req) {
   const ip = req.headers.get('x-forwarded-for') || 'unknown'
   if (!rateLimit(ip, 5).ok) {
-    return Response.json({ error: 'Too many requests. Try again in a minute.' }, { status: 429 })
+    return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
   }
 
   try {

@@ -66,6 +66,8 @@
   "chat.error.general": "Hitilafu fulani imetokea.",
   "chat.error.network": "Hitilafu ya mtandao. Tafadhali jaribu tena.",
   "chat.error.unsupported_file": "Aina ya faili haisaidiwi.",
+  "chat.error.quota_exceeded": "Maombi mengi sana, jaribu tena baadaye.",
+  "chat.error.rate_limit": "Unatuma maombi haraka sana. Punguza kasi na ujaribu tena.",
   "chat.export.format": "Format",
   "chat.export.select": "Select conversation",
   "chat.export.subtitle": "Download your conversation as a file",

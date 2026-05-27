@@ -1,7 +1,7 @@
 export const runtime = 'edge'
 
 import { rateLimit } from '@/lib/ratelimit'
-import { groq, getPrimaryClientAsync } from '@/lib/groq'
+import { groq, getPrimaryClientAsync, GroqError } from '@/lib/groq'
 import { getEnvVar } from '@/lib/cfEnv'
 
 const VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct'
@@ -9,7 +9,7 @@ const VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct'
 export async function POST(req) {
   const ip = req.headers.get('x-forwarded-for') || 'unknown'
   if (!rateLimit(ip).ok) {
-    return Response.json({ error: 'Too many requests. Try again in a minute.' }, { status: 429 })
+    return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
   }
 
   try {
@@ -64,6 +64,9 @@ export async function POST(req) {
     return Response.json({ description, model: VISION_MODEL })
   } catch (err) {
     console.error('[vision]', err)
+    if (err instanceof GroqError && err.code === 'GROQ_QUOTA_EXCEEDED') {
+      return Response.json({ error: 'Too many requests, try again later.', quotaExceeded: true }, { status: 429 })
+    }
     return Response.json({ error: err.message || 'Vision analysis failed' }, { status: 500 })
   }
 }

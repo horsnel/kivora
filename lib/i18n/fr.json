@@ -66,6 +66,8 @@
   "chat.error.general": "Quelque chose s'est mal passé.",
   "chat.error.network": "Erreur réseau. Veuillez réessayer.",
   "chat.error.unsupported_file": "Type de fichier non supporté.",
+  "chat.error.quota_exceeded": "Trop de requêtes, réessayez plus tard.",
+  "chat.error.rate_limit": "Vous envoyez des requêtes trop rapidement. Ralentissez et réessayez.",
   "chat.export.format": "Format",
   "chat.export.select": "Select conversation",
   "chat.export.subtitle": "Download your conversation as a file",

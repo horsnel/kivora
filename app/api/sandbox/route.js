@@ -10,7 +10,7 @@ import { isSandboxAvailable, getSandboxUrl, getSandboxHeaders } from '@/lib/sand
 export async function POST(req) {
   const ip = req.headers.get('x-forwarded-for') || 'unknown'
   if (!rateLimit(ip).ok) {
-    return Response.json({ error: 'Too many requests' }, { status: 429 })
+    return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
   }
 
   if (!isSandboxAvailable()) {
@@ -141,7 +141,7 @@ export async function POST(req) {
 export async function GET(req) {
   const ip = req.headers.get('x-forwarded-for') || 'unknown'
   if (!rateLimit(ip).ok) {
-    return Response.json({ error: 'Too many requests' }, { status: 429 })
+    return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
   }
 
   if (!isSandboxAvailable()) {

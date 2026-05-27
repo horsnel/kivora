@@ -66,6 +66,8 @@
   "chat.error.general": "Something went wrong.",
   "chat.error.network": "Network error. Please try again.",
   "chat.error.unsupported_file": "Unsupported file type.",
+  "chat.error.quota_exceeded": "Too many requests, try again later.",
+  "chat.error.rate_limit": "You're sending requests too quickly. Slow down and try again shortly.",
   "chat.export.format": "Format",
   "chat.export.md": "Export as Markdown",
   "chat.export.select": "Select conversation",

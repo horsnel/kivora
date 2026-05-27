@@ -66,6 +66,8 @@
   "chat.error.general": "Nkan ti o n bọ.",
   "chat.error.network": "Aṣiṣe nẹtiwọọki. Jọwọ gbiyanju lẹẹkansi.",
   "chat.error.unsupported_file": "Iru faili ti a ko gba.",
+  "chat.error.quota_exceeded": "Awọn ibeere pọ ju, gbiyanju lẹẹkansi nigba miran.",
+  "chat.error.rate_limit": "O n fi awọn ibeere ranṣẹ pẹ̀lú iyara. Suṣẹ́dá ki o si gbiyanju lẹẹkansi.",
   "chat.export.format": "Format",
   "chat.export.select": "Select conversation",
   "chat.export.subtitle": "Download your conversation as a file",
