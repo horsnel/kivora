@@ -197,6 +197,31 @@ export const STAGE_CONFIGS = {
     { label: 'Analyzing results', icon: 'search', duration: 2000 },
     { label: 'Generating response', icon: 'pen', duration: Infinity },
   ],
+  academic: [
+    { label: 'Analyzing research question', icon: 'brain', duration: 1500 },
+    { label: 'Searching academic sources', icon: 'book', duration: 2500 },
+    { label: 'Verifying citations', icon: 'search', duration: 1800 },
+    { label: 'Structuring response', icon: 'file', duration: Infinity },
+  ],
+  academicSearch: [
+    { label: 'Analyzing research question', icon: 'brain', duration: 1500 },
+    { label: 'Searching the web', icon: 'globe', duration: 3000 },
+    { label: 'Cross-referencing sources', icon: 'book', duration: 1800 },
+    { label: 'Structuring response', icon: 'file', duration: Infinity },
+  ],
+  writing: [
+    { label: 'Understanding your vision', icon: 'brain', duration: 1500 },
+    { label: 'Crafting narrative', icon: 'pen', duration: 2500 },
+    { label: 'Refining voice & style', icon: 'lightbulb', duration: 1800 },
+    { label: 'Polishing output', icon: 'sparkle', duration: Infinity },
+  ],
+  math: [
+    { label: 'Parsing problem', icon: 'brain', duration: 1200 },
+    { label: 'Setting up equations', icon: 'code', duration: 2000 },
+    { label: 'Computing solution', icon: 'terminal', duration: 2500 },
+    { label: 'Verifying result', icon: 'shield', duration: 1500 },
+    { label: 'Writing explanation', icon: 'pen', duration: Infinity },
+  ],
 }
 
 export default function ThinkingState({
@@ -204,6 +229,9 @@ export default function ThinkingState({
   active = false,
   compact = false,
   orb = false,
+  academic = false,
+  writing = false,
+  math = false,
   className = '',
   onComplete,
 }) {
@@ -405,6 +433,113 @@ export default function ThinkingState({
                 i === activeIdx && !allDone ? 'active' : 'pending'
               }`}
             />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Academic mode (Chat Focus Academic — scholarly/research theme) ──
+  if (academic) {
+    return (
+      <div className={`thinking-academic ${allDone ? 'thinking-academic-done' : ''} ${className}`}>
+        <div className="thinking-academic-inner">
+          <div className="thinking-academic-icon">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M2 3h5a2 2 0 012 2v1M2 3a1 1 0 00-1 1v10l3-2 3 2V6" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="thinking-academic-book"/>
+              <path d="M10 6h3a1 1 0 011 1v8l-2.5-1.5L9 15V7a1 1 0 011-1z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="thinking-academic-book2"/>
+            </svg>
+          </div>
+          <span className="thinking-academic-label">
+            {allDone ? 'Complete' : stages[activeIdx]?.label || 'Researching'}
+          </span>
+          <span className="thinking-academic-time">{formatTime(elapsedMs)}</span>
+        </div>
+        {/* Citation progress dots */}
+        <div className="thinking-academic-progress">
+          {stages.map((_, i) => (
+            <div
+              key={i}
+              className={`thinking-academic-dot ${
+                completedStages.includes(i) ? 'done' :
+                i === activeIdx && !allDone ? 'active' : 'pending'
+              }`}
+            >
+              {completedStages.includes(i) && (
+                <span className="thinking-academic-check">&#10003;</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Writing mode (Chat Focus Writing — pen/typewriter theme) ──
+  if (writing) {
+    return (
+      <div className={`thinking-writing ${allDone ? 'thinking-writing-done' : ''} ${className}`}>
+        <div className="thinking-writing-inner">
+          <div className="thinking-writing-pen">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M11.5 2.5l2 2-9 9H2.5v-2l9-9z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round" className="thinking-writing-pen-path"/>
+              <path d="M10 4l2 2" stroke="currentColor" strokeWidth="1" strokeLinecap="round" className="thinking-writing-pen-line"/>
+            </svg>
+          </div>
+          <span className="thinking-writing-label">
+            {allDone ? 'Complete' : stages[activeIdx]?.label || 'Writing'}
+          </span>
+          <span className="thinking-writing-dots">
+            <span className="thinking-writing-dot" />
+            <span className="thinking-writing-dot" />
+            <span className="thinking-writing-dot" />
+          </span>
+          <span className="thinking-writing-time">{formatTime(elapsedMs)}</span>
+        </div>
+        {/* Ink progress line */}
+        <div className="thinking-writing-ink">
+          {stages.map((_, i) => (
+            <div
+              key={i}
+              className={`thinking-writing-ink-segment ${
+                completedStages.includes(i) ? 'done' :
+                i === activeIdx && !allDone ? 'active' : 'pending'
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Math mode (Chat Focus Math — equation/calculation theme) ──
+  if (math) {
+    return (
+      <div className={`thinking-math ${allDone ? 'thinking-math-done' : ''} ${className}`}>
+        <div className="thinking-math-inner">
+          <div className="thinking-math-symbol">
+            <span className="thinking-math-sym-char">
+              {['&#8747;', '&#8721;', '&#8730;', '&#8736;'][activeIdx % 4]}
+            </span>
+          </div>
+          <span className="thinking-math-label">
+            {allDone ? 'Complete' : stages[activeIdx]?.label || 'Computing'}
+          </span>
+          <span className="thinking-math-time">{formatTime(elapsedMs)}</span>
+        </div>
+        {/* Equation progress steps */}
+        <div className="thinking-math-steps">
+          {stages.map((stage, i) => (
+            <div
+              key={i}
+              className={`thinking-math-step ${
+                completedStages.includes(i) ? 'done' :
+                i === activeIdx && !allDone ? 'active' : 'pending'
+              }`}
+            >
+              <span className="thinking-math-step-num">{i + 1}</span>
+              <span className="thinking-math-step-line" />
+            </div>
           ))}
         </div>
       </div>

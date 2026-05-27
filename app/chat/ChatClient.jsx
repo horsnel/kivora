@@ -571,9 +571,15 @@ export default function ChatClient() {
     if (wasImage) {
       setThinkingConfig('chatWithVision')
     } else if (webSearch) {
-      setThinkingConfig('chatWithSearch')
+      setThinkingConfig(focusMode === 'Academic' ? 'academicSearch' : 'chatWithSearch')
     } else if (focusMode === 'Code') {
       setThinkingConfig('chatWithCode')
+    } else if (focusMode === 'Academic') {
+      setThinkingConfig('academic')
+    } else if (focusMode === 'Writing') {
+      setThinkingConfig('writing')
+    } else if (focusMode === 'Math') {
+      setThinkingConfig('math')
     } else {
       setThinkingConfig('chat')
     }
@@ -1854,8 +1860,11 @@ export default function ChatClient() {
                 <ThinkingState
                   stages={STAGE_CONFIGS[thinkingConfig] || STAGE_CONFIGS.chat}
                   active={loading}
-                  compact={focusMode !== 'Code'}
+                  compact={focusMode === 'All'}
                   orb={focusMode === 'Code'}
+                  academic={focusMode === 'Academic'}
+                  writing={focusMode === 'Writing'}
+                  math={focusMode === 'Math'}
                 />
               </div>
             )}

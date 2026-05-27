@@ -650,6 +650,318 @@ input, textarea, select {
   background: rgba(255,255,255,0.06);
 }
 
+/* ── Academic mode (Chat Focus Academic — scholarly/research theme) ── */
+.thinking-academic {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 7px 11px;
+  border-radius: 14px;
+  background: rgba(59,130,246,0.03);
+  border: 1px solid rgba(59,130,246,0.08);
+  max-width: 280px;
+  animation: thinkingFadeIn 0.3s ease-out;
+  transition: all 0.3s ease;
+}
+.thinking-academic-done {
+  animation: thinkingFadeOut 0.5s ease-out forwards;
+}
+.thinking-academic-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.thinking-academic-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6;
+  animation: thinkingAcademicPulse 2s ease-in-out infinite;
+}
+.thinking-academic-book {
+  animation: thinkingBookFlip 2.5s ease-in-out infinite;
+}
+.thinking-academic-book2 {
+  opacity: 0.5;
+  animation: thinkingBookFlip 2.5s ease-in-out infinite 0.3s;
+}
+@keyframes thinkingAcademicPulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+@keyframes thinkingBookFlip {
+  0%, 100% { transform: scaleX(1); }
+  50% { transform: scaleX(0.85); }
+}
+.thinking-academic-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #93c5fd;
+  letter-spacing: 0.01em;
+}
+.thinking-academic-time {
+  font-size: 9px;
+  color: #525252;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+.thinking-academic-progress {
+  display: flex;
+  gap: 4px;
+  margin-top: 5px;
+  margin-left: 21px;
+}
+.thinking-academic-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  background: rgba(59,130,246,0.06);
+  border: 1px solid rgba(59,130,246,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.4s ease;
+  position: relative;
+}
+.thinking-academic-dot.done {
+  background: rgba(59,130,246,0.12);
+  border-color: rgba(59,130,246,0.25);
+}
+.thinking-academic-dot.active {
+  background: rgba(59,130,246,0.08);
+  border-color: rgba(59,130,246,0.2);
+  animation: thinkingAcademicDotPulse 1.2s ease-in-out infinite;
+}
+.thinking-academic-dot.pending {
+  background: rgba(255,255,255,0.02);
+  border-color: rgba(255,255,255,0.04);
+}
+.thinking-academic-check {
+  font-size: 8px;
+  color: #3b82f6;
+  line-height: 1;
+}
+@keyframes thinkingAcademicDotPulse {
+  0%, 100% { border-color: rgba(59,130,246,0.15); }
+  50% { border-color: rgba(59,130,246,0.4); }
+}
+
+/* ── Writing mode (Chat Focus Writing — pen/typewriter theme) ── */
+.thinking-writing {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 7px 11px;
+  border-radius: 14px;
+  background: rgba(16,185,129,0.03);
+  border: 1px solid rgba(16,185,129,0.08);
+  max-width: 280px;
+  animation: thinkingFadeIn 0.3s ease-out;
+  transition: all 0.3s ease;
+}
+.thinking-writing-done {
+  animation: thinkingFadeOut 0.5s ease-out forwards;
+}
+.thinking-writing-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.thinking-writing-pen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #10b981;
+  animation: thinkingWritingWrite 1.5s ease-in-out infinite;
+}
+@keyframes thinkingWritingWrite {
+  0%, 100% { transform: rotate(-5deg) translateY(0); }
+  30% { transform: rotate(-2deg) translateY(-1px); }
+  60% { transform: rotate(-8deg) translateY(0); }
+}
+.thinking-writing-pen-path {
+  stroke-dasharray: 40;
+  animation: thinkingPenDraw 2s ease-in-out infinite;
+}
+@keyframes thinkingPenDraw {
+  0% { stroke-dashoffset: 40; }
+  50% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -40; }
+}
+.thinking-writing-pen-line {
+  opacity: 0.4;
+}
+.thinking-writing-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #6ee7b7;
+  letter-spacing: 0.01em;
+  font-style: italic;
+}
+.thinking-writing-dots {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 1px;
+}
+.thinking-writing-dot {
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #10b981;
+  animation: thinkingWritingDotBounce 0.9s ease-in-out infinite;
+}
+.thinking-writing-dot:nth-child(1) { animation-delay: 0s; }
+.thinking-writing-dot:nth-child(2) { animation-delay: 0.15s; }
+.thinking-writing-dot:nth-child(3) { animation-delay: 0.3s; }
+@keyframes thinkingWritingDotBounce {
+  0%, 60%, 100% { opacity: 0.2; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); background: #10b981; }
+}
+.thinking-writing-time {
+  font-size: 9px;
+  color: #525252;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+.thinking-writing-ink {
+  display: flex;
+  gap: 2px;
+  margin-top: 5px;
+  margin-left: 21px;
+}
+.thinking-writing-ink-segment {
+  height: 2px;
+  border-radius: 1px;
+  flex: 1;
+  max-width: 20px;
+  transition: all 0.4s ease;
+}
+.thinking-writing-ink-segment.done {
+  background: #10b981;
+}
+.thinking-writing-ink-segment.active {
+  background: linear-gradient(90deg, #10b981, rgba(16,185,129,0.3));
+  animation: thinkingInkBleed 1.5s ease-in-out infinite;
+}
+.thinking-writing-ink-segment.pending {
+  background: rgba(255,255,255,0.04);
+}
+@keyframes thinkingInkBleed {
+  0%, 100% { max-width: 20px; opacity: 0.6; }
+  50% { max-width: 28px; opacity: 1; }
+}
+
+/* ── Math mode (Chat Focus Math — equation/calculation theme) ── */
+.thinking-math {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 7px 11px;
+  border-radius: 14px;
+  background: rgba(245,158,11,0.03);
+  border: 1px solid rgba(245,158,11,0.08);
+  max-width: 280px;
+  animation: thinkingFadeIn 0.3s ease-out;
+  transition: all 0.3s ease;
+}
+.thinking-math-done {
+  animation: thinkingFadeOut 0.5s ease-out forwards;
+}
+.thinking-math-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.thinking-math-symbol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+.thinking-math-sym-char {
+  font-size: 12px;
+  font-weight: 600;
+  color: #f59e0b;
+  animation: thinkingMathSymbol 2s ease-in-out infinite;
+  font-family: 'Times New Roman', serif;
+}
+@keyframes thinkingMathSymbol {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+.thinking-math-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #fbbf24;
+  letter-spacing: 0.01em;
+  font-family: 'Times New Roman', serif;
+}
+.thinking-math-time {
+  font-size: 9px;
+  color: #525252;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+.thinking-math-steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-top: 5px;
+  margin-left: 21px;
+}
+.thinking-math-step {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.thinking-math-step-num {
+  font-size: 8px;
+  font-weight: 600;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.4s ease;
+  font-family: 'Times New Roman', serif;
+}
+.thinking-math-step.done .thinking-math-step-num {
+  background: rgba(245,158,11,0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245,158,11,0.3);
+}
+.thinking-math-step.active .thinking-math-step-num {
+  background: rgba(245,158,11,0.1);
+  color: #fbbf24;
+  border: 1px solid rgba(245,158,11,0.2);
+  animation: thinkingMathStepPulse 1s ease-in-out infinite;
+}
+.thinking-math-step.pending .thinking-math-step-num {
+  background: rgba(255,255,255,0.02);
+  color: #404040;
+  border: 1px solid rgba(255,255,255,0.04);
+}
+.thinking-math-step-line {
+  width: 8px;
+  height: 1px;
+  transition: background 0.4s ease;
+}
+.thinking-math-step.done .thinking-math-step-line {
+  background: rgba(245,158,11,0.3);
+}
+.thinking-math-step.active .thinking-math-step-line {
+  background: rgba(245,158,11,0.15);
+}
+.thinking-math-step.pending .thinking-math-step-line {
+  background: rgba(255,255,255,0.04);
+}
+@keyframes thinkingMathStepPulse {
+  0%, 100% { border-color: rgba(245,158,11,0.15); }
+  50% { border-color: rgba(245,158,11,0.4); }
+}
+
 /* ── Animations ── */
 @keyframes thinkingFadeIn {
   from { opacity: 0; transform: translateY(4px); }
