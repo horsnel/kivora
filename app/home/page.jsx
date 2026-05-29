@@ -460,7 +460,7 @@ export default function HomePage() {
           width: 100%;
           position: relative;
           isolation: isolate;
-          background-color: rgba(255,255,255,0.03);
+          background-color: transparent;
           border: 1px solid rgba(255,255,255,0.06);
           border-radius: 20px;
           padding: 16px 16px 10px 16px;
