@@ -832,3 +832,167 @@ export function IconCrystal({ size = 16, className = '' }) {
     </svg>
   )
 }
+
+export function IconJupiter({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M2.5 6.5h11M3 8.5h10M3.5 10.5h9" stroke="currentColor" strokeWidth="0.75" opacity="0.6"/>
+      <ellipse cx="10" cy="7" rx="1.5" ry="1" stroke="currentColor" strokeWidth="0.75" opacity="0.5"/>
+    </svg>
+  )
+}
+
+export function IconVenus({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M3.5 7c1.5-1 3-.5 4.5 0s3 1 4.5 0" stroke="currentColor" strokeWidth="0.75" opacity="0.5"/>
+      <path d="M4 9.5c1.5-.5 3 0 4.5.5s2.5 0 4-.5" stroke="currentColor" strokeWidth="0.75" opacity="0.4"/>
+    </svg>
+  )
+}
+
+export function IconMercury({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.25"/>
+      <circle cx="6" cy="6" r="1" stroke="currentColor" strokeWidth="0.5" opacity="0.4"/>
+      <circle cx="10" cy="9" r="0.7" stroke="currentColor" strokeWidth="0.5" opacity="0.3"/>
+      <circle cx="7" cy="10.5" r="0.5" stroke="currentColor" strokeWidth="0.5" opacity="0.3"/>
+    </svg>
+  )
+}
+
+export function IconNeptune({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M3.5 7.5c2-1.5 4-1 5 0s3 1 4-.5" stroke="currentColor" strokeWidth="0.75" opacity="0.5"/>
+      <path d="M4 9.5c1.5-1 3.5 0 5 0s2.5-1 3.5 0" stroke="currentColor" strokeWidth="0.75" opacity="0.4"/>
+    </svg>
+  )
+}
+
+export function IconUranus({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <circle cx="8" cy="8" r="5" stroke="currentColor" strokeWidth="1.25"/>
+      <ellipse cx="8" cy="8" rx="2" ry="7" stroke="currentColor" strokeWidth="0.75" opacity="0.5"/>
+    </svg>
+  )
+}
+
+export function IconComet({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <circle cx="11" cy="5" r="2" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M9.5 6L2 13" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <path d="M9 4.5L3 2.5" stroke="currentColor" strokeWidth="0.75" strokeLinecap="round" opacity="0.4"/>
+      <path d="M9 5.5L4 8" stroke="currentColor" strokeWidth="0.75" strokeLinecap="round" opacity="0.3"/>
+    </svg>
+  )
+}
+
+export function IconSupernova({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <circle cx="8" cy="8" r="2" fill="currentColor" opacity="0.8"/>
+      <path d="M8 1v3M8 12v3M1 8h3M12 8h3M3 3l2 2M11 11l2 2M13 3l-2 2M5 11l-2 2" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.6"/>
+      <path d="M4.5 4.5L8 8M11.5 4.5L8 8M4.5 11.5L8 8M11.5 11.5L8 8" stroke="currentColor" strokeWidth="0.5" strokeLinecap="round" opacity="0.3"/>
+    </svg>
+  )
+}
+
+export function IconPulsar({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <circle cx="8" cy="8" r="1.5" fill="currentColor" opacity="0.8"/>
+      <path d="M6.5 8H1M9.5 8H15" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.7"/>
+      <path d="M7.5 6.5L4 2M8.5 6.5L12 2M7.5 9.5L4 14M8.5 9.5L12 14" stroke="currentColor" strokeWidth="0.5" strokeLinecap="round" opacity="0.3"/>
+    </svg>
+  )
+}
+
+export function IconDesert({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <circle cx="12" cy="3.5" r="1.5" stroke="currentColor" strokeWidth="1"/>
+      <path d="M1 14l4-5 3 3 4-6 3 8H1z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" opacity="0.7"/>
+      <path d="M1 14h14" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function IconCave({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M2 14V6c0-3 2.5-5 6-5s6 2 6 5v8" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M5 14V8c0-1.5 1.5-2.5 3-2.5S11 6.5 11 8v6" stroke="currentColor" strokeWidth="0.75" opacity="0.5"/>
+      <circle cx="7.5" cy="6.5" r="0.5" fill="currentColor" opacity="0.5"/>
+      <circle cx="9.5" cy="5.5" r="0.4" fill="currentColor" opacity="0.4"/>
+    </svg>
+  )
+}
+
+export function IconWaterfall({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M2 3h12v2H2z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round"/>
+      <path d="M4 5c-.5 2 .5 4 0 6M6.5 5c.3 2-.3 4 0 6M9.5 5c-.3 2 .3 4 0 6M12 5c.5 2-.5 4 0 6" stroke="currentColor" strokeWidth="0.75" strokeLinecap="round" opacity="0.6"/>
+      <path d="M2 11c2-1 4-1 6 0s4 1 6 0" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function IconArctic({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M8 1L9 4L8 3L7 4L8 1z" fill="currentColor" opacity="0.7"/>
+      <path d="M3 14l2-4h6l2 4H3z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+      <path d="M5 10l1.5-3h3L11 10" stroke="currentColor" strokeWidth="0.75" strokeLinejoin="round" opacity="0.5"/>
+      <path d="M2 14h12" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.5"/>
+    </svg>
+  )
+}
+
+export function IconPyramid({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M8 2L14 14H2L8 2z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+      <path d="M5 14L8 8M11 14L8 8" stroke="currentColor" strokeWidth="0.75" opacity="0.4"/>
+    </svg>
+  )
+}
+
+export function IconLighthouse({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M6 14L7 5h2l1 9H6z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+      <path d="M6 5h4" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+      <path d="M7.5 5V3h1v2" stroke="currentColor" strokeWidth="0.75"/>
+      <path d="M5 2.5L3 1M11 2.5L13 1M8 1.5V0" stroke="currentColor" strokeWidth="0.75" strokeLinecap="round" opacity="0.6"/>
+    </svg>
+  )
+}
+
+export function IconBridge({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M1 10Q4 5 8 10Q12 5 15 10" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <path d="M1 10h14" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <path d="M3 10v4M7 10v4M9 10v4M13 10v4" stroke="currentColor" strokeWidth="0.75" strokeLinecap="round" opacity="0.6"/>
+    </svg>
+  )
+}
+
+export function IconSkyscraper({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <rect x="3" y="4" width="4" height="10" stroke="currentColor" strokeWidth="1" rx="0.5"/>
+      <rect x="9" y="1" width="4" height="13" stroke="currentColor" strokeWidth="1" rx="0.5"/>
+      <path d="M4.5 6h1M4.5 8h1M4.5 10h1M10.5 3h1M10.5 5h1M10.5 7h1M10.5 9h1M10.5 11h1" stroke="currentColor" strokeWidth="0.75" strokeLinecap="round" opacity="0.5"/>
+      <path d="M1 14h14" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+    </svg>
+  )
+}
