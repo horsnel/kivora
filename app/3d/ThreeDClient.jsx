@@ -711,6 +711,10 @@ function createSolarScene(container) {
   const sunMesh = new THREE.Mesh(sunGeo, sunMat)
   scene.add(sunMesh)
 
+  // Load real NASA Sun texture
+  const sunTexLoader = new THREE.TextureLoader()
+  sunTexLoader.load('/3d-textures/sun_color.jpg', (tex) => { tex.encoding = THREE.sRGBEncoding; sunMat.map = tex; sunMat.needsUpdate = true }, undefined, () => {})
+
   // Sun glow
   const glowCanvas = document.createElement('canvas'); glowCanvas.width = 256; glowCanvas.height = 256
   const gctx = glowCanvas.getContext('2d')
@@ -2030,6 +2034,10 @@ function createMarsScene(container) {
   marsMesh.rotation.y = -Math.PI / 2
   scene.add(marsMesh)
 
+  // Load real NASA Mars texture (replaces procedural placeholder)
+  const textureLoader = new THREE.TextureLoader()
+  textureLoader.load('/3d-textures/mars_color.jpg', (tex) => { if (disposed) return; tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); marsMat.map = tex; marsMat.needsUpdate = true }, undefined, () => {})
+
   // Thin atmosphere
   const atmosGeo = new THREE.SphereGeometry(1.28, 64, 64)
   const atmosMat = new THREE.MeshBasicMaterial({ color: 0xdd8855, transparent: true, opacity: 0.08, side: THREE.BackSide, depthWrite: false })
@@ -2093,6 +2101,10 @@ function createSaturnScene(container) {
   const satMesh = new THREE.Mesh(satGeo, satMat)
   satMesh.rotation.x = 0.47
   scene.add(satMesh)
+
+  // Load real NASA Saturn texture
+  const textureLoader = new THREE.TextureLoader()
+  textureLoader.load('/3d-textures/saturn_color.jpg', (tex) => { if (disposed) return; tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); satMat.map = tex; satMat.needsUpdate = true }, undefined, () => {})
 
   // Rings
   const ringGeo = new THREE.RingGeometry(2.5, 4.2, 128)
@@ -2983,6 +2995,10 @@ function createJupiterScene(container) {
   const jupMesh = new THREE.Mesh(jupGeo, jupMat)
   scene.add(jupMesh)
 
+  // Load real NASA Jupiter texture
+  const textureLoader = new THREE.TextureLoader()
+  textureLoader.load('/3d-textures/jupiter_color.jpg', (tex) => { if (disposed) return; tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); jupMat.map = tex; jupMat.needsUpdate = true }, undefined, () => {})
+
   // Starfield
   const starCount = 2500; const starPos = new Float32Array(starCount*3); const starCols = new Float32Array(starCount*3)
   for(let i=0;i<starCount;i++){const i3=i*3,r=60+Math.random()*400,theta=Math.random()*Math.PI*2,phi=Math.acos(2*Math.random()-1);starPos[i3]=r*Math.sin(phi)*Math.cos(theta);starPos[i3+1]=r*Math.sin(phi)*Math.sin(theta);starPos[i3+2]=r*Math.cos(phi);starCols[i3]=1;starCols[i3+1]=1;starCols[i3+2]=1}
@@ -3022,6 +3038,10 @@ function createVenusScene(container) {
   const venMat = new THREE.MeshStandardMaterial({ map: venTex, roughness: 0.9, metalness: 0.02 })
   const venMesh = new THREE.Mesh(venGeo, venMat)
   scene.add(venMesh)
+
+  // Load real NASA Venus texture
+  const textureLoader = new THREE.TextureLoader()
+  textureLoader.load('/3d-textures/venus_color.jpg', (tex) => { if (disposed) return; tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); venMat.map = tex; venMat.needsUpdate = true }, undefined, () => {})
 
   // Thick atmosphere glow
   const atmosGeo = new THREE.SphereGeometry(1.5, 64, 64)
@@ -3066,6 +3086,10 @@ function createMercuryScene(container) {
   const merMesh = new THREE.Mesh(merGeo, merMat)
   scene.add(merMesh)
 
+  // Load real NASA Mercury texture
+  const textureLoader = new THREE.TextureLoader()
+  textureLoader.load('/3d-textures/mercury_color.jpg', (tex) => { if (disposed) return; tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); merMat.map = tex; merMat.needsUpdate = true }, undefined, () => {})
+
   const starCount = 2000; const starPos = new Float32Array(starCount*3); const starCols = new Float32Array(starCount*3)
   for(let i=0;i<starCount;i++){const i3=i*3,r=60+Math.random()*400,theta=Math.random()*Math.PI*2,phi=Math.acos(2*Math.random()-1);starPos[i3]=r*Math.sin(phi)*Math.cos(theta);starPos[i3+1]=r*Math.sin(phi)*Math.sin(theta);starPos[i3+2]=r*Math.cos(phi);starCols[i3]=1;starCols[i3+1]=1;starCols[i3+2]=1}
   const starGeo=new THREE.BufferGeometry();starGeo.setAttribute('position',new THREE.BufferAttribute(starPos,3));starGeo.setAttribute('color',new THREE.BufferAttribute(starCols,3))
@@ -3106,6 +3130,10 @@ function createNeptuneScene(container) {
   const nepMat = new THREE.MeshStandardMaterial({ map: nepTex, roughness: 0.8, metalness: 0.05 })
   const nepMesh = new THREE.Mesh(nepGeo, nepMat)
   scene.add(nepMesh)
+
+  // Load real NASA Neptune texture
+  const textureLoader = new THREE.TextureLoader()
+  textureLoader.load('/3d-textures/neptune_color.jpg', (tex) => { if (disposed) return; tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); nepMat.map = tex; nepMat.needsUpdate = true }, undefined, () => {})
 
   // Faint rings
   const ringGeo = new THREE.RingGeometry(1.7, 2.1, 64)
@@ -3151,6 +3179,10 @@ function createUranusScene(container) {
   const uraMesh = new THREE.Mesh(uraGeo, uraMat)
   uraMesh.rotation.z = Math.PI * 0.45 // Uranus tilts on its side
   scene.add(uraMesh)
+
+  // Load real NASA Uranus texture
+  const textureLoader = new THREE.TextureLoader()
+  textureLoader.load('/3d-textures/uranus_color.png', (tex) => { if (disposed) return; tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); uraMat.map = tex; uraMat.needsUpdate = true }, undefined, () => {})
 
   // Vertical rings (due to extreme tilt)
   const ringGeo = new THREE.RingGeometry(1.6, 2.0, 64)
