@@ -284,10 +284,17 @@ async function ensureThreeJS() {
   if (threeLoaded && window.THREE) return
   await loadScript('/3d-lib/three.min.js')
   await loadScript('/3d-lib/OrbitControls.js')
+  await loadScript('/3d-lib/RGBELoader.js')
+  await loadScript('/3d-lib/CopyShader.js')
+  await loadScript('/3d-lib/LuminosityHighPassShader.js')
+  await loadScript('/3d-lib/ShaderPass.js')
+  await loadScript('/3d-lib/EffectComposer.js')
+  await loadScript('/3d-lib/RenderPass.js')
+  await loadScript('/3d-lib/UnrealBloomPass.js')
   threeLoaded = true
 }
 
-/* ── Helper: create standard renderer ── */
+/* ── Helper: create premium renderer with HDR support ── */
 function createRenderer(container) {
   const THREE = window.THREE
   const width = container.clientWidth || 300
@@ -298,8 +305,113 @@ function createRenderer(container) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 1.2
   renderer.outputEncoding = THREE.sRGBEncoding
+  renderer.physicallyCorrectLights = true
   container.appendChild(renderer.domElement)
   return renderer
+}
+
+/* ── Helper: load HDRI environment map ── */
+const hdriCache = {}
+function loadHDRI(url, renderer) {
+  const THREE = window.THREE
+  if (hdriCache[url]) return Promise.resolve(hdriCache[url])
+  if (!THREE.RGBELoader) return Promise.resolve(null)
+  return new Promise((resolve) => {
+    new THREE.RGBELoader()
+      .setDataType(THREE.UnsignedByteType)
+      .load(url, (texture) => {
+        const pmremGenerator = new THREE.PMREMGenerator(renderer)
+        pmremGenerator.compileEquirectangularShader()
+        const envMap = pmremGenerator.fromEquirectangular(texture).texture
+        texture.dispose()
+        pmremGenerator.dispose()
+        hdriCache[url] = envMap
+        resolve(envMap)
+      }, undefined, () => { resolve(null) })
+  })
+}
+
+/* ── Helper: setup bloom post-processing ── */
+function setupBloom(scene, camera, renderer, opts = {}) {
+  const THREE = window.THREE
+  if (!THREE.EffectComposer || !THREE.RenderPass || !THREE.UnrealBloomPass) return null
+  const width = renderer.domElement.width
+  const height = renderer.domElement.height
+  const composer = new THREE.EffectComposer(renderer)
+  const renderPass = new THREE.RenderPass(scene, camera)
+  composer.addPass(renderPass)
+  const bloomPass = new THREE.UnrealBloomPass(
+    new THREE.Vector2(width, height),
+    opts.strength || 0.4,
+    opts.radius || 0.6,
+    opts.threshold || 0.85
+  )
+  composer.addPass(bloomPass)
+  return { composer, bloomPass }
+}
+
+/* ── Helper: load PBR material with textures ── */
+function loadPBRMaterial(basePath, renderer, overrides = {}) {
+  const THREE = window.THREE
+  const textureLoader = new THREE.TextureLoader()
+  const aniso = renderer ? renderer.capabilities.getMaxAnisotropy() : 8
+
+  const mat = new THREE.MeshStandardMaterial({
+    color: overrides.color || 0xffffff,
+    roughness: overrides.roughness || 0.8,
+    metalness: overrides.metalness || 0.0,
+    envMapIntensity: overrides.envMapIntensity || 1.0,
+    ...overrides,
+  })
+
+  // Load color texture
+  if (basePath) {
+    textureLoader.load(`${basePath}_Color.jpg`, (tex) => {
+      tex.encoding = THREE.sRGBEncoding
+      tex.anisotropy = aniso
+      tex.wrapS = THREE.RepeatWrapping
+      tex.wrapT = THREE.RepeatWrapping
+      if (overrides.repeat) { tex.repeat.set(overrides.repeat, overrides.repeat) }
+      mat.map = tex
+      mat.needsUpdate = true
+    }, undefined, () => {})
+
+    // Load normal map
+    textureLoader.load(`${basePath}_NormalGL.jpg`, (tex) => {
+      tex.anisotropy = aniso
+      tex.wrapS = THREE.RepeatWrapping
+      tex.wrapT = THREE.RepeatWrapping
+      if (overrides.repeat) { tex.repeat.set(overrides.repeat, overrides.repeat) }
+      mat.normalMap = tex
+      mat.normalScale.set(overrides.normalScale || 1.0, overrides.normalScale || 1.0)
+      mat.needsUpdate = true
+    }, undefined, () => {})
+
+    // Load roughness map
+    textureLoader.load(`${basePath}_Roughness.jpg`, (tex) => {
+      tex.anisotropy = aniso
+      tex.wrapS = THREE.RepeatWrapping
+      tex.wrapT = THREE.RepeatWrapping
+      if (overrides.repeat) { tex.repeat.set(overrides.repeat, overrides.repeat) }
+      mat.roughnessMap = tex
+      mat.needsUpdate = true
+    }, undefined, () => {})
+
+    // Load displacement map (optional)
+    if (overrides.displacementScale) {
+      textureLoader.load(`${basePath}_Displacement.jpg`, (tex) => {
+        tex.anisotropy = aniso
+        tex.wrapS = THREE.RepeatWrapping
+        tex.wrapT = THREE.RepeatWrapping
+        if (overrides.repeat) { tex.repeat.set(overrides.repeat, overrides.repeat) }
+        mat.displacementMap = tex
+        mat.displacementScale = overrides.displacementScale
+        mat.needsUpdate = true
+      }, undefined, () => {})
+    }
+  }
+
+  return mat
 }
 
 function addResizeHandler(camera, renderer, container) {
@@ -370,7 +482,17 @@ function createMoonScene(container) {
   const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 2000)
   camera.position.set(0, 0, 4.5)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing for cinematic star glow
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.25, radius: 0.5, threshold: 0.9 })
+
+  // HDRI for subtle environment reflections
+  loadHDRI('/3d-textures/night_sky_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   // Procedural color texture (quick placeholder, NASA textures load from local)
   const colorCanvas = document.createElement('canvas'); colorCanvas.width = 512; colorCanvas.height = 256
@@ -437,12 +559,17 @@ function createMoonScene(container) {
     moonMesh.rotation.x = Math.sin(t * 0.1) * 0.02
     starField.rotation.y = t * 0.002; starField.rotation.x = t * 0.001
     if (orbitControls) orbitControls.update()
-    renderer.render(scene, camera)
+    if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  // Also resize bloom composer
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Earth Scene (NASA textures loaded from local files for speed) ── */
@@ -454,7 +581,17 @@ function createEarthScene(container) {
   camera.position.set(0, 0.5, 3.5)
   const renderer = createRenderer(container)
   renderer.toneMappingExposure = 1.0
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom for atmospheric glow
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.3, radius: 0.5, threshold: 0.85 })
+
+  // HDRI environment for realistic reflections
+  loadHDRI('/3d-textures/night_sky_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   // ── Quick placeholder texture (simple blue/green, no heavy computation) ──
   const placeholderCanvas = document.createElement('canvas')
@@ -688,12 +825,16 @@ function createEarthScene(container) {
     cloudMesh.rotation.y = t * 0.048
     lightsMesh.rotation.y = earthMesh.rotation.y
     if (orbitControls) orbitControls.update()
-    renderer.render(scene, camera)
+    if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Solar System Scene ── */
@@ -704,6 +845,17 @@ function createSolarScene(container) {
   const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 2000)
   camera.position.set(0, 18, 30)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
+  let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.35, radius: 0.5, threshold: 0.9 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/night_sky_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   // Sun
   const sunGeo = new THREE.SphereGeometry(2, 64, 64)
@@ -831,12 +983,16 @@ function createSolarScene(container) {
     // Pulse sun glow
     sunGlow.scale.set(12 + Math.sin(t * 2) * 0.5, 12 + Math.sin(t * 2) * 0.5, 1)
     if (orbitControls) orbitControls.update()
-    renderer.render(scene, camera)
+    if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Deep Space Scene ── */
@@ -846,7 +1002,17 @@ function createDeepSpaceScene(container) {
   const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000); camera.position.set(0, 1, 12)
   const renderer = createRenderer(container)
   renderer.toneMappingExposure = 1.4
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.5, radius: 0.5, threshold: 0.8 })
+
+  // HDRI environment (for env reflections)
+  loadHDRI('/3d-textures/night_sky_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   const textureLoader = new THREE.TextureLoader()
   const NEBULA_URLS = ['/3d-textures/nebula1.jpg','/3d-textures/nebula2.jpg','/3d-textures/nebula3.jpg']
@@ -920,12 +1086,16 @@ function createDeepSpaceScene(container) {
     for (let i = 0; i < dustCount; i++) { dPos[i*3] += Math.sin(t*0.1+i)*0.001*scrollSpeed; dPos[i*3+1] += Math.cos(t*0.08+i*0.5)*0.0008*scrollSpeed }
     dustGeo.attributes.position.needsUpdate = true
     warmLight.intensity = 0.6 + Math.sin(t * 1.5) * 0.3; coolLight.intensity = 0.4 + Math.cos(t * 2.0) * 0.2
-    renderer.render(scene, camera)
+    if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('touchmove', onTouchMove); document.removeEventListener('wheel', onWheel); fullCleanup(scene, renderer, null) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('touchmove', onTouchMove); document.removeEventListener('wheel', onWheel); fullCleanup(scene, renderer, null) }
 }
 
 /* ── Globe Scene ── */
@@ -936,7 +1106,17 @@ function createGlobeScene(container) {
   const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000)
   camera.position.z = 4
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.2, radius: 0.5, threshold: 0.9 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/studio_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   // Sphere with procedural texture
   const canvas = document.createElement('canvas')
@@ -989,12 +1169,16 @@ function createGlobeScene(container) {
     animId = requestAnimationFrame(animate)
     mesh.rotation.y += 0.002
     if (orbitControls) orbitControls.update()
-    renderer.render(scene, camera)
+    if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Ocean Scene ── */
@@ -1005,6 +1189,17 @@ function createOceanScene(container) {
   camera.position.set(0, 5, 15)
   const renderer = createRenderer(container)
   renderer.toneMappingExposure = 1.3
+  renderer.physicallyCorrectLights = true
+  let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.3, radius: 0.5, threshold: 0.85 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/outdoor_daytime_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   // Sunset sky gradient
   const skyCanvas = document.createElement('canvas'); skyCanvas.width = 512; skyCanvas.height = 512
@@ -1108,12 +1303,16 @@ function createOceanScene(container) {
     // Pulse water glow
     waterGlow.intensity = 0.6 + Math.sin(t * 0.5) * 0.3
     if (orbitControls) orbitControls.update()
-    renderer.render(scene, camera)
+    if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Terrain Scene ── */
@@ -1125,6 +1324,17 @@ function createTerrainScene(container) {
   const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 500)
   camera.position.set(0, 15, 30)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
+  let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.25, radius: 0.5, threshold: 0.9 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/forest_nature_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   // Procedural terrain heightmap
   const size = 128
@@ -1257,12 +1467,16 @@ function createTerrainScene(container) {
     // Gentle water movement
     water.position.y = -0.5 + Math.sin(t * 0.5) * 0.05
     if (orbitControls) orbitControls.update()
-    renderer.render(scene, camera)
+    if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Cube Scene ── */
@@ -1272,7 +1486,18 @@ function createCubeScene(container) {
   const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100); camera.position.set(8, 6, 10)
   const renderer = createRenderer(container)
   renderer.toneMappingExposure = 1.1
+  renderer.physicallyCorrectLights = true
+  let disposed = false
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.2, radius: 0.5, threshold: 0.9 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/studio_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   const matBlack = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6, metalness: 0.05 })
   const colors = {
@@ -1379,12 +1604,16 @@ function createCubeScene(container) {
     const now = performance.now()
     if (rotationAnim) { const elapsed = now - rotationAnim.startTime; let t = Math.min(elapsed / rotationAnim.duration, 1); t = 1 - Math.pow(1 - t, 3); rotationAnim.pivot.rotation[rotationAnim.axis] = rotationAnim.startRot + (rotationAnim.targetRot - rotationAnim.startRot) * t; if (elapsed >= rotationAnim.duration) rotationAnim.onComplete() }
     if (autoRotate && !rotationAnim) targetAzimuth += 0.002
-    updateCamera(); renderer.render(scene, camera)
+    updateCamera(); if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls); delete window.__cubeScramble; delete window.__cubeReset }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls); delete window.__cubeScramble; delete window.__cubeReset }
 }
 
 /* ── House Scene ── */
@@ -1403,7 +1632,18 @@ function createHouseScene(container) {
   renderer.outputEncoding = THREE.sRGBEncoding
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
+  renderer.physicallyCorrectLights = true
+  let disposed = false
   container.appendChild(renderer.domElement)
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.3, radius: 0.5, threshold: 0.85 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/studio_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   // ── Materials ──
   const wallExt = new THREE.MeshStandardMaterial({ color: 0xf5f0e8, roughness: 0.85, metalness: 0.0 })
@@ -1705,12 +1945,16 @@ function createHouseScene(container) {
     // Subtle lamp flicker
     lampLight.intensity = 0.25 + Math.sin(t * 3) * 0.05
     if (orbitControls) orbitControls.update()
-    renderer.render(scene, camera)
+    if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Museum Scene ── */
@@ -1725,6 +1969,17 @@ function createMuseumScene(container) {
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
   renderer.toneMappingExposure = 0.9
+  renderer.physicallyCorrectLights = true
+  let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.3, radius: 0.5, threshold: 0.85 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/studio_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   // ── Materials ──
   const marbleWhite = new THREE.MeshStandardMaterial({ color: 0xf0ece4, roughness: 0.3, metalness: 0.05 })
@@ -1969,12 +2224,16 @@ function createMuseumScene(container) {
     // Subtle light flicker for ambiance
     entranceLight.intensity = 0.9 + Math.sin(t * 2) * 0.1
     if (orbitControls) orbitControls.update()
-    renderer.render(scene, camera)
+    if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Mars Scene ── */
@@ -1985,7 +2244,17 @@ function createMarsScene(container) {
   const camera = new THREE.PerspectiveCamera(45, (container.clientWidth || 300) / (container.clientHeight || 300), 0.1, 2000)
   camera.position.set(0, 0, 4.5)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.25, radius: 0.5, threshold: 0.9 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/night_sky_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   // Procedural Mars texture
   const marsCanvas = document.createElement('canvas'); marsCanvas.width = 512; marsCanvas.height = 256
@@ -2063,12 +2332,16 @@ function createMarsScene(container) {
     animId = requestAnimationFrame(animate)
     marsMesh.rotation.y += 0.001
     if (orbitControls) orbitControls.update()
-    renderer.render(scene, camera)
+    if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Saturn Scene ── */
@@ -2079,7 +2352,17 @@ function createSaturnScene(container) {
   const camera = new THREE.PerspectiveCamera(45, (container.clientWidth || 300) / (container.clientHeight || 300), 0.1, 2000)
   camera.position.set(0, 3, 8)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.3, radius: 0.5, threshold: 0.85 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/night_sky_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   // Saturn body
   const satCanvas = document.createElement('canvas'); satCanvas.width = 512; satCanvas.height = 256
@@ -2170,12 +2453,16 @@ function createSaturnScene(container) {
     titan.position.x = Math.cos(t * 0.3) * 6; titan.position.z = Math.sin(t * 0.3) * 6
     enc.position.x = Math.cos(t * 0.5 + 2) * 4.5; enc.position.z = Math.sin(t * 0.5 + 2) * 4.5
     if (orbitControls) orbitControls.update()
-    renderer.render(scene, camera)
+    if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Black Hole Scene ── */
@@ -2187,7 +2474,17 @@ function createBlackHoleScene(container) {
   camera.position.set(0, 8, 20)
   const renderer = createRenderer(container)
   renderer.toneMappingExposure = 1.5
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.6, radius: 0.5, threshold: 0.7 })
+
+  // HDRI environment (env only)
+  loadHDRI('/3d-textures/night_sky_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   // Event horizon (black sphere)
   const bhGeo = new THREE.SphereGeometry(2, 64, 64)
@@ -2255,12 +2552,16 @@ function createBlackHoleScene(container) {
     jetUp.material.opacity = 0.2 + Math.sin(t * 2) * 0.1
     jetDown.material.opacity = 0.2 + Math.cos(t * 2) * 0.1
     if (orbitControls) orbitControls.update()
-    renderer.render(scene, camera)
+    if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Galaxy Scene ── */
@@ -2272,7 +2573,17 @@ function createGalaxyScene(container) {
   camera.position.set(0, 25, 35)
   const renderer = createRenderer(container)
   renderer.toneMappingExposure = 1.3
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.5, radius: 0.5, threshold: 0.8 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/night_sky_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   // Galaxy particles (spiral arms)
   const armCount = 20000
@@ -2335,12 +2646,16 @@ function createGalaxyScene(container) {
     animId = requestAnimationFrame(animate)
     armPoints.rotation.y = clock.getElapsedTime() * 0.02
     if (orbitControls) orbitControls.update()
-    renderer.render(scene, camera)
+    if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Asteroid Belt Scene ── */
@@ -2352,7 +2667,17 @@ function createAsteroidScene(container) {
   const camera = new THREE.PerspectiveCamera(55, (container.clientWidth || 300) / (container.clientHeight || 300), 0.1, 1000)
   camera.position.set(0, 5, 15)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.3, radius: 0.5, threshold: 0.85 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/night_sky_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   // Asteroids
   const asteroids = []
@@ -2423,12 +2748,16 @@ function createAsteroidScene(container) {
       a.position.z = Math.sin(angle) * a.userData.dist
     })
     if (orbitControls) orbitControls.update()
-    renderer.render(scene, camera)
+    if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Volcano Scene ── */
@@ -2441,7 +2770,17 @@ function createVolcanoScene(container) {
   camera.position.set(0, 12, 25)
   const renderer = createRenderer(container)
   renderer.toneMappingExposure = 0.9
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.4, radius: 0.5, threshold: 0.8 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/outdoor_daytime_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   // Volcano cone
   const volcGeo = new THREE.ConeGeometry(10, 18, 32, 8)
@@ -2561,12 +2900,16 @@ function createVolcanoScene(container) {
     eruptGeo.attributes.position.needsUpdate = true
     lavaLight.intensity = 2.5 + Math.sin(t * 3) * 0.8
     if (orbitControls) orbitControls.update()
-    renderer.render(scene, camera)
+    if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Forest Scene ── */
@@ -2579,7 +2922,17 @@ function createForestScene(container) {
   camera.position.set(0, 5, 15)
   const renderer = createRenderer(container)
   renderer.toneMappingExposure = 1.1
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.3, radius: 0.5, threshold: 0.85 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/forest_nature_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   // Ground
   const groundCanvas = document.createElement('canvas'); groundCanvas.width = 256; groundCanvas.height = 256
@@ -2667,12 +3020,16 @@ function createForestScene(container) {
     ffGeo.attributes.position.needsUpdate = true
     ffMat.opacity = 0.3 + Math.sin(t * 2) * 0.3
     if (orbitControls) orbitControls.update()
-    renderer.render(scene, camera)
+    if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Castle Scene ── */
@@ -2684,7 +3041,17 @@ function createCastleScene(container) {
   const camera = new THREE.PerspectiveCamera(50, (container.clientWidth || 300) / (container.clientHeight || 300), 0.1, 500)
   camera.position.set(0, 15, 35)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.3, radius: 0.5, threshold: 0.85 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/outdoor_daytime_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   const stoneMat = new THREE.MeshStandardMaterial({ color: 0x888880, roughness: 0.9, metalness: 0.0 })
   const stoneLight = new THREE.MeshStandardMaterial({ color: 0xa0a098, roughness: 0.85, metalness: 0.0 })
@@ -2817,12 +3184,16 @@ function createCastleScene(container) {
     // Water shimmer
     moat.material.opacity = 0.5 + Math.sin(t * 0.5) * 0.1
     if (orbitControls) orbitControls.update()
-    renderer.render(scene, camera)
+    if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Crystal Cave Scene ── */
@@ -2835,7 +3206,17 @@ function createCrystalScene(container) {
   camera.position.set(0, 3, 12)
   const renderer = createRenderer(container)
   renderer.toneMappingExposure = 1.0
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.5, radius: 0.5, threshold: 0.75 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/dark_cave_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   const crystalColors = [0x4488ff, 0x8844ff, 0xff44aa, 0x44ffaa, 0xffaa44, 0x44aaff]
   const crystalMats = crystalColors.map(c => new THREE.MeshPhysicalMaterial({
@@ -2959,12 +3340,16 @@ function createCrystalScene(container) {
     })
     dustMat.opacity = 0.3 + Math.sin(t * 0.8) * 0.15
     if (orbitControls) orbitControls.update()
-    renderer.render(scene, camera)
+    if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
 
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Jupiter Scene ── */
@@ -2975,7 +3360,17 @@ function createJupiterScene(container) {
   const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 2000)
   camera.position.set(0, 0.5, 5)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.2, radius: 0.5, threshold: 0.9 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/night_sky_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   // Jupiter body with procedural bands
   const jupCanvas = document.createElement('canvas'); jupCanvas.width = 512; jupCanvas.height = 256
@@ -3010,10 +3405,14 @@ function createJupiterScene(container) {
 
   const orbitControls = addOrbitControls(camera, renderer, { minDistance: 3, maxDistance: 15, autoRotateSpeed: 0.2 })
   const clock = new THREE.Clock(); let animId
-  function animate() { animId = requestAnimationFrame(animate); const t = clock.getElapsedTime(); jupMesh.rotation.y = t * 0.03; if(orbitControls) orbitControls.update(); renderer.render(scene, camera) }
+  function animate() { animId = requestAnimationFrame(animate); const t = clock.getElapsedTime(); jupMesh.rotation.y = t * 0.03; if(orbitControls) orbitControls.update(); if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) } }
   animate()
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Venus Scene ── */
@@ -3024,7 +3423,17 @@ function createVenusScene(container) {
   const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 2000)
   camera.position.set(0, 0.3, 4)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.25, radius: 0.5, threshold: 0.9 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/night_sky_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   const venCanvas = document.createElement('canvas'); venCanvas.width = 512; venCanvas.height = 256
   const vctx = venCanvas.getContext('2d')
@@ -3058,10 +3467,14 @@ function createVenusScene(container) {
 
   const orbitControls = addOrbitControls(camera, renderer, { minDistance: 2, maxDistance: 12 })
   const clock = new THREE.Clock(); let animId
-  function animate() { animId = requestAnimationFrame(animate); const t = clock.getElapsedTime(); venMesh.rotation.y = t * 0.02; if(orbitControls) orbitControls.update(); renderer.render(scene, camera) }
+  function animate() { animId = requestAnimationFrame(animate); const t = clock.getElapsedTime(); venMesh.rotation.y = t * 0.02; if(orbitControls) orbitControls.update(); if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) } }
   animate()
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Mercury Scene ── */
@@ -3072,7 +3485,17 @@ function createMercuryScene(container) {
   const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 2000)
   camera.position.set(0, 0, 4)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.2, radius: 0.5, threshold: 0.9 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/night_sky_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   const merCanvas = document.createElement('canvas'); merCanvas.width = 512; merCanvas.height = 256
   const mctx = merCanvas.getContext('2d')
@@ -3100,10 +3523,14 @@ function createMercuryScene(container) {
 
   const orbitControls = addOrbitControls(camera, renderer, { minDistance: 2, maxDistance: 12 })
   const clock = new THREE.Clock(); let animId
-  function animate() { animId = requestAnimationFrame(animate); const t = clock.getElapsedTime(); merMesh.rotation.y = t * 0.015; if(orbitControls) orbitControls.update(); renderer.render(scene, camera) }
+  function animate() { animId = requestAnimationFrame(animate); const t = clock.getElapsedTime(); merMesh.rotation.y = t * 0.015; if(orbitControls) orbitControls.update(); if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) } }
   animate()
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Neptune Scene ── */
@@ -3114,7 +3541,17 @@ function createNeptuneScene(container) {
   const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 2000)
   camera.position.set(0, 0.3, 4.5)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.25, radius: 0.5, threshold: 0.9 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/night_sky_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   const nepCanvas = document.createElement('canvas'); nepCanvas.width = 512; nepCanvas.height = 256
   const nctx = nepCanvas.getContext('2d')
@@ -3150,10 +3587,14 @@ function createNeptuneScene(container) {
 
   const orbitControls = addOrbitControls(camera, renderer, { minDistance: 2, maxDistance: 12, autoRotateSpeed: 0.2 })
   const clock = new THREE.Clock(); let animId
-  function animate() { animId = requestAnimationFrame(animate); const t = clock.getElapsedTime(); nepMesh.rotation.y = t * 0.04; if(orbitControls) orbitControls.update(); renderer.render(scene, camera) }
+  function animate() { animId = requestAnimationFrame(animate); const t = clock.getElapsedTime(); nepMesh.rotation.y = t * 0.04; if(orbitControls) orbitControls.update(); if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) } }
   animate()
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Uranus Scene ── */
@@ -3164,7 +3605,17 @@ function createUranusScene(container) {
   const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 2000)
   camera.position.set(0, 2, 5)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.25, radius: 0.5, threshold: 0.9 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/night_sky_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   const uraCanvas = document.createElement('canvas'); uraCanvas.width = 512; uraCanvas.height = 256
   const uctx = uraCanvas.getContext('2d')
@@ -3199,10 +3650,14 @@ function createUranusScene(container) {
 
   const orbitControls = addOrbitControls(camera, renderer, { minDistance: 2, maxDistance: 12, autoRotateSpeed: 0.2 })
   const clock = new THREE.Clock(); let animId
-  function animate() { animId = requestAnimationFrame(animate); const t = clock.getElapsedTime(); uraMesh.rotation.y = t * 0.03; if(orbitControls) orbitControls.update(); renderer.render(scene, camera) }
+  function animate() { animId = requestAnimationFrame(animate); const t = clock.getElapsedTime(); uraMesh.rotation.y = t * 0.03; if(orbitControls) orbitControls.update(); if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) } }
   animate()
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Comet Scene ── */
@@ -3213,7 +3668,17 @@ function createCometScene(container) {
   const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 2000)
   camera.position.set(0, 2, 8)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.4, radius: 0.5, threshold: 0.8 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/night_sky_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   // Comet nucleus
   const nucleusGeo = new THREE.SphereGeometry(0.4, 32, 32)
@@ -3251,10 +3716,14 @@ function createCometScene(container) {
 
   const orbitControls = addOrbitControls(camera, renderer, { minDistance: 3, maxDistance: 20, autoRotateSpeed: 0.15 })
   const clock = new THREE.Clock(); let animId
-  function animate() { animId = requestAnimationFrame(animate); const t = clock.getElapsedTime(); nucleus.rotation.y = t*0.05; if(orbitControls) orbitControls.update(); renderer.render(scene, camera) }
+  function animate() { animId = requestAnimationFrame(animate); const t = clock.getElapsedTime(); nucleus.rotation.y = t*0.05; if(orbitControls) orbitControls.update(); if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) } }
   animate()
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Supernova Scene ── */
@@ -3266,7 +3735,17 @@ function createSupernovaScene(container) {
   camera.position.set(0, 0, 15)
   const renderer = createRenderer(container)
   renderer.toneMappingExposure = 1.5
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.6, radius: 0.5, threshold: 0.7 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/night_sky_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   // Central explosion
   const coreGeo = new THREE.SphereGeometry(0.8, 32, 32)
@@ -3302,11 +3781,15 @@ function createSupernovaScene(container) {
     shellGeo.attributes.position.needsUpdate = true
     core.scale.setScalar(1+Math.sin(t*3)*0.2); coreMat.color.setHSL((t*0.05)%1, 0.8, 0.7+Math.sin(t*2)*0.15)
     rings.forEach((r,i) => { const s = 1+Math.sin(t*0.5+i)*0.1; r.scale.setScalar(s); r.rotation.z += 0.001*(i+1) })
-    if(orbitControls) orbitControls.update(); renderer.render(scene, camera)
+    if(orbitControls) orbitControls.update(); if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Pulsar Scene ── */
@@ -3317,7 +3800,17 @@ function createPulsarScene(container) {
   const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 2000)
   camera.position.set(0, 5, 15)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
+
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.5, radius: 0.5, threshold: 0.75 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/night_sky_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) scene.environment = envMap
+  })
 
   // Neutron star
   const nsGeo = new THREE.SphereGeometry(0.5, 32, 32)
@@ -3359,56 +3852,106 @@ function createPulsarScene(container) {
     beam2.material.opacity = beamMat.opacity
     nsMat.color.setHSL(0.55, 0.6, 0.5 + Math.abs(pulsePhase) * 0.3)
     disk.rotation.z = t * 0.1
-    if(orbitControls) orbitControls.update(); renderer.render(scene, camera)
+    if(orbitControls) orbitControls.update(); if (bloom) { bloom.composer.render() } else { renderer.render(scene, camera) }
   }
   animate()
   const onResize = addResizeHandler(camera, renderer, container)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
+  const origOnResize = onResize
+  const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
+  window.removeEventListener('resize', onResize)
+  window.addEventListener('resize', bloomResize)
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
 /* ── Desert Scene ── */
 function createDesertScene(container) {
   const THREE = window.THREE
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color(0xd4a050)
-  scene.fog = new THREE.FogExp2(0xd4a050, 0.02)
+  scene.fog = new THREE.FogExp2(0xd4a050, 0.015)
   const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000)
   camera.position.set(0, 4, 12)
   const renderer = createRenderer(container)
   renderer.toneMappingExposure = 1.3
+  renderer.physicallyCorrectLights = true
   let disposed = false
 
-  // Sand dunes
-  const duneGeo = new THREE.PlaneGeometry(80, 80, 100, 100)
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.3, radius: 0.5, threshold: 0.9 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/outdoor_daytime_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) { scene.environment = envMap; scene.background = envMap }
+  })
+
+  // Sand dunes with PBR
+  const duneGeo = new THREE.PlaneGeometry(80, 80, 200, 200)
   const dunePos = duneGeo.attributes.position.array
   for (let i = 0; i < dunePos.length; i += 3) {
     const x = dunePos[i], y = dunePos[i+1]
-    dunePos[i+2] = Math.sin(x*0.15)*1.5 + Math.sin(y*0.1+2)*2 + Math.sin(x*0.3+y*0.2)*0.8
+    dunePos[i+2] = Math.sin(x*0.15)*1.5 + Math.sin(y*0.1+2)*2 + Math.sin(x*0.3+y*0.2)*0.8 + Math.sin(x*0.05+y*0.08)*3
   }
   duneGeo.computeVertexNormals()
-  const duneMat = new THREE.MeshStandardMaterial({ color: 0xd4a060, roughness: 0.95, metalness: 0 })
+  const duneMat = loadPBRMaterial('/3d-textures/pbr/Rock021', renderer, { repeat: 8, displacementScale: 0.5, normalScale: 1.2, roughness: 0.95, color: 0xe8c878 })
   const duneMesh = new THREE.Mesh(duneGeo, duneMat); duneMesh.rotation.x = -Math.PI/2; scene.add(duneMesh)
 
-  // Sun
+  // Scattered rocks with Rock035
+  const rockMat = loadPBRMaterial('/3d-textures/pbr/Rock035', renderer, { repeat: 2, normalScale: 1.5, roughness: 0.9, color: 0x8a7a60 })
+  for (let i = 0; i < 12; i++) {
+    const rGeo = new THREE.DodecahedronGeometry(0.4 + Math.random()*0.8, 1)
+    const rPos = rGeo.attributes.position.array
+    for (let j = 0; j < rPos.length; j += 3) { rPos[j] *= 1+Math.random()*0.3; rPos[j+1] *= 0.5+Math.random()*0.5; rPos[j+2] *= 1+Math.random()*0.3 }
+    rGeo.computeVertexNormals()
+    const rock = new THREE.Mesh(rGeo, rockMat)
+    const angle = Math.random()*Math.PI*2, dist = 5+Math.random()*25
+    rock.position.set(Math.cos(angle)*dist, Math.random()*0.3, Math.sin(angle)*dist)
+    rock.rotation.set(Math.random()*0.3, Math.random()*Math.PI*2, Math.random()*0.3)
+    scene.add(rock)
+  }
+
+  // Sun with lens flare sprite
   const sunGeo = new THREE.SphereGeometry(3, 32, 32)
   const sunMat = new THREE.MeshBasicMaterial({ color: 0xffee88 })
   const sun = new THREE.Mesh(sunGeo, sunMat); sun.position.set(20, 15, -30); scene.add(sun)
+  // Lens flare sprite
+  const flareCanvas = document.createElement('canvas'); flareCanvas.width = 128; flareCanvas.height = 128
+  const fCtx = flareCanvas.getContext('2d')
+  const grad = fCtx.createRadialGradient(64,64,0,64,64,64)
+  grad.addColorStop(0, 'rgba(255,240,180,0.6)'); grad.addColorStop(0.3, 'rgba(255,220,120,0.2)'); grad.addColorStop(1, 'rgba(255,200,80,0)')
+  fCtx.fillStyle = grad; fCtx.fillRect(0,0,128,128)
+  const flareTex = new THREE.CanvasTexture(flareCanvas)
+  const flareMat = new THREE.SpriteMaterial({ map: flareTex, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false })
+  const flare = new THREE.Sprite(flareMat); flare.position.copy(sun.position); flare.scale.set(20,20,1); scene.add(flare)
 
   // Heat shimmer particles
-  const shimmerCount = 500; const shimmerPos = new Float32Array(shimmerCount*3)
+  const shimmerCount = 600; const shimmerPos = new Float32Array(shimmerCount*3)
   for(let i=0;i<shimmerCount;i++){shimmerPos[i*3]=(Math.random()-0.5)*40;shimmerPos[i*3+1]=Math.random()*2+0.5;shimmerPos[i*3+2]=(Math.random()-0.5)*40}
   const shimmerGeo = new THREE.BufferGeometry(); shimmerGeo.setAttribute('position', new THREE.BufferAttribute(shimmerPos, 3))
-  scene.add(new THREE.Points(shimmerGeo, new THREE.PointsMaterial({size:0.15,color:0xffddaa,transparent:true,opacity:0.15,depthWrite:false,blending:THREE.AdditiveBlending})))
+  scene.add(new THREE.Points(shimmerGeo, new THREE.PointsMaterial({size:0.2,color:0xffddaa,transparent:true,opacity:0.12,depthWrite:false,blending:THREE.AdditiveBlending})))
 
-  scene.add(new THREE.DirectionalLight(0xfff0cc, 2.5).translateX(20).translateY(15).translateZ(-10))
-  scene.add(new THREE.AmbientLight(0xd4a060, 0.4))
-  scene.add(new THREE.HemisphereLight(0xffee88, 0xd4a060, 0.3))
+  // Lights
+  const dirLight = new THREE.DirectionalLight(0xfff0cc, 2); dirLight.position.set(20,15,-10); scene.add(dirLight)
+  scene.add(new THREE.AmbientLight(0xd4a060, 0.3))
+  scene.add(new THREE.HemisphereLight(0xffee88, 0xd4a060, 0.4))
 
   const orbitControls = addOrbitControls(camera, renderer, { minDistance: 5, maxDistance: 40, maxPolarAngle: Math.PI/2.1, enablePan: true })
   const clock = new THREE.Clock(); let animId
-  function animate() { animId = requestAnimationFrame(animate); const t = clock.getElapsedTime(); const sPos = shimmerGeo.attributes.position.array; for(let i=0;i<shimmerCount;i++){sPos[i*3+1]=0.5+Math.sin(t*2+i*0.5)*0.3+Math.random()*0.1}; shimmerGeo.attributes.position.needsUpdate=true; if(orbitControls) orbitControls.update(); renderer.render(scene, camera) }
+  function animate() {
+    animId = requestAnimationFrame(animate); const t = clock.getElapsedTime()
+    const sPos = shimmerGeo.attributes.position.array
+    for(let i=0;i<shimmerCount;i++){sPos[i*3+1]=0.5+Math.sin(t*2+i*0.5)*0.3+Math.random()*0.05;sPos[i*3]+=Math.sin(t*0.7+i)*0.002}
+    shimmerGeo.attributes.position.needsUpdate=true
+    flare.material.opacity = 0.5 + Math.sin(t*1.5)*0.1
+    if(orbitControls) orbitControls.update()
+    if(bloom){bloom.composer.render()}else{renderer.render(scene,camera)}
+  }
   animate()
-  const onResize = addResizeHandler(camera, renderer, container)
+  const onResize = () => {
+    const w = container.clientWidth||300, h = container.clientHeight||300
+    camera.aspect = w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h)
+    if(bloom) bloom.composer.setSize(w,h)
+  }
+  window.addEventListener('resize', onResize)
   return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
@@ -3416,62 +3959,108 @@ function createDesertScene(container) {
 function createCaveScene(container) {
   const THREE = window.THREE
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color(0x050508)
-  scene.fog = new THREE.FogExp2(0x050508, 0.03)
+  scene.background = new THREE.Color(0x020304)
+  scene.fog = new THREE.FogExp2(0x020304, 0.025)
   const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 100)
   camera.position.set(0, 2, 8)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
 
-  // Cave walls (large sphere inside-out)
-  const caveGeo = new THREE.SphereGeometry(15, 64, 64)
-  const caveMat = new THREE.MeshStandardMaterial({ color: 0x3a3530, roughness: 0.95, metalness: 0, side: THREE.BackSide })
-  scene.add(new THREE.Mesh(caveGeo, caveMat))
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.6, radius: 0.7, threshold: 0.7 })
 
-  // Stalactites
-  for (let i = 0; i < 30; i++) {
-    const h = 1+Math.random()*3, r = 0.1+Math.random()*0.3
-    const stalGeo = new THREE.ConeGeometry(r, h, 8)
-    const stalMat = new THREE.MeshStandardMaterial({ color: 0x5a5550, roughness: 0.9 })
+  // HDRI environment
+  loadHDRI('/3d-textures/dark_cave_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) { scene.environment = envMap }
+  })
+
+  // Cave walls - multiple overlapping spheres with PBR
+  const caveMat = loadPBRMaterial('/3d-textures/pbr/Rock035', renderer, { repeat: 3, displacementScale: 0.4, normalScale: 2.0, roughness: 0.95, color: 0x3a3530, side: THREE.BackSide })
+  const cave1 = new THREE.Mesh(new THREE.SphereGeometry(15, 64, 64), caveMat); scene.add(cave1)
+  const cave2Mat = loadPBRMaterial('/3d-textures/pbr/Rock035', renderer, { repeat: 2, normalScale: 1.5, roughness: 0.95, color: 0x2a2520, side: THREE.BackSide })
+  const cave2 = new THREE.Mesh(new THREE.SphereGeometry(8, 32, 32), cave2Mat); cave2.position.set(5, -3, -5); scene.add(cave2)
+
+  // Stalactites with organic shapes
+  const stalMat = loadPBRMaterial('/3d-textures/pbr/Rock035', renderer, { repeat: 1, normalScale: 1.5, roughness: 0.9, color: 0x5a5550 })
+  for (let i = 0; i < 25; i++) {
+    const h = 1+Math.random()*3.5, rTop = 0.05+Math.random()*0.1, rBot = 0.15+Math.random()*0.35
+    const stalGeo = new THREE.CylinderGeometry(rTop, rBot, h, 8)
     const stal = new THREE.Mesh(stalGeo, stalMat)
     const angle = Math.random()*Math.PI*2, dist = Math.random()*10
-    stal.position.set(Math.cos(angle)*dist, 8-h/2, Math.sin(angle)*dist)
-    stal.rotation.x = Math.PI
+    stal.position.set(Math.cos(angle)*dist, 7-h/2, Math.sin(angle)*dist)
+    stal.rotation.x = Math.PI; stal.rotation.z = (Math.random()-0.5)*0.3
     scene.add(stal)
   }
 
   // Stalagmites
-  for (let i = 0; i < 25; i++) {
-    const h = 0.5+Math.random()*2, r = 0.1+Math.random()*0.4
-    const stagGeo = new THREE.ConeGeometry(r, h, 8)
-    const stagMat = new THREE.MeshStandardMaterial({ color: 0x4a4540, roughness: 0.9 })
+  const stagMat = loadPBRMaterial('/3d-textures/pbr/Rock035', renderer, { repeat: 1, normalScale: 1.5, roughness: 0.9, color: 0x4a4540 })
+  for (let i = 0; i < 20; i++) {
+    const h = 0.5+Math.random()*2.5, rTop = 0.05+Math.random()*0.1, rBot = 0.15+Math.random()*0.4
+    const stagGeo = new THREE.CylinderGeometry(rTop, rBot, h, 8)
     const stag = new THREE.Mesh(stagGeo, stagMat)
     const angle = Math.random()*Math.PI*2, dist = Math.random()*10
-    stag.position.set(Math.cos(angle)*dist, -8+h/2, Math.sin(angle)*dist)
+    stag.position.set(Math.cos(angle)*dist, -7.5+h/2, Math.sin(angle)*dist)
+    stag.rotation.z = (Math.random()-0.5)*0.2
     scene.add(stag)
   }
 
-  // Bioluminescent glow points
-  const glowColors = [0x44ff88, 0x88ff44, 0x22ddaa, 0x66ffaa]
-  for (let i = 0; i < 20; i++) {
-    const glowGeo = new THREE.SphereGeometry(0.1, 8, 8)
-    const glowMat = new THREE.MeshBasicMaterial({ color: glowColors[i%4], transparent: true, opacity: 0.6+Math.random()*0.4 })
-    const glow = new THREE.Mesh(glowGeo, glowMat)
-    const angle = Math.random()*Math.PI*2, dist = Math.random()*12
-    glow.position.set(Math.cos(angle)*dist, (Math.random()-0.5)*12, Math.sin(angle)*dist)
-    scene.add(glow)
-    const pl = new THREE.PointLight(glowColors[i%4], 0.3+Math.random()*0.4, 5)
-    pl.position.copy(glow.position)
-    scene.add(pl)
+  // Crystal formations with emissive materials
+  const crystalColors = [0x44ff88, 0x88ff44, 0x22ddff, 0xaa66ff]
+  const crystals = []
+  for (let i = 0; i < 15; i++) {
+    const cGeo = new THREE.IcosahedronGeometry(0.15+Math.random()*0.3, 0)
+    const cMat = new THREE.MeshStandardMaterial({ color: crystalColors[i%4], emissive: crystalColors[i%4], emissiveIntensity: 0.8, roughness: 0.2, metalness: 0.3, transparent: true, opacity: 0.85 })
+    const crystal = new THREE.Mesh(cGeo, cMat)
+    const angle = Math.random()*Math.PI*2, dist = Math.random()*10
+    crystal.position.set(Math.cos(angle)*dist, (Math.random()-0.5)*10, Math.sin(angle)*dist)
+    crystal.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, 0)
+    scene.add(crystal)
+    crystals.push(crystal)
+    const pl = new THREE.PointLight(crystalColors[i%4], 0.5+Math.random()*0.5, 6)
+    pl.position.copy(crystal.position); scene.add(pl)
   }
 
-  scene.add(new THREE.AmbientLight(0x0a0a10, 0.15))
+  // Underground pool - reflective water
+  const poolGeo = new THREE.CircleGeometry(5, 32)
+  const poolMat = new THREE.MeshStandardMaterial({ color: 0x114466, roughness: 0.05, metalness: 0.95, envMapIntensity: 2.0, transparent: true, opacity: 0.9 })
+  const pool = new THREE.Mesh(poolGeo, poolMat); pool.rotation.x = -Math.PI/2; pool.position.y = -7.5; scene.add(pool)
+
+  // Bioluminescent volumetric glow spheres
+  const glowColors = [0x44ff88, 0x88ff44, 0x22ddaa, 0x66ffaa]
+  const glowSpheres = []
+  for (let i = 0; i < 8; i++) {
+    for (let layer = 0; layer < 3; layer++) {
+      const r = 0.3 + layer*0.3
+      const gGeo = new THREE.SphereGeometry(r, 8, 8)
+      const gMat = new THREE.MeshBasicMaterial({ color: glowColors[i%4], transparent: true, opacity: 0.15-layer*0.04, depthWrite: false, blending: THREE.AdditiveBlending })
+      const gMesh = new THREE.Mesh(gGeo, gMat)
+      const angle = Math.random()*Math.PI*2, dist = Math.random()*8
+      gMesh.position.set(Math.cos(angle)*dist, (Math.random()-0.5)*8, Math.sin(angle)*dist)
+      scene.add(gMesh)
+      glowSpheres.push(gMesh)
+    }
+  }
+
+  scene.add(new THREE.AmbientLight(0x0a0a10, 0.1))
 
   const orbitControls = addOrbitControls(camera, renderer, { minDistance: 2, maxDistance: 15, autoRotateSpeed: 0.15 })
   const clock = new THREE.Clock(); let animId
-  function animate() { animId = requestAnimationFrame(animate); if(orbitControls) orbitControls.update(); renderer.render(scene, camera) }
+  function animate() {
+    animId = requestAnimationFrame(animate); const t = clock.getElapsedTime()
+    crystals.forEach((c,i) => { c.rotation.y = t*0.3+i; c.material.emissiveIntensity = 0.5+Math.sin(t*2+i)*0.4 })
+    glowSpheres.forEach((g,i) => { g.material.opacity = 0.08+Math.sin(t*1.5+i*0.7)*0.06 })
+    if(orbitControls) orbitControls.update()
+    if(bloom){bloom.composer.render()}else{renderer.render(scene,camera)}
+  }
   animate()
-  const onResize = addResizeHandler(camera, renderer, container)
+  const onResize = () => {
+    const w = container.clientWidth||300, h = container.clientHeight||300
+    camera.aspect = w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h)
+    if(bloom) bloom.composer.setSize(w,h)
+  }
+  window.addEventListener('resize', onResize)
   return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
@@ -3479,70 +4068,114 @@ function createCaveScene(container) {
 function createWaterfallScene(container) {
   const THREE = window.THREE
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color(0x1a3020)
-  scene.fog = new THREE.FogExp2(0x2a4030, 0.015)
+  scene.fog = new THREE.FogExp2(0x2a4030, 0.012)
   const camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 0.1, 500)
   camera.position.set(0, 5, 18)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
 
-  // Cliff
-  const cliffGeo = new THREE.BoxGeometry(20, 15, 5)
-  const cliffMat = new THREE.MeshStandardMaterial({ color: 0x555040, roughness: 0.95 })
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.35, radius: 0.6, threshold: 0.85 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/forest_nature_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) { scene.environment = envMap; scene.background = envMap }
+  })
+
+  // Cliff with PBR
+  const cliffMat = loadPBRMaterial('/3d-textures/pbr/Rock035', renderer, { repeat: 3, displacementScale: 0.3, normalScale: 1.8, roughness: 0.95, color: 0x555040 })
+  const cliffGeo = new THREE.BoxGeometry(20, 15, 5, 10, 10, 2)
+  const cPos = cliffGeo.attributes.position.array
+  for (let i = 0; i < cPos.length; i += 3) { if(Math.abs(cPos[i])>8) cPos[i]+=Math.random()*0.5; cPos[i+1]+=Math.random()*0.3 }
+  cliffGeo.computeVertexNormals()
   const cliff = new THREE.Mesh(cliffGeo, cliffMat); cliff.position.set(0, 5, -5); scene.add(cliff)
 
+  // Waterfall mesh - animated plane
+  const fallGeo = new THREE.PlaneGeometry(3, 12, 8, 30)
+  const fallMat = new THREE.MeshStandardMaterial({ color: 0x88ccff, roughness: 0.1, metalness: 0.3, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false })
+  const fallMesh = new THREE.Mesh(fallGeo, fallMat); fallMesh.position.set(0, 3, -2.5); scene.add(fallMesh)
+
   // Waterfall particles
-  const waterCount = 3000; const waterPos = new Float32Array(waterCount*3); const waterVel = []
+  const waterCount = 2000; const waterPos = new Float32Array(waterCount*3); const waterVel = []
   for (let i = 0; i < waterCount; i++) {
-    const i3 = i*3
-    waterPos[i3] = (Math.random()-0.5)*3
-    waterPos[i3+1] = Math.random()*12
-    waterPos[i3+2] = -2+Math.random()*2
-    waterVel.push(0.02+Math.random()*0.05)
+    waterPos[i*3] = (Math.random()-0.5)*3; waterPos[i*3+1] = Math.random()*12; waterPos[i*3+2] = -2+Math.random()*2
+    waterVel.push(0.03+Math.random()*0.06)
   }
   const waterGeo = new THREE.BufferGeometry(); waterGeo.setAttribute('position', new THREE.BufferAttribute(waterPos, 3))
-  const waterMat = new THREE.PointsMaterial({ size: 0.08, color: 0x88ccff, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending })
-  scene.add(new THREE.Points(waterGeo, waterMat))
+  scene.add(new THREE.Points(waterGeo, new THREE.PointsMaterial({size:0.06,color:0xaaddff,transparent:true,opacity:0.4,depthWrite:false,blending:THREE.AdditiveBlending})))
 
-  // Pool at bottom
-  const poolGeo = new THREE.PlaneGeometry(15, 10)
-  const poolMat = new THREE.MeshStandardMaterial({ color: 0x225588, roughness: 0.3, metalness: 0.5, transparent: true, opacity: 0.8 })
+  // Pool - reflective water
+  const poolGeo = new THREE.PlaneGeometry(15, 10, 20, 20)
+  const poolMat = new THREE.MeshStandardMaterial({ color: 0x225588, roughness: 0.05, metalness: 0.95, envMapIntensity: 2.0, transparent: true, opacity: 0.85 })
   const pool = new THREE.Mesh(poolGeo, poolMat); pool.rotation.x = -Math.PI/2; pool.position.y = -2.5; scene.add(pool)
 
-  // Mist
-  const mistCount = 500; const mistPos = new Float32Array(mistCount*3)
-  for(let i=0;i<mistCount;i++){mistPos[i*3]=(Math.random()-0.5)*8;mistPos[i*3+1]=Math.random()*3-2;mistPos[i*3+2]=Math.random()*5-2}
-  const mistGeo = new THREE.BufferGeometry(); mistGeo.setAttribute('position', new THREE.BufferAttribute(mistPos, 3))
-  scene.add(new THREE.Points(mistGeo, new THREE.PointsMaterial({size:0.3,color:0xffffff,transparent:true,opacity:0.1,depthWrite:false})))
+  // Wet ground around pool
+  const wetGroundMat = loadPBRMaterial('/3d-textures/pbr/Ground042', renderer, { repeat: 4, normalScale: 1.2, roughness: 0.7, color: 0x3a4a30 })
+  const wetGround = new THREE.Mesh(new THREE.PlaneGeometry(25, 20), wetGroundMat)
+  wetGround.rotation.x = -Math.PI/2; wetGround.position.y = -2.55; scene.add(wetGround)
 
-  // Greenery
-  for (let i = 0; i < 15; i++) {
-    const treeGeo = new THREE.ConeGeometry(0.8+Math.random()*0.5, 2+Math.random()*2, 8)
-    const treeMat = new THREE.MeshStandardMaterial({ color: 0x2a6a2a, roughness: 0.9 })
+  // Mist - large soft sprite particles
+  const mistCount = 300; const mistPos = new Float32Array(mistCount*3)
+  for(let i=0;i<mistCount;i++){mistPos[i*3]=(Math.random()-0.5)*10;mistPos[i*3+1]=Math.random()*3-2;mistPos[i*3+2]=Math.random()*5-2}
+  const mistGeo = new THREE.BufferGeometry(); mistGeo.setAttribute('position', new THREE.BufferAttribute(mistPos, 3))
+  scene.add(new THREE.Points(mistGeo, new THREE.PointsMaterial({size:0.5,color:0xffffff,transparent:true,opacity:0.08,depthWrite:false})))
+
+  // Lush vegetation
+  const treeColors = [0x2a6a2a, 0x1a5a1a, 0x3a7a3a, 0x2a5a3a]
+  for (let i = 0; i < 18; i++) {
+    const treeGeo = new THREE.ConeGeometry(0.6+Math.random()*0.6, 2+Math.random()*3, 8)
+    const treeMat = new THREE.MeshStandardMaterial({ color: treeColors[i%4], roughness: 0.9 })
     const tree = new THREE.Mesh(treeGeo, treeMat)
     const side = Math.random() > 0.5 ? 1 : -1
-    tree.position.set(side*(6+Math.random()*5), -2+Math.random(), -3+Math.random()*6)
+    tree.position.set(side*(6+Math.random()*6), -2+Math.random(), -4+Math.random()*8)
     scene.add(tree)
   }
 
+  // God rays - transparent cones with additive blending
+  for (let i = 0; i < 4; i++) {
+    const rayGeo = new THREE.ConeGeometry(1.5, 12, 8, 1, true)
+    const rayMat = new THREE.MeshBasicMaterial({ color: 0xffffaa, transparent: true, opacity: 0.03, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending })
+    const ray = new THREE.Mesh(rayGeo, rayMat)
+    ray.position.set(-4+i*2.5, 6, -3); ray.rotation.x = 0.1; ray.rotation.z = (Math.random()-0.5)*0.3
+    scene.add(ray)
+  }
+
   scene.add(new THREE.DirectionalLight(0xfff8e0, 1.5).translateX(5).translateY(10).translateZ(5))
-  scene.add(new THREE.AmbientLight(0x1a3020, 0.4))
+  scene.add(new THREE.AmbientLight(0x1a3020, 0.3))
   scene.add(new THREE.HemisphereLight(0x88ccff, 0x225533, 0.3))
 
   const orbitControls = addOrbitControls(camera, renderer, { minDistance: 5, maxDistance: 30, maxPolarAngle: Math.PI/2, autoRotateSpeed: 0.15 })
   const clock = new THREE.Clock(); let animId
   function animate() {
     animId = requestAnimationFrame(animate); const t = clock.getElapsedTime()
+    // Animate waterfall mesh vertices
+    const fPos = fallGeo.attributes.position.array
+    for (let i = 0; i < fPos.length; i += 3) { fPos[i] = (Math.random()-0.5)*0.15; fPos[i+2] = (Math.random()-0.5)*0.1 }
+    fallGeo.attributes.position.needsUpdate = true
+    // Waterfall particles
     const wPos = waterGeo.attributes.position.array
     for(let i=0;i<waterCount;i++){wPos[i*3+1]-=waterVel[i];if(wPos[i*3+1]<-2.5){wPos[i*3+1]=12;wPos[i*3]=(Math.random()-0.5)*3;wPos[i*3+2]=-2+Math.random()*2}}
     waterGeo.attributes.position.needsUpdate=true
+    // Mist drift
     const mPos = mistGeo.attributes.position.array
     for(let i=0;i<mistCount;i++){mPos[i*3]+=Math.sin(t+i)*0.003;mPos[i*3+1]+=Math.cos(t*0.5+i)*0.002}
     mistGeo.attributes.position.needsUpdate=true
-    if(orbitControls) orbitControls.update(); renderer.render(scene, camera)
+    // Pool ripples
+    const pPos = poolGeo.attributes.position.array
+    for(let i=0;i<pPos.length;i+=3){pPos[i+2]=Math.sin(pPos[i]*0.5+t*2)*0.03+Math.cos(pPos[i+1]*0.5+t*1.5)*0.03}
+    poolGeo.attributes.position.needsUpdate=true
+    if(orbitControls) orbitControls.update()
+    if(bloom){bloom.composer.render()}else{renderer.render(scene,camera)}
   }
   animate()
-  const onResize = addResizeHandler(camera, renderer, container)
+  const onResize = () => {
+    const w = container.clientWidth||300, h = container.clientHeight||300
+    camera.aspect = w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h)
+    if(bloom) bloom.composer.setSize(w,h)
+  }
+  window.addEventListener('resize', onResize)
   return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
@@ -3550,62 +4183,101 @@ function createWaterfallScene(container) {
 function createArcticScene(container) {
   const THREE = window.THREE
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color(0x0a1020)
+  scene.fog = new THREE.FogExp2(0x0a1020, 0.008)
   const camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 0.1, 1000)
   camera.position.set(0, 5, 18)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
 
-  // Ice ground
-  const iceGeo = new THREE.PlaneGeometry(80, 80)
-  const iceMat = new THREE.MeshStandardMaterial({ color: 0xb0c8d8, roughness: 0.3, metalness: 0.4 })
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.5, radius: 0.6, threshold: 0.8 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/arctic_snow_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) { scene.environment = envMap; scene.background = envMap }
+  })
+
+  // Ice ground with PBR
+  const iceGeo = new THREE.PlaneGeometry(80, 80, 40, 40)
+  const iceMat = loadPBRMaterial('/3d-textures/pbr/Snow003', renderer, { repeat: 6, displacementScale: 0.2, normalScale: 1.5, roughness: 0.2, metalness: 0.3, color: 0xc0d8e8, envMapIntensity: 1.5 })
   const ice = new THREE.Mesh(iceGeo, iceMat); ice.rotation.x = -Math.PI/2; scene.add(ice)
 
-  // Icebergs
+  // Icebergs with irregular geometry
   for (let i = 0; i < 8; i++) {
-    const bgGeo = new THREE.ConeGeometry(1+Math.random()*2, 2+Math.random()*4, 6)
-    const bgMat = new THREE.MeshStandardMaterial({ color: 0xc0d8e8, roughness: 0.5, metalness: 0.2, transparent: true, opacity: 0.85 })
+    const bgGeo = new THREE.DodecahedronGeometry(1+Math.random()*2, 2)
+    const bgPos = bgGeo.attributes.position.array
+    for (let j = 0; j < bgPos.length; j += 3) { bgPos[j+1] *= 0.5+Math.random()*0.5; bgPos[j] *= 1+Math.random()*0.3; bgPos[j+2] *= 1+Math.random()*0.3 }
+    bgGeo.computeVertexNormals()
+    const bgMat = new THREE.MeshStandardMaterial({ color: 0xc0d8e8, roughness: 0.15, metalness: 0.3, transparent: true, opacity: 0.85, envMapIntensity: 1.5 })
     const bg = new THREE.Mesh(bgGeo, bgMat)
-    bg.position.set((Math.random()-0.5)*30, -1+Math.random()*2, (Math.random()-0.5)*30-5)
+    bg.position.set((Math.random()-0.5)*30, -0.5+Math.random()*1.5, (Math.random()-0.5)*30-5)
     bg.rotation.y = Math.random()*Math.PI
     scene.add(bg)
   }
 
-  // Aurora borealis (colored planes)
-  const auroraColors = [0x22ff66, 0x44ffaa, 0x22ddff, 0x88ff44]
+  // Aurora borealis - shader-based curtain effect
+  const auroraColors = [0x22ff66, 0x44ffaa, 0x22ddff, 0x88ff44, 0x44aaff, 0x66ffcc]
   const auroraPlanes = []
-  for (let i = 0; i < 6; i++) {
-    const aGeo = new THREE.PlaneGeometry(15, 3, 20, 5)
-    const aMat = new THREE.MeshBasicMaterial({ color: auroraColors[i%4], transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending })
+  for (let i = 0; i < 8; i++) {
+    const aGeo = new THREE.PlaneGeometry(18, 4, 30, 8)
+    const aPositions = aGeo.attributes.position.array
+    // Create curtain wave shape
+    for (let j = 0; j < aPositions.length; j += 3) {
+      aPositions[j+2] += Math.sin(aPositions[j]*0.3)*1.5 + Math.sin(aPositions[j]*0.7)*0.5
+    }
+    aGeo.computeVertexNormals()
+    const aMat = new THREE.MeshBasicMaterial({ color: auroraColors[i%6], transparent: true, opacity: 0.1, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending })
     const aMesh = new THREE.Mesh(aGeo, aMat)
-    aMesh.position.set((i-3)*5, 12+Math.random()*5, -20)
-    aMesh.rotation.x = -0.2
+    aMesh.position.set((i-4)*4, 14+Math.random()*4, -25)
+    aMesh.rotation.x = -0.15
     scene.add(aMesh)
     auroraPlanes.push(aMesh)
   }
 
-  // Snow particles
-  const snowCount = 2000; const snowPos = new Float32Array(snowCount*3)
-  for(let i=0;i<snowCount;i++){snowPos[i*3]=(Math.random()-0.5)*60;snowPos[i*3+1]=Math.random()*30;snowPos[i*3+2]=(Math.random()-0.5)*60}
+  // Snow particles with varying sizes and wind drift
+  const snowCount = 2500; const snowPos = new Float32Array(snowCount*3); const snowSizes = new Float32Array(snowCount)
+  for(let i=0;i<snowCount;i++){snowPos[i*3]=(Math.random()-0.5)*60;snowPos[i*3+1]=Math.random()*30;snowPos[i*3+2]=(Math.random()-0.5)*60;snowSizes[i]=0.05+Math.random()*0.2}
   const snowGeo = new THREE.BufferGeometry(); snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3))
-  scene.add(new THREE.Points(snowGeo, new THREE.PointsMaterial({size:0.15,color:0xffffff,transparent:true,opacity:0.6,depthWrite:false})))
+  scene.add(new THREE.Points(snowGeo, new THREE.PointsMaterial({size:0.15,color:0xeeeeff,transparent:true,opacity:0.6,depthWrite:false})))
 
-  scene.add(new THREE.DirectionalLight(0xaaccff, 1.0).translateX(5).translateY(10).translateZ(5))
-  scene.add(new THREE.AmbientLight(0x1a2040, 0.4))
-  scene.add(new THREE.HemisphereLight(0x4488cc, 0x223344, 0.3))
+  // Frost/mist effect - transparent particle planes
+  const frostCount = 200; const frostPos = new Float32Array(frostCount*3)
+  for(let i=0;i<frostCount;i++){frostPos[i*3]=(Math.random()-0.5)*40;frostPos[i*3+1]=Math.random()*5;frostPos[i*3+2]=(Math.random()-0.5)*40}
+  const frostGeo = new THREE.BufferGeometry(); frostGeo.setAttribute('position', new THREE.BufferAttribute(frostPos, 3))
+  scene.add(new THREE.Points(frostGeo, new THREE.PointsMaterial({size:0.8,color:0xccddff,transparent:true,opacity:0.04,depthWrite:false})))
+
+  scene.add(new THREE.DirectionalLight(0xaaccff, 0.8).translateX(5).translateY(10).translateZ(5))
+  scene.add(new THREE.AmbientLight(0x1a2040, 0.3))
+  scene.add(new THREE.HemisphereLight(0x4488cc, 0x223344, 0.4))
 
   const orbitControls = addOrbitControls(camera, renderer, { minDistance: 5, maxDistance: 40, maxPolarAngle: Math.PI/2.1, autoRotateSpeed: 0.1 })
   const clock = new THREE.Clock(); let animId
   function animate() {
     animId = requestAnimationFrame(animate); const t = clock.getElapsedTime()
-    auroraPlanes.forEach((a,i) => { a.position.y = 12+Math.sin(t*0.3+i)*2; a.material.opacity = 0.08+Math.sin(t*0.5+i*1.5)*0.06 })
+    // Animate aurora
+    auroraPlanes.forEach((a,i) => {
+      a.position.y = 14+Math.sin(t*0.3+i)*2.5
+      a.material.opacity = 0.06+Math.sin(t*0.5+i*1.5)*0.05
+      const pos = a.geometry.attributes.position.array
+      for(let j=0;j<pos.length;j+=3){pos[j+2]=Math.sin(pos[j]*0.3+t*0.5+i)*1.5+Math.sin(pos[j]*0.7+t*0.3)*0.5}
+      a.geometry.attributes.position.needsUpdate = true
+    })
+    // Snow
     const sPos = snowGeo.attributes.position.array
     for(let i=0;i<snowCount;i++){sPos[i*3+1]-=0.02+Math.sin(t+i)*0.005;sPos[i*3]+=Math.sin(t*0.5+i)*0.003;if(sPos[i*3+1]<0){sPos[i*3+1]=30;sPos[i*3]=(Math.random()-0.5)*60}}
     snowGeo.attributes.position.needsUpdate=true
-    if(orbitControls) orbitControls.update(); renderer.render(scene, camera)
+    if(orbitControls) orbitControls.update()
+    if(bloom){bloom.composer.render()}else{renderer.render(scene,camera)}
   }
   animate()
-  const onResize = addResizeHandler(camera, renderer, container)
+  const onResize = () => {
+    const w = container.clientWidth||300, h = container.clientHeight||300
+    camera.aspect = w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h)
+    if(bloom) bloom.composer.setSize(w,h)
+  }
+  window.addEventListener('resize', onResize)
   return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
@@ -3613,49 +4285,98 @@ function createArcticScene(container) {
 function createPyramidScene(container) {
   const THREE = window.THREE
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color(0x1a1008)
-  scene.fog = new THREE.FogExp2(0x1a1008, 0.01)
+  scene.fog = new THREE.FogExp2(0x1a1008, 0.008)
   const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 1000)
   camera.position.set(0, 6, 20)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
 
-  // Great Pyramid
-  const pyrGeo = new THREE.ConeGeometry(6, 10, 4)
-  const pyrMat = new THREE.MeshStandardMaterial({ color: 0xc4a860, roughness: 0.85, metalness: 0.05 })
-  const pyr = new THREE.Mesh(pyrGeo, pyrMat); pyr.position.y = 5; pyr.rotation.y = Math.PI/4; scene.add(pyr)
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.2, radius: 0.5, threshold: 0.9 })
 
-  // Smaller pyramids
-  for (let i = 0; i < 3; i++) {
-    const sGeo = new THREE.ConeGeometry(2-i*0.3, 3-i*0.5, 4)
-    const sMat = new THREE.MeshStandardMaterial({ color: 0xb89850, roughness: 0.85, metalness: 0.05 })
-    const s = new THREE.Mesh(sGeo, sMat); s.position.set(10+i*4, 1.5-i*0.25, -5+i*3); s.rotation.y = Math.PI/4; scene.add(s)
+  // HDRI environment
+  loadHDRI('/3d-textures/outdoor_daytime_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) { scene.environment = envMap }
+  })
+
+  // Sand ground with PBR
+  const sandMat = loadPBRMaterial('/3d-textures/pbr/Rock021', renderer, { repeat: 10, displacementScale: 0.3, normalScale: 1.0, roughness: 0.95, color: 0xd4a860 })
+  const sandGeo = new THREE.PlaneGeometry(100, 100, 80, 80)
+  const sPos = sandGeo.attributes.position.array
+  for (let i = 0; i < sPos.length; i += 3) { sPos[i+2] = Math.sin(sPos[i]*0.05)*1.5+Math.sin(sPos[i+1]*0.08)*1 }
+  sandGeo.computeVertexNormals()
+  const sand = new THREE.Mesh(sandGeo, sandMat); sand.rotation.x = -Math.PI/2; scene.add(sand)
+
+  // Stepped pyramid builder
+  function createSteppedPyramid(baseSize, height, steps) {
+    const group = new THREE.Group()
+    const pyrMat = loadPBRMaterial('/3d-textures/pbr/Rock021', renderer, { repeat: 2, normalScale: 1.2, roughness: 0.85, color: 0xc4a860 })
+    for (let s = 0; s < steps; s++) {
+      const scale = 1 - s/steps
+      const w = baseSize * scale, h = height / steps
+      const stepGeo = new THREE.BoxGeometry(w, h, w)
+      const step = new THREE.Mesh(stepGeo, pyrMat)
+      step.position.y = s * h + h/2
+      group.add(step)
+    }
+    return group
   }
 
-  // Sand ground
-  const sandGeo = new THREE.PlaneGeometry(100, 100)
-  const sandMat = new THREE.MeshStandardMaterial({ color: 0xd4a860, roughness: 0.95 })
-  scene.add(new THREE.Mesh(sandGeo, sandMat).rotateX(-Math.PI/2))
+  // Great Pyramid
+  const greatPyr = createSteppedPyramid(12, 10, 8)
+  greatPyr.position.y = 0; scene.add(greatPyr)
 
-  // Stars
-  const starCount = 3000; const starPos = new Float32Array(starCount*3)
-  for(let i=0;i<starCount;i++){const i3=i*3,r=40+Math.random()*400,theta=Math.random()*Math.PI*2,phi=Math.acos(2*Math.random()-1);starPos[i3]=r*Math.sin(phi)*Math.cos(theta);starPos[i3+1]=Math.abs(r*Math.sin(phi)*Math.sin(theta));starPos[i3+2]=r*Math.cos(phi)}
-  const starGeo=new THREE.BufferGeometry();starGeo.setAttribute('position',new THREE.BufferAttribute(starPos,3))
-  scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({size:0.5,color:0xffffff,transparent:true,opacity:0.6,depthWrite:false})))
+  // Smaller pyramids
+  const smallSizes = [{x:12,z:-4,s:7,h:5},{x:16,z:0,s:5,h:3.5},{x:10,z:2,s:4,h:2.5}]
+  smallSizes.forEach(p => {
+    const sp = createSteppedPyramid(p.s, p.h, 5)
+    sp.position.set(p.x, 0, p.z); scene.add(sp)
+  })
 
-  // Moon
+  // Sphinx silhouette (box body + cone headdress)
+  const sphinxMat = loadPBRMaterial('/3d-textures/pbr/Rock021', renderer, { repeat: 1, normalScale: 1.5, roughness: 0.9, color: 0xb89850 })
+  const sphinxBody = new THREE.Mesh(new THREE.BoxGeometry(4, 2, 8), sphinxMat); sphinxBody.position.set(-5, 1, 5); scene.add(sphinxBody)
+  const sphinxHead = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.5, 1.5), sphinxMat); sphinxHead.position.set(-5, 3.25, 1.5); scene.add(sphinxHead)
+  const sphinxHeaddress = new THREE.Mesh(new THREE.ConeGeometry(1.2, 1.5, 4), sphinxMat); sphinxHeaddress.position.set(-5, 5, 1.5); sphinxHeaddress.rotation.y = Math.PI/4; scene.add(sphinxHeaddress)
+
+  // Stars with color variation
+  const starCount = 3000; const starPos = new Float32Array(starCount*3); const starColors = new Float32Array(starCount*3)
+  for(let i=0;i<starCount;i++){
+    const i3=i*3,r=50+Math.random()*400,theta=Math.random()*Math.PI*2,phi=Math.acos(2*Math.random()-1)
+    starPos[i3]=r*Math.sin(phi)*Math.cos(theta);starPos[i3+1]=Math.abs(r*Math.sin(phi)*Math.sin(theta));starPos[i3+2]=r*Math.cos(phi)
+    const warm = Math.random() > 0.7
+    starColors[i3] = warm ? 1.0 : 0.7+Math.random()*0.3; starColors[i3+1] = warm ? 0.85+Math.random()*0.15 : 0.8+Math.random()*0.2; starColors[i3+2] = warm ? 0.6+Math.random()*0.2 : 1.0
+  }
+  const starGeo = new THREE.BufferGeometry(); starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3)); starGeo.setAttribute('color', new THREE.BufferAttribute(starColors, 3))
+  scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({size:0.5,vertexColors:true,transparent:true,opacity:0.7,depthWrite:false})))
+
+  // Moon with glow sprite
   const moonGeo = new THREE.SphereGeometry(2, 32, 32)
   const moonMat = new THREE.MeshBasicMaterial({ color: 0xeeeedd })
   const moon = new THREE.Mesh(moonGeo, moonMat); moon.position.set(25, 20, -30); scene.add(moon)
+  const moonGlowCanvas = document.createElement('canvas'); moonGlowCanvas.width = 64; moonGlowCanvas.height = 64
+  const mgCtx = moonGlowCanvas.getContext('2d')
+  const mgGrad = mgCtx.createRadialGradient(32,32,0,32,32,32)
+  mgGrad.addColorStop(0,'rgba(238,238,221,0.4)'); mgGrad.addColorStop(0.5,'rgba(238,238,221,0.1)'); mgGrad.addColorStop(1,'rgba(238,238,221,0)')
+  mgCtx.fillStyle = mgGrad; mgCtx.fillRect(0,0,64,64)
+  const moonGlow = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(moonGlowCanvas),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}))
+  moonGlow.position.copy(moon.position); moonGlow.scale.set(15,15,1); scene.add(moonGlow)
 
-  scene.add(new THREE.DirectionalLight(0xaabbcc, 0.8).translateX(25).translateY(20).translateZ(-10))
-  scene.add(new THREE.AmbientLight(0x1a1510, 0.3))
+  const dirLight = new THREE.DirectionalLight(0xaabbcc, 0.8); dirLight.position.set(25,20,-10); scene.add(dirLight)
+  scene.add(new THREE.AmbientLight(0x1a1510, 0.25))
 
   const orbitControls = addOrbitControls(camera, renderer, { minDistance: 10, maxDistance: 60, maxPolarAngle: Math.PI/2.1, autoRotateSpeed: 0.1 })
   const clock = new THREE.Clock(); let animId
-  function animate() { animId = requestAnimationFrame(animate); if(orbitControls) orbitControls.update(); renderer.render(scene, camera) }
+  function animate() { animId = requestAnimationFrame(animate); if(orbitControls) orbitControls.update(); if(bloom){bloom.composer.render()}else{renderer.render(scene,camera)} }
   animate()
-  const onResize = addResizeHandler(camera, renderer, container)
+  const onResize = () => {
+    const w = container.clientWidth||300, h = container.clientHeight||300
+    camera.aspect = w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h)
+    if(bloom) bloom.composer.setSize(w,h)
+  }
+  window.addEventListener('resize', onResize)
   return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
@@ -3663,67 +4384,114 @@ function createPyramidScene(container) {
 function createLighthouseScene(container) {
   const THREE = window.THREE
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color(0x0a1520)
-  scene.fog = new THREE.FogExp2(0x0a1520, 0.02)
+  scene.fog = new THREE.FogExp2(0x0a1520, 0.015)
   const camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 0.1, 500)
   camera.position.set(0, 5, 18)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
 
-  // Lighthouse tower
-  const towerGeo = new THREE.CylinderGeometry(0.8, 1.2, 8, 16)
-  const towerMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.7 })
-  const tower = new THREE.Mesh(towerGeo, towerMat); tower.position.y = 4; scene.add(tower)
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.5, radius: 0.6, threshold: 0.8 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/sunset_dusk_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) { scene.environment = envMap; scene.background = envMap }
+  })
+
+  // Lighthouse tower with PBR concrete
+  const towerMat = loadPBRMaterial('/3d-textures/pbr/Concrete012', renderer, { repeat: 2, normalScale: 1.0, roughness: 0.7, color: 0xdddddd })
+  const towerGeo = new THREE.CylinderGeometry(0.7, 1.3, 10, 16)
+  const tower = new THREE.Mesh(towerGeo, towerMat); tower.position.y = 5; scene.add(tower)
+
+  // Gallery/deck
+  const deckGeo = new THREE.CylinderGeometry(1.5, 1.4, 0.4, 16)
+  const deckMat = loadPBRMaterial('/3d-textures/pbr/Concrete012', renderer, { repeat: 1, roughness: 0.7, color: 0xcccccc })
+  const deck = new THREE.Mesh(deckGeo, deckMat); deck.position.y = 10.2; scene.add(deck)
 
   // Red stripes
   for (let i = 0; i < 3; i++) {
-    const stripGeo = new THREE.CylinderGeometry(0.82-i*0.12, 0.85-i*0.12, 1.5, 16)
-    const stripMat = new THREE.MeshStandardMaterial({ color: 0xcc3333, roughness: 0.7 })
-    const strip = new THREE.Mesh(stripGeo, stripMat); strip.position.y = 1.5+i*2.5; scene.add(strip)
+    const r = 0.72 - i*0.15
+    const stripGeo = new THREE.CylinderGeometry(r, r+0.03, 1.5, 16)
+    const stripMat = new THREE.MeshStandardMaterial({ color: 0xcc3333, roughness: 0.6 })
+    const strip = new THREE.Mesh(stripGeo, stripMat); strip.position.y = 2+i*3; scene.add(strip)
   }
 
-  // Light room
-  const lightGeo = new THREE.CylinderGeometry(1, 0.85, 1.5, 16)
-  const lightMat = new THREE.MeshBasicMaterial({ color: 0xffff88, transparent: true, opacity: 0.8 })
-  const lightRoom = new THREE.Mesh(lightGeo, lightMat); lightRoom.position.y = 8.5; scene.add(lightRoom)
+  // Glass light room with emissive
+  const lightRoomGeo = new THREE.CylinderGeometry(1.1, 0.9, 1.5, 16, 1, true)
+  const lightRoomMat = new THREE.MeshStandardMaterial({ color: 0xffff88, emissive: 0xffff44, emissiveIntensity: 0.8, transparent: true, opacity: 0.7, roughness: 0.1, metalness: 0.2 })
+  const lightRoom = new THREE.Mesh(lightRoomGeo, lightRoomMat); lightRoom.position.y = 11; scene.add(lightRoom)
 
-  // Beam of light (rotating)
-  const beamGeo = new THREE.ConeGeometry(4, 25, 16, 1, true)
-  const beamMat = new THREE.MeshBasicMaterial({ color: 0xffffaa, transparent: true, opacity: 0.06, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending })
-  const beam = new THREE.Mesh(beamGeo, beamMat); beam.position.set(0, 8.5, 0); scene.add(beam)
+  // Dome roof
+  const roofGeo = new THREE.SphereGeometry(1.1, 16, 8, 0, Math.PI*2, 0, Math.PI/2)
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.6, metalness: 0.3 })
+  const roof = new THREE.Mesh(roofGeo, roofMat); roof.position.y = 11.75; scene.add(roof)
+
+  // Rotating beam - volumetric effect with multiple layers
+  const beamGroup = new THREE.Group(); beamGroup.position.y = 11
+  for (let layer = 0; layer < 3; layer++) {
+    const bGeo = new THREE.ConeGeometry(5+layer*2, 30, 16, 1, true)
+    const bMat = new THREE.MeshBasicMaterial({ color: 0xffffaa, transparent: true, opacity: 0.04-layer*0.01, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending })
+    beamGroup.add(new THREE.Mesh(bGeo, bMat))
+  }
+  scene.add(beamGroup)
 
   // Point light
-  const lighthouseLight = new THREE.PointLight(0xffffaa, 2, 30); lighthouseLight.position.y = 8.5; scene.add(lighthouseLight)
+  const lighthouseLight = new THREE.PointLight(0xffffaa, 2, 35); lighthouseLight.position.y = 11; scene.add(lighthouseLight)
 
-  // Rocky ground
-  const rockGeo = new THREE.CylinderGeometry(4, 5, 2, 8)
-  const rockMat = new THREE.MeshStandardMaterial({ color: 0x4a4540, roughness: 0.95 })
-  scene.add(new THREE.Mesh(rockGeo, rockMat).translateY(-1))
+  // Rocky base with PBR
+  const rockMat = loadPBRMaterial('/3d-textures/pbr/Rock035', renderer, { repeat: 2, normalScale: 1.5, roughness: 0.95, color: 0x4a4540 })
+  const rockGeo = new THREE.CylinderGeometry(4, 6, 3, 12)
+  const rPos = rockGeo.attributes.position.array
+  for(let i=0;i<rPos.length;i+=3){rPos[i]*=1+Math.random()*0.15;rPos[i+2]*=1+Math.random()*0.15}
+  rockGeo.computeVertexNormals()
+  const rock = new THREE.Mesh(rockGeo, rockMat); rock.position.y = -0.5; scene.add(rock)
 
-  // Ocean
-  const oceanGeo = new THREE.PlaneGeometry(100, 100)
-  const oceanMat = new THREE.MeshStandardMaterial({ color: 0x1a3344, roughness: 0.3, metalness: 0.5 })
+  // Ocean with animated waves
+  const oceanGeo = new THREE.PlaneGeometry(100, 100, 40, 40)
+  const oceanMat = new THREE.MeshStandardMaterial({ color: 0x1a3344, roughness: 0.1, metalness: 0.7, envMapIntensity: 1.5 })
   const ocean = new THREE.Mesh(oceanGeo, oceanMat); ocean.rotation.x = -Math.PI/2; ocean.position.y = -2; scene.add(ocean)
 
-  // Fog particles
-  const fogCount = 500; const fogPos = new Float32Array(fogCount*3)
-  for(let i=0;i<fogCount;i++){fogPos[i*3]=(Math.random()-0.5)*40;fogPos[i*3+1]=Math.random()*5-1;fogPos[i*3+2]=(Math.random()-0.5)*40}
-  const fogGeo = new THREE.BufferGeometry(); fogGeo.setAttribute('position', new THREE.BufferAttribute(fogPos, 3))
-  scene.add(new THREE.Points(fogGeo, new THREE.PointsMaterial({size:0.4,color:0x88aacc,transparent:true,opacity:0.08,depthWrite:false})))
+  // Foam/spray particles around base
+  const foamCount = 400; const foamPos = new Float32Array(foamCount*3)
+  for(let i=0;i<foamCount;i++){const a=Math.random()*Math.PI*2,d=3+Math.random()*5;foamPos[i*3]=Math.cos(a)*d;foamPos[i*3+1]=-1.5+Math.random()*1;foamPos[i*3+2]=Math.sin(a)*d}
+  const foamGeo = new THREE.BufferGeometry(); foamGeo.setAttribute('position', new THREE.BufferAttribute(foamPos, 3))
+  scene.add(new THREE.Points(foamGeo, new THREE.PointsMaterial({size:0.15,color:0xffffff,transparent:true,opacity:0.2,depthWrite:false})))
 
-  scene.add(new THREE.AmbientLight(0x0a1520, 0.3))
-  scene.add(new THREE.HemisphereLight(0x2244aa, 0x0a0a10, 0.2))
+  // Atmospheric fog particles
+  const fogCount = 400; const fogPos = new Float32Array(fogCount*3)
+  for(let i=0;i<fogCount;i++){fogPos[i*3]=(Math.random()-0.5)*50;fogPos[i*3+1]=Math.random()*5-1;fogPos[i*3+2]=(Math.random()-0.5)*50}
+  const fogGeo = new THREE.BufferGeometry(); fogGeo.setAttribute('position', new THREE.BufferAttribute(fogPos, 3))
+  scene.add(new THREE.Points(fogGeo, new THREE.PointsMaterial({size:0.5,color:0x88aacc,transparent:true,opacity:0.06,depthWrite:false})))
+
+  scene.add(new THREE.AmbientLight(0x0a1520, 0.25))
+  scene.add(new THREE.HemisphereLight(0x2244aa, 0x0a0a10, 0.3))
 
   const orbitControls = addOrbitControls(camera, renderer, { minDistance: 5, maxDistance: 30, maxPolarAngle: Math.PI/2, autoRotateSpeed: 0.15 })
   const clock = new THREE.Clock(); let animId
   function animate() {
     animId = requestAnimationFrame(animate); const t = clock.getElapsedTime()
-    beam.rotation.y = t * 0.8
-    lighthouseLight.intensity = 1.5 + Math.sin(t*0.8*10)*0.5
-    if(orbitControls) orbitControls.update(); renderer.render(scene, camera)
+    beamGroup.rotation.y = t * 0.8
+    lighthouseLight.intensity = 1.5 + Math.sin(t*8)*0.5
+    // Ocean waves
+    const oPos = oceanGeo.attributes.position.array
+    for(let i=0;i<oPos.length;i+=3){oPos[i+2]=Math.sin(oPos[i]*0.3+t)*0.2+Math.cos(oPos[i+1]*0.2+t*0.7)*0.15}
+    oceanGeo.attributes.position.needsUpdate=true
+    // Foam
+    const fPos = foamGeo.attributes.position.array
+    for(let i=0;i<foamCount;i++){fPos[i*3+1]=-1.5+Math.sin(t*2+i)*0.3;fPos[i*3]+=Math.sin(t*0.5+i)*0.005}
+    foamGeo.attributes.position.needsUpdate=true
+    if(orbitControls) orbitControls.update()
+    if(bloom){bloom.composer.render()}else{renderer.render(scene,camera)}
   }
   animate()
-  const onResize = addResizeHandler(camera, renderer, container)
+  const onResize = () => {
+    const w = container.clientWidth||300, h = container.clientHeight||300
+    camera.aspect = w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h)
+    if(bloom) bloom.composer.setSize(w,h)
+  }
+  window.addEventListener('resize', onResize)
   return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
@@ -3731,53 +4499,133 @@ function createLighthouseScene(container) {
 function createBridgeScene(container) {
   const THREE = window.THREE
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color(0x1a2030)
-  scene.fog = new THREE.FogExp2(0x1a2030, 0.015)
+  scene.fog = new THREE.FogExp2(0x1a2030, 0.012)
   const camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 0.1, 500)
   camera.position.set(0, 8, 25)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
 
-  // Bridge deck
-  const deckGeo = new THREE.BoxGeometry(4, 0.3, 30)
-  const deckMat = new THREE.MeshStandardMaterial({ color: 0x666660, roughness: 0.8 })
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.4, radius: 0.6, threshold: 0.85 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/sunset_dusk_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) { scene.environment = envMap; scene.background = envMap }
+  })
+
+  // Bridge deck with PBR concrete
+  const deckMat = loadPBRMaterial('/3d-textures/pbr/Concrete012', renderer, { repeat: 4, normalScale: 1.0, roughness: 0.8, color: 0x666660 })
+  const deckGeo = new THREE.BoxGeometry(5, 0.4, 30)
   const deck = new THREE.Mesh(deckGeo, deckMat); deck.position.y = 6; scene.add(deck)
 
-  // Towers
+  // Bridge towers with PBR metal
+  const towerMat = loadPBRMaterial('/3d-textures/pbr/Metal025', renderer, { repeat: 1, normalScale: 1.2, roughness: 0.4, metalness: 0.8, color: 0x888888, envMapIntensity: 1.5 })
   for (let side of [-1, 1]) {
-    const towerGeo = new THREE.BoxGeometry(0.5, 10, 0.5)
-    const towerMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.7, metalness: 0.3 })
-    const tower = new THREE.Mesh(towerGeo, towerMat); tower.position.set(side*1.5, 11, 0); scene.add(tower)
-  }
-
-  // Cables (using lines)
-  const cableMat = new THREE.LineBasicMaterial({ color: 0xaaaaaa })
-  for (let side of [-1, 1]) {
-    for (let j = -5; j <= 5; j++) {
-      const points = [new THREE.Vector3(side*1.5, 16, 0), new THREE.Vector3(side*1.5, 6, j*3)]
-      const cableGeo = new THREE.BufferGeometry().setFromPoints(points)
-      scene.add(new THREE.Line(cableGeo, cableMat))
+    // Main tower
+    const tGeo = new THREE.BoxGeometry(0.8, 12, 0.8)
+    const tower = new THREE.Mesh(tGeo, towerMat); tower.position.set(side*2, 12, 0); scene.add(tower)
+    // Cross beams
+    const crossGeo = new THREE.BoxGeometry(0.3, 0.3, 1.5)
+    for (let h = 7; h <= 15; h += 2) {
+      const cross = new THREE.Mesh(crossGeo, towerMat); cross.position.set(side*2, h, 0); scene.add(cross)
     }
   }
 
-  // Water
-  const waterGeo = new THREE.PlaneGeometry(100, 100)
-  const waterMat = new THREE.MeshStandardMaterial({ color: 0x1a3344, roughness: 0.3, metalness: 0.5 })
-  scene.add(new THREE.Mesh(waterGeo, waterMat).rotateX(-Math.PI/2))
+  // Cable system using TubeGeometry for thick cables
+  const cableMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.3, metalness: 0.7 })
+  for (let side of [-1, 1]) {
+    for (let j = -5; j <= 5; j++) {
+      const top = new THREE.Vector3(side*2, 18, 0)
+      const bottom = new THREE.Vector3(side*2, 6, j*3)
+      const mid = new THREE.Vector3(side*2, 12, j*1.5)
+      const curve = new THREE.QuadraticBezierCurve3(top, mid, bottom)
+      const tubeGeo = new THREE.TubeGeometry(curve, 12, 0.05, 6, false)
+      scene.add(new THREE.Mesh(tubeGeo, cableMat))
+    }
+    // Main cable (catenary)
+    const mainPts = []
+    for (let k = -15; k <= 15; k++) {
+      const x = side*2, y = 18 - 6*Math.cos(k*Math.PI/15)*0.5, z = k
+      mainPts.push(new THREE.Vector3(x,y,z))
+    }
+    const mainCurve = new THREE.CatmullRomCurve3(mainPts)
+    const mainTubeGeo = new THREE.TubeGeometry(mainCurve, 30, 0.1, 8, false)
+    scene.add(new THREE.Mesh(mainTubeGeo, cableMat))
+  }
 
-  // Dusk sky glow
-  const glowGeo = new THREE.PlaneGeometry(60, 15)
-  const glowMat = new THREE.MeshBasicMaterial({ color: 0xff6633, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending })
-  const glow = new THREE.Mesh(glowGeo, glowMat); glow.position.set(0, 10, -30); scene.add(glow)
+  // Animated water with wave displacement
+  const waterGeo = new THREE.PlaneGeometry(100, 100, 40, 40)
+  const waterMat = new THREE.MeshStandardMaterial({ color: 0x1a3344, roughness: 0.1, metalness: 0.7, envMapIntensity: 1.5 })
+  const water = new THREE.Mesh(waterGeo, waterMat); water.rotation.x = -Math.PI/2; scene.add(water)
 
-  scene.add(new THREE.DirectionalLight(0xffa060, 1.0).translateX(10).translateY(8).translateZ(-5))
-  scene.add(new THREE.AmbientLight(0x1a2030, 0.3))
+  // City skyline silhouette in background
+  const skylineMat = new THREE.MeshStandardMaterial({ color: 0x0a0a15, roughness: 0.9, metalness: 0.1 })
+  const skylineBuildings = [{x:-30,w:4,h:12},{x:-24,w:3,h:18},{x:-19,w:5,h:8},{x:-12,w:3,h:22},{x:-7,w:4,h:14},{x:7,w:3,h:16},{x:12,w:5,h:10},{x:19,w:3,h:20},{x:24,w:4,h:14},{x:30,w:3,h:9}]
+  skylineBuildings.forEach(b => {
+    const bGeo = new THREE.BoxGeometry(b.w, b.h, 3)
+    const bMesh = new THREE.Mesh(bGeo, skylineMat); bMesh.position.set(b.x, b.h/2, -45); scene.add(bMesh)
+    // Random lit windows
+    const winLight = new THREE.PointLight(0xffaa44, 0.3, 10); winLight.position.set(b.x, b.h*0.6, -43); scene.add(winLight)
+  })
+
+  // Street lights on bridge
+  for (let z = -12; z <= 12; z += 6) {
+    for (let side of [-1, 1]) {
+      const poleGeo = new THREE.CylinderGeometry(0.03, 0.05, 2, 6)
+      const poleMat = new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.5 })
+      const pole = new THREE.Mesh(poleGeo, poleMat); pole.position.set(side*2.2, 7, z); scene.add(pole)
+      const lampMat = new THREE.MeshBasicMaterial({ color: 0xffdd88 })
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), lampMat); lamp.position.set(side*2.2, 8, z); scene.add(lamp)
+      const sl = new THREE.PointLight(0xffdd88, 0.3, 8); sl.position.set(side*2.2, 8, z); scene.add(sl)
+    }
+  }
+
+  // Cars on bridge (small emissive boxes with headlights)
+  const cars = []
+  for (let i = 0; i < 6; i++) {
+    const carMat = new THREE.MeshStandardMaterial({ color: [0xcc2222,0x2222cc,0x222222,0xcccccc,0x22cc22][i%5], roughness: 0.3, metalness: 0.5 })
+    const carGeo = new THREE.BoxGeometry(0.3, 0.2, 0.8)
+    const car = new THREE.Mesh(carGeo, carMat)
+    const lane = i%2 === 0 ? -1.5 : 1.5
+    car.position.set(lane, 6.3, -12+i*5)
+    scene.add(car)
+    // Headlights
+    const hlMat = new THREE.MeshBasicMaterial({ color: 0xffffcc })
+    const hl = new THREE.Mesh(new THREE.SphereGeometry(0.04, 4, 4), hlMat)
+    hl.position.set(lane, 6.35, car.position.z + (i%2===0 ? 0.4 : -0.4))
+    scene.add(hl)
+    cars.push(car)
+  }
+
+  scene.add(new THREE.DirectionalLight(0xffa060, 0.8).translateX(10).translateY(8).translateZ(-5))
+  scene.add(new THREE.AmbientLight(0x1a2030, 0.25))
 
   const orbitControls = addOrbitControls(camera, renderer, { minDistance: 10, maxDistance: 50, autoRotateSpeed: 0.15, enablePan: true })
   const clock = new THREE.Clock(); let animId
-  function animate() { animId = requestAnimationFrame(animate); if(orbitControls) orbitControls.update(); renderer.render(scene, camera) }
+  function animate() {
+    animId = requestAnimationFrame(animate); const t = clock.getElapsedTime()
+    // Water waves
+    const wPos = waterGeo.attributes.position.array
+    for(let i=0;i<wPos.length;i+=3){wPos[i+2]=Math.sin(wPos[i]*0.2+t)*0.15+Math.cos(wPos[i+1]*0.15+t*0.6)*0.1}
+    waterGeo.attributes.position.needsUpdate=true
+    // Move cars
+    cars.forEach((c,i) => {
+      c.position.z += (i%2===0 ? 0.02 : -0.02)
+      if(c.position.z > 15) c.position.z = -15
+      if(c.position.z < -15) c.position.z = 15
+    })
+    if(orbitControls) orbitControls.update()
+    if(bloom){bloom.composer.render()}else{renderer.render(scene,camera)}
+  }
   animate()
-  const onResize = addResizeHandler(camera, renderer, container)
+  const onResize = () => {
+    const w = container.clientWidth||300, h = container.clientHeight||300
+    camera.aspect = w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h)
+    if(bloom) bloom.composer.setSize(w,h)
+  }
+  window.addEventListener('resize', onResize)
   return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
@@ -3785,54 +4633,133 @@ function createBridgeScene(container) {
 function createSkyscraperScene(container) {
   const THREE = window.THREE
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color(0x0a1020)
-  scene.fog = new THREE.FogExp2(0x0a1020, 0.008)
+  scene.fog = new THREE.FogExp2(0x0a1020, 0.006)
   const camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 0.1, 500)
   camera.position.set(0, 15, 30)
   const renderer = createRenderer(container)
+  renderer.physicallyCorrectLights = true
   let disposed = false
 
-  // Multiple skyscrapers
+  // Bloom post-processing
+  const bloom = setupBloom(scene, camera, renderer, { strength: 0.6, radius: 0.7, threshold: 0.7 })
+
+  // HDRI environment
+  loadHDRI('/3d-textures/urban_night_1k.hdr', renderer).then(envMap => {
+    if (disposed) return
+    if (envMap) { scene.environment = envMap; scene.background = envMap }
+  })
+
+  // Building data
   const buildings = [
     {x:0,z:0,w:3,d:3,h:30},{x:-8,z:-5,w:4,d:3,h:22},{x:7,z:-3,w:3,d:4,h:25},
     {x:-4,z:6,w:3,d:3,h:18},{x:5,z:7,w:4,d:3,h:15},{x:-10,z:3,w:3,d:3,h:20},
     {x:12,z:-6,w:3,d:4,h:28},{x:-6,z:-8,w:4,d:3,h:16},{x:3,z:-9,w:3,d:3,h:24},
   ]
-  buildings.forEach(b => {
+
+  // Buildings with PBR materials
+  const metalMat = loadPBRMaterial('/3d-textures/pbr/Metal025', renderer, { repeat: 1, normalScale: 0.8, roughness: 0.4, metalness: 0.8, color: 0x445566, envMapIntensity: 2.0 })
+  const concreteMat = loadPBRMaterial('/3d-textures/pbr/Concrete012', renderer, { repeat: 2, normalScale: 1.0, roughness: 0.7, color: 0x334455, envMapIntensity: 1.5 })
+  const windowMats = [] // for animated windows
+
+  buildings.forEach((b, idx) => {
     const bGeo = new THREE.BoxGeometry(b.w, b.h, b.d)
     // Window texture
     const wCanvas = document.createElement('canvas'); wCanvas.width = 64; wCanvas.height = 256
     const wctx = wCanvas.getContext('2d')
-    wctx.fillStyle = '#1a2030'; wctx.fillRect(0, 0, 64, 256)
+    wctx.fillStyle = '#0a1525'; wctx.fillRect(0, 0, 64, 256)
     for (let y = 0; y < 32; y++) for (let x = 0; x < 8; x++) {
       const lit = Math.random() > 0.4
-      wctx.fillStyle = lit ? `rgba(255,${200+Math.random()*55},${100+Math.random()*80},${0.6+Math.random()*0.4})` : 'rgba(20,30,50,0.8)'
+      wctx.fillStyle = lit ? `rgba(255,${200+Math.random()*55},${100+Math.random()*80},${0.6+Math.random()*0.4})` : 'rgba(15,25,45,0.9)'
       wctx.fillRect(x*8+1, y*8+1, 6, 6)
     }
     const wTex = new THREE.CanvasTexture(wCanvas); wTex.encoding = THREE.sRGBEncoding
-    const bMat = new THREE.MeshStandardMaterial({ map: wTex, roughness: 0.5, metalness: 0.5 })
+    const bMat = new THREE.MeshStandardMaterial({ map: wTex, roughness: 0.3, metalness: 0.6, envMapIntensity: 1.5 })
     const bMesh = new THREE.Mesh(bGeo, bMat); bMesh.position.set(b.x, b.h/2, b.z); scene.add(bMesh)
+    windowMats.push({ mat: bMat, canvas: wCanvas, ctx: wctx, tex: wTex, litState: Array(256).fill(true) })
+
+    // Glass curtain wall (front face) for tallest buildings
+    if (b.h > 20) {
+      const glassGeo = new THREE.PlaneGeometry(b.w*0.95, b.h*0.9)
+      const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x88aacc, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.3, envMapIntensity: 3.0 })
+      const glass = new THREE.Mesh(glassGeo, glassMat)
+      glass.position.set(b.x, b.h/2, b.z + b.d/2 + 0.02); scene.add(glass)
+    }
   })
 
-  // Ground
+  // Ground with wet road reflection
+  const groundMat = loadPBRMaterial('/3d-textures/pbr/Concrete012', renderer, { repeat: 8, normalScale: 0.5, roughness: 0.2, metalness: 0.8, color: 0x151520, envMapIntensity: 2.0 })
   const groundGeo = new THREE.PlaneGeometry(100, 100)
-  const groundMat = new THREE.MeshStandardMaterial({ color: 0x151520, roughness: 0.9 })
-  scene.add(new THREE.Mesh(groundGeo, groundMat).rotateX(-Math.PI/2))
+  const ground = new THREE.Mesh(groundGeo, groundMat); ground.rotation.x = -Math.PI/2; scene.add(ground)
+
+  // Street-level detail: small light sources
+  for (let i = 0; i < 12; i++) {
+    const sl = new THREE.PointLight(0xffaa44, 0.4, 12)
+    sl.position.set((Math.random()-0.5)*25, 0.5, (Math.random()-0.5)*20)
+    scene.add(sl)
+    const lampGeo = new THREE.SphereGeometry(0.08, 6, 6)
+    const lampMat = new THREE.MeshBasicMaterial({ color: 0xffcc66 })
+    const lamp = new THREE.Mesh(lampGeo, lampMat); lamp.position.copy(sl.position); scene.add(lamp)
+  }
+
+  // Car headlights at street level
+  for (let i = 0; i < 5; i++) {
+    const carMat = new THREE.MeshStandardMaterial({ color: [0x111111,0x222222,0x333333][i%3], roughness: 0.3, metalness: 0.5 })
+    const car = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.25, 1), carMat)
+    const side = i%2===0 ? -1 : 1
+    car.position.set(side*3, 0.2, -10+i*5); scene.add(car)
+    const hlGeo = new THREE.SphereGeometry(0.05, 4, 4)
+    const hlMat = new THREE.MeshBasicMaterial({ color: 0xffffee })
+    const hl = new THREE.Mesh(hlGeo, hlMat); hl.position.set(car.position.x, 0.3, car.position.z + side*0.5); scene.add(hl)
+  }
 
   // City glow
   const cityGlowGeo = new THREE.PlaneGeometry(40, 40)
   const cityGlowMat = new THREE.MeshBasicMaterial({ color: 0xff8844, transparent: true, opacity: 0.03, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending })
   const cityGlow = new THREE.Mesh(cityGlowGeo, cityGlowMat); cityGlow.rotation.x = -Math.PI/2; cityGlow.position.y = 0.1; scene.add(cityGlow)
 
-  scene.add(new THREE.DirectionalLight(0x334466, 0.5).translateX(5).translateY(10).translateZ(5))
-  scene.add(new THREE.AmbientLight(0x0a1020, 0.3))
+  // Helipad lights on tallest building
+  const tallB = buildings[0]
+  for (let a = 0; a < 8; a++) {
+    const angle = a/8*Math.PI*2, r = 1.2
+    const hlGeo = new THREE.SphereGeometry(0.06, 4, 4)
+    const hlMat = new THREE.MeshBasicMaterial({ color: 0xff2222 })
+    const hl = new THREE.Mesh(hlGeo, hlMat)
+    hl.position.set(tallB.x+Math.cos(angle)*r, tallB.h+0.1, tallB.z+Math.sin(angle)*r)
+    scene.add(hl)
+    if (a % 2 === 0) {
+      const pl = new THREE.PointLight(0xff2222, 0.3, 5)
+      pl.position.copy(hl.position); scene.add(pl)
+    }
+  }
+
+  scene.add(new THREE.DirectionalLight(0x334466, 0.4).translateX(5).translateY(10).translateZ(5))
+  scene.add(new THREE.AmbientLight(0x0a1020, 0.25))
   scene.add(new THREE.HemisphereLight(0x1a2040, 0x050510, 0.3))
 
   const orbitControls = addOrbitControls(camera, renderer, { minDistance: 10, maxDistance: 60, autoRotateSpeed: 0.15, enablePan: true })
   const clock = new THREE.Clock(); let animId
-  function animate() { animId = requestAnimationFrame(animate); if(orbitControls) orbitControls.update(); renderer.render(scene, camera) }
+  function animate() {
+    animId = requestAnimationFrame(animate); const t = clock.getElapsedTime()
+    // Flicker some windows every ~60 frames
+    if (Math.random() < 0.02) {
+      const idx = Math.floor(Math.random()*windowMats.length)
+      const wm = windowMats[idx]
+      const row = Math.floor(Math.random()*32), col = Math.floor(Math.random()*8)
+      const lit = Math.random() > 0.3
+      wm.ctx.fillStyle = lit ? `rgba(255,${200+Math.random()*55},${100+Math.random()*80},${0.6+Math.random()*0.4})` : 'rgba(15,25,45,0.9)'
+      wm.ctx.fillRect(col*8+1, row*8+1, 6, 6)
+      wm.tex.needsUpdate = true
+    }
+    if(orbitControls) orbitControls.update()
+    if(bloom){bloom.composer.render()}else{renderer.render(scene,camera)}
+  }
   animate()
-  const onResize = addResizeHandler(camera, renderer, container)
+  const onResize = () => {
+    const w = container.clientWidth||300, h = container.clientHeight||300
+    camera.aspect = w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h)
+    if(bloom) bloom.composer.setSize(w,h)
+  }
+  window.addEventListener('resize', onResize)
   return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); fullCleanup(scene, renderer, orbitControls) }
 }
 
