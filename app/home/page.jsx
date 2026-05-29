@@ -460,17 +460,20 @@ export default function HomePage() {
           width: 100%;
           position: relative;
           isolation: isolate;
-          background-color: transparent;
-          border: none;
+          background-color: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.06);
           border-radius: 20px;
           padding: 16px 16px 10px 16px;
           display: flex;
           flex-direction: column;
-          transition: all 0.3s ease;
+          transition: border-color 0.3s ease;
           overflow: visible;
         }
-        /* Gradient border ring — always visible */
-        .chat-container-expanded::before {
+        .chat-container-expanded:focus-within {
+          border-color: transparent;
+        }
+        /* Gradient border ring */
+        .chat-container-expanded:focus-within::before {
           content: '';
           position: absolute;
           inset: 0;
@@ -483,11 +486,6 @@ export default function HomePage() {
           -webkit-mask-composite: xor;
           mask-composite: exclude;
           pointer-events: none;
-          opacity: 0.5;
-          transition: opacity 0.3s ease;
-        }
-        .chat-container-expanded:focus-within::before {
-          opacity: 1;
         }
 
         .chat-textarea-expanded {
