@@ -5,15 +5,15 @@ import { useTranslation } from '@/components/LanguageProvider'
 import { supabasePublic } from '@/lib/supabase'
 
 const TYPEWRITER_PHRASES = [
-  'Ask anything...',
-  'Explore the Moon in 3D',
-  'Generate a logo for my startup',
-  'Build a landing page',
-  'Solve a Rubik\'s Cube interactively',
-  'Convert my notes to PDF',
-  'Dive into the Deep Space nebula',
-  'Create a dashboard',
-  'Write Python code to scrape data',
+  'Research anything...',
+  'Analyze AI market trends in 2026',
+  'Deep dive into quantum computing',
+  'Compare crypto investment opportunities',
+  'Research space technology breakthroughs',
+  'Investigate biotech innovations',
+  'Analyze competitor strategies',
+  'Research renewable energy trends',
+  'Explore machine learning research',
 ]
 
 // ── Pre-generated real AI images for gallery ──
@@ -136,7 +136,7 @@ export default function HomePage() {
     const q = input.trim()
     if (!q) return
     const params = new URLSearchParams({ q })
-    router.push(`/chat?${params.toString()}`)
+    router.push(`/research?${params.toString()}`)
   }
 
   const hasInput = input.trim().length > 0
