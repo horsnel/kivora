@@ -847,7 +847,7 @@ export default function ResearchClient() {
     return (
       <div className="shrink-0 border-t border-[#1a1a1a] bg-[#0a0a0a]">
         <div className="max-w-4xl mx-auto px-3 py-3">
-          {/* ═══ COLLAPSED STATE — Floating pill ═══ */}
+          {/* ═══ COLLAPSED STATE — Floating pill bar (v2) ═══ */}
           {!barExpanded && (
             <div className="research-bar-collapsed">
               {/* Search icon */}
