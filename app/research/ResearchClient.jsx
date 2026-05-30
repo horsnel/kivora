@@ -200,9 +200,14 @@ export default function ResearchClient() {
   const [reportDisplay, setReportDisplay] = useState('') // for streaming effect
   const [sourcesVisible, setSourcesVisible] = useState(0) // for stagger animation
 
+  // ── Expandable text bar states ──
+  const [barExpanded, setBarExpanded] = useState(false)
+
   const textareaRef = useRef(null)
+  const collapsedInputRef = useRef(null)
   const reportRef = useRef(null)
   const streamTimerRef = useRef(null)
+  const chatBarRef = useRef(null)
 
   // Load history on mount
   useEffect(() => {
@@ -223,6 +228,27 @@ export default function ResearchClient() {
       if (streamTimerRef.current) clearInterval(streamTimerRef.current)
     }
   }, [])
+
+  // Auto-expand bar when input is pre-filled
+  useEffect(() => {
+    if (input.trim() && !barExpanded) {
+      setBarExpanded(true)
+    }
+  }, [input]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-collapse bar on click outside (only when input is empty)
+  useEffect(() => {
+    if (!barExpanded) return
+    function handleClick(e) {
+      if (chatBarRef.current && !chatBarRef.current.contains(e.target)) {
+        if (!input.trim()) {
+          setBarExpanded(false)
+        }
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [barExpanded, input])
 
   // Auto-scroll report to bottom during streaming
   useEffect(() => {
@@ -381,19 +407,21 @@ export default function ResearchClient() {
     setError('')
     setInput('')
     setIsResearching(false)
+    setBarExpanded(false)
   }
 
   // ── Submit Handler ──
   function handleSubmit() {
     const q = input.trim()
     if (!q || isResearching) return
+    setBarExpanded(false)
     startResearch(q, mode)
   }
 
   // ── Auto-resize textarea ──
   function autoResize(el) {
     el.style.height = 'auto'
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+    el.style.height = Math.min(el.scrollHeight, 240) + 'px'
   }
 
   // ── Add Folder ──
@@ -814,62 +842,146 @@ export default function ResearchClient() {
 
   // ── Render Input Bar ──
   function renderInputBar() {
+    const hasInput = input.trim().length > 0
+
     return (
       <div className="shrink-0 border-t border-[#1a1a1a] bg-[#0a0a0a]">
         <div className="max-w-4xl mx-auto px-3 py-3">
-          <div className="research-input-container">
-            <textarea
-              ref={textareaRef}
-              rows={1}
-              className="research-input-textarea"
-              value={input}
-              onChange={e => { setInput(e.target.value); autoResize(e.target) }}
-              onKeyDown={handleKeyDown}
-              placeholder="Research anything..."
-              disabled={isResearching}
-            />
-            <div className="research-input-toolbar">
-              {/* Mode toggle */}
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setMode('quick')}
-                  className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 ${
-                    mode === 'quick'
-                      ? 'border border-red-500/50 text-red-400'
-                      : 'text-[#525252] hover:text-[#737373]'
-                  }`}
-                >
-                  Quick
-                </button>
-                <button
-                  onClick={() => setMode('deep')}
-                  className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 ${
-                    mode === 'deep'
-                      ? 'bg-red-500 text-white shadow-lg shadow-red-500/20'
-                      : 'text-[#525252] hover:text-[#737373]'
-                  }`}
-                >
-                  Deep
-                </button>
+          {/* ═══ COLLAPSED STATE — Floating pill ═══ */}
+          {!barExpanded && (
+            <div className="research-bar-collapsed">
+              {/* Search icon */}
+              <button
+                className="research-collapsed-btn-circle"
+                aria-label="Research"
+                title="Research"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+                </svg>
+              </button>
+
+              {/* Input field — single line in collapsed state */}
+              <div className="research-collapsed-input-wrap">
+                <input
+                  ref={collapsedInputRef}
+                  type="text"
+                  placeholder="Research anything..."
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onFocus={() => setBarExpanded(true)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
+                  className="research-collapsed-input"
+                  autoComplete="off"
+                  spellCheck="false"
+                  disabled={isResearching}
+                />
               </div>
 
               {/* Send button */}
               <button
                 onClick={handleSubmit}
-                disabled={!input.trim() || isResearching}
-                className={`research-send-btn ${input.trim() && !isResearching ? 'research-send-btn-active' : ''}`}
+                disabled={!hasInput || isResearching}
+                className={`research-collapsed-send ${hasInput && !isResearching ? 'research-collapsed-send-active' : ''}`}
                 aria-label="Start research"
               >
                 {isResearching ? (
                   <div className="w-4 h-4 border-2 border-[#525252] border-t-red-400 rounded-full animate-spin" />
+                ) : hasInput ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                 ) : (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
-                  </svg>
+                  <svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="8" y="5" width="2" height="14" rx="1" fill="currentColor"/><rect x="12" y="9" width="2" height="6" rx="1" fill="currentColor"/><rect x="16" y="6" width="2" height="12" rx="1" fill="currentColor"/><rect x="20" y="10" width="2" height="4" rx="1" fill="currentColor"/></svg>
                 )}
               </button>
             </div>
-          </div>
+          )}
+
+          {/* ═══ EXPANDED STATE — Floating pill with toolbar ═══ */}
+          {barExpanded && (
+            <div className="research-container-expanded" ref={chatBarRef}>
+              {/* Textarea */}
+              <textarea
+                ref={textareaRef}
+                rows={1}
+                className="research-textarea-expanded scrollbar-none"
+                placeholder="Research anything..."
+                value={input}
+                onChange={e => { setInput(e.target.value); autoResize(e.target) }}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
+                autoFocus
+                disabled={isResearching}
+              />
+
+              {/* Mode indicator */}
+              <div className="flex items-center gap-1.5 px-1 pt-1">
+                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                  mode === 'deep'
+                    ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    : 'bg-[#1f1f1f] text-[#737373] border border-transparent'
+                }`}>
+                  {mode === 'deep' ? 'Deep Mode' : 'Quick Mode'}
+                </span>
+              </div>
+
+              {/* Toolbar */}
+              <div className="research-toolbar-expanded">
+                {/* Left actions */}
+                <div className="research-toolbar-left">
+                  {/* Mode toggle */}
+                  <button
+                    className={`research-toolbar-btn ${mode === 'deep' ? 'research-toolbar-btn-active' : ''}`}
+                    onClick={() => setMode(mode === 'quick' ? 'deep' : 'quick')}
+                    title={mode === 'quick' ? 'Switch to Deep mode' : 'Switch to Quick mode'}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      {mode === 'deep' ? (
+                        <>
+                          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </>
+                      ) : (
+                        <>
+                          <circle cx="11" cy="11" r="8" />
+                          <path d="m21 21-4.3-4.3" />
+                        </>
+                      )}
+                    </svg>
+                  </button>
+
+                  {/* Deep/Quick label */}
+                  <button
+                    onClick={() => setMode(mode === 'quick' ? 'deep' : 'quick')}
+                    className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ${
+                      mode === 'deep'
+                        ? 'bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20'
+                        : 'border-red-500/50 text-red-400'
+                    }`}
+                  >
+                    {mode === 'deep' ? 'Deep' : 'Quick'}
+                  </button>
+                </div>
+
+                {/* Right actions */}
+                <div className="research-toolbar-right">
+                  {/* Submit button */}
+                  <button
+                    onClick={handleSubmit}
+                    disabled={!hasInput || isResearching}
+                    className={`research-submit-btn ${hasInput && !isResearching ? 'research-submit-btn-active' : ''}`}
+                    aria-label="Start research"
+                  >
+                    {isResearching ? (
+                      <div className="w-4 h-4 border-2 border-[#525252] border-t-red-400 rounded-full animate-spin" />
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     )
@@ -1038,27 +1150,149 @@ export default function ResearchClient() {
           background: #333;
         }
 
-        /* Research input container */
-        .research-input-container {
-          width: 100%;
-          position: relative;
-          isolation: isolate;
-          background-color: transparent;
-          border: 1px solid rgba(255,255,255,0.06);
-          border-radius: 16px;
-          padding: 12px 14px 8px 14px;
+        /* ═══════════════════════════════════════
+           COLLAPSED STATE — Floating pill bar
+           ═══════════════════════════════════════ */
+        .research-bar-collapsed {
           display: flex;
-          flex-direction: column;
+          align-items: center;
+          background: rgba(255,255,255,0.04);
+          border-radius: 28px;
+          padding: 8px 12px;
+          gap: 8px;
+          border: 1px solid rgba(255,255,255,0.06);
+          min-height: 56px;
           transition: border-color 0.3s ease;
+          position: relative;
         }
-        .research-input-container:focus-within {
+        .research-bar-collapsed:focus-within {
           border-color: transparent;
         }
-        .research-input-container:focus-within::before {
+        .research-bar-collapsed:focus-within::before {
           content: '';
           position: absolute;
           inset: 0;
-          border-radius: 16px;
+          border-radius: 28px;
+          padding: 1.5px;
+          background: linear-gradient(90deg, #a855f7, #ef4444);
+          -webkit-mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          pointer-events: none;
+        }
+        .research-collapsed-btn-circle {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          border: none;
+          background: rgba(255,255,255,0.04);
+          color: #525252;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          transition: background 0.15s ease, color 0.15s ease;
+          padding: 0;
+        }
+        .research-collapsed-btn-circle:hover {
+          background: rgba(255,255,255,0.08);
+          color: #e2e2e2;
+        }
+        .research-collapsed-input-wrap {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          align-items: center;
+        }
+        .research-collapsed-input {
+          width: 100%;
+          height: 36px;
+          border: none !important;
+          outline: none !important;
+          box-shadow: none !important;
+          background: transparent;
+          font-size: 16px;
+          color: #e2e2e2;
+          padding: 0 4px;
+          font-family: inherit;
+        }
+        .research-collapsed-input::placeholder {
+          color: #525252;
+          opacity: 1;
+        }
+        .research-collapsed-input:disabled {
+          opacity: 0.6;
+        }
+        .research-collapsed-send {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          border: none;
+          background: rgba(255,255,255,0.06);
+          color: #737373;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          transition: background 0.15s ease, transform 0.1s ease, opacity 0.15s ease, color 0.15s ease;
+          padding: 0;
+        }
+        .research-collapsed-send:disabled {
+          cursor: not-allowed;
+          opacity: 0.5;
+        }
+        .research-collapsed-send-active {
+          background: #e2e2e2;
+          color: #0a0a0a;
+        }
+        .research-collapsed-send-active:hover {
+          background: #ffffff;
+          transform: scale(1.05);
+        }
+        .research-collapsed-send-active:active {
+          transform: scale(0.95);
+        }
+
+        /* ═══════════════════════════════════════
+           EXPANDED STATE — Floating pill with toolbar
+           ═══════════════════════════════════════ */
+        .research-container-expanded {
+          width: 100%;
+          background-color: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 20px;
+          padding: 16px 16px 10px 16px;
+          display: flex;
+          flex-direction: column;
+          transition: border-color 0.3s ease;
+          animation: expandBar 0.25s ease-out;
+          overflow: visible;
+          position: relative;
+        }
+        @keyframes expandBar {
+          from {
+            opacity: 0.7;
+            transform: scaleY(0.95);
+            transform-origin: bottom;
+          }
+          to {
+            opacity: 1;
+            transform: scaleY(1);
+            transform-origin: bottom;
+          }
+        }
+        .research-container-expanded:focus-within {
+          border-color: transparent;
+        }
+        .research-container-expanded:focus-within::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 20px;
           padding: 1.5px;
           background: linear-gradient(90deg, #a855f7, #ef4444);
           -webkit-mask:
@@ -1069,69 +1303,125 @@ export default function ResearchClient() {
           pointer-events: none;
         }
 
-        .research-input-textarea {
+        .research-textarea-expanded {
           width: 100%;
           background: transparent;
           border: none !important;
           outline: none !important;
           box-shadow: none !important;
           color: #e2e2e2;
-          font-size: 14px;
-          line-height: 1.5;
+          font-size: 16px;
+          line-height: 1.6;
           resize: none;
-          max-height: 80px;
-          min-height: 36px;
+          max-height: 240px;
+          min-height: 56px;
           font-family: inherit;
-          padding: 2px 0;
-          margin-bottom: 8px;
+          padding: 4px 2px;
+          margin-bottom: 12px;
           caret-color: #e2e2e2;
         }
-        .research-input-textarea:focus {
+        .research-textarea-expanded:focus {
           border: none !important;
           outline: none !important;
           box-shadow: none !important;
+          border-color: transparent !important;
         }
-        .research-input-textarea::placeholder {
-          color: #404040;
+        .research-textarea-expanded::placeholder {
+          color: #525252;
         }
-        .research-input-textarea:disabled {
+        .research-textarea-expanded:disabled {
           opacity: 0.6;
         }
 
-        .research-input-toolbar {
+        .research-toolbar-expanded {
           display: flex;
           justify-content: space-between;
           align-items: center;
           gap: 6px;
-          min-height: 32px;
+          min-height: 38px;
+        }
+        .research-toolbar-left, .research-toolbar-right {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          flex-shrink: 0;
+        }
+        .research-toolbar-left {
+          flex-wrap: nowrap;
+          gap: 2px;
         }
 
-        .research-send-btn {
-          width: 34px;
-          height: 34px;
+        .research-toolbar-btn {
+          background: transparent;
+          border: none;
+          outline: none;
+          color: #525252;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 5px;
+          padding: 6px;
+          border-radius: 50%;
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 500;
+          transition: background 0.2s, color 0.2s;
+          white-space: nowrap;
+          flex-shrink: 0;
+          width: 32px;
+          height: 32px;
+        }
+        .research-toolbar-btn:hover {
+          background-color: rgba(255,255,255,0.06);
+          color: #e2e2e2;
+        }
+        .research-toolbar-btn-active {
+          background-color: rgba(220, 38, 38, 0.12) !important;
+          color: #ef4444 !important;
+        }
+        .research-toolbar-btn-active:hover {
+          background-color: rgba(220, 38, 38, 0.18) !important;
+          color: #f87171 !important;
+        }
+
+        .research-submit-btn {
+          width: 36px;
+          height: 36px;
           border-radius: 50%;
           border: none;
           background: rgba(255,255,255,0.06);
-          color: #525252;
+          color: #737373;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
-          transition: background 0.15s, transform 0.1s ease, color 0.15s;
+          transition: background 0.15s ease, transform 0.1s ease, opacity 0.15s ease, color 0.15s ease;
           padding: 0;
         }
-        .research-send-btn:disabled {
+        .research-submit-btn:disabled {
           cursor: not-allowed;
-          opacity: 0.4;
+          opacity: 0.5;
         }
-        .research-send-btn-active {
+        .research-submit-btn-active {
           background: #e2e2e2;
           color: #0a0a0a;
         }
-        .research-send-btn-active:hover {
+        .research-submit-btn-active:hover {
           background: #ffffff;
           transform: scale(1.05);
+        }
+        .research-submit-btn-active:active {
+          transform: scale(0.95);
+        }
+
+        /* Scrollbar for textarea */
+        .scrollbar-none::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-none {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
 
         /* Citation numbers */
