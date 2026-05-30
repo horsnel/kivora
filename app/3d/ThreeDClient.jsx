@@ -291,7 +291,9 @@ function checkWebGL() {
 
 let threeLoaded = false
 async function ensureThreeJS() {
-  if (threeLoaded && window.THREE) return
+  // Re-verify scripts are still loaded (they may have been removed by cleanup or HMR)
+  if (threeLoaded && window.THREE && window.THREE.OrbitControls) return
+  threeLoaded = false
 
   // Check WebGL first — if not available, no point loading scripts
   if (!checkWebGL()) {
@@ -339,6 +341,10 @@ function createRenderer(container) {
 
 /* ── Helper: load HDRI environment map ── */
 const hdriCache = {}
+function clearHDRICache() {
+  Object.values(hdriCache).forEach(envMap => { if (envMap && envMap.dispose) envMap.dispose() })
+  for (const key in hdriCache) delete hdriCache[key]
+}
 function loadHDRI(url, renderer) {
   const THREE = window.THREE
   if (hdriCache[url]) return Promise.resolve(hdriCache[url])
@@ -388,12 +394,14 @@ function loadPBRMaterial(basePath, renderer, overrides = {}) {
   const textureLoader = new THREE.TextureLoader()
   const aniso = renderer ? renderer.capabilities.getMaxAnisotropy() : 8
 
+  // Only pass valid MeshStandardMaterial properties (not internal helpers like repeat, normalScale, displacementScale)
+  const { repeat: _repeat, normalScale: _normalScale, displacementScale: _displacementScale, ...matProps } = overrides
   const mat = new THREE.MeshStandardMaterial({
     color: overrides.color || 0xffffff,
     roughness: overrides.roughness || 0.8,
     metalness: overrides.metalness || 0.0,
     envMapIntensity: overrides.envMapIntensity || 1.0,
-    ...overrides,
+    ...matProps,
   })
 
   // Load color texture
@@ -478,32 +486,46 @@ function addOrbitControls(camera, renderer, opts = {}) {
 
 /* ── Full cleanup helper: dispose all GPU resources ── */
 function fullCleanup(scene, renderer, controls) {
-  // Dispose OrbitControls (removes event listeners from domElement)
-  if (controls && controls.dispose) controls.dispose()
-  scene.traverse(obj => {
-    if (obj.geometry) obj.geometry.dispose()
-    if (obj.material) {
-      if (Array.isArray(obj.material)) {
-        obj.material.forEach(m => {
-          if (m.map) m.map.dispose()
-          if (m.bumpMap) m.bumpMap.dispose()
-          if (m.specularMap) m.specularMap.dispose()
-          if (m.emissiveMap) m.emissiveMap.dispose()
-          m.dispose()
-        })
-      } else {
-        if (obj.material.map) obj.material.map.dispose()
-        if (obj.material.bumpMap) obj.material.bumpMap.dispose()
-        if (obj.material.specularMap) obj.material.specularMap.dispose()
-        if (obj.material.emissiveMap) obj.material.emissiveMap.dispose()
-        obj.material.dispose()
+  try {
+    // Dispose OrbitControls (removes event listeners from domElement)
+    if (controls && controls.dispose) controls.dispose()
+    scene.traverse(obj => {
+      if (obj.geometry) obj.geometry.dispose()
+      if (obj.material) {
+        if (Array.isArray(obj.material)) {
+          obj.material.forEach(m => {
+            if (m.map) m.map.dispose()
+            if (m.bumpMap) m.bumpMap.dispose()
+            if (m.specularMap) m.specularMap.dispose()
+            if (m.emissiveMap) m.emissiveMap.dispose()
+            if (m.roughnessMap) m.roughnessMap.dispose()
+            if (m.normalMap) m.normalMap.dispose()
+            if (m.displacementMap) m.displacementMap.dispose()
+            m.dispose()
+          })
+        } else {
+          if (obj.material.map) obj.material.map.dispose()
+          if (obj.material.bumpMap) obj.material.bumpMap.dispose()
+          if (obj.material.specularMap) obj.material.specularMap.dispose()
+          if (obj.material.emissiveMap) obj.material.emissiveMap.dispose()
+          if (obj.material.roughnessMap) obj.material.roughnessMap.dispose()
+          if (obj.material.normalMap) obj.material.normalMap.dispose()
+          if (obj.material.displacementMap) obj.material.displacementMap.dispose()
+          obj.material.dispose()
+        }
       }
+    })
+    scene.clear()
+    renderer.dispose()
+    // Remove canvas from DOM first, then force context loss
+    if (renderer.domElement && renderer.domElement.parentNode) {
+      renderer.domElement.parentNode.removeChild(renderer.domElement)
     }
-  })
-  scene.clear()
-  renderer.dispose()
-  renderer.forceContextLoss()
-  if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement)
+    renderer.forceContextLoss()
+  } catch (err) {
+    // Silently handle cleanup errors to prevent navigation issues
+    console.warn('3D cleanup warning:', err?.message || err)
+  }
 }
 
 /* ── Moon Scene ── */
@@ -4914,6 +4936,14 @@ export default function ThreeDClient() {
       if (cleanupRef.current) { cleanupRef.current(); cleanupRef.current = null }
     }
   }, [activeScene])
+
+  // Component unmount cleanup — dispose HDRI cache and reset script flag
+  useEffect(() => {
+    return () => {
+      clearHDRICache()
+      threeLoaded = false
+    }
+  }, [])
 
   // Persist last scene to localStorage
   useEffect(() => {
