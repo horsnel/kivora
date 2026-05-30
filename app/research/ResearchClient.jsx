@@ -1,29 +1,30 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, IconRocket, IconHeart, IconMicroscope, IconWarning, IconFolder, IconSettings } from '@/components/Icons'
 
 // ── Constants ──
 const STORAGE_KEY = 'kivora-research-history'
 const MAX_HISTORY = 50
 
 const SUGGESTED_TOPICS = [
-  { emoji: '🧬', label: 'AI & Machine Learning Trends' },
-  { emoji: '💰', label: 'Crypto & Market Analysis' },
-  { emoji: '🚀', label: 'Space Technology' },
-  { emoji: '⚕️', label: 'Health & Biotech' },
+  { Icon: IconDna, label: 'AI & Machine Learning Trends' },
+  { Icon: IconTrending, label: 'Crypto & Market Analysis' },
+  { Icon: IconRocket, label: 'Space Technology' },
+  { Icon: IconHeart, label: 'Health & Biotech' },
 ]
 
 const QUICK_STAGES = [
-  { id: 'search', label: 'Searching', emoji: '🔍' },
-  { id: 'writing', label: 'Writing', emoji: '📝' },
-  { id: 'done', label: 'Done', emoji: '✅' },
+  { id: 'search', label: 'Searching', Icon: IconSearch },
+  { id: 'writing', label: 'Writing', Icon: IconWrite },
+  { id: 'done', label: 'Done', Icon: IconCheck },
 ]
 
 const DEEP_STAGES = [
-  { id: 'search', label: 'Searching', emoji: '🔍' },
-  { id: 'analyzing', label: 'Analyzing', emoji: '📊' },
-  { id: 'writing', label: 'Writing', emoji: '📝' },
-  { id: 'done', label: 'Done', emoji: '✅' },
+  { id: 'search', label: 'Searching', Icon: IconSearch },
+  { id: 'analyzing', label: 'Analyzing', Icon: IconChartBar },
+  { id: 'writing', label: 'Writing', Icon: IconWrite },
+  { id: 'done', label: 'Done', Icon: IconCheck },
 ]
 
 const MOBILE_TABS = [
@@ -483,7 +484,7 @@ export default function ResearchClient() {
         <div className="bg-[#111111] border border-[#1a1a1a] rounded-xl p-3.5">
           {/* Query display */}
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-sm">🔬</span>
+            <IconMicroscope size={16} className="shrink-0 text-red-400" />
             <p className="text-sm text-white font-medium truncate flex-1">{activeResearch.query}</p>
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
               activeResearch.mode === 'deep' ? 'bg-red-500 text-white' : 'bg-[#1f1f1f] text-red-400 border border-red-500/30'
@@ -497,7 +498,7 @@ export default function ResearchClient() {
                 <div className={`flex items-center gap-1 text-[11px] font-medium transition-colors duration-300 ${
                   idx < currentStageIdx ? 'text-green-400' : idx === currentStageIdx ? 'text-red-400' : 'text-[#525252]'
                 }`}>
-                  <span>{stage.emoji}</span>
+                  <stage.Icon size={12} />
                   <span className="hidden sm:inline">{stage.label}</span>
                 </div>
                 {idx < stages.length - 1 && (
@@ -659,7 +660,7 @@ export default function ResearchClient() {
             <h3 className="text-sm font-semibold text-white">Data Extracts</h3>
           </div>
           <div className="flex-1 flex flex-col items-center justify-center py-12">
-            <div className="text-2xl mb-2 opacity-30">📊</div>
+            <IconChartBar size={24} className="mb-2 opacity-30" />
             <p className="text-xs text-[#525252]">No extractable data found</p>
             <p className="text-[10px] text-[#333] mt-1">Charts and tables will appear here when detected</p>
           </div>
@@ -674,7 +675,7 @@ export default function ResearchClient() {
         </div>
         <div className="flex-1 overflow-y-auto overscroll-behavior-contain max-h-96 lg:max-h-[calc(100vh-320px)] custom-scrollbar p-4">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-sm">📊</span>
+            <IconChartBar size={14} className="shrink-0 text-[#737373]" />
             <span className="text-xs text-[#a0a0a0]">Data detected in research</span>
           </div>
           <pre className="text-xs text-[#737373] bg-[#0a0a0a] rounded-lg p-3 overflow-x-auto">
@@ -689,7 +690,7 @@ export default function ResearchClient() {
   function renderEmptyState() {
     return (
       <div className="flex-1 flex flex-col items-center justify-center px-4 animate-fade-in">
-        <div className="text-5xl mb-5 opacity-80">🔬</div>
+        <div className="mb-5 opacity-80"><IconMicroscope size={40} /></div>
         <h2 className="text-xl sm:text-2xl font-semibold text-white mb-2 tracking-tight">
           What should I research?
         </h2>
@@ -702,10 +703,10 @@ export default function ResearchClient() {
           {SUGGESTED_TOPICS.map((topic) => (
             <button
               key={topic.label}
-              onClick={() => { setInput(`${topic.emoji} ${topic.label}`); textareaRef.current?.focus() }}
+              onClick={() => { setInput(topic.label); textareaRef.current?.focus() }}
               className="flex items-center gap-2 px-3 py-2.5 bg-[#111111] border border-[#1a1a1a] rounded-xl text-xs text-[#a0a0a0] hover:bg-[#141414] hover:border-[#262626] hover:text-white transition-all duration-200 text-left"
             >
-              <span className="text-base shrink-0">{topic.emoji}</span>
+              <topic.Icon size={14} className="shrink-0" />
               <span className="leading-snug">{topic.label}</span>
             </button>
           ))}
@@ -735,7 +736,7 @@ export default function ResearchClient() {
             <div className="px-4 py-4 border-b border-[#1a1a1a] shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <span className="text-lg">🔬</span>
+                  <IconMicroscope size={18} className="text-red-400" />
                   <div>
                     <h1 className="text-sm font-semibold text-white tracking-tight">Kivora Research Lab</h1>
                     <p className="text-[10px] text-[#525252]">{history.length} research{history.length !== 1 ? 'es' : ''}</p>
@@ -781,7 +782,7 @@ export default function ResearchClient() {
                     activeFolder === folder ? 'bg-[#1a1a1a] text-white' : 'text-[#737373] hover:bg-[#141414] hover:text-[#a0a0a0]'
                   }`}
                 >
-                  📁 {folder}
+                  <IconFolder size={12} className="shrink-0 mr-1" />{folder}
                 </button>
               ))}
               {showNewFolder ? (
@@ -828,9 +829,7 @@ export default function ResearchClient() {
             {/* Bottom settings */}
             <div className="px-3 py-3 border-t border-[#1a1a1a] shrink-0">
               <button className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs text-[#525252] hover:text-[#737373] hover:bg-[#141414] transition-all">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                </svg>
+              <IconSettings size={14} className="shrink-0" />
                 Settings
               </button>
             </div>
@@ -1050,7 +1049,7 @@ export default function ResearchClient() {
     return (
       <div className="fixed top-4 right-4 z-[100] bg-red-950/90 border border-red-800/50 rounded-xl px-4 py-3 max-w-sm animate-slide-in-right backdrop-blur-sm">
         <div className="flex items-start gap-2.5">
-          <span className="text-red-400 text-sm mt-0.5">⚠️</span>
+          <IconWarning size={14} className="text-red-400 mt-0.5 shrink-0" />
           <div className="flex-1">
             <p className="text-xs text-red-300 font-medium mb-0.5">Research Error</p>
             <p className="text-[11px] text-red-400/80">{error}</p>
@@ -1084,7 +1083,7 @@ export default function ResearchClient() {
             </svg>
           </button>
           <div className="flex items-center gap-2">
-            <span className="text-sm">🔬</span>
+            <IconMicroscope size={16} className="shrink-0 text-red-400" />
             <h1 className="text-sm font-semibold text-white tracking-tight">Research Lab</h1>
           </div>
         </div>

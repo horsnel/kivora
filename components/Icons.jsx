@@ -996,3 +996,40 @@ export function IconSkyscraper({ size = 16, className = '' }) {
     </svg>
   )
 }
+
+export function IconDna({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M4 2c0 2 4 3 4 6s-4 4-4 6M12 2c0 2-4 3-4 6s4 4 4 6" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <path d="M5.5 5h5M5 8h6M5.5 11h5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.6"/>
+    </svg>
+  )
+}
+
+export function IconRocket({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M8 2C6 4 5 6.5 5 9l-2 2v2l3-1c.5 1 1.2 1.5 2 1.5s1.5-.5 2-1.5l3 1v-2l-2-2c0-2.5-1-5-3-7z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+      <circle cx="8" cy="8" r="1.5" stroke="currentColor" strokeWidth="1"/>
+      <path d="M3 13l-1.5 1.5M13 13l1.5 1.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.5"/>
+    </svg>
+  )
+}
+
+export function IconHeart({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M8 14s-5.5-3.5-5.5-7.5A3 3 0 018 4a3 3 0 015.5 2.5C13.5 10.5 8 14 8 14z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+      <path d="M5.5 8h2l1-2 1 3 1-1h1" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" opacity="0.6"/>
+    </svg>
+  )
+}
+
+export function IconChartBar({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M2 14V8h3v6H2zM6.5 14V4h3v10h-3zM11 14V6h3v8h-3z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+      <path d="M1 14h14" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+    </svg>
+  )
+}
