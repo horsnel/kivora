@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  // output: 'standalone', // NOT compatible with CloudFlare Pages — disabled for CF deployment
   serverExternalPackages: ['groq-sdk', 'pptxgenjs', 'jszip', 'jspdf', 'docx'],
   eslint: {
     ignoreDuringBuilds: true
