@@ -279,18 +279,42 @@ function loadScript(src) {
   })
 }
 
+/* ── Check WebGL availability ── */
+function checkWebGL() {
+  if (typeof window === 'undefined') return false
+  try {
+    const canvas = document.createElement('canvas')
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
+    return !!gl
+  } catch { return false }
+}
+
 let threeLoaded = false
 async function ensureThreeJS() {
   if (threeLoaded && window.THREE) return
+
+  // Check WebGL first — if not available, no point loading scripts
+  if (!checkWebGL()) {
+    throw new Error('NO_WEBGL')
+  }
+
+  // Core scripts (required)
   await loadScript('/3d-lib/three.min.js')
   await loadScript('/3d-lib/OrbitControls.js')
-  await loadScript('/3d-lib/RGBELoader.js')
-  await loadScript('/3d-lib/CopyShader.js')
-  await loadScript('/3d-lib/LuminosityHighPassShader.js')
-  await loadScript('/3d-lib/ShaderPass.js')
-  await loadScript('/3d-lib/EffectComposer.js')
-  await loadScript('/3d-lib/RenderPass.js')
-  await loadScript('/3d-lib/UnrealBloomPass.js')
+
+  // Optional scripts — failure here should not block the viewer
+  const optionalScripts = [
+    '/3d-lib/RGBELoader.js',
+    '/3d-lib/CopyShader.js',
+    '/3d-lib/LuminosityHighPassShader.js',
+    '/3d-lib/ShaderPass.js',
+    '/3d-lib/EffectComposer.js',
+    '/3d-lib/RenderPass.js',
+    '/3d-lib/UnrealBloomPass.js',
+  ]
+  for (const src of optionalScripts) {
+    try { await loadScript(src) } catch { /* optional, ignore */ }
+  }
   threeLoaded = true
 }
 
@@ -299,7 +323,8 @@ function createRenderer(container) {
   const THREE = window.THREE
   const width = container.clientWidth || 300
   const height = container.clientHeight || 300
-  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true })
+  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true, failIfMajorPerformanceCaveat: false })
+  if (!renderer) throw new Error('WebGL context creation failed')
   renderer.setSize(width, height)
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -1624,7 +1649,7 @@ function createHouseScene(container) {
   scene.fog = new THREE.FogExp2(0x1a2a3a, 0.015)
   const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 200)
   camera.position.set(14, 10, 18)
-  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', logarithmicDepthBuffer: true })
+  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', logarithmicDepthBuffer: true, failIfMajorPerformanceCaveat: false })
   renderer.setSize(container.clientWidth, container.clientHeight)
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -4823,7 +4848,7 @@ export default function ThreeDClient() {
   })
   const [fullscreen, setFullscreen] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
+  const [error, setError] = useState(null) // null = no error, 'NO_WEBGL' = no WebGL, 'LOAD' = script error
   const [transitioning, setTransitioning] = useState(false)
   const canvasContainerRef = useRef(null)
   const outerRef = useRef(null)
@@ -4837,7 +4862,7 @@ export default function ThreeDClient() {
     let cancelled = false
     let safetyTimer = null
     setLoading(true)
-    setError(false)
+    setError(null)
 
     // Safety timeout: ensure loading goes away after max 15 seconds
     // even if scene creation hangs
@@ -4861,7 +4886,7 @@ export default function ThreeDClient() {
               }
             } catch (err) {
               console.error('3D scene creation error:', err)
-              setError(true)
+              setError('LOAD')
             }
             setLoading(false)
             clearTimeout(safetyTimer)
@@ -4871,7 +4896,7 @@ export default function ThreeDClient() {
       .catch((err) => {
         if (cancelled) return
         console.error('3D scene error:', err)
-        setError(true)
+        setError(err?.message === 'NO_WEBGL' ? 'NO_WEBGL' : 'LOAD')
         setLoading(false)
         clearTimeout(safetyTimer)
       })
@@ -5071,8 +5096,17 @@ export default function ThreeDClient() {
               <div className="w-12 h-12 bg-[#111111] rounded-xl flex items-center justify-center mx-auto mb-4">
                 <IconEye size={20} className="text-red-400" />
               </div>
-              <p className="text-sm text-[#737373] mb-1">3D Viewer requires WebGL</p>
-              <p className="text-xs text-[#404040]">Try Chrome, Edge, or Firefox</p>
+              {error === 'NO_WEBGL' ? (
+                <>
+                  <p className="text-sm text-[#737373] mb-1">3D Viewer requires WebGL</p>
+                  <p className="text-xs text-[#404040]">Try Chrome, Edge, or Firefox</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-[#737373] mb-1">Failed to load 3D scene</p>
+                  <p className="text-xs text-[#404040]">Try refreshing the page</p>
+                </>
+              )}
             </div>
           </div>
         )}
