@@ -303,14 +303,16 @@ async function ensureThreeJS() {
   await loadScript('/3d-lib/OrbitControls.js')
 
   // Optional scripts — failure here should not block the viewer
+  // CRITICAL: load order matters! EffectComposer.js defines THREE.Pass
+  // which ShaderPass.js and RenderPass.js extend, so it MUST load first.
   const optionalScripts = [
     '/3d-lib/RGBELoader.js',
     '/3d-lib/CopyShader.js',
     '/3d-lib/LuminosityHighPassShader.js',
-    '/3d-lib/ShaderPass.js',
-    '/3d-lib/EffectComposer.js',
-    '/3d-lib/RenderPass.js',
-    '/3d-lib/UnrealBloomPass.js',
+    '/3d-lib/EffectComposer.js',       // defines THREE.Pass, THREE.FullScreenQuad
+    '/3d-lib/ShaderPass.js',           // extends THREE.Pass
+    '/3d-lib/RenderPass.js',           // extends THREE.Pass
+    '/3d-lib/UnrealBloomPass.js',      // extends THREE.Pass
   ]
   for (const src of optionalScripts) {
     try { await loadScript(src) } catch { /* optional, ignore */ }
@@ -359,20 +361,25 @@ function loadHDRI(url, renderer) {
 /* ── Helper: setup bloom post-processing ── */
 function setupBloom(scene, camera, renderer, opts = {}) {
   const THREE = window.THREE
-  if (!THREE.EffectComposer || !THREE.RenderPass || !THREE.UnrealBloomPass) return null
-  const width = renderer.domElement.width
-  const height = renderer.domElement.height
-  const composer = new THREE.EffectComposer(renderer)
-  const renderPass = new THREE.RenderPass(scene, camera)
-  composer.addPass(renderPass)
-  const bloomPass = new THREE.UnrealBloomPass(
-    new THREE.Vector2(width, height),
-    opts.strength || 0.4,
-    opts.radius || 0.6,
-    opts.threshold || 0.85
-  )
-  composer.addPass(bloomPass)
-  return { composer, bloomPass }
+  if (!THREE.EffectComposer || !THREE.RenderPass || !THREE.UnrealBloomPass || !THREE.ShaderPass) return null
+  try {
+    const width = renderer.domElement.width
+    const height = renderer.domElement.height
+    const composer = new THREE.EffectComposer(renderer)
+    const renderPass = new THREE.RenderPass(scene, camera)
+    composer.addPass(renderPass)
+    const bloomPass = new THREE.UnrealBloomPass(
+      new THREE.Vector2(width, height),
+      opts.strength || 0.4,
+      opts.radius || 0.6,
+      opts.threshold || 0.85
+    )
+    composer.addPass(bloomPass)
+    return { composer, bloomPass }
+  } catch (err) {
+    console.warn('Bloom setup failed, falling back to direct render:', err.message)
+    return null
+  }
 }
 
 /* ── Helper: load PBR material with textures ── */
