@@ -50,3 +50,21 @@ Stage Summary:
 - Added 14 new 3D scenes across all categories (33 total scenes now, up from 19)
 - Category counts: Planetary=12, Deep Space=6, Environment=8, Structures=9
 - Deployed at https://b812d107.kivora.pages.dev
+---
+Task ID: 1
+Agent: main
+Task: Restore /home page with greeting + text bar, remove sections
+
+Work Log:
+- Retrieved old /home page code from git history (commit 9aa8c39^)
+- Identified the old page had: Good morning greeting, chat bar with typewriter, 3 sections (Generate Images, Build Websites, 3D Viewer)
+- Created new /home page keeping: greeting (with time-of-day logic), chat bar (typewriter placeholder, gradient border, attach/send buttons), i18n support, user auth detection
+- Removed all 3 sections and their associated constants (SAMPLE_IMAGES, SAMPLE_WEBSITES, THREE_D_SCENES) and CSS
+- Updated Navbar.jsx: added /home to NO_SIDEBAR and hideSidebar check (replacing /research), added IconHome import, added Home nav link to NAV_LINKS
+- Updated service worker (sw.js): added /home to STATIC_ASSETS, bumped cache to v6
+- Build succeeds with /home at 5.87 kB
+
+Stage Summary:
+- /home page restored with greeting + chat bar, no sections
+- Sidebar now has Home link at the top
+- Service worker cache updated to v6
