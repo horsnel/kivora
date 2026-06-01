@@ -9,15 +9,10 @@ const STORAGE_KEY = 'kivora-research-history'
 const MAX_HISTORY = 50
 
 const TYPEWRITER_PHRASES = [
-  'Research anything...',
-  'Analyze AI market trends in 2026',
-  'Deep dive into quantum computing',
-  'Compare crypto investment opportunities',
-  'Research space technology breakthroughs',
-  'Investigate biotech innovations',
-  'Analyze competitor strategies',
-  'Research renewable energy trends',
-  'Explore machine learning research',
+  'AI & Machine Learning Trends',
+  'Crypto & Market Analysis',
+  'Space Technology',
+  'Health & Biotech',
 ]
 
 const QUICK_STAGES = [
