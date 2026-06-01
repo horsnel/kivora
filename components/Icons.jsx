@@ -1025,6 +1025,27 @@ export function IconHeart({ size = 16, className = '' }) {
   )
 }
 
+export function IconCommunity({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <circle cx="5" cy="5.5" r="2" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M1.5 13c0-2 1.5-3.5 3.5-3.5S8.5 11 8.5 13" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <circle cx="11" cy="5.5" r="2" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M7.5 13c0-2 1.5-3.5 3.5-3.5s3.5 1.5 3.5 3.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function IconOpportunity({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M8 2l5.5 3v6L8 14l-5.5-3V5L8 2z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+      <path d="M8 8V14M8 8L2.5 5M8 8l5.5-3" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" opacity="0.5"/>
+      <circle cx="8" cy="8" r="1.5" fill="currentColor" opacity="0.6"/>
+    </svg>
+  )
+}
+
 export function IconChartBar({ size = 16, className = '' }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
