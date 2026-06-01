@@ -8,11 +8,11 @@ import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, 
 const STORAGE_KEY = 'kivora-research-history'
 const MAX_HISTORY = 50
 
-const TYPEWRITER_PHRASES = [
-  'AI & Machine Learning Trends',
-  'Crypto & Market Analysis',
-  'Space Technology',
-  'Health & Biotech',
+const SUGGESTED_TOPICS = [
+  { Icon: IconDna, label: 'AI & Machine Learning Trends' },
+  { Icon: IconTrending, label: 'Crypto & Market Analysis' },
+  { Icon: IconRocket, label: 'Space Technology' },
+  { Icon: IconHeart, label: 'Health & Biotech' },
 ]
 
 const QUICK_STAGES = [
@@ -115,7 +115,6 @@ export default function HomePage() {
   const [user, setUser] = useState(null)
   const [input, setInput] = useState('')
   const [focused, setFocused] = useState(false)
-  const [placeholderText, setPlaceholderText] = useState('')
   const [mode, setMode] = useState('quick')
   const [activeResearch, setActiveResearch] = useState(null)
   const [isResearching, setIsResearching] = useState(false)
@@ -128,39 +127,9 @@ export default function HomePage() {
   const reportRef = useRef(null)
   const streamTimerRef = useRef(null)
   const chatBarRef = useRef(null)
-  const typewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
 
   const hasActiveResearch = activeResearch !== null
   const hasInput = input.trim().length > 0
-
-  // ── Typewriter animation ──
-  useEffect(() => {
-    const tw = typewriterRef.current
-    function tick() {
-      const phrase = TYPEWRITER_PHRASES[tw.phraseIdx]
-      if (!tw.deleting) {
-        tw.charIdx++
-        setPlaceholderText(phrase.slice(0, tw.charIdx))
-        if (tw.charIdx >= phrase.length) {
-          tw.timeout = setTimeout(() => { tw.deleting = true; tick() }, 2000)
-          return
-        }
-        tw.timeout = setTimeout(tick, 50 + Math.random() * 40)
-      } else {
-        tw.charIdx--
-        setPlaceholderText(phrase.slice(0, tw.charIdx))
-        if (tw.charIdx <= 0) {
-          tw.deleting = false
-          tw.phraseIdx = (tw.phraseIdx + 1) % TYPEWRITER_PHRASES.length
-          tw.timeout = setTimeout(tick, 400)
-          return
-        }
-        tw.timeout = setTimeout(tick, 25)
-      }
-    }
-    tick()
-    return () => clearTimeout(tw.timeout)
-  }, [])
 
   // ── Auth ──
   useEffect(() => {
@@ -343,13 +312,28 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Big expanded text bar */}
+          {/* Suggestion pills — above text bar, single scrollable row */}
           <div className="w-full max-w-2xl animate-fade-up">
+            <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none pb-0.5 px-1">
+              {SUGGESTED_TOPICS.map(({ Icon, label }) => (
+                <button
+                  key={label}
+                  onClick={() => { setInput(label); textareaRef.current?.focus() }}
+                  className="flex items-center gap-2 bg-transparent border border-[#1f1f1f] text-[#737373] hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px px-4 py-2 rounded-full text-[13px] font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em] whitespace-nowrap shrink-0"
+                >
+                  <Icon size={13} className="shrink-0" />
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
+
+          {/* Big expanded text bar */}
             <div className="chat-container-expanded">
               <textarea
                 ref={textareaRef}
                 rows={1}
-                className={`chat-textarea-expanded scrollbar-none${input.length === 0 && !focused ? ' no-caret' : ''}`}
+                className="chat-textarea-expanded scrollbar-none"
+                placeholder="Research anything..."
                 value={input}
                 onChange={e => { setInput(e.target.value); autoResize(e.target) }}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
@@ -357,11 +341,6 @@ export default function HomePage() {
                 onBlur={() => setFocused(false)}
                 autoFocus
               />
-              {input.length === 0 && !focused && (
-                <div className="chat-typewriter-placeholder" onClick={() => textareaRef.current?.focus()}>
-                  {placeholderText}
-                </div>
-              )}
               <div className="chat-toolbar-expanded">
                 <div className="chat-toolbar-left">
                   {/* Mode toggle */}
@@ -552,6 +531,21 @@ export default function HomePage() {
           {/* Collapsed input bar at bottom */}
           <div className="shrink-0 border-t border-[#1a1a1a] bg-[#0a0a0a]">
             <div className="max-w-3xl mx-auto px-3 py-3">
+              {/* Suggestion pills above collapsed bar — only show when research is done */}
+              {activeResearch?.stage === 'done' && (
+                <div className="flex gap-2 mb-2.5 overflow-x-auto scrollbar-none pb-0.5">
+                  {SUGGESTED_TOPICS.map(({ Icon, label }) => (
+                    <button
+                      key={label}
+                      onClick={() => { setInput(label); collapsedInputRef.current?.focus() }}
+                      className="flex items-center gap-1.5 bg-transparent border border-[#1f1f1f] text-[#525252] hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px px-3 py-1.5 rounded-full text-[11px] font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em] whitespace-nowrap shrink-0"
+                    >
+                      <Icon size={11} className="shrink-0" />
+                      <span>{label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="research-bar-collapsed">
                 {/* New research button */}
                 <button
@@ -681,7 +675,7 @@ export default function HomePage() {
           margin-bottom: 12px;
           caret-color: #e2e2e2;
         }
-        .chat-textarea-expanded.no-caret { caret-color: transparent; }
+        .chat-textarea-expanded::placeholder { color: #525252; opacity: 1; }
         .chat-textarea-expanded:focus {
           border: none !important;
           outline: none !important;
@@ -753,18 +747,6 @@ export default function HomePage() {
         .chat-submit-btn:disabled { cursor: not-allowed; opacity: 0.5; }
         .chat-submit-btn-active { background: #e2e2e2; color: #0a0a0a; }
         .chat-submit-btn-active:hover { background: #ffffff; transform: scale(1.05); }
-
-        .chat-typewriter-placeholder {
-          position: absolute;
-          top: 20px;
-          left: 18px;
-          right: 18px;
-          color: #525252;
-          font-size: 16px;
-          line-height: 1.6;
-          pointer-events: auto;
-          cursor: text;
-        }
 
         /* ─── Collapsed pill bar (research active state) ─── */
         .research-bar-collapsed {
