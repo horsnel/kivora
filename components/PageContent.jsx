@@ -2,13 +2,13 @@
 import { usePathname } from 'next/navigation'
 
 // Pages that don't show the sidebar — no hamburger spacing needed
-const NO_SIDEBAR = ['/auth', '/', '/onboarding', '/chat']
+const NO_SIDEBAR = ['/auth', '/', '/onboarding', '/chat', '/research']
 
 // Pages with a fixed top nav bar (minimal mode) — need top padding
 const FIXED_NAV = ['/onboarding']
 
 // Full-viewport pages that manage their own scrolling — no overflow-y-auto
-const FULL_VIEWPORT = ['/chat']
+const FULL_VIEWPORT = ['/chat', '/research']
 
 export default function PageContent({ children }) {
   const pathname = usePathname()

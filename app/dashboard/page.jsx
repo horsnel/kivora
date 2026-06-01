@@ -847,7 +847,7 @@ export default function DashboardPage() {
               <div className="skeleton border border-[#262626] rounded-xl p-5 h-64" />
             </div>
           ) : totalSessions === 0 ? (
-            <Empty icon={<IconCode size={20} className="text-[#2e2e2e]" />} title="No tool usage yet" desc="Use any tool on the platform while signed in to see your usage stats here." action={{ label: 'Try a tool', href: '/home' }} router={router} />
+            <Empty icon={<IconCode size={20} className="text-[#2e2e2e]" />} title="No tool usage yet" desc="Use any tool on the platform while signed in to see your usage stats here." action={{ label: 'Try a tool', href: '/research' }} router={router} />
           ) : (
             <div className="space-y-4">
               {/* Category overview cards */}
@@ -911,7 +911,7 @@ export default function DashboardPage() {
         {/* Saved */}
         {tab === 'saved' && (
           saves.length === 0 ? (
-            <Empty icon={<IconBookmark size={20} className="text-[#2e2e2e]" />} title={t('dashboard.empty_saved')} desc="Explore an opportunity and click Save to bookmark it here." action={{ label: 'Start exploring', href: '/home' }} router={router} />
+            <Empty icon={<IconBookmark size={20} className="text-[#2e2e2e]" />} title={t('dashboard.empty_saved')} desc="Explore an opportunity and click Save to bookmark it here." action={{ label: 'Start exploring', href: '/research' }} router={router} />
           ) : (
             <div className="space-y-2">
               {saves.map(save => (

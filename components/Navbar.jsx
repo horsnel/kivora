@@ -2,27 +2,26 @@
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
-import { IconMenu, IconClose, IconDashboard, IconUser, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconHome, IconVideo, IconEye } from '@/components/Icons'
+import { IconMenu, IconClose, IconDashboard, IconUser, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconVideo, IconEye, IconMicroscope, IconBuild } from '@/components/Icons'
 import { supabasePublic } from '@/lib/supabase'
 import { useCurrency } from '@/components/CurrencyToggle'
 import { useTranslation } from '@/components/LanguageProvider'
 
 const NAV_LINKS = [
-  { labelKey: 'nav.home',         href: '/home',       Icon: IconHome },
   { labelKey: 'nav.explore',      href: '/explore',    Icon: IconSearch },
   { labelKey: 'nav.chat',         href: '/chat',       Icon: IconChat },
+  { labelKey: 'nav.research',     href: '/research',   Icon: IconMicroscope },
   { labelKey: 'nav.studydesk',    href: '/study',      Icon: IconBook },
-  { labelKey: 'nav.reelpen',      href: '/reelpen',    Icon: IconVideo },
   { labelKey: 'nav.devtools',     href: '/devtools',   Icon: IconCode },
+  { labelKey: 'nav.reelpen',      href: '/reelpen',    Icon: IconVideo },
   { labelKey: 'nav.3dviewer',     href: '/3d',         Icon: IconEye },
-  { labelKey: 'nav.community',    href: '/community',  Icon: IconChat },
-  { labelKey: 'nav.opportunities', href: '/opportunities', Icon: IconTrending },
+  { labelKey: 'nav.build',        href: '/build',      Icon: IconBuild },
 ]
 
 // About, Blog, Admin links removed from sidebar — About & Blog are in the footer, Admin is via O.L.H.M.E.S in footer
 
 // Pages that manage their own layout — no shared sidebar
-const NO_SIDEBAR = ['/auth', '/', '/onboarding', '/chat']
+const NO_SIDEBAR = ['/auth', '/', '/onboarding', '/chat', '/research']
 
 // Pages where the sidebar is hidden (full-width landing pages)
 const MINIMAL_ROUTES = []
@@ -36,7 +35,7 @@ export default function Navbar() {
   const sidebarRef = useRef(null)
 
   const isMinimal = MINIMAL_ROUTES.some(r => pathname.startsWith(r))
-  const hideSidebar = pathname === '/' || pathname.startsWith('/auth') || pathname.startsWith('/onboarding') || pathname.startsWith('/chat')
+  const hideSidebar = pathname === '/' || pathname.startsWith('/auth') || pathname.startsWith('/onboarding') || pathname.startsWith('/chat') || pathname.startsWith('/research')
 
   // Auth state
   useEffect(() => {
@@ -214,7 +213,7 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
       {/* ── Logo + close ── */}
       <div className="px-3 pt-3 pb-2 shrink-0">
         <div className="flex items-center justify-between mb-3">
-          <Link href="/home" className="flex items-center gap-2.5" onClick={onClose}>
+          <Link href="/research" className="flex items-center gap-2.5" onClick={onClose}>
             <div className="w-7 h-7 bg-[#dc2626] rounded-lg flex items-center justify-center">
               <svg width="14" height="14" viewBox="0 0 32 32" fill="none">
                 <path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95" />

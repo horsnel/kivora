@@ -4,10 +4,10 @@ import { usePathname } from 'next/navigation'
 import { useTranslation } from '@/components/LanguageProvider'
 
 // Pages that manage their own layout — no shared footer
-const NO_FOOTER = ['/chat', '/auth', '/onboarding', '/']
+const NO_FOOTER = ['/chat', '/auth', '/onboarding', '/', '/research']
 
 const FOOTER_LINKS = [
-  { labelKey: 'footer.home',          href: '/home' },
+  { labelKey: 'footer.research',       href: '/research' },
   { labelKey: 'footer.explore',       href: '/explore' },
   { labelKey: 'footer.chat',          href: '/chat' },
   { labelKey: 'footer.studydesk',     href: '/study' },
@@ -24,7 +24,7 @@ const FOOTER_LINKS = [
 export default function Footer() {
   const pathname = usePathname()
   const { t } = useTranslation()
-  if (pathname === '/' || ['/chat', '/auth', '/onboarding'].some(p => pathname.startsWith(p))) return null
+  if (pathname === '/' || ['/chat', '/auth', '/onboarding', '/research'].some(p => pathname.startsWith(p))) return null
 
   return (
     <footer className="border-t border-[#141414] mt-12 sm:mt-16 py-6 sm:py-8">

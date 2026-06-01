@@ -109,7 +109,7 @@ export default function BlogPage() {
             <p className="text-xs text-muted line-clamp-2">Deep dives on AI opportunities, automation strategies, and honest breakdowns of what actually works.</p>
           </div>
           <Link
-            href="/home"
+            href="/research"
             className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
           >
             Back to app <IconArrowRight size={11} />
@@ -222,7 +222,7 @@ export default function BlogPage() {
             Hundreds of articles covering AI tools, automation, business building, and opportunities for builders everywhere.
           </p>
           <Link
-            href="/home"
+            href="/research"
             className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl text-sm font-semibold transition-colors"
           >
             Explore Kivora <IconArrowRight size={13} />
@@ -232,7 +232,7 @@ export default function BlogPage() {
         <div className="mt-12 pt-8 border-t border-[#141414] flex flex-wrap gap-4 text-xs text-muted">
           <Link href="/about" className="hover:text-white transition-colors">About</Link>
           <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
-          <Link href="/home" className="hover:text-white transition-colors">Back to app</Link>
+          <Link href="/research" className="hover:text-white transition-colors">Back to app</Link>
         </div>
       </div>
     </main>

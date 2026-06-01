@@ -21,10 +21,10 @@ export default function Error({ error, reset }) {
             Try again
           </button>
           <Link
-            href="/home"
+            href="/research"
             className="bg-[#141414] border border-[#262626] hover:border-[#3a3a3a] text-[#d4d4d4] px-5 py-2.5 rounded-xl text-sm font-medium transition-colors"
           >
-            Go home
+            Go to Research
           </Link>
         </div>
       </div>

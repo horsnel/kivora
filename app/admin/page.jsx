@@ -94,7 +94,7 @@ export default function AdminPage() {
           </form>
         </div>
         <button
-          onClick={() => router.push('/home')}
+          onClick={() => router.push('/research')}
           className="text-[#525252] hover:text-[#a3a3a3] text-[13px] flex items-center justify-center gap-1 mx-auto mt-5 transition-colors"
         >
           ← Back to Kivora

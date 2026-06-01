@@ -3,7 +3,7 @@ export default function sitemap() {
 
   const staticRoutes = [
     '', '/about', '/blog', '/chat', '/community', '/contact',
-    '/dashboard', '/devtools', '/explore', '/home', '/opportunities',
+    '/dashboard', '/devtools', '/explore', '/research', '/opportunities',
     '/privacy', '/profile', '/reelpen', '/study', '/terms', '/tools',
     '/3d', '/welcome',
   ]

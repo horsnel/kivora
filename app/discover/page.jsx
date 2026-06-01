@@ -1,2 +1,2 @@
 import { redirect } from 'next/navigation'
-export default function DiscoverRedirect() { redirect('/home') }
+export default function DiscoverRedirect() { redirect('/research') }

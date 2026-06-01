@@ -1175,7 +1175,7 @@ export default function ChatClient() {
         {/* ── Logo + close ── */}
         <div className="px-3 pt-3 pb-2 shrink-0">
           <div className="flex items-center justify-between mb-3">
-            <Link href="/home" className="flex items-center gap-2.5" onClick={() => setHistoryOpen(false)}>
+            <Link href="/research" className="flex items-center gap-2.5" onClick={() => setHistoryOpen(false)}>
               <div className="w-7 h-7 bg-[#dc2626] rounded-lg flex items-center justify-center">
                 <svg width="14" height="14" viewBox="0 0 32 32" fill="none">
                   <path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95" />
