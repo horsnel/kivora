@@ -1,6 +1,6 @@
 export const runtime = 'edge'
 
-import { webSearch, webReader } from '@/lib/zai'
+import { performSearch, readUrl } from '@/lib/toolRegistry'
 import { openrouterChat } from '@/lib/openrouter'
 import { cerebrasChat } from '@/lib/cerebras'
 import { rateLimit } from '@/lib/ratelimit'
@@ -46,17 +46,20 @@ export async function POST(req) {
       return Response.json({ error: 'Query is required' }, { status: 400 })
     }
 
-    // Step 1: Web search for sources via ZAI
-    const searchResult = await webSearch({ query, num: mode === 'deep' ? 10 : 5 })
+    // Step 1: Web search for sources (DuckDuckGo + Tavily — same as chat page)
+    const searchResult = await performSearch(query)
+
+    if (!searchResult) {
+      return Response.json({ error: 'Search failed. Please try again.' }, { status: 500 })
+    }
 
     // Normalize search results into our source format
-    const rawResults = Array.isArray(searchResult) ? searchResult : (searchResult?.results || [])
-    const sources = rawResults.map((r, i) => ({
+    const sources = (searchResult.results || []).map((r, i) => ({
       id: i,
-      url: r.url || r.link || '',
-      title: r.title || r.name || `Source ${i + 1}`,
-      snippet: r.snippet || r.content || r.description || '',
-      favicon: r.favicon || r.icon || '',
+      url: r.url || '',
+      title: r.title || `Source ${i + 1}`,
+      snippet: r.content || r.snippet || r.description || '',
+      favicon: r.favicon || '',
       status: 'loaded',
     }))
 
@@ -93,21 +96,15 @@ FOLLOWUPS:
     const userContent = `Research query: "${query}"\n\nSearch results:\n${sources.map((s, i) => `[${i + 1}] ${s.title}\nURL: ${s.url}\n${s.snippet}`).join('\n\n')}`
 
     if (mode === 'deep') {
-      // Deep mode: Read top sources for deeper content
+      // Deep mode: Read top sources for deeper content (Jina Reader — same as chat page)
       const topContents = []
       const readLimit = Math.min(4, sources.length)
 
       for (let i = 0; i < readLimit; i++) {
         try {
-          const pageResult = await webReader({ url: sources[i].url })
-          const html = pageResult?.data?.html || pageResult?.content || ''
-          const text = html
-            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim()
-            .slice(0, 4000)
+          if (!sources[i].url) continue
+          const pageResult = await readUrl(sources[i].url)
+          const text = pageResult?.content || sources[i].snippet
 
           topContents.push({
             index: i,

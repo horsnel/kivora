@@ -1,18 +1,13 @@
 export const runtime = 'edge'
 
-// ── Image Generation: ZAI (primary) → Pollinations AI (fallback) ──
+// ── Image Generation: Pollinations AI ──
 //
-// ZAI API: https://api.z.ai/api/paas/v4
-//   - POST /images/generations with Bearer token auth
-//   - May be geo-restricted (401 from certain regions)
-//
-// Pollinations AI (fallback): https://pollinations.ai
+// Pollinations AI: https://pollinations.ai
 //   - Free tier: GET endpoint, no API key
 //   - Paid tier: POST endpoint with API key (sk_...) for higher rate limits
 //   - If POLLINATIONS_API_KEY is set, use the paid endpoint
 //   - Otherwise fall back to free GET endpoint with retry for 402 (queue full)
 
-import { imageGeneration } from '@/lib/zai'
 import { getEnvVar } from '@/lib/cfEnv'
 
 const VALID_SIZES = [
@@ -42,23 +37,7 @@ function arrayBufferToBase64(buffer) {
   return btoa(binary)
 }
 
-// ── ZAI Image Generation (Primary) ──
-
-async function generateWithZAI(prompt, size) {
-  const result = await imageGeneration({ prompt, size })
-  if (result.data && result.data.length > 0) {
-    const item = result.data[0]
-    const base64Data = item.base64 || item.url || ''
-    const format = item.format || 'png'
-    const imageData = base64Data.startsWith('data:')
-      ? base64Data
-      : `data:image/${format};base64,${base64Data}`
-    return { image: imageData, provider: 'zai', size, model: 'zai-image' }
-  }
-  throw new Error('ZAI returned no image data')
-}
-
-// ── Pollinations Image Generation (Fallback) ──
+// ── Pollinations Image Generation ──
 
 function enhancePrompt(rawPrompt) {
   const hasQualityWords = /professional|high.quality|detailed|4k|8k|ultra|cinematic|studio/i.test(rawPrompt)
@@ -166,39 +145,17 @@ export async function POST(req) {
 
     const resolvedSize = VALID_SIZES.includes(size) ? size : DEFAULT_SIZE
 
-    // ── Try ZAI first (primary) ──
+    // ── Generate with Pollinations ──
     try {
-      const result = await generateWithZAI(prompt.trim(), resolvedSize)
+      const result = await generateWithPollinations(prompt, resolvedSize)
       return Response.json(result)
-    } catch (zaiErr) {
-      const errMsg = zaiErr?.message || 'Unknown ZAI error'
-      console.warn(`[image] ZAI failed, falling back to Pollinations: ${errMsg}`)
-
-      const isAuthError = errMsg.includes('401') || errMsg.toLowerCase().includes('auth') || errMsg.includes('token expired')
-
-      // ── Fallback to Pollinations ──
-      try {
-        const fallbackResult = await generateWithPollinations(prompt, resolvedSize)
-        fallbackResult.zaiFallback = true
-        fallbackResult.zaiError = isAuthError
-          ? 'ZAI API returned 401 — likely geo-restricted from server region.'
-          : errMsg
-        return Response.json(fallbackResult)
-      } catch (pollErr) {
-        const pollMsg = pollErr?.message || 'Unknown Pollinations error'
-        console.error(`[image] Both providers failed. ZAI: ${errMsg} | Pollinations: ${pollMsg}`)
-        return Response.json(
-          {
-            error: 'Image generation failed from all providers.',
-            details: {
-              zai: errMsg,
-              zaiHint: isAuthError ? 'ZAI API returned 401 — likely geo-restricted from server.' : undefined,
-              pollinations: pollMsg,
-            }
-          },
-          { status: 502 }
-        )
-      }
+    } catch (pollErr) {
+      const pollMsg = pollErr?.message || 'Unknown Pollinations error'
+      console.error(`[image] Image generation failed: ${pollMsg}`)
+      return Response.json(
+        { error: 'Image generation failed.', details: { pollinations: pollMsg } },
+        { status: 502 }
+      )
     }
   } catch (err) {
     console.error('[image] Generation failed:', err)
