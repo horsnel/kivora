@@ -505,7 +505,7 @@ export default function ResearchPage() {
 
             {/* Progress bar */}
             {activeResearch.stage !== 'done' && (
-              <div className="px-4 pt-3 pb-2 animate-fade-in">
+              <div className="px-4 pt-5 pb-3 animate-fade-in">
                 <div className="max-w-3xl mx-auto bg-[#111111] border border-[#1a1a1a] rounded-xl p-3.5">
                   <div className="flex items-center gap-2 mb-3">
                     <IconMicroscope size={16} className="shrink-0 text-red-400" />
@@ -540,11 +540,11 @@ export default function ResearchPage() {
 
             {/* Results area — scrollable */}
             <div className="flex-1 overflow-y-auto overscroll-behavior-contain px-4 pb-4">
-              <div className="max-w-3xl mx-auto space-y-3">
+              <div className="max-w-3xl mx-auto space-y-4">
 
                 {/* Query header */}
                 {activeResearch.stage === 'done' && (
-                  <div className="flex items-center gap-3 pt-2 animate-fade-in">
+                  <div className="flex items-center gap-3 pt-3 animate-fade-in">
                     <IconMicroscope size={18} className="shrink-0 text-red-400" />
                     <h2 className="text-lg font-semibold text-white truncate flex-1">{activeResearch.query}</h2>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
@@ -641,10 +641,10 @@ export default function ResearchPage() {
 
           {/* Collapsed input bar at bottom */}
           <div className="shrink-0 border-t border-[#1a1a1a] bg-[#0a0a0a]">
-            <div className="max-w-3xl mx-auto px-3 py-3">
+            <div className="max-w-3xl mx-auto px-4 py-3.5">
               {/* History pills above collapsed bar — always visible except during active research */}
               {!isResearching && history.length > 0 && (
-                <div className="flex gap-2 mb-2.5 overflow-x-auto scrollbar-none pb-0.5">
+                <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none pb-1">
                   {history.map((item) => (
                     <button
                       key={item.id}
