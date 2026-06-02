@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/LanguageProvider'
 import { supabasePublic } from '@/lib/supabase'
 import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, IconRocket, IconHeart, IconMicroscope, IconWarning } from '@/components/Icons'
@@ -116,6 +116,7 @@ function renderMarkdown(text) {
 export default function ResearchPage() {
   const { t } = useTranslation()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const initialQuery = searchParams.get('q') || ''
   const [user, setUser] = useState(null)
   const [input, setInput] = useState('')
@@ -136,6 +137,7 @@ export default function ResearchPage() {
   const streamTimerRef = useRef(null)
   const chatBarRef = useRef(null)
   const fileInputRef = useRef(null)
+  const collapsedFileInputRef = useRef(null)
   const typewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
   const collapsedTypewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
 
@@ -375,6 +377,8 @@ export default function ResearchPage() {
     setSourcesVisible(item.sources?.length || 0)
     setError('')
     setIsResearching(false)
+    // Update URL so user can bookmark/share or use back button
+    router.replace(`/research?q=${encodeURIComponent(item.query)}`, { scroll: false })
   }
 
   // ── Computed ──
@@ -638,8 +642,8 @@ export default function ResearchPage() {
           {/* Collapsed input bar at bottom */}
           <div className="shrink-0 border-t border-[#1a1a1a] bg-[#0a0a0a]">
             <div className="max-w-3xl mx-auto px-3 py-3">
-              {/* History pills above collapsed bar — show when research is done */}
-              {activeResearch?.stage === 'done' && history.length > 0 && (
+              {/* History pills above collapsed bar — always visible except during active research */}
+              {!isResearching && history.length > 0 && (
                 <div className="flex gap-2 mb-2.5 overflow-x-auto scrollbar-none pb-0.5">
                   {history.map((item) => (
                     <button
@@ -659,14 +663,28 @@ export default function ResearchPage() {
                 {/* File upload button */}
                 <button
                   className="research-collapsed-btn-circle"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => collapsedFileInputRef.current?.click()}
                   aria-label="Attach file"
                   title="Attach file"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+                  <svg width="18" height="18" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" strokeWidth=\"2\" strokeLinecap=\"round\" strokeLinejoin=\"round\">
+                    <path d=\"M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48\" />
                   </svg>
                 </button>
+                {/* Hidden file input for collapsed bar */}
+                <input
+                  ref={collapsedFileInputRef}
+                  type="file"
+                  className="hidden"
+                  multiple
+                  onChange={e => {
+                    const files = Array.from(e.target.files || [])
+                    if (files.length > 0) {
+                      setInput(prev => prev ? prev + ' ' + files.map(f => f.name).join(', ') : files.map(f => f.name).join(', '))
+                    }
+                    e.target.value = ''
+                  }}
+                />
 
                 {/* Input */}
                 <div className="research-collapsed-input-wrap">
