@@ -2,7 +2,7 @@
 import { usePathname } from 'next/navigation'
 
 // Pages that don't show the sidebar — no hamburger spacing needed
-const NO_SIDEBAR = ['/auth', '/', '/onboarding', '/chat', '/research']
+const NO_SIDEBAR = ['/auth', '/', '/onboarding', '/chat']
 
 // Pages with a fixed top nav bar (minimal mode) — need top padding
 const FIXED_NAV = ['/onboarding']

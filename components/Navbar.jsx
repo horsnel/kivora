@@ -22,7 +22,7 @@ const NAV_LINKS = [
 // About, Blog, Admin links removed from sidebar — About & Blog are in the footer, Admin is via O.L.H.M.E.S in footer
 
 // Pages that manage their own layout — no shared sidebar
-const NO_SIDEBAR = ['/auth', '/', '/onboarding', '/chat', '/research']
+const NO_SIDEBAR = ['/auth', '/', '/onboarding', '/chat']
 
 // Pages where the sidebar is hidden (full-width landing pages)
 const MINIMAL_ROUTES = []
@@ -36,7 +36,7 @@ export default function Navbar() {
   const sidebarRef = useRef(null)
 
   const isMinimal = MINIMAL_ROUTES.some(r => pathname.startsWith(r))
-  const hideSidebar = pathname === '/' || pathname.startsWith('/auth') || pathname.startsWith('/onboarding') || pathname.startsWith('/chat') || pathname.startsWith('/research')
+  const hideSidebar = pathname === '/' || pathname.startsWith('/auth') || pathname.startsWith('/onboarding') || pathname.startsWith('/chat')
 
   // Auth state
   useEffect(() => {

@@ -385,7 +385,7 @@ export default function ResearchPage() {
 
   // ── Render ──
   return (
-    <main className="h-dvh flex flex-col bg-[#0a0a0a] text-white overflow-hidden">
+    <main className="h-full flex flex-col bg-[#0a0a0a] text-white overflow-hidden">
 
       {/* ═══════════════════════════════════════════
           STATE 1: No active research → centered greeting + big text bar
