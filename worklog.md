@@ -68,3 +68,27 @@ Stage Summary:
 - /home page restored with greeting + chat bar, no sections
 - Sidebar now has Home link at the top
 - Service worker cache updated to v6
+---
+Task ID: 1
+Agent: main
+Task: Rename /home to /research and delete old /research page
+
+Work Log:
+- Read current app/home/page.jsx, app/research/page.jsx, app/research/ResearchClient.jsx
+- Copied home page content to app/research/page.jsx
+- Renamed component from HomePage to ResearchPage
+- Added useSearchParams import and auto-start research for /research?q=... URLs
+- Deleted app/research/ResearchClient.jsx
+- Replaced app/home/page.jsx with a simple redirect to /research
+- Updated components/Navbar.jsx: removed /home from NAV_LINKS, made Research the first nav item, updated NO_SIDEBAR and hideSidebar to use /research instead of /home, removed unused IconHome import
+- Updated public/sw.js: removed /home from STATIC_ASSETS, bumped cache to v7
+- Committed and pushed to GitHub
+- Built with @cloudflare/next-on-pages and deployed to CloudFlare Pages
+
+Stage Summary:
+- /home now redirects to /research
+- /research now shows the two-state UI (greeting + big text bar / collapsed bar + research output)
+- Old sidebar-based ResearchClient page is deleted
+- /research?q=... URLs auto-start research (preserving links from other pages)
+- Research is now the first item in the sidebar nav
+- Deployed to https://01f483c5.kivora.pages.dev
