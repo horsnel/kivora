@@ -2,6 +2,7 @@ export const runtime = 'edge'
 
 import { performSearch, readUrl } from '@/lib/toolRegistry'
 import { openrouterChat } from '@/lib/openrouter'
+import { geminiChat } from '@/lib/gemini'
 import { rateLimit } from '@/lib/ratelimit'
 
 // Simple markdown-to-HTML converter (runs on edge)
@@ -126,9 +127,9 @@ FOLLOWUPS:
 
       const deepUserContent = `${userContent}\n\nDetailed source content:\n${topContents.map(c => `[${c.index + 1}] ${c.title}\n${c.content}`).join('\n\n---\n\n')}`
 
-      // Generate comprehensive report via OpenRouter (deep model)
-      const completion = await openrouterChat({
-        model: 'google/gemini-2.5-flash',
+      // Generate comprehensive report via Gemini API (deep model)
+      const completion = await geminiChat({
+        model: 'gemini-2.5-flash',
         messages: [
           { role: 'system', content: deepSystemPrompt },
           { role: 'user', content: deepUserContent },
