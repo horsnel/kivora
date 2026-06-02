@@ -15,6 +15,8 @@ const SUGGESTED_TOPICS = [
   { Icon: IconHeart, label: 'Health & Biotech' },
 ]
 
+const TYPEWRITER_PHRASES = SUGGESTED_TOPICS.map(t => t.label)
+
 const QUICK_STAGES = [
   { id: 'search', label: 'Searching', Icon: IconSearch },
   { id: 'writing', label: 'Writing', Icon: IconWrite },
@@ -115,21 +117,89 @@ export default function HomePage() {
   const [user, setUser] = useState(null)
   const [input, setInput] = useState('')
   const [focused, setFocused] = useState(false)
+  const [placeholderText, setPlaceholderText] = useState('')
+  const [collapsedPlaceholder, setCollapsedPlaceholder] = useState('')
   const [mode, setMode] = useState('quick')
   const [activeResearch, setActiveResearch] = useState(null)
   const [isResearching, setIsResearching] = useState(false)
   const [error, setError] = useState('')
   const [reportDisplay, setReportDisplay] = useState('')
   const [sourcesVisible, setSourcesVisible] = useState(0)
+  const [history, setHistory] = useState([])
 
   const textareaRef = useRef(null)
   const collapsedInputRef = useRef(null)
   const reportRef = useRef(null)
   const streamTimerRef = useRef(null)
   const chatBarRef = useRef(null)
+  const typewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
+  const collapsedTypewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
 
   const hasActiveResearch = activeResearch !== null
   const hasInput = input.trim().length > 0
+
+  // ── Typewriter animation for big text bar ──
+  useEffect(() => {
+    const tw = typewriterRef.current
+    function tick() {
+      const phrase = TYPEWRITER_PHRASES[tw.phraseIdx]
+      if (!tw.deleting) {
+        tw.charIdx++
+        setPlaceholderText(phrase.slice(0, tw.charIdx))
+        if (tw.charIdx >= phrase.length) {
+          tw.timeout = setTimeout(() => { tw.deleting = true; tick() }, 2000)
+          return
+        }
+        tw.timeout = setTimeout(tick, 50 + Math.random() * 40)
+      } else {
+        tw.charIdx--
+        setPlaceholderText(phrase.slice(0, tw.charIdx))
+        if (tw.charIdx <= 0) {
+          tw.deleting = false
+          tw.phraseIdx = (tw.phraseIdx + 1) % TYPEWRITER_PHRASES.length
+          tw.timeout = setTimeout(tick, 400)
+          return
+        }
+        tw.timeout = setTimeout(tick, 25)
+      }
+    }
+    tick()
+    return () => clearTimeout(tw.timeout)
+  }, [])
+
+  // ── Typewriter animation for collapsed input ──
+  useEffect(() => {
+    const tw = collapsedTypewriterRef.current
+    function tick() {
+      const phrase = TYPEWRITER_PHRASES[tw.phraseIdx]
+      if (!tw.deleting) {
+        tw.charIdx++
+        setCollapsedPlaceholder(phrase.slice(0, tw.charIdx))
+        if (tw.charIdx >= phrase.length) {
+          tw.timeout = setTimeout(() => { tw.deleting = true; tick() }, 2000)
+          return
+        }
+        tw.timeout = setTimeout(tick, 50 + Math.random() * 40)
+      } else {
+        tw.charIdx--
+        setCollapsedPlaceholder(phrase.slice(0, tw.charIdx))
+        if (tw.charIdx <= 0) {
+          tw.deleting = false
+          tw.phraseIdx = (tw.phraseIdx + 1) % TYPEWRITER_PHRASES.length
+          tw.timeout = setTimeout(tick, 400)
+          return
+        }
+        tw.timeout = setTimeout(tick, 25)
+      }
+    }
+    tick()
+    return () => clearTimeout(tw.timeout)
+  }, [])
+
+  // ── Load history on mount ──
+  useEffect(() => {
+    setHistory(loadHistory())
+  }, [])
 
   // ── Auth ──
   useEffect(() => {
@@ -240,6 +310,7 @@ export default function HomePage() {
 
       const newHistory = [completed, ...loadHistory()].slice(0, MAX_HISTORY)
       saveHistory(newHistory)
+      setHistory(newHistory)
     } catch (err) {
       clearInterval(progressInterval)
       setError(err.message || 'Research failed. Please try again.')
@@ -286,6 +357,14 @@ export default function HomePage() {
     setIsResearching(false)
   }
 
+  function loadResearch(item) {
+    setActiveResearch(item)
+    setReportDisplay(item.report || '')
+    setSourcesVisible(item.sources?.length || 0)
+    setError('')
+    setIsResearching(false)
+  }
+
   // ── Computed ──
   const stages = mode === 'deep' ? DEEP_STAGES : QUICK_STAGES
   const currentStageIdx = activeResearch ? stages.findIndex(s => s.id === activeResearch.stage) : 0
@@ -312,28 +391,29 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Suggestion pills — above text bar, single scrollable row */}
           <div className="w-full max-w-2xl animate-fade-up">
-            <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none pb-0.5 px-1">
-              {SUGGESTED_TOPICS.map(({ Icon, label }) => (
-                <button
-                  key={label}
-                  onClick={() => { setInput(label); textareaRef.current?.focus() }}
-                  className="flex items-center gap-2 bg-transparent border border-[#1f1f1f] text-[#737373] hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px px-4 py-2 rounded-full text-[13px] font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em] whitespace-nowrap shrink-0"
-                >
-                  <Icon size={13} className="shrink-0" />
-                  <span>{label}</span>
-                </button>
-              ))}
-            </div>
+            {/* History pills — scrollable row above text bar */}
+            {history.length > 0 && (
+              <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none pb-0.5 px-1">
+                {history.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => loadResearch(item)}
+                    className="flex items-center gap-2 bg-transparent border border-[#1f1f1f] text-[#737373] hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px px-3.5 py-2 rounded-full text-[12px] font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em] whitespace-nowrap shrink-0 max-w-[180px]"
+                  >
+                    <IconMicroscope size={12} className="shrink-0 text-red-400/60" />
+                    <span className="truncate">{item.query}</span>
+                  </button>
+                ))}
+              </div>
+            )}
 
           {/* Big expanded text bar */}
             <div className="chat-container-expanded">
               <textarea
                 ref={textareaRef}
                 rows={1}
-                className="chat-textarea-expanded scrollbar-none"
-                placeholder="Research anything..."
+                className={`chat-textarea-expanded scrollbar-none${input.length === 0 && !focused ? ' no-caret' : ''}`}
                 value={input}
                 onChange={e => { setInput(e.target.value); autoResize(e.target) }}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
@@ -341,6 +421,11 @@ export default function HomePage() {
                 onBlur={() => setFocused(false)}
                 autoFocus
               />
+              {input.length === 0 && !focused && (
+                <div className="chat-typewriter-placeholder" onClick={() => textareaRef.current?.focus()}>
+                  {placeholderText}
+                </div>
+              )}
               <div className="chat-toolbar-expanded">
                 <div className="chat-toolbar-left">
                   {/* Mode toggle */}
@@ -531,17 +616,19 @@ export default function HomePage() {
           {/* Collapsed input bar at bottom */}
           <div className="shrink-0 border-t border-[#1a1a1a] bg-[#0a0a0a]">
             <div className="max-w-3xl mx-auto px-3 py-3">
-              {/* Suggestion pills above collapsed bar — only show when research is done */}
-              {activeResearch?.stage === 'done' && (
+              {/* History pills above collapsed bar — show when research is done */}
+              {activeResearch?.stage === 'done' && history.length > 0 && (
                 <div className="flex gap-2 mb-2.5 overflow-x-auto scrollbar-none pb-0.5">
-                  {SUGGESTED_TOPICS.map(({ Icon, label }) => (
+                  {history.map((item) => (
                     <button
-                      key={label}
-                      onClick={() => { setInput(label); collapsedInputRef.current?.focus() }}
-                      className="flex items-center gap-1.5 bg-transparent border border-[#1f1f1f] text-[#525252] hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px px-3 py-1.5 rounded-full text-[11px] font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em] whitespace-nowrap shrink-0"
+                      key={item.id}
+                      onClick={() => loadResearch(item)}
+                      className={`flex items-center gap-1.5 bg-transparent border text-[11px] font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em] whitespace-nowrap shrink-0 max-w-[160px] px-3 py-1.5 rounded-full hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px ${
+                        activeResearch?.id === item.id ? 'border-red-500/40 text-red-400' : 'border-[#1f1f1f] text-[#525252]'
+                      }`}
                     >
-                      <Icon size={11} className="shrink-0" />
-                      <span>{label}</span>
+                      <IconMicroscope size={10} className="shrink-0 text-red-400/60" />
+                      <span className="truncate">{item.query}</span>
                     </button>
                   ))}
                 </div>
@@ -564,7 +651,7 @@ export default function HomePage() {
                   <input
                     ref={collapsedInputRef}
                     type="text"
-                    placeholder="Research anything..."
+                    placeholder={collapsedPlaceholder || 'Research anything...'}
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
@@ -675,7 +762,7 @@ export default function HomePage() {
           margin-bottom: 12px;
           caret-color: #e2e2e2;
         }
-        .chat-textarea-expanded::placeholder { color: #525252; opacity: 1; }
+        .chat-textarea-expanded.no-caret { caret-color: transparent; }
         .chat-textarea-expanded:focus {
           border: none !important;
           outline: none !important;
@@ -747,6 +834,18 @@ export default function HomePage() {
         .chat-submit-btn:disabled { cursor: not-allowed; opacity: 0.5; }
         .chat-submit-btn-active { background: #e2e2e2; color: #0a0a0a; }
         .chat-submit-btn-active:hover { background: #ffffff; transform: scale(1.05); }
+
+        .chat-typewriter-placeholder {
+          position: absolute;
+          top: 20px;
+          left: 18px;
+          right: 18px;
+          color: #525252;
+          font-size: 16px;
+          line-height: 1.6;
+          pointer-events: auto;
+          cursor: text;
+        }
 
         /* ─── Collapsed pill bar (research active state) ─── */
         .research-bar-collapsed {
