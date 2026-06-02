@@ -472,8 +472,8 @@ export default function ResearchPage() {
                     onClick={() => setMode(mode === 'quick' ? 'deep' : 'quick')}
                     className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ml-0.5 ${
                       mode === 'deep'
-                        ? 'bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20'
-                        : 'border-red-500/50 text-red-400'
+                        ? 'bg-[rgba(220,38,38,0.12)] text-[#ef4444] border-[rgba(220,38,38,0.2)]'
+                        : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
                     }`}
                   >
                     {mode === 'deep' ? 'Deep' : 'Quick'}
@@ -707,8 +707,8 @@ export default function ResearchPage() {
                   onClick={() => setMode(mode === 'quick' ? 'deep' : 'quick')}
                   className={`text-[10px] px-2 py-1 rounded-full transition-all duration-200 border shrink-0 ${
                     mode === 'deep'
-                      ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                      : 'bg-[#1f1f1f] text-[#737373] border-transparent'
+                      ? 'bg-[rgba(220,38,38,0.12)] text-[#ef4444] border-[rgba(220,38,38,0.2)]'
+                      : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
                   }`}
                 >
                   {mode === 'deep' ? 'Deep' : 'Quick'}
