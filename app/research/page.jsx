@@ -7,7 +7,7 @@ import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, 
 
 // ── Constants ──
 const STORAGE_KEY = 'kivora-research-history'
-const MAX_HISTORY = 50
+const MAX_HISTORY = 30
 
 const SUGGESTED_TOPICS = [
   { Icon: IconDna, label: 'AI & Machine Learning Trends' },
@@ -310,6 +310,9 @@ export default function ResearchPage() {
         mode: researchMode,
         sources: data.sources || [],
         report: data.report || '',
+        content: data.content || '',
+        title: data.title || query.trim(),
+        followups: data.followups || [],
         data: data.data || null,
         progress: 100,
         stage: 'done',
@@ -377,8 +380,12 @@ export default function ResearchPage() {
     setSourcesVisible(item.sources?.length || 0)
     setError('')
     setIsResearching(false)
-    // Update URL so user can bookmark/share or use back button
     router.replace(`/research?q=${encodeURIComponent(item.query)}`, { scroll: false })
+  }
+
+  function handleFollowup(question) {
+    setInput(question)
+    startResearch(question, mode)
   }
 
   // ── Computed ──
@@ -596,7 +603,12 @@ export default function ResearchPage() {
                 {/* Report */}
                 <div className="bg-[#111111] border border-[#1a1a1a] rounded-xl overflow-hidden animate-fade-in">
                   <div className="px-4 py-3 border-b border-[#1a1a1a] shrink-0 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-white">Report</h3>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 font-medium">Research Report</span>
+                      {activeResearch.title && activeResearch.stage === 'done' && (
+                        <h3 className="text-sm font-semibold text-white truncate">{activeResearch.title}</h3>
+                      )}
+                    </div>
                     {reportText && !isResearching && (
                       <button
                         onClick={() => navigator.clipboard.writeText(activeResearch?.report || '')}
@@ -616,15 +628,16 @@ export default function ResearchPage() {
                     {!reportText && isResearching ? (
                       <div className="flex flex-col items-center justify-center py-12">
                         <div className="w-5 h-5 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin mb-3" />
-                        <p className="text-xs text-[#525252]">
-                          {activeResearch?.stage === 'search' ? 'Searching the web...' :
-                           activeResearch?.stage === 'analyzing' ? 'Analyzing sources...' :
-                           'Writing report...'}
-                        </p>
+                        <p className="text-sm text-white font-medium mb-1">Researching...</p>
+                        <p className="text-xs text-[#525252]">This takes 15–30 seconds</p>
                       </div>
                     ) : reportText ? (
                       <div className="report-content">
-                        {renderMarkdown(reportText)}
+                        {activeResearch?.content && !isResearching ? (
+                          <div dangerouslySetInnerHTML={{ __html: activeResearch.content }} />
+                        ) : (
+                          renderMarkdown(reportText)
+                        )}
                         {isResearching && <span className="inline-block w-0.5 h-4 bg-red-500 animate-pulse ml-0.5 align-middle" />}
                       </div>
                     ) : (
@@ -634,6 +647,24 @@ export default function ResearchPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Follow-up Questions */}
+                {activeResearch.stage === 'done' && activeResearch.followups?.length > 0 && (
+                  <div className="animate-fade-in">
+                    <h3 className="text-sm font-semibold text-white mb-2">Follow-up Questions</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {activeResearch.followups.map((q, i) => (
+                        <button
+                          key={i}
+                          onClick={() => handleFollowup(q)}
+                          className="text-xs px-3 py-2 rounded-full bg-transparent border border-[#1f1f1f] text-[#a0a0a0] hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white transition-all duration-200 cursor-pointer text-left"
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
               </div>
             </div>

@@ -1,6 +1,8 @@
 export const runtime = 'edge'
 
-import { webSearch, webReader, chatCompletions } from '@/lib/zai'
+import { webSearch, webReader } from '@/lib/zai'
+import { openrouterChat } from '@/lib/openrouter'
+import { cerebrasChat } from '@/lib/cerebras'
 import { rateLimit } from '@/lib/ratelimit'
 
 // Simple markdown-to-HTML converter (runs on edge)
@@ -44,7 +46,7 @@ export async function POST(req) {
       return Response.json({ error: 'Query is required' }, { status: 400 })
     }
 
-    // Step 1: Web search for sources
+    // Step 1: Web search for sources via ZAI
     const searchResult = await webSearch({ query, num: mode === 'deep' ? 10 : 5 })
 
     // Normalize search results into our source format
@@ -88,7 +90,9 @@ FOLLOWUPS:
 2. Question two?
 3. Question three?`
 
-    if (mode === 'deep' && sources.length > 0) {
+    const userContent = `Research query: "${query}"\n\nSearch results:\n${sources.map((s, i) => `[${i + 1}] ${s.title}\nURL: ${s.url}\n${s.snippet}`).join('\n\n')}`
+
+    if (mode === 'deep') {
       // Deep mode: Read top sources for deeper content
       const topContents = []
       const readLimit = Math.min(4, sources.length)
@@ -124,15 +128,17 @@ FOLLOWUPS:
         if (sources[c.index]) sources[c.index].status = 'deep'
       })
 
-      // Generate comprehensive report
-      const completion = await chatCompletions({
+      const deepUserContent = `${userContent}\n\nDetailed source content:\n${topContents.map(c => `[${c.index + 1}] ${c.title}\n${c.content}`).join('\n\n---\n\n')}`
+
+      // Generate comprehensive report via OpenRouter (deep model)
+      const completion = await openrouterChat({
+        model: 'google/gemini-2.5-flash-preview',
         messages: [
           { role: 'system', content: deepSystemPrompt },
-          {
-            role: 'user',
-            content: `Research query: "${query}"\n\nSearch results:\n${sources.map((s, i) => `[${i + 1}] ${s.title}\nURL: ${s.url}\n${s.snippet}`).join('\n\n')}\n\nDetailed source content:\n${topContents.map(c => `[${c.index + 1}] ${c.title}\n${c.content}`).join('\n\n---\n\n')}`,
-          },
+          { role: 'user', content: deepUserContent },
         ],
+        temperature: 0.3,
+        max_tokens: 4096,
       })
 
       const rawReport = completion?.choices?.[0]?.message?.content || ''
@@ -150,15 +156,14 @@ FOLLOWUPS:
       return Response.json({ sources, report, content, title, followups, data: null, mode: 'deep' })
     }
 
-    // Quick mode: single AI call
-    const completion = await chatCompletions({
+    // Quick mode: fast Cerebras call
+    const completion = await cerebrasChat({
       messages: [
         { role: 'system', content: quickSystemPrompt },
-        {
-          role: 'user',
-          content: `Research query: "${query}"\n\nSearch results:\n${sources.map((s, i) => `[${i + 1}] ${s.title}\nURL: ${s.url}\n${s.snippet}`).join('\n\n')}`,
-        },
+        { role: 'user', content: userContent },
       ],
+      temperature: 0.3,
+      max_tokens: 2048,
     })
 
     const rawReport = completion?.choices?.[0]?.message?.content || ''
