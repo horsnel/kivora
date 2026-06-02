@@ -8,8 +8,8 @@ import { useCurrency } from '@/components/CurrencyToggle'
 import { useTranslation } from '@/components/LanguageProvider'
 
 const NAV_LINKS = [
-  { labelKey: 'nav.research',       href: '/research',       Icon: IconMicroscope },
   { labelKey: 'nav.explore',        href: '/explore',        Icon: IconSearch },
+  { labelKey: 'nav.research',       href: '/research',       Icon: IconMicroscope },
   { labelKey: 'nav.chat',           href: '/chat',           Icon: IconChat },
   { labelKey: 'nav.community',      href: '/community',      Icon: IconCommunity },
   { labelKey: 'nav.opportunities',  href: '/opportunities',  Icon: IconOpportunity },
