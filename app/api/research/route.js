@@ -3,6 +3,34 @@ export const runtime = 'edge'
 import { webSearch, webReader, chatCompletions } from '@/lib/zai'
 import { rateLimit } from '@/lib/ratelimit'
 
+// Simple markdown-to-HTML converter (runs on edge)
+function markdownToHtml(md) {
+  if (!md) return ''
+  let html = md
+    // Headers
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    // Bold
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/__(.+?)__/g, '<strong>$1</strong>')
+    // Links
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    // Horizontal rules
+    .replace(/^---+$/gm, '<hr/>')
+    // Unordered list items
+    .replace(/^[-*]\s+(.+)$/gm, '<li>$1</li>')
+    // Ordered list items
+    .replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>')
+    // Wrap consecutive <li> in <ul>
+    html = html.replace(/((?:<li>.*?<\/li>\s*)+)/g, '<ul>$1</ul>')
+    // Paragraphs — wrap lines that aren't already tags
+    html = html.replace(/^(?!<[hluoa]|<hr|<li|<ul|<strong)(.+)$/gm, '<p>$1</p>')
+    // Clean up empty paragraphs
+    html = html.replace(/<p>\s*<\/p>/g, '')
+  return html
+}
+
 export async function POST(req) {
   const ip = req.headers.get('x-forwarded-for') || 'unknown'
   if (!rateLimit(ip).ok) {
@@ -29,6 +57,36 @@ export async function POST(req) {
       favicon: r.favicon || r.icon || '',
       status: 'loaded',
     }))
+
+    const deepSystemPrompt = `You are an expert research analyst. Based on the search results and source content provided, write a comprehensive, well-structured research report.
+
+Format in markdown with these sections:
+## Key Findings
+- List 5-7 key findings with inline citations [1], [2] etc.
+## Detailed Analysis
+- In-depth analysis of the findings, cross-referencing sources
+## Implications
+- What these findings mean in practice
+## Conclusion
+- Summary with actionable takeaways
+## Sources
+- Numbered list of all sources with URLs
+
+After the report, on a new line, suggest 3-5 follow-up research questions formatted as:
+FOLLOWUPS:
+1. Question one?
+2. Question two?
+3. Question three?
+
+Be thorough, factual, and always cite your sources. Write at least 800 words for the deep report.`
+
+    const quickSystemPrompt = `You are a research assistant. Based on the search results provided, write a concise research summary. Format in markdown with sections: ## Key Findings, ## Analysis, ## Conclusion. Use inline citations [1], [2] etc. referencing the source index. Be factual and cite sources.
+
+After the report, on a new line, suggest 3-5 follow-up research questions formatted as:
+FOLLOWUPS:
+1. Question one?
+2. Question two?
+3. Question three?`
 
     if (mode === 'deep' && sources.length > 0) {
       // Deep mode: Read top sources for deeper content
@@ -69,24 +127,7 @@ export async function POST(req) {
       // Generate comprehensive report
       const completion = await chatCompletions({
         messages: [
-          {
-            role: 'system',
-            content: `You are an expert research analyst. Based on the search results and source content provided, write a comprehensive, well-structured research report.
-
-Format in markdown with these sections:
-## Key Findings
-- List 5-7 key findings with inline citations [1], [2] etc.
-## Detailed Analysis
-- In-depth analysis of the findings, cross-referencing sources
-## Implications
-- What these findings mean in practice
-## Conclusion
-- Summary with actionable takeaways
-## Sources
-- Numbered list of all sources with URLs
-
-Be thorough, factual, and always cite your sources. Write at least 800 words for the deep report.`,
-          },
+          { role: 'system', content: deepSystemPrompt },
           {
             role: 'user',
             content: `Research query: "${query}"\n\nSearch results:\n${sources.map((s, i) => `[${i + 1}] ${s.title}\nURL: ${s.url}\n${s.snippet}`).join('\n\n')}\n\nDetailed source content:\n${topContents.map(c => `[${c.index + 1}] ${c.title}\n${c.content}`).join('\n\n---\n\n')}`,
@@ -94,18 +135,25 @@ Be thorough, factual, and always cite your sources. Write at least 800 words for
         ],
       })
 
-      const report = completion?.choices?.[0]?.message?.content || ''
+      const rawReport = completion?.choices?.[0]?.message?.content || ''
 
-      return Response.json({ sources, report, data: null, mode: 'deep' })
+      // Extract followups
+      const { report, followups } = extractFollowups(rawReport)
+
+      // Convert markdown to HTML
+      const content = markdownToHtml(report)
+
+      // Generate a title from the first heading or the query
+      const titleMatch = report.match(/^#\s+(.+)$/m) || report.match(/^##\s+(.+)$/m)
+      const title = titleMatch ? titleMatch[1].replace(/[*_]/g, '') : query
+
+      return Response.json({ sources, report, content, title, followups, data: null, mode: 'deep' })
     }
 
     // Quick mode: single AI call
     const completion = await chatCompletions({
       messages: [
-        {
-          role: 'system',
-          content: `You are a research assistant. Based on the search results provided, write a concise research summary. Format in markdown with sections: ## Key Findings, ## Analysis, ## Conclusion. Use inline citations [1], [2] etc. referencing the source index. Be factual and cite sources.`,
-        },
+        { role: 'system', content: quickSystemPrompt },
         {
           role: 'user',
           content: `Research query: "${query}"\n\nSearch results:\n${sources.map((s, i) => `[${i + 1}] ${s.title}\nURL: ${s.url}\n${s.snippet}`).join('\n\n')}`,
@@ -113,11 +161,41 @@ Be thorough, factual, and always cite your sources. Write at least 800 words for
       ],
     })
 
-    const report = completion?.choices?.[0]?.message?.content || ''
+    const rawReport = completion?.choices?.[0]?.message?.content || ''
 
-    return Response.json({ sources, report, data: null, mode: 'quick' })
+    // Extract followups
+    const { report, followups } = extractFollowups(rawReport)
+
+    // Convert markdown to HTML
+    const content = markdownToHtml(report)
+
+    // Generate a title from the first heading or the query
+    const titleMatch = report.match(/^#\s+(.+)$/m) || report.match(/^##\s+(.+)$/m)
+    const title = titleMatch ? titleMatch[1].replace(/[*_]/g, '') : query
+
+    return Response.json({ sources, report, content, title, followups, data: null, mode: 'quick' })
   } catch (error) {
     console.error('[research] API error:', error)
     return Response.json({ error: error.message || 'Research failed' }, { status: 500 })
   }
+}
+
+// Extract follow-up questions from the AI response
+function extractFollowups(text) {
+  if (!text) return { report: '', followups: [] }
+
+  const followupsMatch = text.match(/FOLLOWUPS:\s*\n([\s\S]*?)$/i)
+
+  if (followupsMatch) {
+    const followupText = followupsMatch[1]
+    const followups = followupText
+      .split('\n')
+      .map(line => line.replace(/^\d+\.\s*/, '').trim())
+      .filter(q => q.length > 0 && q.endsWith('?'))
+
+    const report = text.replace(/FOLLOWUPS:\s*\n[\s\S]*$/i, '').trim()
+    return { report, followups }
+  }
+
+  return { report: text, followups: [] }
 }
