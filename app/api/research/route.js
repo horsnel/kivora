@@ -128,7 +128,7 @@ FOLLOWUPS:
 
       // Generate comprehensive report via OpenRouter (deep model)
       const completion = await openrouterChat({
-        model: 'google/gemini-2.5-flash-preview',
+        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: deepSystemPrompt },
           { role: 'user', content: deepUserContent },
@@ -152,9 +152,9 @@ FOLLOWUPS:
       return Response.json({ sources, report, content, title, followups, data: null, mode: 'deep' })
     }
 
-    // Quick mode: fast OpenRouter call with Gemini Flash
+    // Quick mode: fast OpenRouter call with Gemini 2.5 Flash Lite
     const completion = await openrouterChat({
-      model: 'google/gemini-2.0-flash-001',
+      model: 'google/gemini-2.5-flash-lite',
       messages: [
         { role: 'system', content: quickSystemPrompt },
         { role: 'user', content: userContent },
