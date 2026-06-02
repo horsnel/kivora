@@ -112,3 +112,20 @@ Stage Summary:
 - Cerebras model changed to qwen3-32b (free tier compatible)
 - Deployed at https://2c6b7293.kivora.pages.dev
 - Files changed: lib/cerebras.js, app/api/research/route.js
+
+---
+Task ID: 2
+Agent: main
+Task: Fix Cerebras model ID format - qwen3-32b was wrong, correct ID is qwen-3-32b
+
+Work Log:
+- Found from Cerebras changelog that exact model ID is qwen-3-32b (with dashes)
+- Confirmed by LobeHub skills, Cerebras Cookbook, and Opper AI changelog
+- Previous attempt used qwen3-32b (no dash between qwen and 3) which was incorrect
+- Updated lib/cerebras.js: qwen3-32b → qwen-3-32b
+- Updated app/api/research/route.js: qwen3-32b → qwen-3-32b
+- Pushed and deployed
+
+Stage Summary:
+- Corrected model ID to qwen-3-32b
+- Deployed at https://80bbf0ff.kivora.pages.dev
