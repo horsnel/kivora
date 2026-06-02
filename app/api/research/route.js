@@ -2,7 +2,6 @@ export const runtime = 'edge'
 
 import { performSearch, readUrl } from '@/lib/toolRegistry'
 import { openrouterChat } from '@/lib/openrouter'
-import { cerebrasChat } from '@/lib/cerebras'
 import { rateLimit } from '@/lib/ratelimit'
 
 // Simple markdown-to-HTML converter (runs on edge)
@@ -153,9 +152,9 @@ FOLLOWUPS:
       return Response.json({ sources, report, content, title, followups, data: null, mode: 'deep' })
     }
 
-    // Quick mode: fast Cerebras call
-    const completion = await cerebrasChat({
-      model: 'qwen-3-32b',
+    // Quick mode: fast OpenRouter call with Gemini Flash
+    const completion = await openrouterChat({
+      model: 'google/gemini-2.0-flash-001',
       messages: [
         { role: 'system', content: quickSystemPrompt },
         { role: 'user', content: userContent },
