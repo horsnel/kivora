@@ -92,3 +92,23 @@ Stage Summary:
 - /research?q=... URLs auto-start research (preserving links from other pages)
 - Research is now the first item in the sidebar nav
 - Deployed to https://01f483c5.kivora.pages.dev
+
+---
+Task ID: 1
+Agent: main
+Task: Fix Cerebras model error - Meta/Llama models not available on free endpoint
+
+Work Log:
+- Searched Cerebras docs, pricing page, and model catalog for available free-tier models
+- Direct API calls to Cerebras /v1/models blocked by CloudFlare from dev server
+- Used web search and page reader to find available models
+- Found that free tier includes: qwen3-32b, gpt-oss-120b, deepseek-r1-distill-llama-70b
+- Confirmed Meta/Llama models (llama3.1-8b, llama3.3-70b, llama-4-scout) are NOT available on free endpoint
+- Updated lib/cerebras.js default model from 'llama-3.1-8b' to 'qwen3-32b'
+- Updated app/api/research/route.js quick mode model from 'llama-3.1-8b' to 'qwen3-32b'
+- Pushed to GitHub and deployed to CloudFlare Pages
+
+Stage Summary:
+- Cerebras model changed to qwen3-32b (free tier compatible)
+- Deployed at https://2c6b7293.kivora.pages.dev
+- Files changed: lib/cerebras.js, app/api/research/route.js
