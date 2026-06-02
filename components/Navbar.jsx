@@ -2,16 +2,15 @@
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
-import { IconMenu, IconClose, IconDashboard, IconUser, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconVideo, IconEye, IconMicroscope, IconCommunity, IconOpportunity, IconHome } from '@/components/Icons'
+import { IconMenu, IconClose, IconDashboard, IconUser, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconVideo, IconEye, IconMicroscope, IconCommunity, IconOpportunity } from '@/components/Icons'
 import { supabasePublic } from '@/lib/supabase'
 import { useCurrency } from '@/components/CurrencyToggle'
 import { useTranslation } from '@/components/LanguageProvider'
 
 const NAV_LINKS = [
-  { labelKey: 'nav.home',           href: '/home',           Icon: IconHome },
+  { labelKey: 'nav.research',       href: '/research',       Icon: IconMicroscope },
   { labelKey: 'nav.explore',        href: '/explore',        Icon: IconSearch },
   { labelKey: 'nav.chat',           href: '/chat',           Icon: IconChat },
-  { labelKey: 'nav.research',       href: '/research',       Icon: IconMicroscope },
   { labelKey: 'nav.community',      href: '/community',      Icon: IconCommunity },
   { labelKey: 'nav.opportunities',  href: '/opportunities',  Icon: IconOpportunity },
   { labelKey: 'nav.studydesk',      href: '/study',          Icon: IconBook },
@@ -23,7 +22,7 @@ const NAV_LINKS = [
 // About, Blog, Admin links removed from sidebar — About & Blog are in the footer, Admin is via O.L.H.M.E.S in footer
 
 // Pages that manage their own layout — no shared sidebar
-const NO_SIDEBAR = ['/auth', '/', '/onboarding', '/chat', '/home']
+const NO_SIDEBAR = ['/auth', '/', '/onboarding', '/chat', '/research']
 
 // Pages where the sidebar is hidden (full-width landing pages)
 const MINIMAL_ROUTES = []
@@ -37,7 +36,7 @@ export default function Navbar() {
   const sidebarRef = useRef(null)
 
   const isMinimal = MINIMAL_ROUTES.some(r => pathname.startsWith(r))
-  const hideSidebar = pathname === '/' || pathname.startsWith('/auth') || pathname.startsWith('/onboarding') || pathname.startsWith('/chat') || pathname.startsWith('/home')
+  const hideSidebar = pathname === '/' || pathname.startsWith('/auth') || pathname.startsWith('/onboarding') || pathname.startsWith('/chat') || pathname.startsWith('/research')
 
   // Auth state
   useEffect(() => {

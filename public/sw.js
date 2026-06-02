@@ -1,8 +1,7 @@
 // Kivora Service Worker — offline-first caching
-const CACHE_NAME = 'kivora-v6'
+const CACHE_NAME = 'kivora-v7'
 const STATIC_ASSETS = [
   '/',
-  '/home',
   '/chat',
   '/research',
   '/devtools',
