@@ -129,7 +129,7 @@ FOLLOWUPS:
 
       // Generate comprehensive report via Gemini API (deep model)
       const completion = await geminiChat({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.0-flash',
         messages: [
           { role: 'system', content: deepSystemPrompt },
           { role: 'user', content: deepUserContent },
