@@ -135,6 +135,7 @@ export default function ResearchPage() {
   const reportRef = useRef(null)
   const streamTimerRef = useRef(null)
   const chatBarRef = useRef(null)
+  const fileInputRef = useRef(null)
   const typewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
   const collapsedTypewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
 
@@ -440,9 +441,24 @@ export default function ResearchPage() {
               <div className="chat-toolbar-expanded">
                 <div className="chat-toolbar-left">
                   {/* File upload button */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    multiple
+                    onChange={e => {
+                      const files = Array.from(e.target.files || [])
+                      if (files.length > 0) {
+                        // TODO: process attached files with research query
+                        setInput(prev => prev ? prev + ' ' + files.map(f => f.name).join(', ') : files.map(f => f.name).join(', '))
+                      }
+                      e.target.value = ''
+                    }}
+                  />
                   <button
                     className="chat-toolbar-btn"
                     title="Attach file"
+                    onClick={() => fileInputRef.current?.click()}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
@@ -640,15 +656,15 @@ export default function ResearchPage() {
                 </div>
               )}
               <div className="research-bar-collapsed">
-                {/* New research button */}
+                {/* File upload button */}
                 <button
                   className="research-collapsed-btn-circle"
-                  onClick={newResearch}
-                  aria-label="New research"
-                  title="New research"
+                  onClick={() => fileInputRef.current?.click()}
+                  aria-label="Attach file"
+                  title="Attach file"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 5v14M5 12h14" />
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
                   </svg>
                 </button>
 
