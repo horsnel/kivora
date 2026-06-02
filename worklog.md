@@ -129,3 +129,22 @@ Work Log:
 Stage Summary:
 - Corrected model ID to qwen-3-32b
 - Deployed at https://80bbf0ff.kivora.pages.dev
+
+---
+Task ID: 3
+Agent: main
+Task: Switch Quick mode from Cerebras to OpenRouter - Cerebras keys have no model access
+
+Work Log:
+- Cerebras API keys return 404 for every model tried: llama-4-scout-17b-16e-instruct, llama-3.3-70b, llama3.3-70b, llama-3.1-8b, qwen3-32b, qwen-3-32b
+- All errors say "Model X does not exist or you do not have access to it"
+- Concluded that the Cerebras API keys do not have access to any model on the free tier
+- Switched Quick mode to use OpenRouter with google/gemini-2.0-flash-001 (fast, cheap, and known to work)
+- Removed cerebrasChat import from research route
+- Deep mode already uses OpenRouter with google/gemini-2.5-flash-preview (working)
+
+Stage Summary:
+- Quick mode now uses OpenRouter (same provider as Deep mode, different model)
+- Quick: google/gemini-2.0-flash-001 (fast, cheap)
+- Deep: google/gemini-2.5-flash-preview (more capable)
+- Deployed at https://6fa97190.kivora.pages.dev
