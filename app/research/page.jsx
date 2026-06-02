@@ -439,23 +439,18 @@ export default function ResearchPage() {
               )}
               <div className="chat-toolbar-expanded">
                 <div className="chat-toolbar-left">
-                  {/* Mode toggle */}
+                  {/* File upload button */}
                   <button
-                    className={`chat-toolbar-btn ${mode === 'deep' ? 'chat-toolbar-btn-active' : ''}`}
-                    onClick={() => setMode(mode === 'quick' ? 'deep' : 'quick')}
-                    title={mode === 'quick' ? 'Switch to Deep mode' : 'Switch to Quick mode'}
+                    className="chat-toolbar-btn"
+                    title="Attach file"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      {mode === 'deep' ? (
-                        <><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></>
-                      ) : (
-                        <><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></>
-                      )}
+                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
                     </svg>
                   </button>
                   <button
                     onClick={() => setMode(mode === 'quick' ? 'deep' : 'quick')}
-                    className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ${
+                    className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ml-0.5 ${
                       mode === 'deep'
                         ? 'bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20'
                         : 'border-red-500/50 text-red-400'
