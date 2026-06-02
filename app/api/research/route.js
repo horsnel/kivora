@@ -155,7 +155,7 @@ FOLLOWUPS:
 
     // Quick mode: fast Cerebras call
     const completion = await cerebrasChat({
-      model: 'qwen3-32b',
+      model: 'qwen-3-32b',
       messages: [
         { role: 'system', content: quickSystemPrompt },
         { role: 'user', content: userContent },
