@@ -1,5 +1,5 @@
 export const runtime = 'edge'
-import { groq, MODEL, VISION_MODEL, groqChat, GroqError, ALLOWED_MODELS, getPrimaryClientAsync, setGeminiApiKey } from '@/lib/groq'
+import { groq, MODEL, VISION_MODEL, groqChat, GroqError, ALLOWED_MODELS, getPrimaryClientAsync, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
 import { createClient } from '@supabase/supabase-js'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit } from '@/lib/ratelimit'
@@ -32,6 +32,8 @@ export async function POST(req) {
     const supaUrl = await getEnvVar('NEXT_PUBLIC_SUPABASE_URL')
     const supaKey = await getEnvVar('SUPABASE_SERVICE_ROLE_KEY')
     setGeminiApiKey(geminiKey)
+    const openrouterKey = await getEnvVar('OPENROUTER_API_KEY')
+    setOpenrouterApiKey(openrouterKey)
     const groqClient = await getPrimaryClientAsync(groqKey)
     const admin = supaUrl && supaKey ? createClient(supaUrl, supaKey) : null
     if (!groqClient || !admin) {
