@@ -60,6 +60,9 @@ function renderMarkdown(text) {
   const elements = []
   let inList = false
   let listItems = []
+  let inTable = false
+  let tableRows = []
+  let tableHeaders = []
   let keyIdx = 0
 
   function flushList() {
@@ -68,6 +71,32 @@ function renderMarkdown(text) {
       listItems = []
     }
     inList = false
+  }
+
+  function flushTable() {
+    if (tableHeaders.length > 0) {
+      elements.push(
+        <div key={`tbl-wrap-${keyIdx++}`} className="overflow-x-auto -mx-1 px-1 mb-4">
+          <table className="w-full text-left border-collapse separate border-spacing-0 rounded-xl overflow-hidden border border-[#1a1a1a]">
+            <thead>
+              <tr>{tableHeaders.map((h, hi) => (
+                <th key={`th-${hi}`} className="px-3 py-2 text-[11px] font-semibold text-[#737373] uppercase tracking-wider bg-[#111]">{h}</th>
+              ))}</tr>
+            </thead>
+            <tbody>
+              {tableRows.map((row, ri) => (
+                <tr key={`tr-${ri}`}>{row.map((cell, ci) => (
+                  <td key={`td-${ri}-${ci}`} className="px-3 py-2.5 text-sm text-[#a0a0a0] leading-relaxed border-t border-[#1a1a1a]">{renderInline(cell)}</td>
+                ))}</tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
+    tableHeaders = []
+    tableRows = []
+    inTable = false
   }
 
   function renderInline(str) {
@@ -98,6 +127,31 @@ function renderMarkdown(text) {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
+
+    // Table row detection: lines containing pipes
+    if (line.includes('|') && line.trim().startsWith('|')) {
+      flushList()
+      const cells = line.split('|').filter(c => c.trim() !== '').map(c => c.trim())
+      // Separator row (|---|---|)
+      if (cells.every(c => /^[-:]+$/.test(c))) {
+        inTable = true
+        continue
+      }
+      if (!inTable && tableHeaders.length === 0) {
+        // First row = header
+        tableHeaders = cells
+        inTable = true
+        continue
+      }
+      if (inTable) {
+        tableRows.push(cells)
+        continue
+      }
+    } else if (inTable) {
+      // End of table
+      flushTable()
+    }
+
     if (line.startsWith('### ')) { flushList(); elements.push(<h3 key={`h3-${keyIdx++}`} className="text-base font-semibold text-white mt-5 mb-2">{renderInline(line.slice(4))}</h3>); continue }
     if (line.startsWith('## ')) { flushList(); elements.push(<h2 key={`h2-${keyIdx++}`} className="text-lg font-semibold text-white mt-6 mb-2.5">{renderInline(line.slice(3))}</h2>); continue }
     if (line.startsWith('# ')) { flushList(); elements.push(<h1 key={`h1-${keyIdx++}`} className="text-xl font-bold text-white mt-4 mb-3">{renderInline(line.slice(2))}</h1>); continue }
@@ -109,6 +163,7 @@ function renderMarkdown(text) {
     elements.push(<p key={`p-${keyIdx++}`} className="text-sm text-[#a0a0a0] leading-relaxed mb-3">{renderInline(line)}</p>)
   }
   flushList()
+  flushTable()
   return elements
 }
 
@@ -634,7 +689,7 @@ export default function ResearchPage() {
                     ) : reportText ? (
                       <div className="report-content">
                         {activeResearch?.content && !isResearching ? (
-                          <div dangerouslySetInnerHTML={{ __html: activeResearch.content }} />
+                          <div className="prose-kivora" dangerouslySetInnerHTML={{ __html: activeResearch.content }} />
                         ) : (
                           renderMarkdown(reportText)
                         )}
