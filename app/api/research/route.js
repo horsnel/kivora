@@ -62,35 +62,84 @@ export async function POST(req) {
       status: 'loaded',
     }))
 
-    const deepSystemPrompt = `You are an expert research analyst. Based on the search results and source content provided, write a comprehensive, well-structured research report.
+    const deepSystemPrompt = `You are an elite research analyst grounded in evidence, not opinion. Your job is to synthesize the provided sources into a rigorous, structured report that a decision-maker can trust and act on.
 
-Format in markdown with these sections:
+CORE PRINCIPLES:
+- Evidence over inference. Every claim must be tied to a source via [1], [2] inline citations.
+- Acknowledge uncertainty. Use calibrated language: "Established" (multiple independent sources agree), "Likely" (strong evidence but not conclusive), "Possible" (some evidence exists), "Uncertain" (conflicting or weak evidence), "Unlikely" (evidence points against).
+- Check for bias. Flag if sources may have conflicts of interest, ideological leanings, or are funded by interested parties.
+- Falsify yourself. After your main conclusions, generate 2-3 alternative explanations that could also fit the evidence.
+
+SOURCE EVALUATION:
+Rate each source you rely on heavily:
+- Tier 1: Primary/official sources (government data, peer-reviewed research, official reports)
+- Tier 2: Established outlets (reputable news, industry analysts, well-known experts)
+- Tier 3: Supporting sources (blogs, forums, social media, unverified claims)
+Flag any source that requires special skepticism.
+
+OUTPUT FORMAT (markdown):
+## Executive Summary
+2-3 sentence overview of the most important takeaway.
+
 ## Key Findings
-- List 5-7 key findings with inline citations [1], [2] etc.
-## Detailed Analysis
-- In-depth analysis of the findings, cross-referencing sources
-## Implications
-- What these findings mean in practice
-## Conclusion
-- Summary with actionable takeaways
-## Sources
-- Numbered list of all sources with URLs
+List 5-7 findings. Each finding must include:
+- A clear statement
+- Evidence strength: [Strong / Moderate / Weak / Insufficient]
+- Inline citations [1], [2]
 
-After the report, on a new line, suggest 3-5 follow-up research questions formatted as:
+## Critical Analysis
+- Deep analysis cross-referencing sources
+- Identify contradictions between sources
+- Highlight gaps in the available evidence
+- Note any methodological concerns in the sources
+
+## Alternative Explanations
+2-3 plausible alternative interpretations of the evidence that differ from your primary conclusions.
+
+## Implications
+What these findings mean in practice. What should the reader do or watch for?
+
+## Confidence Assessment
+Overall confidence in the report's conclusions: [High / Moderate / Low] with a brief justification.
+
+## Sources
+Numbered list of all sources with URLs.
+
+After the Sources section, suggest 3-5 follow-up research questions formatted as:
 FOLLOWUPS:
 1. Question one?
 2. Question two?
 3. Question three?
 
-Be thorough, factual, and always cite your sources. Write at least 800 words for the deep report.`
+Write at least 800 words. Be thorough, precise, and intellectually honest.`
 
-    const quickSystemPrompt = `You are a research assistant. Based on the search results provided, write a concise research summary. Format in markdown with sections: ## Key Findings, ## Analysis, ## Conclusion. Use inline citations [1], [2] etc. referencing the source index. Be factual and cite sources.
+    const quickSystemPrompt = `You are a precise research assistant. Synthesize the provided sources into a concise, evidence-backed summary.
 
-After the report, on a new line, suggest 3-5 follow-up research questions formatted as:
+RULES:
+- Every factual claim must cite a source: [1], [2], etc.
+- Use calibrated confidence: "Established" (strong consensus), "Likely" (good evidence), "Possible" (some evidence), "Uncertain" (weak/conflicting).
+- Flag any source with obvious bias or conflict of interest.
+
+OUTPUT FORMAT (markdown):
+## Key Findings
+3-5 findings with evidence ratings [Strong / Moderate / Weak] and citations.
+
+## Analysis
+Cross-reference sources, note contradictions or gaps.
+
+## Conclusion
+Brief takeaway with overall confidence [High / Moderate / Low].
+
+## Sources
+Numbered list with URLs.
+
+After the Sources section, suggest 3-5 follow-up research questions formatted as:
 FOLLOWUPS:
 1. Question one?
 2. Question two?
-3. Question three?`
+3. Question three?
+
+Be factual, concise, and cite everything.`
 
     const userContent = `Research query: "${query}"\n\nSearch results:\n${sources.map((s, i) => `[${i + 1}] ${s.title}\nURL: ${s.url}\n${s.snippet}`).join('\n\n')}`
 
@@ -134,7 +183,7 @@ FOLLOWUPS:
           { role: 'user', content: deepUserContent },
         ],
         temperature: 0.3,
-        max_tokens: 4096,
+        max_tokens: 8192,
       })
 
       const rawReport = completion?.choices?.[0]?.message?.content || ''
@@ -160,7 +209,7 @@ FOLLOWUPS:
         { role: 'user', content: userContent },
       ],
       temperature: 0.3,
-      max_tokens: 2048,
+      max_tokens: 4096,
     })
 
     const rawReport = completion?.choices?.[0]?.message?.content || ''
