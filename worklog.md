@@ -60,3 +60,25 @@ Stage Summary:
 - Fix: Server-side proxy eliminates CORS issue entirely
 - Security improvement: OpenRouter API key no longer exposed to client
 - Research page fully functional: Quick mode ~14s, produces comprehensive reports
+---
+Task ID: 4
+Agent: Main Agent
+Task: Improve deep mode report length and quality (tables, word count)
+
+Work Log:
+- Diagnosed issue: max_tokens=8192 was limiting output; models produce ~2K tokens even with 8K limit
+- Discovered incorrect OpenRouter model IDs (google/gemini-2.5-flash-preview → google/gemini-2.5-flash)
+- Switched from single LLM call to multi-section generation (3 parallel calls)
+- Each section gets 16K max_tokens and detailed length-enforcing prompts
+- Section 1: Executive Summary + Key Findings + Foundational Context
+- Section 2: Detailed Analysis + Comparative Analysis (3+ tables)
+- Section 3: Debates + Stats + Risk/Opportunity + Recommendations + Future + Confidence
+- Read 5 URLs (up from 3) with 6K chars each (up from 4K)
+- Updated frontend timeout to 180s for deep mode
+- Gemini 2.5 Flash as primary (fast, 65K output), Pro as secondary
+
+Stage Summary:
+- Before: ~2,054 words, 1 table, 11 paragraphs
+- After: ~5,400+ words, 7+ tables, 27+ sections, ~57 seconds
+- Quick mode unchanged (~10-15s, ~5K words)
+- Deep mode: ~55-80s via 3 parallel LLM calls
