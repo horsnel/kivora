@@ -344,12 +344,12 @@ async function llmDeep(env, messages, maxTokens = 16384) {
   const errors = [];
 
   // 1. OpenRouter — try HIGH-OUTPUT models first for deep research
-  //    Gemini 2.5 Flash: 65K output tokens, fast, good length compliance
+  //    Using region-available models (Gemini models are 403 region-blocked)
   if (getOpenRouterKey(env)) {
     const orModels = [
-      { model: 'google/gemini-2.5-flash', timeout: 90000 },           // 65K output, fast + good length
-      { model: 'google/gemini-2.5-pro', timeout: 120000 },            // 65K output, slower but highest quality
-      { model: 'meta-llama/llama-4-maverick', timeout: 90000 },      // Fallback
+      { model: 'qwen/qwen3-235b-a22b', timeout: 90000 },              // 235B MoE, high output, region-available
+      { model: 'deepseek/deepseek-chat-v3-0324', timeout: 90000 },    // DeepSeek V3, 685B MoE, high output
+      { model: 'meta-llama/llama-4-maverick', timeout: 90000 },       // Fallback
     ];
     for (const { model, timeout } of orModels) {
       const result = await openrouterChat(env, messages, model, maxTokens, timeout);

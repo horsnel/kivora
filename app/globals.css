@@ -1516,3 +1516,124 @@ input, textarea, select {
 .voice-recording-dot {
   animation: recording-pulse 1s ease-in-out infinite;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   KIVORA RESEARCH — Custom thinking animation + report styles
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Kivora Research Thinking State (CSS-only, no LLM credits) ── */
+.kivora-thinking {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px 16px;
+  animation: fadeIn 0.4s ease forwards;
+}
+
+.kivora-thinking-wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 28px;
+}
+
+.kivora-thinking-bar {
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #ef4444, #a855f7);
+  animation: kivora-thinking-wave-bar 1.2s ease-in-out infinite;
+  opacity: 0.4;
+}
+
+@keyframes kivora-thinking-wave-bar {
+  0%, 100% { height: 8px; opacity: 0.3; }
+  50% { height: 24px; opacity: 1; }
+}
+
+.kivora-thinking-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #d4d4d4;
+  letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.kivora-thinking-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 14px;
+  background: #ef4444;
+  border-radius: 1px;
+  animation: thinkingCursorBlink 0.8s steps(1) infinite;
+  margin-left: 2px;
+}
+
+.kivora-thinking-sources {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #525252;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.kivora-thinking-track {
+  width: 120px;
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden;
+}
+
+.kivora-thinking-fill {
+  height: 100%;
+  width: 30%;
+  border-radius: 1px;
+  background: linear-gradient(90deg, #a855f7, #ef4444);
+  animation: thinkingShimmerSlide 2s ease-in-out infinite;
+}
+
+.kivora-thinking-fill-writing {
+  width: 50%;
+  background: linear-gradient(90deg, #ef4444, #f59e0b);
+  animation: thinkingShimmerSlide 1.5s ease-in-out infinite;
+}
+
+/* ── Report body — Claude-style cardless layout ── */
+.report-body {
+  /* No card, no border, no background — content flows directly on the #0a0a0a page background */
+}
+
+/* ── Source item stagger animation ── */
+.source-visible {
+  animation: sourceSlideIn 0.3s cubic-bezier(0.16,1,0.3,1) forwards;
+  opacity: 1;
+}
+
+.source-hidden {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+@keyframes sourceSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Citation numbers [N] ── */
+.citation-number {
+  color: #ef4444;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  vertical-align: super;
+  margin: 0 1px;
+}
