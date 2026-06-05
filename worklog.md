@@ -40,3 +40,23 @@ Stage Summary:
 - Fix: OpenRouter key set on both Worker secret and Pages secret
 - Frontend deployed to kivora.pages.dev with improved error handling
 - OpenRouter is now the primary LLM provider with fast response times
+---
+Task ID: 3
+Agent: Main Agent
+Task: Fix "Failed to fetch" by switching to server-side proxy architecture
+
+Work Log:
+- Browser test revealed the root cause: browser cannot make cross-origin fetches to the Worker URL
+- Previous architecture: frontend → /api/research (get key) → browser calls Worker directly (CORS fail)
+- Refactored /api/research to be a full server-side proxy: frontend → /api/research → Worker
+- API key now stays server-side (never exposed to browser) - also fixes security issue
+- Frontend simplified: single fetch to same-origin /api/research with query + mode
+- Added proper timeout handling (60s quick, 120s deep) and error messages
+- Built and deployed to kivora.pages.dev
+- Browser test: research completes successfully with full report in ~5 seconds
+
+Stage Summary:
+- Root cause: Cross-origin fetch from browser to Worker URL was being blocked
+- Fix: Server-side proxy eliminates CORS issue entirely
+- Security improvement: OpenRouter API key no longer exposed to client
+- Research page fully functional: Quick mode ~14s, produces comprehensive reports
