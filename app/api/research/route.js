@@ -28,7 +28,8 @@ export async function POST(req) {
     const openrouterKey = await getEnvVar('OPENROUTER_API_KEY')
 
     // Forward the request to the Worker server-side (avoids CORS issues + keeps API key secure)
-    const workerTimeout = mode === 'deep' ? 90000 : 60000
+    // Deep mode with 16K token output can take up to 2 minutes
+    const workerTimeout = mode === 'deep' ? 180000 : 60000
     const workerRes = await fetch(RESEARCH_WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

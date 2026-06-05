@@ -347,7 +347,7 @@ export default function ResearchPage() {
       // Call our server-side proxy — it forwards to the Worker with the API key
       // This avoids CORS issues and keeps the API key secure (never exposed to browser)
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), researchMode === 'deep' ? 120000 : 60000)
+      const timeout = setTimeout(() => controller.abort(), researchMode === 'deep' ? 180000 : 60000)
 
       let res
       try {
@@ -699,7 +699,7 @@ export default function ResearchPage() {
                       <div className="flex flex-col items-center justify-center py-12">
                         <div className="w-5 h-5 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin mb-3" />
                         <p className="text-sm text-white font-medium mb-1">Researching...</p>
-                        <p className="text-xs text-[#525252]">This takes 15–30 seconds</p>
+                        <p className="text-xs text-[#525252]">This takes 15–60 seconds for Quick, 1–3 minutes for Deep</p>
                       </div>
                     ) : reportText ? (
                       <div className="report-content">

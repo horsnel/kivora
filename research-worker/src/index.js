@@ -1,11 +1,11 @@
 // ══════════════════════════════════════════════════════════════════
-// KIVORA RESEARCH WORKER — Cloudflare Worker (v2.1.0)
-// Target: Quick ~15-20s, Deep ~40-60s
+// KIVORA RESEARCH WORKER — Cloudflare Worker (v3.0.0)
+// Target: Quick ~10-15s, Deep ~30-60s (with 16K+ token output)
 // Key optimizations:
-//   - Quick mode: fast search (Tavily basic + Firecrawl), fast LLM
-//   - Deep mode: parallel gap analysis + URL reads, fewer URLs, fast LLM
+//   - Quick mode: fast search (Tavily basic + Firecrawl), fast LLM (4K tokens)
+//   - Deep mode: parallel URL reads, high-output LLM (16K tokens = ~12K words)
+//   - Models: Gemini 2.5 Flash (65K output) via OpenRouter as primary for Deep
 //   - Multiple LLM providers: OpenRouter → Google Gemini → Workers AI
-//   - SSE streaming for progressive results
 // ══════════════════════════════════════════════════════════════════
 
 const CORS_HEADERS = {
@@ -339,16 +339,17 @@ async function llmQuick(env, messages, maxTokens = 4096) {
   throw new Error(`All LLM providers failed. Tried: ${errors.join(', ')}`);
 }
 
-// Deep LLM — uses reliable model chain
-async function llmDeep(env, messages, maxTokens = 4096) {
+// Deep LLM — prioritizes high-output models (16K+ tokens = ~12K words)
+async function llmDeep(env, messages, maxTokens = 16384) {
   const errors = [];
 
-  // 1. OpenRouter — try models for deep research (longer timeout)
+  // 1. OpenRouter — try HIGH-OUTPUT models first for deep research
+  //    Gemini 2.5 Flash: 65K output tokens, fast, good length compliance
   if (getOpenRouterKey(env)) {
     const orModels = [
-      { model: 'meta-llama/llama-4-maverick', timeout: 60000 },
-      { model: 'deepseek/deepseek-chat-v3-0324', timeout: 45000 },
-      { model: 'mistralai/mistral-small-3.1-24b-instruct', timeout: 30000 },
+      { model: 'google/gemini-2.5-flash', timeout: 90000 },           // 65K output, fast + good length
+      { model: 'google/gemini-2.5-pro', timeout: 120000 },            // 65K output, slower but highest quality
+      { model: 'meta-llama/llama-4-maverick', timeout: 90000 },      // Fallback
     ];
     for (const { model, timeout } of orModels) {
       const result = await openrouterChat(env, messages, model, maxTokens, timeout);
@@ -357,11 +358,12 @@ async function llmDeep(env, messages, maxTokens = 4096) {
     }
   }
 
-  // 2. Google Gemini — free tier
+  // 2. Google Gemini direct — free tier (lower output limits but still good)
   if (getGeminiKey(env)) {
     const geminiModels = [
-      { model: 'gemini-2.0-flash', timeout: 30000 },
-      { model: 'gemini-1.5-flash', timeout: 30000 },
+      { model: 'gemini-2.5-flash', timeout: 90000 },
+      { model: 'gemini-2.0-flash', timeout: 60000 },
+      { model: 'gemini-1.5-flash', timeout: 60000 },
     ];
     for (const { model, timeout } of geminiModels) {
       const result = await geminiChat(env, messages, model, maxTokens, timeout);
@@ -370,14 +372,13 @@ async function llmDeep(env, messages, maxTokens = 4096) {
     }
   }
 
-  // 3. Workers AI — fallback chain
+  // 3. Workers AI — fallback chain (limited to 4K output)
   if (env.AI) {
     const workersAiModels = [
-      '@cf/meta/llama-3.1-8b-instruct',
-      '@cf/meta/llama-3.1-8b-instruct-fp8',
       '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
       '@cf/qwen/qwen3-30b-a3b-fp8',
       '@cf/mistralai/mistral-small-3.1-24b-instruct',
+      '@cf/meta/llama-3.1-8b-instruct-fp8',
     ];
     for (const m of workersAiModels) {
       const result = await workersAiChat(env, messages, m, Math.min(maxTokens, 4096));
@@ -455,56 +456,92 @@ FOLLOWUPS:
 2. Question two?
 3. Question three?`;
 
-const DEEP_SYSTEM_PROMPT = `You are KIVORA RESEARCH DEEP, a world-class research analyst. Produce publication-quality reports comparable to McKinsey briefings.
+const DEEP_SYSTEM_PROMPT = `You are KIVORA RESEARCH DEEP, a world-class research analyst. Produce COMPREHENSIVE, publication-quality reports of 10,000+ words. Your reports must be exhaustive, data-rich, and equivalent to a professional consulting engagement.
 
-RULES:
-1. Cite every claim with [N] notation.
-2. Confidence language: "Established", "Likely", "Possible", "Uncertain", "Speculative".
-3. Include at least 2-3 markdown tables.
-4. No filler. Start directly with information.
-5. Think like a senior analyst: identify patterns, synthesize, challenge assumptions.
+CRITICAL RULES:
+1. LENGTH: Write AT LEAST 10,000 words. This is non-negotiable. Expand every section fully.
+2. TABLES: Include AT LEAST 5 markdown tables, each with 5+ rows. More tables = better.
+3. CITATIONS: Cite every claim with [N] notation matching source numbers.
+4. CONFIDENCE: Use "Established", "Likely", "Possible", "Uncertain", "Speculative".
+5. NO FILLER: Start directly with information. Every sentence must carry substance.
+6. DEPTH: Think like a senior analyst. Identify patterns, synthesize, challenge assumptions, quantify impacts.
+7. EXAMPLES: Include specific real-world examples, case studies, statistics, and data points.
+8. NO SUMMARIZATION: Do NOT write brief summaries. Write exhaustive, detailed analysis for every section.
 
-STRUCTURE:
+STRUCTURE (write each section as a MINI-ESSAY of 500-1000+ words):
+
 ## Executive Summary
-5-8 sentences. What found, why matters, what to do. Include confidence rating.
+8-12 sentences. What was found, why it matters, key numbers, critical implications. Include overall confidence rating.
 
 ## Key Findings
-Table with 8-12 rows:
-| # | Finding | Evidence | Confidence | Sources | Implication |
-|---|---------|----------|------------|---------|-------------|
-Then 3-4 paragraphs with cross-source analysis.
+LARGE TABLE with 10-15 rows:
+| # | Finding | Evidence | Confidence | Sources | Impact | Timeline |
+|---|---------|----------|------------|---------|--------|----------|
+Then 5-8 paragraphs of detailed cross-source analysis. Discuss each finding in depth with examples and data.
 
 ## Foundational Context
-4-6 paragraphs. History, current state, stakeholders, market size, regulations.
+8-12 paragraphs covering:
+- Historical evolution and key milestones
+- Current state of the field/industry/topic
+- Key stakeholders and their positions
+- Market size, growth rates, and economic data
+- Regulatory landscape and policy frameworks
+- Technological infrastructure and dependencies
 
 ## Detailed Analysis
-6-10 paragraphs organized by themes. Cover patterns, contradictions, gaps, emerging trends.
+12-18 paragraphs organized by themes. Each theme gets 3-4 paragraphs of deep analysis:
+- Cover patterns, contradictions, and gaps in the evidence
+- Analyze emerging trends with supporting data
+- Discuss regional/geographic variations
+- Examine short-term vs long-term implications
+- Evaluate different theoretical frameworks or perspectives
+- Include specific case studies and real-world examples
 
 ## Comparative Analysis
-2-3 comparison tables (5+ rows each) with brief analysis.
+AT LEAST 3 detailed comparison tables (6+ rows each):
+- Table 1: Feature/capability comparison across options/approaches
+- Table 2: Market/industry comparison with metrics
+- Table 3: Timeline/adoption comparison
+Each table must be followed by 3-4 paragraphs of analysis explaining the comparisons.
 
 ## Active Debates & Conflicting Evidence
-Table:
-| Debate | Position A | Position B | Evidence A | Evidence B | Resolution |
-1 paragraph per debate.
+TABLE with 5+ rows:
+| Debate | Position A | Position B | Evidence A | Evidence B | Current Consensus | Resolution Path |
+Then 2-3 paragraphs per debate, analyzing the evidence on each side.
+
+## Statistical Data & Metrics
+TABLE compiling key statistics, benchmarks, and KPIs with sources. Then 4-6 paragraphs analyzing trends in the data.
 
 ## Risk & Opportunity Assessment
-Table with 6+ rows (3 risks + 3 opportunities). 2-3 paragraphs.
+TABLE with 8+ rows (4 risks + 4 opportunities):
+| Category | Item | Probability | Impact | Evidence | Mitigation/Leverage |
+Then 5-6 paragraphs of detailed risk analysis and opportunity framing.
 
 ## Practical Recommendations
-5-7 actionable recommendations with evidence justification.
+7-10 actionable recommendations, each with:
+- Specific action steps
+- Expected outcome and timeline
+- Required resources
+- Evidence justification
+- Potential obstacles
 
 ## Future Outlook
-3-4 paragraphs. Direction, signals, disruptions, timeline.
+6-8 paragraphs covering:
+- Near-term developments (1-2 years)
+- Medium-term trajectories (3-5 years)
+- Long-term scenarios (5-10 years)
+- Key signals to watch
+- Potential disruptions
+- Scenario analysis (optimistic, moderate, pessimistic)
 
 ## Confidence Assessment
-Overall + by section. Key uncertainties. What research would improve confidence.
+Overall confidence + by section. Key uncertainties. What further research would improve confidence. Methodology notes.
 
 ## Sources
-Numbered list with URLs.
+Numbered list with full URLs.
 
 FOLLOWUPS:
-1-5. Follow-up questions?`;
+1-5. Specific, actionable follow-up research questions?`;
 
 const GAP_ANALYSIS_PROMPT = `Identify 2 knowledge gaps in these sources for the given query. Return ONLY a JSON array:
 [{"gap": "description", "search_query": "specific search query"}]`;
@@ -681,7 +718,7 @@ async function quickResearch(query, env) {
 async function deepResearch(query, env) {
   const t0 = Date.now();
 
-  // ── PHASE 1: Search (~2.5s) ──
+  // ── PHASE 1: Search (3 providers, ~2.5s) ──
   console.log('[Deep] Phase 1: Searching...');
   const searchResults = await searchDeep(query, env, 15);
 
@@ -689,19 +726,19 @@ async function deepResearch(query, env) {
     return { error: 'No sources found. Please try a different query.' };
   }
 
-  // ── PHASE 2: Deep read top URLs ──
+  // ── PHASE 2: Deep read top 5 URLs (more content = richer report) ──
   console.log('[Deep] Phase 2: Reading sources...');
 
   const topUrls = searchResults
     .filter(s => s.url && s.url.startsWith('http'))
-    .slice(0, 3)
+    .slice(0, 5)
     .map(s => s.url);
 
   const [deepContents] = await Promise.all([
-    readUrlsParallel(topUrls, 3),
+    readUrlsParallel(topUrls, 5),
   ]);
 
-  console.log(`[Deep] Phase 2 done in ${Date.now() - t0}ms`);
+  console.log(`[Deep] Phase 2 done in ${Date.now() - t0}ms, read ${deepContents.length} URLs`);
 
   // Mark deep-read sources
   const sources = searchResults.map((s, i) => ({
@@ -713,25 +750,135 @@ async function deepResearch(query, env) {
     status: deepContents.some(dc => dc.url === s.url) ? 'deep' : 'loaded',
   }));
 
-  // ── PHASE 3: Generate deep report ──
-  console.log('[Deep] Phase 3: Generating report...');
+  // ── PHASE 3: Multi-section report generation ──
+  // Generate each major section independently for maximum depth
+  // This ensures 10K+ words and 5+ tables since each section gets its own LLM call
+  console.log('[Deep] Phase 3: Generating multi-section report...');
 
   const allSourcesContext = sources.map((s, i) =>
     `[${i + 1}] ${s.title}\nURL: ${s.url}\n${s.snippet}`
   ).join('\n\n');
 
   const deepContent = deepContents.map(dc =>
-    `--- FULL CONTENT FROM ${dc.url} ---\n${dc.content.slice(0, 4000)}`
+    `--- FULL CONTENT FROM ${dc.url} ---\n${dc.content.slice(0, 6000)}`
   ).join('\n\n');
 
-  const userContent = `Research query: "${query}"\n\nSOURCES:\n${allSourcesContext}\n\nDEEP CONTENT:\n${deepContent}`;
+  const contextBlock = `Research query: "${query}"\n\nSOURCES:\n${allSourcesContext}\n\nDEEP CONTENT:\n${deepContent}`;
 
-  const rawReport = await llmDeep(env, [
-    { role: 'system', content: DEEP_SYSTEM_PROMPT },
-    { role: 'user', content: userContent },
-  ], 8192);
+  // Section prompts — 3 parallel LLM calls for speed + depth
+  // Each section gets its own LLM call → more total output = longer report
+  const sections = [
+    {
+      name: 'part1',
+      prompt: `You are KIVORA RESEARCH DEEP. Write the Executive Summary, Key Findings, and Foundational Context of a comprehensive research report. Your output MUST be at least 3000 words of prose (not counting tables).
 
-  console.log(`[Deep] Complete in ${Date.now() - t0}ms`);
+RULES: Cite every claim with [N] matching source numbers. Use confidence language: "Established", "Likely", "Possible", "Uncertain", "Speculative". No filler. Write LONG paragraphs (6-10 sentences each). Include specific data, numbers, and examples.
+
+## Executive Summary
+10-15 detailed sentences. What was found, why it matters, key numbers, critical implications. Include overall confidence rating. Elaborate fully.
+
+## Key Findings
+LARGE TABLE with 10-15 rows (REQUIRED):
+| # | Finding | Evidence | Confidence | Sources | Impact | Timeline |
+|---|---------|----------|------------|---------|--------|----------|
+Then 6-10 paragraphs of detailed cross-source analysis. Each paragraph 5-8 sentences. Do NOT summarize — ANALYZE in depth with examples and data.
+
+## Foundational Context
+Write 10-15 detailed paragraphs (2-3 per topic):
+- Historical evolution and key milestones (specific dates and events)
+- Current state (with data and numbers)
+- Key stakeholders (specific organizations and people)
+- Market size, growth rates, economic data (specific figures)
+- Regulatory landscape (specific laws and regulations)
+- Technological infrastructure (specific technologies)
+Each paragraph MUST be 5-8 sentences with evidence and citations.`,
+    },
+    {
+      name: 'part2',
+      prompt: `You are KIVORA RESEARCH DEEP. Write the Detailed Analysis and Comparative Analysis sections of a comprehensive research report. Your output MUST be at least 3000 words including tables.
+
+RULES: Cite every claim with [N] matching source numbers. No filler. Write LONG paragraphs (6-10 sentences). Include specific data, examples, and case studies. Include AT LEAST 3 markdown tables with 6+ rows each.
+
+## Detailed Analysis
+Write 15-25 paragraphs organized by themes. Each theme gets 3-5 paragraphs of IN-DEPTH analysis:
+- Cover patterns, contradictions, and gaps in the evidence
+- Analyze emerging trends with supporting data and specific examples
+- Discuss regional/geographic variations with concrete data points
+- Examine short-term vs long-term implications in detail
+- Include specific case studies with names, dates, and outcomes
+- Quantify impacts (percentages, dollar amounts, timelines)
+
+## Comparative Analysis
+AT LEAST 3 comparison tables (6+ rows each):
+| Category | Option A | Option B | Option C | Key Difference |
+|----------|----------|----------|----------|----------------|
+
+Table 1: Feature/capability comparison
+Table 2: Market/industry comparison with specific metrics
+Table 3: Timeline/adoption comparison with specific dates
+Each table must be followed by 4-6 paragraphs of detailed analysis.`,
+    },
+    {
+      name: 'part3',
+      prompt: `You are KIVORA RESEARCH DEEP. Write the final sections of a comprehensive research report. Your output MUST be at least 3000 words including tables.
+
+RULES: Cite every claim with [N] matching source numbers. No filler. Write LONG paragraphs (6-10 sentences). Include tables with data.
+
+## Active Debates & Conflicting Evidence
+TABLE with 5+ rows:
+| Debate | Position A | Position B | Evidence A | Evidence B | Current Consensus | Resolution Path |
+Then 3-5 paragraphs per debate analyzing evidence on each side in depth.
+
+## Statistical Data & Metrics
+TABLE with 8+ rows:
+| Metric | Value | Source | Trend | Implication |
+Then 6-8 paragraphs analyzing trends in the data.
+
+## Risk & Opportunity Assessment
+TABLE with 8+ rows (4 risks + 4 opportunities):
+| Category | Item | Probability | Impact | Evidence | Mitigation/Leverage |
+Then 6-8 paragraphs of detailed analysis.
+
+## Practical Recommendations
+Write 8-12 actionable recommendations, each with 2-3 paragraphs:
+- Specific action steps, timeline, resources, evidence, obstacles
+
+## Future Outlook
+Write 8-12 paragraphs:
+- Near-term (1-2 years), medium-term (3-5), long-term (5-10)
+- Key signals, disruptions, scenario analysis (optimistic, moderate, pessimistic)
+
+## Confidence Assessment
+Overall + by section. Key uncertainties. Methodology notes.
+
+## Sources
+Numbered list with full URLs.
+
+FOLLOWUPS:
+1-5. Specific follow-up research questions?`,
+    },
+  ];
+
+  // Generate all 3 parts in parallel for maximum speed (~60s total)
+  const sectionPromises = [
+    { name: 'part1', prompt: sections[0].prompt },
+    { name: 'part2', prompt: sections[1].prompt },
+    { name: 'part3', prompt: sections[2].prompt },
+  ].map(async (section) => {
+    const sectionT0 = Date.now();
+    const result = await llmDeep(env, [
+      { role: 'system', content: section.prompt },
+      { role: 'user', content: contextBlock },
+    ], 16384);
+    console.log(`[Deep] Section '${section.name}' done in ${Date.now() - sectionT0}ms, ${result?.length || 0} chars`);
+    return { name: section.name, content: result || '' };
+  });
+  const sectionResults = await Promise.all(sectionPromises);
+
+  // Combine all sections into one report
+  const rawReport = sectionResults.map(s => s.content).join('\n\n');
+
+  console.log(`[Deep] Complete in ${Date.now() - t0}ms, total report: ${rawReport.length} chars`);
 
   // Process report
   const { report, followups } = extractFollowups(rawReport);
@@ -832,7 +979,7 @@ export default {
       return jsonRes({
         status: 'ok',
         service: 'kivora-research',
-        version: '2.0.0',
+        version: '3.0.0',
         providers: {
           openrouter: !!getOpenRouterKey(env),
           gemini: !!getGeminiKey(env),
