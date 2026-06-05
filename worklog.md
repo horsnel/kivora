@@ -19,3 +19,24 @@ Stage Summary:
 - Worker v2.1.0 deployed with Gemini support and /test-ai diagnostic
 - Frontend deployed to kivora.pages.dev
 - Full end-to-end test passes: search → sources → report generation works
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix "Failed to fetch" error and configure OpenRouter as primary LLM
+
+Work Log:
+- Diagnosed Worker health: OpenRouter=false, Workers AI exhausted → all LLM calls failing → timeout → "Failed to fetch"
+- Set OpenRouter API key as Cloudflare Worker secret via `wrangler secret put`
+- Set OpenRouter API key as Cloudflare Pages secret via `wrangler pages secret put`
+- Fixed next.config.ts conflict (was overriding next.config.js with standalone output, incompatible with CF Pages)
+- Added fetch timeout (60s quick, 120s deep) and AbortController to frontend
+- Improved error messages: "Failed to fetch" → "Cannot reach research server", timeout → helpful message
+- Built and deployed frontend to kivora.pages.dev
+- Verified end-to-end: /api/research returns key → Worker uses OpenRouter → research succeeds
+- Quick mode: ~10-15s, Deep mode: ~27s (vs 60-70s with Workers AI)
+
+Stage Summary:
+- Root cause: No OpenRouter key on Worker → all LLM calls fell through to exhausted Workers AI
+- Fix: OpenRouter key set on both Worker secret and Pages secret
+- Frontend deployed to kivora.pages.dev with improved error handling
+- OpenRouter is now the primary LLM provider with fast response times
