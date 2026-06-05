@@ -53,8 +53,11 @@ function saveHistory(items) {
   } catch {}
 }
 
+// ── Heading patterns that indicate a duplicate Sources/References section ──
+const DUPLICATE_SOURCE_HEADINGS = /^(#\s*)?(sources|references|bibliography|citations|works?\s+cited)\s*$/i
+
 // ── Simple Markdown Renderer ──
-function renderMarkdown(text) {
+function renderMarkdown(text, { skipDuplicateSources = false } = {}) {
   if (!text) return null
   const lines = text.split('\n')
   const elements = []
@@ -64,6 +67,7 @@ function renderMarkdown(text) {
   let tableRows = []
   let tableHeaders = []
   let keyIdx = 0
+  let skipMode = false // When true, we're inside a duplicate Sources section — skip all content
 
   function flushList() {
     if (listItems.length > 0) {
@@ -128,6 +132,34 @@ function renderMarkdown(text) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
 
+    // Detect duplicate Sources/References heading — skip everything until the next heading of same or higher level
+    if (skipDuplicateSources && DUPLICATE_SOURCE_HEADINGS.test(line.trim())) {
+      flushList()
+      flushTable()
+      const headingLevel = line.match(/^(#{1,3})\s/)?.[1]?.length || 0
+      skipMode = headingLevel
+      continue
+    }
+    // Exit skip mode when we hit a new heading at same or higher level
+    if (skipMode) {
+      const newHeadingMatch = line.match(/^(#{1,3})\s/)
+      if (newHeadingMatch) {
+        const newLevel = newHeadingMatch[1].length
+        if (newLevel <= skipMode) {
+          skipMode = false
+          // Don't continue — process this heading normally
+        } else {
+          continue // Still inside the duplicate section (sub-heading)
+        }
+      } else if (/^---+$/.test(line.trim())) {
+        // Horizontal rule might end the section
+        skipMode = false
+        continue
+      } else {
+        continue // Skip content inside duplicate section
+      }
+    }
+
     // Table row detection: lines containing pipes
     if (line.includes('|') && line.trim().startsWith('|')) {
       flushList()
@@ -165,6 +197,59 @@ function renderMarkdown(text) {
   flushList()
   flushTable()
   return elements
+}
+
+// ── Filter duplicate Sources/References from HTML content (dangerouslySetInnerHTML path) ──
+function filterDuplicateSources(html) {
+  if (!html) return html
+  // Remove sections headed by Sources/References/Bibliography etc.
+  return html.replace(/<h[1-3][^>]*>\s*(Sources|References|Bibliography|Citations|Works?\s+Cited)\s*<\/h[1-3]>[\s\S]*?(?=<h[1-3][^>]*>|$)/gi, '')
+}
+
+// ── Kivora Research Thinking State (CSS-only, no LLM credits) ──
+function KivoraResearchThinking({ stage, sourceCount, mode }) {
+  const stageLabels = {
+    search: 'Searching',
+    analyzing: 'Analyzing',
+    writing: 'Writing',
+  }
+  const label = stageLabels[stage] || 'Researching'
+  const isWriting = stage === 'writing'
+
+  return (
+    <div className="kivora-thinking">
+      {/* Waveform animation */}
+      <div className="kivora-thinking-wave">
+        <span className="kivora-thinking-bar" style={{ animationDelay: '0s' }} />
+        <span className="kivora-thinking-bar" style={{ animationDelay: '0.15s' }} />
+        <span className="kivora-thinking-bar" style={{ animationDelay: '0.3s' }} />
+        <span className="kivora-thinking-bar" style={{ animationDelay: '0.45s' }} />
+        <span className="kivora-thinking-bar" style={{ animationDelay: '0.6s' }} />
+      </div>
+
+      {/* Stage label */}
+      <div className="kivora-thinking-label">
+        {label}
+        <span className="kivora-thinking-cursor" />
+      </div>
+
+      {/* Source count badge */}
+      {sourceCount > 0 && (
+        <div className="kivora-thinking-sources">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+          </svg>
+          {sourceCount} {sourceCount === 1 ? 'source' : 'sources'}
+        </div>
+      )}
+
+      {/* Progress line */}
+      <div className="kivora-thinking-track">
+        <div className={`kivora-thinking-fill ${isWriting ? 'kivora-thinking-fill-writing' : ''}`} />
+      </div>
+    </div>
+  )
 }
 
 // ── Main Component ──
@@ -616,7 +701,7 @@ export default function ResearchPage() {
             )}
 
             {/* Results area — scrollable */}
-            <div className="flex-1 overflow-y-auto overscroll-behavior-contain px-4 pb-4">
+            <div ref={reportRef} className="flex-1 overflow-y-auto overscroll-behavior-contain px-4 pb-4">
               <div className="max-w-3xl mx-auto space-y-4">
 
                 {/* Query header */}
@@ -627,6 +712,17 @@ export default function ResearchPage() {
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                       activeResearch.mode === 'deep' ? 'bg-red-500 text-white' : 'bg-[#1f1f1f] text-red-400 border border-red-500/30'
                     }`}>{activeResearch.mode === 'deep' ? 'Deep' : 'Quick'}</span>
+                    {reportText && !isResearching && (
+                      <button
+                        onClick={() => navigator.clipboard.writeText(activeResearch?.report || '')}
+                        className="text-[10px] text-[#525252] hover:text-white transition-colors flex items-center gap-1 shrink-0"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                        Copy
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -670,53 +766,26 @@ export default function ResearchPage() {
                   </div>
                 )}
 
-                {/* Report */}
-                <div className="bg-[#111111] border border-[#1a1a1a] rounded-xl overflow-hidden animate-fade-in">
-                  <div className="px-4 py-3 border-b border-[#1a1a1a] shrink-0 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 font-medium">Research Report</span>
-                      {activeResearch.title && activeResearch.stage === 'done' && (
-                        <h3 className="text-sm font-semibold text-white truncate">{activeResearch.title}</h3>
-                      )}
-                    </div>
-                    {reportText && !isResearching && (
-                      <button
-                        onClick={() => navigator.clipboard.writeText(activeResearch?.report || '')}
-                        className="text-[10px] text-[#525252] hover:text-white transition-colors flex items-center gap-1"
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                        </svg>
-                        Copy
-                      </button>
-                    )}
-                  </div>
-                  <div
-                    ref={reportRef}
-                    className="px-4 py-3 max-h-[calc(100vh-360px)] overflow-y-auto custom-scrollbar"
-                  >
-                    {!reportText && isResearching ? (
-                      <div className="flex flex-col items-center justify-center py-12">
-                        <div className="w-5 h-5 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin mb-3" />
-                        <p className="text-sm text-white font-medium mb-1">Researching...</p>
-                        <p className="text-xs text-[#525252]">This takes 15–60 seconds for Quick, 1–3 minutes for Deep</p>
-                      </div>
-                    ) : reportText ? (
-                      <div className="report-content">
-                        {activeResearch?.content && !isResearching ? (
-                          <div className="prose-kivora" dangerouslySetInnerHTML={{ __html: activeResearch.content }} />
-                        ) : (
-                          renderMarkdown(reportText)
-                        )}
-                        {isResearching && <span className="inline-block w-0.5 h-4 bg-red-500 animate-pulse ml-0.5 align-middle" />}
-                      </div>
+                {/* Report — cardless, flows directly on background */}
+                {!reportText && isResearching ? (
+                  <KivoraResearchThinking
+                    stage={activeResearch.stage}
+                    sourceCount={sourcesVisible}
+                    mode={activeResearch.mode}
+                  />
+                ) : reportText ? (
+                  <div className="report-body animate-fade-in">
+                    {activeResearch?.content && !isResearching ? (
+                      <div className="prose-kivora" dangerouslySetInnerHTML={{ __html: filterDuplicateSources(activeResearch.content) }} />
                     ) : (
-                      <div className="flex flex-col items-center justify-center py-12">
-                        <p className="text-xs text-[#525252]">No report generated yet</p>
-                      </div>
+                      renderMarkdown(reportText, { skipDuplicateSources: true })
                     )}
                   </div>
-                </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 animate-fade-in">
+                    <p className="text-xs text-[#525252]">No report generated yet</p>
+                  </div>
+                )}
 
                 {/* Follow-up Questions */}
                 {activeResearch.stage === 'done' && activeResearch.followups?.length > 0 && (
@@ -1102,6 +1171,153 @@ export default function ResearchPage() {
         .report-content strong { color: #fff; font-weight: 600; }
         .report-content a { color: #f87171; text-decoration: underline; text-underline-offset: 2px; }
         .report-content hr { border-color: #1a1a1a; margin: 1rem 0; }
+
+        /* ─── Report body (cardless, Claude-style) ─── */
+        .report-body {
+          padding: 0;
+          line-height: 1.7;
+        }
+        .report-body h1 { font-size: 1.25rem; font-weight: 700; color: #fff; margin-top: 1.5rem; margin-bottom: 0.75rem; }
+        .report-body h2 { font-size: 1.1rem; font-weight: 600; color: #fff; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .report-body h3 { font-size: 1rem; font-weight: 600; color: #fff; margin-top: 1rem; margin-bottom: 0.5rem; }
+        .report-body p { font-size: 0.875rem; color: #a0a0a0; line-height: 1.7; margin-bottom: 0.75rem; }
+        .report-body ul { margin-bottom: 0.75rem; padding-left: 0.25rem; }
+        .report-body ol { margin-bottom: 0.75rem; padding-left: 1rem; }
+        .report-body li { font-size: 0.875rem; color: #a0a0a0; line-height: 1.7; padding-left: 0.25rem; }
+        .report-body strong { color: #fff; font-weight: 600; }
+        .report-body a { color: #f87171; text-decoration: underline; text-underline-offset: 2px; }
+        .report-body a:hover { color: #fca5a5; }
+        .report-body hr { border-color: #1a1a1a; margin: 1rem 0; }
+        .report-body table { width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 0.75rem; overflow: hidden; border: 1px solid #1a1a1a; margin-bottom: 1rem; }
+        .report-body thead th { padding: 0.5rem 0.75rem; font-size: 11px; font-weight: 600; color: #737373; text-transform: uppercase; letter-spacing: 0.05em; background: #111; text-align: left; }
+        .report-body tbody td { padding: 0.625rem 0.75rem; font-size: 0.875rem; color: #a0a0a0; border-top: 1px solid #1a1a1a; }
+
+        /* ─── Kivora Research Thinking State ─── */
+        .kivora-thinking {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 16px 20px;
+          border-radius: 16px;
+          background: rgba(255,255,255,0.02);
+          overflow: hidden;
+        }
+        .kivora-thinking::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 16px;
+          padding: 1px;
+          background: linear-gradient(135deg, rgba(168,85,247,0.25), rgba(239,68,68,0.25));
+          -webkit-mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          pointer-events: none;
+        }
+        .kivora-thinking::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: #1a1a1a;
+        }
+
+        .kivora-thinking-wave {
+          display: flex;
+          align-items: center;
+          gap: 3px;
+          height: 20px;
+        }
+        .kivora-thinking-bar {
+          display: block;
+          width: 3px;
+          border-radius: 2px;
+          background: linear-gradient(180deg, #a855f7, #ef4444);
+          animation: kivora-wave 1.2s ease-in-out infinite;
+        }
+        .kivora-thinking-bar:nth-child(1) { height: 8px; animation-delay: 0s; }
+        .kivora-thinking-bar:nth-child(2) { height: 14px; animation-delay: 0.15s; }
+        .kivora-thinking-bar:nth-child(3) { height: 20px; animation-delay: 0.3s; }
+        .kivora-thinking-bar:nth-child(4) { height: 14px; animation-delay: 0.45s; }
+        .kivora-thinking-bar:nth-child(5) { height: 8px; animation-delay: 0.6s; }
+
+        @keyframes kivora-wave {
+          0%, 100% { transform: scaleY(0.4); opacity: 0.5; }
+          50% { transform: scaleY(1); opacity: 1; }
+        }
+
+        .kivora-thinking-label {
+          font-size: 14px;
+          font-weight: 600;
+          background: linear-gradient(90deg, #a855f7, #ef4444);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .kivora-thinking-cursor {
+          display: inline-block;
+          width: 2px;
+          height: 16px;
+          background: linear-gradient(180deg, #a855f7, #ef4444);
+          border-radius: 1px;
+          animation: kivora-cursor-blink 1s steps(1) infinite;
+        }
+        @keyframes kivora-cursor-blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+
+        .kivora-thinking-sources {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          font-size: 11px;
+          color: #737373;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.06);
+          padding: 3px 10px;
+          border-radius: 100px;
+          font-weight: 500;
+          margin-left: auto;
+        }
+
+        .kivora-thinking-track {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: #1a1a1a;
+          overflow: hidden;
+        }
+        .kivora-thinking-fill {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(90deg, #a855f7, #ef4444);
+          animation: kivora-shimmer 2s ease-in-out infinite;
+          transform-origin: left;
+        }
+        .kivora-thinking-fill-writing {
+          animation: kivora-shimmer-writing 1.5s ease-in-out infinite;
+        }
+        @keyframes kivora-shimmer {
+          0% { transform: scaleX(0); transform-origin: left; }
+          50% { transform: scaleX(0.6); transform-origin: left; }
+          100% { transform: scaleX(0); transform-origin: right; }
+        }
+        @keyframes kivora-shimmer-writing {
+          0% { transform: scaleX(0.3); transform-origin: left; }
+          50% { transform: scaleX(0.9); transform-origin: left; }
+          100% { transform: scaleX(0.3); transform-origin: left; }
+        }
 
         .source-visible { animation: source-slide-up 0.3s ease-out forwards; }
         .source-hidden { opacity: 0; }
