@@ -27,3 +27,4 @@ voice-server/logs/
 voice-server/.env
 *.mp3
 *.wav
+research-worker/.wrangler/

@@ -1,6 +1,7 @@
 export const runtime = 'edge'
 
 import { rateLimit } from '@/lib/ratelimit'
+import { getEnvVar } from '@/lib/cfEnv'
 
 // Kivora Research Worker endpoint (Cloudflare Worker)
 const RESEARCH_WORKER_URL = 'https://kivora-research.odehebuka48.workers.dev/research'
@@ -12,40 +13,23 @@ export async function POST(req) {
   }
 
   try {
-    const { query, mode = 'quick' } = await req.json()
+    const body = await req.json()
+    const { query, mode = 'quick' } = body
 
     if (!query || typeof query !== 'string') {
       return Response.json({ error: 'Query is required' }, { status: 400 })
     }
 
-    // Proxy to the Kivora Research Cloudflare Worker
-    const workerRes = await fetch(RESEARCH_WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, mode }),
-    })
+    // Get OpenRouter key from Cloudflare Pages secrets
+    const openrouterKey = await getEnvVar('OPENROUTER_API_KEY')
 
-    if (!workerRes.ok) {
-      const errText = await workerRes.text()
-      console.error('[research] Worker error:', workerRes.status, errText)
-      return Response.json({ error: 'Research service error. Please try again.' }, { status: 502 })
-    }
-
-    const data = await workerRes.json()
-
-    if (data.error) {
-      return Response.json({ error: data.error }, { status: 500 })
-    }
-
-    // Pass through the Worker's response (already has sources, report, content, title, followups)
+    // Return the Worker URL and key so the frontend can call the Worker directly
+    // This avoids the CF Pages edge function 30s timeout
     return Response.json({
-      sources: data.sources || [],
-      report: data.report || '',
-      content: data.content || '',
-      title: data.title || query,
-      followups: data.followups || [],
-      data: null,
-      mode: data.mode || mode,
+      worker_url: RESEARCH_WORKER_URL,
+      openrouter_key: openrouterKey || '',
+      query,
+      mode,
     })
   } catch (error) {
     console.error('[research] API error:', error)

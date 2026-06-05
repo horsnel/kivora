@@ -1,6 +1,6 @@
 name = "kivora-research"
 main = "src/index.js"
-compatibility_date = "2026-05-20"
+compatibility_date = "2026-04-27"
 compatibility_flags = ["nodejs_compat"]
 
 # Workers AI binding — gives us free LLM access directly in the Worker
@@ -11,6 +11,7 @@ binding = "AI"
 # OPENROUTER_API_KEY — for OpenRouter LLM calls
 # TAVILY_API_KEY — for Tavily web search
 # BRAVE_SEARCH_API_KEY — (optional) for Brave Search
+# FIRECRAWL_API_KEY — for Firecrawl search & scraping (has hardcoded fallback)
 
 [vars]
 ENVIRONMENT = "production"
