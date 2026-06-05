@@ -343,16 +343,19 @@ async function llmQuick(env, messages, maxTokens = 4096) {
 async function llmDeep(env, messages, maxTokens = 16384) {
   const errors = [];
 
-  // 1. OpenRouter — try HIGH-OUTPUT models first for deep research
-  //    Using region-available models (Gemini models are 403 region-blocked)
+  // 1. OpenRouter — try models that work within credit limits
+  //    Note: Gemini models are 403 region-blocked, Qwen/DeepSeek may exceed credit limits
+  //    Maverick is the most credit-efficient model available
   if (getOpenRouterKey(env)) {
     const orModels = [
-      { model: 'qwen/qwen3-235b-a22b', timeout: 90000 },              // 235B MoE, high output, region-available
-      { model: 'deepseek/deepseek-chat-v3-0324', timeout: 90000 },    // DeepSeek V3, 685B MoE, high output
-      { model: 'meta-llama/llama-4-maverick', timeout: 90000 },       // Fallback
+      { model: 'meta-llama/llama-4-maverick', timeout: 90000 },       // Most credit-efficient
+      { model: 'deepseek/deepseek-chat-v3-0324', timeout: 90000 },    // Fallback
+      { model: 'qwen/qwen3-235b-a22b', timeout: 90000 },              // Fallback
     ];
+    // Cap maxTokens to what credits can afford (~6K output with large context)
+    const effectiveMaxTokens = Math.min(maxTokens, 6000);
     for (const { model, timeout } of orModels) {
-      const result = await openrouterChat(env, messages, model, maxTokens, timeout);
+      const result = await openrouterChat(env, messages, model, effectiveMaxTokens, timeout);
       if (result) return result;
       errors.push(`OR:${model}:null`);
     }
@@ -751,8 +754,7 @@ async function deepResearch(query, env) {
   }));
 
   // ── PHASE 3: Multi-section report generation ──
-  // Generate each major section independently for maximum depth
-  // This ensures 10K+ words and 5+ tables since each section gets its own LLM call
+  // 2 parallel LLM calls (credit-efficient: sends context 2x instead of 3x)
   console.log('[Deep] Phase 3: Generating multi-section report...');
 
   const allSourcesContext = sources.map((s, i) =>
@@ -765,111 +767,80 @@ async function deepResearch(query, env) {
 
   const contextBlock = `Research query: "${query}"\n\nSOURCES:\n${allSourcesContext}\n\nDEEP CONTENT:\n${deepContent}`;
 
-  // Section prompts — 3 parallel LLM calls for speed + depth
-  // Each section gets its own LLM call → more total output = longer report
+  // Section prompts — 2 parallel LLM calls for credit efficiency
   const sections = [
     {
       name: 'part1',
-      prompt: `You are KIVORA RESEARCH DEEP. Write the Executive Summary, Key Findings, and Foundational Context of a comprehensive research report. Your output MUST be at least 3000 words of prose (not counting tables).
+      prompt: `You are KIVORA RESEARCH DEEP. Write the FIRST HALF of a comprehensive research report including Executive Summary, Key Findings, Foundational Context, and Detailed Analysis. Write as MUCH as possible — aim for 3000+ words. Be exhaustive and detailed.
 
-RULES: Cite every claim with [N] matching source numbers. Use confidence language: "Established", "Likely", "Possible", "Uncertain", "Speculative". No filler. Write LONG paragraphs (6-10 sentences each). Include specific data, numbers, and examples.
+RULES: Cite every claim with [N] matching source numbers. Use confidence language: "Established", "Likely", "Possible", "Uncertain". No filler. Write LONG paragraphs (5-8 sentences each). Include specific data, numbers, and examples.
 
 ## Executive Summary
-10-15 detailed sentences. What was found, why it matters, key numbers, critical implications. Include overall confidence rating. Elaborate fully.
+8-12 detailed sentences. What was found, why it matters, key numbers, critical implications. Include overall confidence rating.
 
 ## Key Findings
-LARGE TABLE with 10-15 rows (REQUIRED):
+LARGE TABLE with 8-12 rows (REQUIRED):
 | # | Finding | Evidence | Confidence | Sources | Impact | Timeline |
 |---|---------|----------|------------|---------|--------|----------|
-Then 6-10 paragraphs of detailed cross-source analysis. Each paragraph 5-8 sentences. Do NOT summarize — ANALYZE in depth with examples and data.
+Then 5-8 paragraphs of detailed cross-source analysis.
 
 ## Foundational Context
-Write 10-15 detailed paragraphs (2-3 per topic):
-- Historical evolution and key milestones (specific dates and events)
-- Current state (with data and numbers)
-- Key stakeholders (specific organizations and people)
-- Market size, growth rates, economic data (specific figures)
-- Regulatory landscape (specific laws and regulations)
-- Technological infrastructure (specific technologies)
-Each paragraph MUST be 5-8 sentences with evidence and citations.`,
+Write 8-12 detailed paragraphs covering:
+- Historical evolution and key milestones
+- Current state with data and numbers
+- Key stakeholders and organizations
+- Market size, growth rates, economic data
+- Regulatory landscape
+- Technological infrastructure
+
+## Detailed Analysis
+Write 10-15 paragraphs organized by themes. Each theme gets 2-3 paragraphs of in-depth analysis with examples and citations.
+
+## Comparative Analysis
+AT LEAST 2 comparison tables (5+ rows each). Each table followed by 3-4 paragraphs of analysis.`,
     },
     {
       name: 'part2',
-      prompt: `You are KIVORA RESEARCH DEEP. Write the Detailed Analysis and Comparative Analysis sections of a comprehensive research report. Your output MUST be at least 3000 words including tables.
+      prompt: `You are KIVORA RESEARCH DEEP. Write the SECOND HALF of a comprehensive research report including Risk Assessment, Recommendations, Future Outlook, and Confidence Assessment. Write as MUCH as possible — aim for 2000+ words.
 
-RULES: Cite every claim with [N] matching source numbers. No filler. Write LONG paragraphs (6-10 sentences). Include specific data, examples, and case studies. Include AT LEAST 3 markdown tables with 6+ rows each.
-
-## Detailed Analysis
-Write 15-25 paragraphs organized by themes. Each theme gets 3-5 paragraphs of IN-DEPTH analysis:
-- Cover patterns, contradictions, and gaps in the evidence
-- Analyze emerging trends with supporting data and specific examples
-- Discuss regional/geographic variations with concrete data points
-- Examine short-term vs long-term implications in detail
-- Include specific case studies with names, dates, and outcomes
-- Quantify impacts (percentages, dollar amounts, timelines)
-
-## Comparative Analysis
-AT LEAST 3 comparison tables (6+ rows each):
-| Category | Option A | Option B | Option C | Key Difference |
-|----------|----------|----------|----------|----------------|
-
-Table 1: Feature/capability comparison
-Table 2: Market/industry comparison with specific metrics
-Table 3: Timeline/adoption comparison with specific dates
-Each table must be followed by 4-6 paragraphs of detailed analysis.`,
-    },
-    {
-      name: 'part3',
-      prompt: `You are KIVORA RESEARCH DEEP. Write the final sections of a comprehensive research report. Your output MUST be at least 3000 words including tables.
-
-RULES: Cite every claim with [N] matching source numbers. No filler. Write LONG paragraphs (6-10 sentences). Include tables with data.
+RULES: Cite every claim with [N] matching source numbers. No filler. Write LONG paragraphs (5-8 sentences). Include tables.
 
 ## Active Debates & Conflicting Evidence
-TABLE with 5+ rows:
-| Debate | Position A | Position B | Evidence A | Evidence B | Current Consensus | Resolution Path |
-Then 3-5 paragraphs per debate analyzing evidence on each side in depth.
+TABLE with 4+ rows:
+| Debate | Position A | Position B | Evidence A | Evidence B | Consensus |
+Then 2-3 paragraphs per debate.
 
 ## Statistical Data & Metrics
-TABLE with 8+ rows:
+TABLE with 6+ rows:
 | Metric | Value | Source | Trend | Implication |
-Then 6-8 paragraphs analyzing trends in the data.
+Then 4-6 paragraphs analyzing trends.
 
 ## Risk & Opportunity Assessment
-TABLE with 8+ rows (4 risks + 4 opportunities):
+TABLE with 6+ rows (3 risks + 3 opportunities):
 | Category | Item | Probability | Impact | Evidence | Mitigation/Leverage |
-Then 6-8 paragraphs of detailed analysis.
+Then 4-6 paragraphs of analysis.
 
 ## Practical Recommendations
-Write 8-12 actionable recommendations, each with 2-3 paragraphs:
-- Specific action steps, timeline, resources, evidence, obstacles
+Write 6-8 actionable recommendations, each with specific action steps, timeline, and evidence.
 
 ## Future Outlook
-Write 8-12 paragraphs:
-- Near-term (1-2 years), medium-term (3-5), long-term (5-10)
-- Key signals, disruptions, scenario analysis (optimistic, moderate, pessimistic)
+Write 6-8 paragraphs covering near-term (1-2 years), medium-term (3-5), and long-term (5-10) scenarios.
 
 ## Confidence Assessment
-Overall + by section. Key uncertainties. Methodology notes.
-
-## Sources
-Numbered list with full URLs.
+Overall confidence + by section. Key uncertainties. Methodology notes.
 
 FOLLOWUPS:
 1-5. Specific follow-up research questions?`,
     },
   ];
 
-  // Generate all 3 parts in parallel for maximum speed (~60s total)
-  const sectionPromises = [
-    { name: 'part1', prompt: sections[0].prompt },
-    { name: 'part2', prompt: sections[1].prompt },
-    { name: 'part3', prompt: sections[2].prompt },
-  ].map(async (section) => {
+  // Generate both parts in parallel for speed
+  const sectionPromises = sections.map(async (section) => {
     const sectionT0 = Date.now();
     const result = await llmDeep(env, [
       { role: 'system', content: section.prompt },
       { role: 'user', content: contextBlock },
-    ], 16384);
+    ], 6000);
     console.log(`[Deep] Section '${section.name}' done in ${Date.now() - sectionT0}ms, ${result?.length || 0} chars`);
     return { name: section.name, content: result || '' };
   });
