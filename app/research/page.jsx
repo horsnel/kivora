@@ -344,50 +344,21 @@ export default function ResearchPage() {
         }, 5000)
       }
 
-      // Call the Worker directly (avoids CF Pages edge function 30s timeout)
-      // Worker has built-in API keys for search + LLM fallbacks (Workers AI, Gemini)
-      // OpenRouter key is passed per-request if available from env
-      const WORKER_URL = 'https://kivora-research.odehebuka48.workers.dev/research'
-
-      // Try to get the OpenRouter key from our API route (optional — Worker has fallback LLMs)
-      let openrouterKey = ''
-      try {
-        const configRes = await fetch('/api/research', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: query.trim(), mode: researchMode }),
-        })
-        if (configRes.ok) {
-          const config = await configRes.json()
-          openrouterKey = config.openrouter_key || ''
-        }
-      } catch {
-        // API route might not be available (e.g., during local dev without .env.local)
-        // Worker will use Workers AI / Gemini fallbacks
-      }
-
+      // Call our server-side proxy — it forwards to the Worker with the API key
+      // This avoids CORS issues and keeps the API key secure (never exposed to browser)
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), researchMode === 'deep' ? 120000 : 60000)
 
       let res
       try {
-        res = await fetch(WORKER_URL, {
+        res = await fetch('/api/research', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: query.trim(),
-            mode: researchMode,
-            openrouter_key: openrouterKey,
-          }),
+          body: JSON.stringify({ query: query.trim(), mode: researchMode }),
           signal: controller.signal,
         })
       } finally {
         clearTimeout(timeout)
-      }
-
-      if (!res.ok) {
-        const errText = await res.text().catch(() => '')
-        throw new Error(`Server error (${res.status}): ${errText.slice(0, 200) || 'Unknown error'}`)
       }
 
       const data = await res.json()
@@ -428,7 +399,7 @@ export default function ResearchPage() {
       clearInterval(progressInterval)
       let msg = err.message || 'Research failed. Please try again.'
       if (err.name === 'AbortError') msg = 'Research timed out. Please try again or use Quick mode.'
-      else if (msg === 'Failed to fetch') msg = 'Cannot reach research server. Please check your connection and try again.'
+      else if (msg === 'Failed to fetch') msg = 'Network error. Please check your connection and try again.'
       setError(msg)
       setIsResearching(false)
       setActiveResearch(prev => prev ? { ...prev, stage: 'done', progress: 100 } : prev)

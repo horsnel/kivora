@@ -20,19 +20,52 @@ export async function POST(req) {
       return Response.json({ error: 'Query is required' }, { status: 400 })
     }
 
-    // Get OpenRouter key from Cloudflare Pages secrets
+    if (query.length > 2000) {
+      return Response.json({ error: 'Query too long (max 2000 characters)' }, { status: 400 })
+    }
+
+    // Get OpenRouter key from Cloudflare Pages secrets (kept server-side)
     const openrouterKey = await getEnvVar('OPENROUTER_API_KEY')
 
-    // Return the Worker URL and key so the frontend can call the Worker directly
-    // This avoids the CF Pages edge function 30s timeout
-    return Response.json({
-      worker_url: RESEARCH_WORKER_URL,
-      openrouter_key: openrouterKey || '',
-      query,
-      mode,
+    // Forward the request to the Worker server-side (avoids CORS issues + keeps API key secure)
+    const workerTimeout = mode === 'deep' ? 90000 : 60000
+    const workerRes = await fetch(RESEARCH_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: query.trim(),
+        mode,
+        openrouter_key: openrouterKey || '',
+      }),
+      signal: AbortSignal.timeout(workerTimeout),
     })
+
+    if (!workerRes.ok) {
+      const errText = await workerRes.text().catch(() => '')
+      console.error(`[research] Worker error ${workerRes.status}:`, errText.slice(0, 300))
+      return Response.json(
+        { error: `Research service error (${workerRes.status}). Please try again.` },
+        { status: workerRes.status }
+      )
+    }
+
+    const data = await workerRes.json()
+
+    if (data.error) {
+      return Response.json({ error: data.error }, { status: 500 })
+    }
+
+    return Response.json(data)
   } catch (error) {
     console.error('[research] API error:', error)
+
+    if (error.name === 'TimeoutError' || error.message?.includes('abort')) {
+      return Response.json(
+        { error: 'Research timed out. Please try again or use Quick mode for faster results.' },
+        { status: 504 }
+      )
+    }
+
     return Response.json({ error: error.message || 'Research failed' }, { status: 500 })
   }
 }
