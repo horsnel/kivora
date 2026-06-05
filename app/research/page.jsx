@@ -344,10 +344,36 @@ export default function ResearchPage() {
         }, 5000)
       }
 
-      const res = await fetch('/api/research', {
+      // Call the Worker directly (avoids CF Pages edge function 30s timeout)
+      // Worker has built-in API keys for search + LLM fallbacks (Workers AI, Gemini)
+      // OpenRouter key is passed per-request if available from env
+      const WORKER_URL = 'https://kivora-research.odehebuka48.workers.dev/research'
+
+      // Try to get the OpenRouter key from our API route (optional — Worker has fallback LLMs)
+      let openrouterKey = ''
+      try {
+        const configRes = await fetch('/api/research', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: query.trim(), mode: researchMode }),
+        })
+        if (configRes.ok) {
+          const config = await configRes.json()
+          openrouterKey = config.openrouter_key || ''
+        }
+      } catch {
+        // API route might not be available (e.g., during local dev without .env.local)
+        // Worker will use Workers AI / Gemini fallbacks
+      }
+
+      const res = await fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: query.trim(), mode: researchMode }),
+        body: JSON.stringify({
+          query: query.trim(),
+          mode: researchMode,
+          openrouter_key: openrouterKey,
+        }),
       })
       const data = await res.json()
       clearInterval(progressInterval)
