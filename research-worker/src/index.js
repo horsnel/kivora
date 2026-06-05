@@ -796,20 +796,26 @@ export default {
         results.gemini = 'NO_KEY';
       }
 
-      // Test Workers AI models
+      // Test Workers AI models — with raw response for debugging
       if (env.AI) {
         const waiModels = [
           '@cf/meta/llama-3.1-8b-instruct',
           '@cf/meta/llama-3.1-8b-instruct-fp8',
           '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
-          '@cf/qwen/qwen3-30b-a3b-fp8',
-          '@cf/mistralai/mistral-small-3.1-24b-instruct',
         ];
         results.workers_ai = {};
         for (const m of waiModels) {
           try {
-            const r = await workersAiChat(env, testMessages, m, 50);
-            results.workers_ai[m] = r ? `OK: ${r.slice(0, 100)}` : 'FAILED: null';
+            const rawResponse = await env.AI.run(m, {
+              messages: testMessages,
+              max_tokens: 50,
+            });
+            // Log the full raw response for debugging
+            const rawStr = JSON.stringify(rawResponse);
+            const extractedText = rawResponse?.response || rawResponse?.result?.response || null;
+            results.workers_ai[m] = extractedText
+              ? `OK: ${extractedText.slice(0, 100)}`
+              : `FAILED: raw=${rawStr.slice(0, 300)}`;
           } catch (e) {
             results.workers_ai[m] = `ERROR: ${e.message}`;
           }
