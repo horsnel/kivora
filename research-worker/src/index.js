@@ -720,22 +720,37 @@ function markdownToHtml(md) {
 
   function flushTable() {
     if (tableRows.length === 0) return;
-    html += '<div class="my-3"><table class="w-full border-collapse" style="font-size:11px;table-layout:fixed;width:100%">';
+    
+    // Wrap in a clean div matching the streaming container layout
+    html += '<div class="-mx-1 px-1 mb-3"><table class="w-full border-collapse">';
+    
     for (let i = 0; i < tableRows.length; i++) {
       const cells = tableRows[i];
-      const tag = i === 0 ? 'th' : 'td';
-      const bgClass = i === 0 ? 'bg-[#1a1a1a] text-white font-semibold' : (i % 2 === 0 ? 'bg-[#0f0f0f]' : '');
-      html += '<tr>';
-      for (const cell of cells) {
-        const width = `${Math.floor(100 / cells.length)}%`;
-        const extra = i === 0
-          ? 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis'
-          : 'word-break:break-word;overflow-wrap:break-word';
-        html += `<${tag} class="border border-[#262626] ${bgClass}" style="width:${width};padding:0.25rem 0.5rem;font-size:${i === 0 ? '9px' : '11px'};${extra}">${renderInline(cell.trim())}</${tag}>`;
+      
+      // Open structure groups
+      if (i === 0) {
+        html += '<thead><tr>';
+      } else if (i === 1) {
+        html += '<tbody><tr>';
+      } else {
+        html += '<tr>';
       }
+
+      const tag = i === 0 ? 'th' : 'td';
+      
+      for (const cell of cells) {
+        // Let the CSS handle sizing, layout, and overflow. 
+        // No inline widths or borders here.
+        html += `<${tag}>${renderInline(cell.trim())}</${tag}>`;
+      }
+      
       html += '</tr>';
+      if (i === 0) html += '</thead>';
     }
+    
+    if (tableRows.length > 1) html += '</tbody>';
     html += '</table></div>';
+    
     tableRows = [];
     inTable = false;
   }

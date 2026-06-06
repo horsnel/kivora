@@ -97,19 +97,16 @@ function renderMarkdown(text, { skipDuplicateSources = false } = {}) {
     if (tableHeaders.length > 0) {
       elements.push(
         <div key={`tbl-wrap-${keyIdx++}`} className="-mx-1 px-1 mb-3">
-          <table className="w-full text-left border-collapse separate border-spacing-0 rounded-lg overflow-hidden border border-[#1a1a1a]" style={{ tableLayout: 'fixed' }}>
-            <colgroup>
-              {tableHeaders.map((_, ci) => <col key={`col-${ci}`} />)}
-            </colgroup>
+          <table className="w-full border-collapse">
             <thead>
               <tr>{tableHeaders.map((h, hi) => (
-                <th key={`th-${hi}`} className="px-2 py-1.5 text-[9px] font-semibold text-[#737373] uppercase tracking-wider bg-[#111] truncate">{h}</th>
+                <th key={`th-${hi}`}>{h}</th>
               ))}</tr>
             </thead>
             <tbody>
               {tableRows.map((row, ri) => (
                 <tr key={`tr-${ri}`}>{row.map((cell, ci) => (
-                  <td key={`td-${ri}-${ci}`} className="px-2 py-1.5 text-[11px] text-[#a0a0a0] leading-snug border-t border-[#1a1a1a] break-words">{renderInline(cell)}</td>
+                  <td key={`td-${ri}-${ci}`}>{renderInline(cell)}</td>
                 ))}</tr>
               ))}
             </tbody>
@@ -1294,12 +1291,47 @@ export default function ResearchPage() {
         .report-body a { color: #f87171; text-decoration: underline; text-underline-offset: 2px; }
         .report-body a:hover { color: #fca5a5; }
 
-        /* Table styles for HTML content from worker — compact, fits page, no scroll */
-        .report-body .overflow-x-auto { overflow-x: visible; overflow-y: visible; }
-        .report-body hr { border-color: #1a1a1a; margin: 1rem 0; }
-        .report-body table { width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 0.5rem; overflow: hidden; border: 1px solid #1a1a1a; margin-bottom: 0.75rem; table-layout: fixed; }
-        .report-body thead th { padding: 0.25rem 0.5rem; font-size: 9px; font-weight: 600; color: #737373; text-transform: uppercase; letter-spacing: 0.05em; background: #111; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .report-body tbody td { padding: 0.25rem 0.5rem; font-size: 11px; color: #a0a0a0; border-top: 1px solid #1a1a1a; line-height: 1.4; word-break: break-word; overflow-wrap: break-word; }
+        /* Clean unified table styling for both Streaming and Completed states */
+        .report-body table,
+        .prose-kivora table {
+          width: 100%;
+          table-layout: fixed;
+          border-collapse: separate;
+          border-spacing: 0;
+          border-radius: 8px;
+          overflow: hidden;
+          border: 1px solid #1a1a1a;
+          margin-bottom: 0.75rem;
+        }
+        .report-body thead th,
+        .prose-kivora table th {
+          background: #111;
+          font-size: 9px;
+          font-weight: 600;
+          color: #737373;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          padding: 0.375rem 0.5rem;
+          text-align: left;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .report-body tbody td,
+        .prose-kivora table td {
+          font-size: 11px;
+          color: #a0a0a0;
+          padding: 0.375rem 0.5rem;
+          line-height: 1.5;
+          border-top: 1px solid #1a1a1a;
+          word-break: break-word;
+          overflow-wrap: break-word;
+        }
+        /* Zebra striping for readability */
+        .report-body tbody tr:nth-child(even),
+        .prose-kivora table tbody tr:nth-child(even) {
+          background-color: rgba(255, 255, 255, 0.02);
+        }
 
         /* ─── Kivora Research Thinking State ─── */
         .kivora-thinking {
