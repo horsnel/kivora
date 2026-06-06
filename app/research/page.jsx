@@ -96,17 +96,17 @@ function renderMarkdown(text, { skipDuplicateSources = false } = {}) {
   function flushTable() {
     if (tableHeaders.length > 0) {
       elements.push(
-        <div key={`tbl-wrap-${keyIdx++}`} className="overflow-x-auto -mx-1 px-1 mb-4 max-h-[400px] overflow-y-auto custom-scrollbar table-scroll-container" onWheel={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()}>
-          <table className="w-full text-left border-collapse separate border-spacing-0 rounded-xl overflow-hidden border border-[#1a1a1a]">
+        <div key={`tbl-wrap-${keyIdx++}`} className="overflow-x-auto -mx-1 px-1 mb-3">
+          <table className="w-full text-left border-collapse separate border-spacing-0 rounded-lg overflow-hidden border border-[#1a1a1a]">
             <thead>
               <tr>{tableHeaders.map((h, hi) => (
-                <th key={`th-${hi}`} className="px-3 py-2 text-[11px] font-semibold text-[#737373] uppercase tracking-wider bg-[#111] sticky top-0 z-[2]">{h}</th>
+                <th key={`th-${hi}`} className="px-2 py-1.5 text-[9px] font-semibold text-[#737373] uppercase tracking-wider bg-[#111] whitespace-nowrap">{h}</th>
               ))}</tr>
             </thead>
             <tbody>
               {tableRows.map((row, ri) => (
                 <tr key={`tr-${ri}`}>{row.map((cell, ci) => (
-                  <td key={`td-${ri}-${ci}`} className="px-3 py-2.5 text-sm text-[#a0a0a0] leading-relaxed border-t border-[#1a1a1a]">{renderInline(cell)}</td>
+                  <td key={`td-${ri}-${ci}`} className="px-2 py-1.5 text-[11px] text-[#a0a0a0] leading-snug border-t border-[#1a1a1a]">{renderInline(cell)}</td>
                 ))}</tr>
               ))}
             </tbody>
@@ -293,7 +293,7 @@ export default function ResearchPage() {
   const collapsedInputRef = useRef(null)
   const reportRef = useRef(null)
   const streamTimerRef = useRef(null)
-  const tableScrollCleanupRef = useRef(null) // cleanup fn for table scroll listeners
+
   const chatBarRef = useRef(null)
   const fileInputRef = useRef(null)
   const collapsedFileInputRef = useRef(null)
@@ -398,69 +398,7 @@ export default function ResearchPage() {
     }
   }, [reportDisplay, isResearching])
 
-  // ── Table scroll isolation ──
-  // When the report renders (streaming or done), find all table scroll containers
-  // and attach wheel/touch listeners that stop the event from bubbling to the
-  // parent report area. This is the ONLY reliable way to prevent scroll chaining
-  // on both desktop (wheel) and mobile (touch).
-  useEffect(() => {
-    // Clean up previous listeners
-    if (tableScrollCleanupRef.current) {
-      tableScrollCleanupRef.current()
-      tableScrollCleanupRef.current = null
-    }
 
-    const container = reportRef.current
-    if (!container) return
-
-    // Find all scrollable table wrappers — both React-rendered (table-scroll-container)
-    // and worker HTML (overflow-x-auto with max-height)
-    const tableWrappers = container.querySelectorAll('.table-scroll-container, .report-body .overflow-x-auto, [style*="max-height"]')
-    if (tableWrappers.length === 0) return
-
-    const handlers = []
-
-    tableWrappers.forEach(wrapper => {
-      // Wheel handler — prevent scroll from reaching parent
-      const onWheel = (e) => {
-        const el = e.currentTarget
-        const { scrollTop, scrollHeight, clientHeight } = el
-        const atTop = scrollTop <= 0
-        const atBottom = scrollTop + clientHeight >= scrollHeight - 1
-
-        // If scrolling down and at bottom, or scrolling up and at top, prevent default
-        // to stop the scroll from chaining to the parent
-        if ((e.deltaY > 0 && atBottom) || (e.deltaY < 0 && atTop)) {
-          e.preventDefault()
-        }
-        e.stopPropagation()
-      }
-
-      // Touch handler for mobile
-      const onTouchMove = (e) => {
-        e.stopPropagation()
-      }
-
-      wrapper.addEventListener('wheel', onWheel, { passive: false })
-      wrapper.addEventListener('touchmove', onTouchMove, { passive: true })
-      handlers.push({ el: wrapper, onWheel, onTouchMove })
-    })
-
-    // Cleanup function
-    tableScrollCleanupRef.current = () => {
-      handlers.forEach(({ el, onWheel, onTouchMove }) => {
-        el.removeEventListener('wheel', onWheel)
-        el.removeEventListener('touchmove', onTouchMove)
-      })
-    }
-
-    return () => {
-      if (tableScrollCleanupRef.current) {
-        tableScrollCleanupRef.current()
-        tableScrollCleanupRef.current = null
-      }
-    }
-  }, [reportDisplay, activeResearch?.content])
 
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || null
 
@@ -1353,17 +1291,12 @@ export default function ResearchPage() {
         .report-body a { color: #f87171; text-decoration: underline; text-underline-offset: 2px; }
         .report-body a:hover { color: #fca5a5; }
 
-        /* Scrollable table wrapper for HTML content from worker */
-        .report-body .overflow-x-auto { max-height: 400px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-        .report-body .overflow-x-auto::-webkit-scrollbar { width: 4px; }
-        .report-body .overflow-x-auto::-webkit-scrollbar-track { background: transparent; }
-        .report-body .overflow-x-auto::-webkit-scrollbar-thumb { background: #262626; border-radius: 4px; }
-        /* Table scroll container — stops scroll from bubbling to parent report area */
-        .table-scroll-container { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+        /* Table styles for HTML content from worker — compact, no scroll needed */
+        .report-body .overflow-x-auto { overflow-y: visible; }
         .report-body hr { border-color: #1a1a1a; margin: 1rem 0; }
-        .report-body table { width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 0.75rem; overflow: hidden; border: 1px solid #1a1a1a; margin-bottom: 1rem; }
-        .report-body thead th { padding: 0.5rem 0.75rem; font-size: 11px; font-weight: 600; color: #737373; text-transform: uppercase; letter-spacing: 0.05em; background: #111; text-align: left; position: sticky; top: 0; z-index: 2; }
-        .report-body tbody td { padding: 0.625rem 0.75rem; font-size: 0.875rem; color: #a0a0a0; border-top: 1px solid #1a1a1a; }
+        .report-body table { width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 0.5rem; overflow: hidden; border: 1px solid #1a1a1a; margin-bottom: 0.75rem; }
+        .report-body thead th { padding: 0.25rem 0.5rem; font-size: 9px; font-weight: 600; color: #737373; text-transform: uppercase; letter-spacing: 0.05em; background: #111; text-align: left; white-space: nowrap; }
+        .report-body tbody td { padding: 0.25rem 0.5rem; font-size: 11px; color: #a0a0a0; border-top: 1px solid #1a1a1a; line-height: 1.4; }
 
         /* ─── Kivora Research Thinking State ─── */
         .kivora-thinking {

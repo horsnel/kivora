@@ -1372,33 +1372,29 @@ input, textarea, select {
 }
 
 /* ── Claude-style table refinements ── */
-/* Table wrapper — scroll containment stops scroll from chaining to parent */
+/* Compact tables — no scroll wrapper, everything fits */
 .prose-kivora .overflow-x-auto {
-  max-height: 400px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
+  overflow-y: visible;
 }
-.prose-kivora .overflow-x-auto::-webkit-scrollbar { width: 4px; }
-.prose-kivora .overflow-x-auto::-webkit-scrollbar-track { background: transparent; }
-.prose-kivora .overflow-x-auto::-webkit-scrollbar-thumb { background: #262626; border-radius: 4px; }
 .prose-kivora table {
   border-collapse: separate;
   border-spacing: 0;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid #1a1a1a;
 }
 .prose-kivora table th {
   background: #111;
-  font-size: 11px;
+  font-size: 9px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  position: sticky;
-  top: 0;
-  z-index: 2;
+  padding: 0.25rem 0.5rem;
+  white-space: nowrap;
 }
 .prose-kivora table td {
   border-top: 1px solid #1a1a1a;
+  font-size: 11px;
+  padding: 0.25rem 0.5rem;
+  line-height: 1.4;
 }
 .prose-kivora table tr:last-child td {
   border-bottom: none;
