@@ -293,6 +293,7 @@ export default function ResearchPage() {
   const collapsedInputRef = useRef(null)
   const reportRef = useRef(null)
   const streamTimerRef = useRef(null)
+  const tableScrollCleanupRef = useRef(null) // cleanup fn for table scroll listeners
   const chatBarRef = useRef(null)
   const fileInputRef = useRef(null)
   const collapsedFileInputRef = useRef(null)
@@ -396,6 +397,70 @@ export default function ResearchPage() {
       }
     }
   }, [reportDisplay, isResearching])
+
+  // ── Table scroll isolation ──
+  // When the report renders (streaming or done), find all table scroll containers
+  // and attach wheel/touch listeners that stop the event from bubbling to the
+  // parent report area. This is the ONLY reliable way to prevent scroll chaining
+  // on both desktop (wheel) and mobile (touch).
+  useEffect(() => {
+    // Clean up previous listeners
+    if (tableScrollCleanupRef.current) {
+      tableScrollCleanupRef.current()
+      tableScrollCleanupRef.current = null
+    }
+
+    const container = reportRef.current
+    if (!container) return
+
+    // Find all scrollable table wrappers — both React-rendered (table-scroll-container)
+    // and worker HTML (overflow-x-auto with max-height)
+    const tableWrappers = container.querySelectorAll('.table-scroll-container, .report-body .overflow-x-auto, [style*="max-height"]')
+    if (tableWrappers.length === 0) return
+
+    const handlers = []
+
+    tableWrappers.forEach(wrapper => {
+      // Wheel handler — prevent scroll from reaching parent
+      const onWheel = (e) => {
+        const el = e.currentTarget
+        const { scrollTop, scrollHeight, clientHeight } = el
+        const atTop = scrollTop <= 0
+        const atBottom = scrollTop + clientHeight >= scrollHeight - 1
+
+        // If scrolling down and at bottom, or scrolling up and at top, prevent default
+        // to stop the scroll from chaining to the parent
+        if ((e.deltaY > 0 && atBottom) || (e.deltaY < 0 && atTop)) {
+          e.preventDefault()
+        }
+        e.stopPropagation()
+      }
+
+      // Touch handler for mobile
+      const onTouchMove = (e) => {
+        e.stopPropagation()
+      }
+
+      wrapper.addEventListener('wheel', onWheel, { passive: false })
+      wrapper.addEventListener('touchmove', onTouchMove, { passive: true })
+      handlers.push({ el: wrapper, onWheel, onTouchMove })
+    })
+
+    // Cleanup function
+    tableScrollCleanupRef.current = () => {
+      handlers.forEach(({ el, onWheel, onTouchMove }) => {
+        el.removeEventListener('wheel', onWheel)
+        el.removeEventListener('touchmove', onTouchMove)
+      })
+    }
+
+    return () => {
+      if (tableScrollCleanupRef.current) {
+        tableScrollCleanupRef.current()
+        tableScrollCleanupRef.current = null
+      }
+    }
+  }, [reportDisplay, activeResearch?.content])
 
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || null
 
