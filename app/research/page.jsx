@@ -96,17 +96,20 @@ function renderMarkdown(text, { skipDuplicateSources = false } = {}) {
   function flushTable() {
     if (tableHeaders.length > 0) {
       elements.push(
-        <div key={`tbl-wrap-${keyIdx++}`} className="overflow-x-auto -mx-1 px-1 mb-3">
-          <table className="w-full text-left border-collapse separate border-spacing-0 rounded-lg overflow-hidden border border-[#1a1a1a]">
+        <div key={`tbl-wrap-${keyIdx++}`} className="-mx-1 px-1 mb-3">
+          <table className="w-full text-left border-collapse separate border-spacing-0 rounded-lg overflow-hidden border border-[#1a1a1a]" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              {tableHeaders.map((_, ci) => <col key={`col-${ci}`} />)}
+            </colgroup>
             <thead>
               <tr>{tableHeaders.map((h, hi) => (
-                <th key={`th-${hi}`} className="px-2 py-1.5 text-[9px] font-semibold text-[#737373] uppercase tracking-wider bg-[#111] whitespace-nowrap">{h}</th>
+                <th key={`th-${hi}`} className="px-2 py-1.5 text-[9px] font-semibold text-[#737373] uppercase tracking-wider bg-[#111] truncate">{h}</th>
               ))}</tr>
             </thead>
             <tbody>
               {tableRows.map((row, ri) => (
                 <tr key={`tr-${ri}`}>{row.map((cell, ci) => (
-                  <td key={`td-${ri}-${ci}`} className="px-2 py-1.5 text-[11px] text-[#a0a0a0] leading-snug border-t border-[#1a1a1a]">{renderInline(cell)}</td>
+                  <td key={`td-${ri}-${ci}`} className="px-2 py-1.5 text-[11px] text-[#a0a0a0] leading-snug border-t border-[#1a1a1a] break-words">{renderInline(cell)}</td>
                 ))}</tr>
               ))}
             </tbody>
@@ -772,7 +775,7 @@ export default function ResearchPage() {
 
             {/* Results area — scrollable */}
             <div ref={reportRef} className="flex-1 overflow-y-auto overscroll-behavior-contain px-4 pb-4">
-              <div className="max-w-3xl mx-auto space-y-4">
+              <div className="max-w-4xl mx-auto space-y-4">
 
                 {/* Query header */}
                 {activeResearch.stage === 'done' && (
@@ -1291,12 +1294,12 @@ export default function ResearchPage() {
         .report-body a { color: #f87171; text-decoration: underline; text-underline-offset: 2px; }
         .report-body a:hover { color: #fca5a5; }
 
-        /* Table styles for HTML content from worker — compact, no scroll needed */
-        .report-body .overflow-x-auto { overflow-y: visible; }
+        /* Table styles for HTML content from worker — compact, fits page, no scroll */
+        .report-body .overflow-x-auto { overflow-x: visible; overflow-y: visible; }
         .report-body hr { border-color: #1a1a1a; margin: 1rem 0; }
-        .report-body table { width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 0.5rem; overflow: hidden; border: 1px solid #1a1a1a; margin-bottom: 0.75rem; }
-        .report-body thead th { padding: 0.25rem 0.5rem; font-size: 9px; font-weight: 600; color: #737373; text-transform: uppercase; letter-spacing: 0.05em; background: #111; text-align: left; white-space: nowrap; }
-        .report-body tbody td { padding: 0.25rem 0.5rem; font-size: 11px; color: #a0a0a0; border-top: 1px solid #1a1a1a; line-height: 1.4; }
+        .report-body table { width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 0.5rem; overflow: hidden; border: 1px solid #1a1a1a; margin-bottom: 0.75rem; table-layout: fixed; }
+        .report-body thead th { padding: 0.25rem 0.5rem; font-size: 9px; font-weight: 600; color: #737373; text-transform: uppercase; letter-spacing: 0.05em; background: #111; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .report-body tbody td { padding: 0.25rem 0.5rem; font-size: 11px; color: #a0a0a0; border-top: 1px solid #1a1a1a; line-height: 1.4; word-break: break-word; overflow-wrap: break-word; }
 
         /* ─── Kivora Research Thinking State ─── */
         .kivora-thinking {

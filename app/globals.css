@@ -1372,8 +1372,9 @@ input, textarea, select {
 }
 
 /* ── Claude-style table refinements ── */
-/* Compact tables — no scroll wrapper, everything fits */
+/* Compact tables — fits page, no horizontal scroll */
 .prose-kivora .overflow-x-auto {
+  overflow-x: visible;
   overflow-y: visible;
 }
 .prose-kivora table {
@@ -1381,6 +1382,8 @@ input, textarea, select {
   border-spacing: 0;
   border-radius: 8px;
   border: 1px solid #1a1a1a;
+  table-layout: fixed;
+  width: 100%;
 }
 .prose-kivora table th {
   background: #111;
@@ -1389,12 +1392,16 @@ input, textarea, select {
   text-transform: uppercase;
   padding: 0.25rem 0.5rem;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .prose-kivora table td {
   border-top: 1px solid #1a1a1a;
   font-size: 11px;
   padding: 0.25rem 0.5rem;
   line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 .prose-kivora table tr:last-child td {
   border-bottom: none;

@@ -720,7 +720,7 @@ function markdownToHtml(md) {
 
   function flushTable() {
     if (tableRows.length === 0) return;
-    html += '<div class="overflow-x-auto my-3"><table class="w-full border-collapse" style="font-size:11px">';
+    html += '<div class="my-3"><table class="w-full border-collapse" style="font-size:11px;table-layout:fixed;width:100%">';
     for (let i = 0; i < tableRows.length; i++) {
       const cells = tableRows[i];
       const tag = i === 0 ? 'th' : 'td';
@@ -728,8 +728,10 @@ function markdownToHtml(md) {
       html += '<tr>';
       for (const cell of cells) {
         const width = `${Math.floor(100 / cells.length)}%`;
-        const padding = i === 0 ? 'padding:0.25rem 0.5rem' : 'padding:0.25rem 0.5rem';
-        html += `<${tag} class="border border-[#262626] ${bgClass}" style="width:${width};${padding};font-size:${i === 0 ? '9px' : '11px'};white-space:${i === 0 ? 'nowrap' : 'normal'}">${renderInline(cell.trim())}</${tag}>`;
+        const extra = i === 0
+          ? 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis'
+          : 'word-break:break-word;overflow-wrap:break-word';
+        html += `<${tag} class="border border-[#262626] ${bgClass}" style="width:${width};padding:0.25rem 0.5rem;font-size:${i === 0 ? '9px' : '11px'};${extra}">${renderInline(cell.trim())}</${tag}>`;
       }
       html += '</tr>';
     }
