@@ -288,6 +288,7 @@ export default function ResearchPage() {
   const [sourcesVisible, setSourcesVisible] = useState(0)
   const [sourcesExpanded, setSourcesExpanded] = useState(false)
   const [history, setHistory] = useState([])
+  const [userScrolledUp, setUserScrolledUp] = useState(false)
 
   const textareaRef = useRef(null)
   const collapsedInputRef = useRef(null)
@@ -386,17 +387,43 @@ export default function ResearchPage() {
   }, [])
 
   // ── Auto-scroll report during streaming ──
-  // Only auto-scroll if user hasn't manually scrolled up (i.e., they're near the bottom)
   useEffect(() => {
-    if (reportRef.current && isResearching) {
-      const el = reportRef.current
-      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-      // Only auto-scroll if user is within 150px of the bottom
-      if (distanceFromBottom < 150) {
-        el.scrollTop = el.scrollHeight
-      }
+    const el = reportRef.current;
+    if (!el || !isResearching) return;
+
+    // Only auto-scroll if user hasn't manually scrolled up
+    if (userScrolledUp) return;
+
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distanceFromBottom < 150) {
+      el.scrollTop = el.scrollHeight;
     }
-  }, [reportDisplay, isResearching])
+  }, [reportDisplay, isResearching, userScrolledUp]);
+
+  // ── Detect manual scroll up to pause auto-scroll ──
+  useEffect(() => {
+    const el = reportRef.current;
+    if (!el) return;
+
+    let lastScrollTop = el.scrollTop;
+
+    const handleScroll = () => {
+      const st = el.scrollTop;
+      // User scrolled up if they're moving away from bottom
+      if (st < lastScrollTop) {
+        setUserScrolledUp(true);
+      }
+      // User scrolled back to bottom — re-enable auto-scroll
+      const distanceFromBottom = el.scrollHeight - st - el.clientHeight;
+      if (distanceFromBottom < 50) {
+        setUserScrolledUp(false);
+      }
+      lastScrollTop = st;
+    };
+
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, []);
 
 
 
@@ -448,6 +475,7 @@ export default function ResearchPage() {
     setError('')
     setReportDisplay('')
     setSourcesVisible(0)
+    setUserScrolledUp(false)
 
     // Animate progress
     const stages = researchMode === 'deep' ? DEEP_STAGES : QUICK_STAGES
