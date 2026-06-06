@@ -96,11 +96,11 @@ function renderMarkdown(text, { skipDuplicateSources = false } = {}) {
   function flushTable() {
     if (tableHeaders.length > 0) {
       elements.push(
-        <div key={`tbl-wrap-${keyIdx++}`} className="overflow-x-auto -mx-1 px-1 mb-4 max-h-[400px] overflow-y-auto custom-scrollbar">
+        <div key={`tbl-wrap-${keyIdx++}`} className="overflow-x-auto -mx-1 px-1 mb-4 max-h-[400px] overflow-y-auto custom-scrollbar table-scroll-container" onWheel={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()}>
           <table className="w-full text-left border-collapse separate border-spacing-0 rounded-xl overflow-hidden border border-[#1a1a1a]">
             <thead>
               <tr>{tableHeaders.map((h, hi) => (
-                <th key={`th-${hi}`} className="px-3 py-2 text-[11px] font-semibold text-[#737373] uppercase tracking-wider bg-[#111]">{h}</th>
+                <th key={`th-${hi}`} className="px-3 py-2 text-[11px] font-semibold text-[#737373] uppercase tracking-wider bg-[#111] sticky top-0 z-[2]">{h}</th>
               ))}</tr>
             </thead>
             <tbody>
@@ -385,9 +385,15 @@ export default function ResearchPage() {
   }, [])
 
   // ── Auto-scroll report during streaming ──
+  // Only auto-scroll if user hasn't manually scrolled up (i.e., they're near the bottom)
   useEffect(() => {
     if (reportRef.current && isResearching) {
-      reportRef.current.scrollTop = reportRef.current.scrollHeight
+      const el = reportRef.current
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+      // Only auto-scroll if user is within 150px of the bottom
+      if (distanceFromBottom < 150) {
+        el.scrollTop = el.scrollHeight
+      }
     }
   }, [reportDisplay, isResearching])
 
@@ -1283,10 +1289,12 @@ export default function ResearchPage() {
         .report-body a:hover { color: #fca5a5; }
 
         /* Scrollable table wrapper for HTML content from worker */
-        .report-body .overflow-x-auto { max-height: 400px; overflow-y: auto; }
+        .report-body .overflow-x-auto { max-height: 400px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
         .report-body .overflow-x-auto::-webkit-scrollbar { width: 4px; }
         .report-body .overflow-x-auto::-webkit-scrollbar-track { background: transparent; }
         .report-body .overflow-x-auto::-webkit-scrollbar-thumb { background: #262626; border-radius: 4px; }
+        /* Table scroll container — stops scroll from bubbling to parent report area */
+        .table-scroll-container { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
         .report-body hr { border-color: #1a1a1a; margin: 1rem 0; }
         .report-body table { width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 0.75rem; overflow: hidden; border: 1px solid #1a1a1a; margin-bottom: 1rem; }
         .report-body thead th { padding: 0.5rem 0.75rem; font-size: 11px; font-weight: 600; color: #737373; text-transform: uppercase; letter-spacing: 0.05em; background: #111; text-align: left; position: sticky; top: 0; z-index: 2; }

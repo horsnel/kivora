@@ -720,7 +720,7 @@ function markdownToHtml(md) {
 
   function flushTable() {
     if (tableRows.length === 0) return;
-    html += '<div class="overflow-x-auto my-4" style="max-height:400px;overflow-y:auto"><table class="w-full text-sm border-collapse">';
+    html += '<div class="overflow-x-auto my-4" style="max-height:400px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch"><table class="w-full text-sm border-collapse">';
     for (let i = 0; i < tableRows.length; i++) {
       const cells = tableRows[i];
       const tag = i === 0 ? 'th' : 'td';
