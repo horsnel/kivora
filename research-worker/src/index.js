@@ -579,7 +579,7 @@ function markdownToHtml(md) {
 
   function flushTable() {
     if (tableRows.length === 0) return;
-    html += '<div class="overflow-x-auto my-4"><table class="w-full text-sm border-collapse">';
+    html += '<div class="overflow-x-auto my-4" style="max-height:400px;overflow-y:auto"><table class="w-full text-sm border-collapse">';
     for (let i = 0; i < tableRows.length; i++) {
       const cells = tableRows[i];
       const tag = i === 0 ? 'th' : 'td';
@@ -654,6 +654,8 @@ function markdownToHtml(md) {
 
 function extractFollowups(text) {
   if (!text) return { report: '', followups: [] };
+
+  // Try "FOLLOWUPS:" section first
   const match = text.match(/FOLLOWUPS:\s*\n([\s\S]*?)$/i);
   if (match) {
     const followups = match[1]
@@ -663,6 +665,41 @@ function extractFollowups(text) {
     const report = text.replace(/FOLLOWUPS:\s*\n[\s\S]*$/i, '').trim();
     return { report, followups };
   }
+
+  // Fallback: look for any "Follow-up" or "Follow up" heading with question lines after it
+  const followupHeading = text.match(/^#{0,3}\s*(?:Follow[- ]?[Uu]p\s*[Qq]uestions?|Related\s*[Qq]uestions?)\s*$/m);
+  if (followupHeading) {
+    const afterHeading = text.slice(followupHeading.index + followupHeading[0].length);
+    const questions = afterHeading
+      .split('\n')
+      .map(line => line.replace(/^[-*]\s*/, '').replace(/^\d+\.\s*/, '').trim())
+      .filter(q => q.length > 0 && q.endsWith('?'));
+    if (questions.length > 0) {
+      const report = text.slice(0, followupHeading.index).trim();
+      return { report, followups: questions };
+    }
+  }
+
+  // Final fallback: scan last 20 lines for any numbered/bulleted questions
+  const lines = text.split('\n');
+  const tail = lines.slice(-20);
+  const questions = [];
+  for (const line of tail) {
+    const cleaned = line.replace(/^[-*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
+    if (cleaned.length > 10 && cleaned.endsWith('?')) {
+      questions.push(cleaned);
+    }
+  }
+  if (questions.length > 0) {
+    // Remove those question lines from the report
+    let report = text;
+    for (const q of questions) {
+      const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      report = report.replace(new RegExp(`^.*${escaped}.*$`, 'm'), '');
+    }
+    return { report: report.trim(), followups: questions };
+  }
+
   return { report: text, followups: [] };
 }
 

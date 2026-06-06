@@ -91,7 +91,7 @@ function renderMarkdown(text, { skipDuplicateSources = false } = {}) {
   function flushTable() {
     if (tableHeaders.length > 0) {
       elements.push(
-        <div key={`tbl-wrap-${keyIdx++}`} className="overflow-x-auto -mx-1 px-1 mb-4">
+        <div key={`tbl-wrap-${keyIdx++}`} className="overflow-x-auto -mx-1 px-1 mb-4 max-h-[400px] overflow-y-auto custom-scrollbar">
           <table className="w-full text-left border-collapse separate border-spacing-0 rounded-xl overflow-hidden border border-[#1a1a1a]">
             <thead>
               <tr>{tableHeaders.map((h, hi) => (
@@ -280,6 +280,7 @@ export default function ResearchPage() {
   const [error, setError] = useState('')
   const [reportDisplay, setReportDisplay] = useState('')
   const [sourcesVisible, setSourcesVisible] = useState(0)
+  const [sourcesExpanded, setSourcesExpanded] = useState(false)
   const [history, setHistory] = useState([])
 
   const textareaRef = useRef(null)
@@ -396,6 +397,17 @@ export default function ResearchPage() {
   function autoResize(el) {
     el.style.height = 'auto'
     el.style.height = Math.min(el.scrollHeight, 180) + 'px'
+  }
+
+  // Generate fallback follow-up questions when the LLM doesn't provide them
+  function generateFallbackFollowups(query) {
+    const q = query.trim()
+    if (!q) return []
+    return [
+      `What are the latest developments in ${q}?`,
+      `What are the main criticisms or controversies around ${q}?`,
+      `How does ${q} compare to alternative approaches?`,
+    ]
   }
 
   // ── Start Research ──
@@ -751,42 +763,56 @@ export default function ResearchPage() {
                   </div>
                 )}
 
-                {/* Sources */}
+                {/* Sources — collapsible card */}
                 {sources.length > 0 && (
                   <div className="bg-[#111111] border border-[#1a1a1a] rounded-xl overflow-hidden animate-fade-in">
-                    <div className="px-4 py-3 border-b border-[#1a1a1a] shrink-0 flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-white">
+                    <button
+                      onClick={() => setSourcesExpanded(!sourcesExpanded)}
+                      className="w-full px-4 py-3 shrink-0 flex items-center justify-between cursor-pointer hover:bg-[#141414] transition-colors duration-200"
+                    >
+                      <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500/70"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>
                         Sources <span className="text-[#525252] font-normal">({sources.length})</span>
                       </h3>
-                    </div>
-                    <div className="max-h-48 overflow-y-auto custom-scrollbar divide-y divide-[#1a1a1a]">
-                      {sources.map((source, idx) => (
-                        <a
-                          key={source.id ?? idx}
-                          href={source.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`flex items-start gap-3 px-4 py-2.5 hover:bg-[#141414] transition-all duration-200 ${
-                            idx < sourcesVisible ? 'source-visible' : 'source-hidden'
-                          }`}
-                        >
-                          <div className="mt-1.5 shrink-0">
-                            <div className="w-2 h-2 rounded-full bg-green-500/70" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5">
-                              {source.favicon && <img src={source.favicon} alt="" className="w-3.5 h-3.5 rounded" />}
-                              <span className="text-[10px] text-[#525252] truncate">{getDomain(source.url)}</span>
+                      <svg
+                        width="16" height="16" viewBox="0 0 16 16"
+                        className={`shrink-0 text-[#525252] transition-transform duration-300 ${sourcesExpanded ? 'rotate-180' : ''}`}
+                      >
+                        <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                      </svg>
+                    </button>
+                    <div
+                      className={`transition-all duration-300 ease-in-out overflow-hidden ${sourcesExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}
+                    >
+                      <div className="max-h-48 overflow-y-auto custom-scrollbar divide-y divide-[#1a1a1a]">
+                        {sources.map((source, idx) => (
+                          <a
+                            key={source.id ?? idx}
+                            href={source.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`flex items-start gap-3 px-4 py-2.5 hover:bg-[#141414] transition-all duration-200 ${
+                              idx < sourcesVisible ? 'source-visible' : 'source-hidden'
+                            }`}
+                          >
+                            <div className="mt-1.5 shrink-0">
+                              <div className="w-2 h-2 rounded-full bg-green-500/70" />
                             </div>
-                            <p className="text-xs text-[#c0c0c0] font-medium leading-snug line-clamp-1">
-                              {source.title}
-                            </p>
-                          </div>
-                          <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0 text-[#333] mt-1">
-                            <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                          </svg>
-                        </a>
-                      ))}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                {source.favicon && <img src={source.favicon} alt="" className="w-3.5 h-3.5 rounded" />}
+                                <span className="text-[10px] text-[#525252] truncate">{getDomain(source.url)}</span>
+                              </div>
+                              <p className="text-xs text-[#c0c0c0] font-medium leading-snug line-clamp-1">
+                                {source.title}
+                              </p>
+                            </div>
+                            <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0 text-[#333] mt-1">
+                              <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                            </svg>
+                          </a>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -813,22 +839,27 @@ export default function ResearchPage() {
                 )}
 
                 {/* Follow-up Questions */}
-                {activeResearch.stage === 'done' && activeResearch.followups?.length > 0 && (
-                  <div className="animate-fade-in">
-                    <h3 className="text-sm font-semibold text-white mb-2">Follow-up Questions</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {activeResearch.followups.map((q, i) => (
-                        <button
-                          key={i}
-                          onClick={() => handleFollowup(q)}
-                          className="text-xs px-3 py-2 rounded-full bg-transparent border border-[#1f1f1f] text-[#a0a0a0] hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white transition-all duration-200 cursor-pointer text-left"
-                        >
-                          {q}
-                        </button>
-                      ))}
+                {activeResearch.stage === 'done' && (() => {
+                  const followups = activeResearch.followups?.length > 0
+                    ? activeResearch.followups
+                    : generateFallbackFollowups(activeResearch.query)
+                  return followups.length > 0 ? (
+                    <div className="animate-fade-in">
+                      <h3 className="text-sm font-semibold text-white mb-2">Follow-up Questions</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {followups.map((q, i) => (
+                          <button
+                            key={i}
+                            onClick={() => handleFollowup(q)}
+                            className="text-xs px-3 py-2 rounded-full bg-transparent border border-[#1f1f1f] text-[#a0a0a0] hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white transition-all duration-200 cursor-pointer text-left"
+                          >
+                            {q}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  ) : null
+                })()}
 
               </div>
             </div>
@@ -1212,9 +1243,15 @@ export default function ResearchPage() {
         .report-body strong { color: #fff; font-weight: 600; }
         .report-body a { color: #f87171; text-decoration: underline; text-underline-offset: 2px; }
         .report-body a:hover { color: #fca5a5; }
+
+        /* Scrollable table wrapper for HTML content from worker */
+        .report-body .overflow-x-auto { max-height: 400px; overflow-y: auto; }
+        .report-body .overflow-x-auto::-webkit-scrollbar { width: 4px; }
+        .report-body .overflow-x-auto::-webkit-scrollbar-track { background: transparent; }
+        .report-body .overflow-x-auto::-webkit-scrollbar-thumb { background: #262626; border-radius: 4px; }
         .report-body hr { border-color: #1a1a1a; margin: 1rem 0; }
         .report-body table { width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 0.75rem; overflow: hidden; border: 1px solid #1a1a1a; margin-bottom: 1rem; }
-        .report-body thead th { padding: 0.5rem 0.75rem; font-size: 11px; font-weight: 600; color: #737373; text-transform: uppercase; letter-spacing: 0.05em; background: #111; text-align: left; }
+        .report-body thead th { padding: 0.5rem 0.75rem; font-size: 11px; font-weight: 600; color: #737373; text-transform: uppercase; letter-spacing: 0.05em; background: #111; text-align: left; position: sticky; top: 0; z-index: 2; }
         .report-body tbody td { padding: 0.625rem 0.75rem; font-size: 0.875rem; color: #a0a0a0; border-top: 1px solid #1a1a1a; }
 
         /* ─── Kivora Research Thinking State ─── */
