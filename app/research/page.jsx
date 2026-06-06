@@ -31,6 +31,17 @@ const DEEP_STAGES = [
   { id: 'done', label: 'Done', Icon: IconCheck },
 ]
 
+const PIPELINE_STAGES_QUICK = [
+  { id: 'search', name: 'Searching the web', detail: 'Finding relevant sources and information' },
+  { id: 'writing', name: 'Generating report', detail: 'Composing comprehensive research report' },
+]
+
+const PIPELINE_STAGES_DEEP = [
+  { id: 'search', name: 'Searching the web', detail: 'Finding relevant sources and information' },
+  { id: 'analyzing', name: 'Analyzing sources', detail: 'Evaluating credibility and extracting key insights' },
+  { id: 'writing', name: 'Generating report', detail: 'Composing comprehensive research report' },
+]
+
 // ── Helpers ──
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
@@ -546,6 +557,8 @@ export default function ResearchPage() {
   // ── Computed ──
   const stages = mode === 'deep' ? DEEP_STAGES : QUICK_STAGES
   const currentStageIdx = activeResearch ? stages.findIndex(s => s.id === activeResearch.stage) : 0
+  const pipelineStages = activeResearch?.mode === 'deep' ? PIPELINE_STAGES_DEEP : PIPELINE_STAGES_QUICK
+  const currentPipelineIdx = activeResearch ? pipelineStages.findIndex(s => s.id === activeResearch.stage) : 0
   const progressPercent = activeResearch?.progress || 0
   const sources = activeResearch?.sources || []
   const reportText = reportDisplay || activeResearch?.report || ''
@@ -665,36 +678,48 @@ export default function ResearchPage() {
           {/* Research output area */}
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
-            {/* Progress bar */}
+            {/* Progress pipeline */}
             {activeResearch.stage !== 'done' && (
               <div className="px-4 pt-5 pb-3 animate-fade-in">
-                <div className="max-w-3xl mx-auto bg-[#111111] border border-[#1a1a1a] rounded-xl p-3.5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <IconMicroscope size={16} className="shrink-0 text-red-400" />
-                    <p className="text-sm text-white font-medium truncate flex-1">{activeResearch.query}</p>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                      activeResearch.mode === 'deep' ? 'bg-red-500 text-white' : 'bg-[#1f1f1f] text-red-400 border border-red-500/30'
+                <div className="max-w-3xl mx-auto research-pipeline-card">
+                  {/* Header */}
+                  <div className="research-pipeline-header">
+                    <div className="research-pipeline-pulse" />
+                    <p className="research-pipeline-query">{activeResearch.query}</p>
+                    <span className={`research-pipeline-mode ${
+                      activeResearch.mode === 'deep' ? 'research-pipeline-mode-deep' : 'research-pipeline-mode-quick'
                     }`}>{activeResearch.mode === 'deep' ? 'Deep' : 'Quick'}</span>
                   </div>
-                  <div className="flex items-center gap-1.5 mb-2.5">
-                    {stages.map((stage, idx) => (
-                      <div key={stage.id} className="flex items-center gap-1.5">
-                        <div className={`flex items-center gap-1 text-[11px] font-medium transition-colors duration-300 ${
-                          idx < currentStageIdx ? 'text-green-400' : idx === currentStageIdx ? 'text-red-400' : 'text-[#525252]'
-                        }`}>
-                          <stage.Icon size={12} />
-                          <span className="hidden sm:inline">{stage.label}</span>
+
+                  {/* Vertical stage pipeline */}
+                  <div className="research-stages">
+                    {pipelineStages.map((stage, idx) => {
+                      const stageState = idx < currentPipelineIdx ? 'done' : idx === currentPipelineIdx ? 'active' : 'pending'
+                      return (
+                        <div key={stage.id} className={`research-stage research-stage-${stageState}`}>
+                          <div className="research-stage-icon">
+                            {stage.id === 'search' && (
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+                            )}
+                            {stage.id === 'analyzing' && (
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" /></svg>
+                            )}
+                            {stage.id === 'writing' && (
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
+                            )}
+                          </div>
+                          <div className="research-stage-body">
+                            <div className="research-stage-name">{stage.name}</div>
+                            <div className="research-stage-detail">{stage.detail}</div>
+                          </div>
                         </div>
-                        {idx < stages.length - 1 && (
-                          <svg width="12" height="12" viewBox="0 0 12 12" className={idx < currentStageIdx ? 'text-green-400' : 'text-[#262626]'}>
-                            <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                          </svg>
-                        )}
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
-                  <div className="h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
-                    <div className="h-full bg-red-500 rounded-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%` }} />
+
+                  {/* Progress bar */}
+                  <div className="research-pipeline-progress">
+                    <div className="research-pipeline-progress-bar" style={{ width: `${progressPercent}%` }} />
                   </div>
                 </div>
               </div>
@@ -1343,6 +1368,217 @@ export default function ResearchPage() {
         @keyframes source-slide-up {
           from { opacity: 0; transform: translateY(6px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ─── Vertical Stage Pipeline ─── */
+        .research-pipeline-card {
+          background: #111111;
+          border: 1px solid #1f1f1f;
+          border-radius: 12px;
+          padding: 20px;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .research-pipeline-header {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 20px;
+        }
+
+        .research-pipeline-pulse {
+          width: 10px;
+          height: 10px;
+          background: #ececec;
+          border-radius: 50%;
+          position: relative;
+          flex-shrink: 0;
+        }
+        .research-pipeline-pulse::after {
+          content: '';
+          position: absolute;
+          top: -4px;
+          left: -4px;
+          width: 18px;
+          height: 18px;
+          border: 1.5px solid #ececec;
+          border-radius: 50%;
+          animation: pipeline-ripple 1.8s ease-out infinite;
+          opacity: 0;
+        }
+        @keyframes pipeline-ripple {
+          0% { transform: scale(0.5); opacity: 0.6; }
+          100% { transform: scale(2.5); opacity: 0; }
+        }
+
+        .research-pipeline-query {
+          font-size: 13px;
+          font-weight: 500;
+          color: #a3a3a3;
+          letter-spacing: 0.02em;
+          flex: 1;
+          min-width: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .research-pipeline-mode {
+          font-size: 10px;
+          padding: 2px 8px;
+          border-radius: 100px;
+          font-weight: 500;
+          flex-shrink: 0;
+        }
+        .research-pipeline-mode-deep {
+          background: #ef4444;
+          color: #fff;
+        }
+        .research-pipeline-mode-quick {
+          background: #1f1f1f;
+          color: #a3a3a3;
+          border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .research-stages {
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+        }
+
+        .research-stage {
+          display: flex;
+          align-items: flex-start;
+          gap: 14px;
+          padding: 10px 0;
+          position: relative;
+          opacity: 0.35;
+          transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .research-stage-active {
+          opacity: 1;
+        }
+        .research-stage-done {
+          opacity: 0.6;
+        }
+
+        /* Vertical connector line */
+        .research-stage:not(:last-child)::before {
+          content: '';
+          position: absolute;
+          left: 11px;
+          top: 34px;
+          width: 1.5px;
+          height: calc(100% - 14px);
+          background: #333333;
+          transition: background 0.4s;
+        }
+        .research-stage-done:not(:last-child)::before {
+          background: #22c55e;
+        }
+
+        .research-stage-icon {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          position: relative;
+          z-index: 2;
+          transition: all 0.4s;
+        }
+        .research-stage-pending .research-stage-icon {
+          background: #333333;
+          border: 1.5px solid #2a2a2a;
+        }
+        .research-stage-active .research-stage-icon {
+          background: #161616;
+          border: 1.5px solid #ececec;
+          box-shadow: 0 0 12px rgba(236, 236, 236, 0.08);
+        }
+        .research-stage-done .research-stage-icon {
+          background: rgba(34, 197, 94, 0.1);
+          border: 1.5px solid #22c55e;
+        }
+
+        .research-stage-icon svg {
+          width: 12px;
+          height: 12px;
+          transition: all 0.3s;
+        }
+        .research-stage-pending .research-stage-icon svg {
+          color: #525252;
+        }
+        .research-stage-active .research-stage-icon svg {
+          color: #ececec;
+        }
+        .research-stage-done .research-stage-icon svg {
+          color: #22c55e;
+        }
+
+        /* Spinner for active stage */
+        .research-stage-active .research-stage-icon::after {
+          content: '';
+          position: absolute;
+          inset: -3px;
+          border-radius: 50%;
+          border: 1.5px solid transparent;
+          border-top-color: #ececec;
+          animation: pipeline-spin 1s linear infinite;
+        }
+        @keyframes pipeline-spin {
+          to { transform: rotate(360deg); }
+        }
+
+        .research-stage-body {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          padding-top: 2px;
+        }
+        .research-stage-name {
+          font-size: 13px;
+          font-weight: 500;
+          color: #a3a3a3;
+          transition: color 0.3s;
+        }
+        .research-stage-active .research-stage-name {
+          color: #ececec;
+        }
+        .research-stage-done .research-stage-name {
+          color: #a3a3a3;
+        }
+
+        .research-stage-detail {
+          font-size: 12px;
+          color: #525252;
+          line-height: 1.5;
+          max-height: 0;
+          overflow: hidden;
+          opacity: 0;
+          transition: all 0.4s ease;
+        }
+        .research-stage-active .research-stage-detail,
+        .research-stage-done .research-stage-detail {
+          max-height: 60px;
+          opacity: 1;
+        }
+
+        .research-pipeline-progress {
+          margin-top: 16px;
+          height: 2px;
+          background: #1f1f1f;
+          border-radius: 1px;
+          overflow: hidden;
+        }
+        .research-pipeline-progress-bar {
+          height: 100%;
+          background: linear-gradient(90deg, #ececec, #22c55e);
+          border-radius: 1px;
+          transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
       `}</style>
     </main>
