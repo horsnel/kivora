@@ -1,11 +1,12 @@
 // ══════════════════════════════════════════════════════════════════
-// KIVORA RESEARCH WORKER — Cloudflare Worker (v3.0.0)
+// KIVORA RESEARCH WORKER — Cloudflare Worker (v4.0.0)
 // Target: Quick ~10-15s, Deep ~30-60s (with 16K+ token output)
 // Key optimizations:
 //   - Quick mode: fast search (Tavily basic + Firecrawl), fast LLM (4K tokens)
 //   - Deep mode: parallel URL reads, high-output LLM (16K tokens = ~12K words)
 //   - Models: Gemini 2.5 Flash (65K output) via OpenRouter as primary for Deep
-//   - Multiple LLM providers: OpenRouter → Google Gemini → Workers AI
+//   - Multiple LLM providers: OpenRouter → Google Gemini → Workers AI → Pollinations AI
+//   - Apex model routing: apex-free (Pollinations-first) and apex-premium (OpenRouter-first)
 // ══════════════════════════════════════════════════════════════════
 
 const CORS_HEADERS = {
@@ -287,6 +288,146 @@ async function geminiChat(env, messages, model = 'gemini-2.0-flash', maxTokens =
     console.error('[Gemini] exception:', err.message);
     return null;
   }
+}
+
+// Pollinations AI — free, no API key needed. ~3-8s for 4K tokens
+async function pollinationsChat(messages, model = 'openai', maxTokens = 4096, timeout = 30000) {
+  try {
+    const t0 = Date.now();
+    const res = await fetch('https://text.pollinations.ai/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages,
+        model,
+        temperature: 0.3,
+        max_tokens: maxTokens,
+        seed: Math.floor(Math.random() * 10000),
+      }),
+      signal: AbortSignal.timeout(timeout),
+    });
+    if (!res.ok) return null;
+    const text = await res.text();
+    // Pollinations returns plain text, not JSON
+    if (!text || text.length < 10) return null;
+    console.log(`[Pollinations] ${model} success in ${Date.now()-t0}ms, chars: ${text.length}`);
+    return text;
+  } catch (err) {
+    console.error('[Pollinations] exception:', err.message);
+    return null;
+  }
+}
+
+// Apex 1.7 — Free tier model routing (Pollinations → Workers AI → Gemini → OpenRouter)
+async function llmApexFree(env, messages, maxTokens = 4096) {
+  const errors = [];
+
+  // 1. Pollinations AI — completely free
+  const pollModels = ['openai', 'mistral', 'llama'];
+  for (const model of pollModels) {
+    const result = await pollinationsChat(messages, model, maxTokens, 30000);
+    if (result) return result;
+    errors.push(`Poll:${model}:null`);
+  }
+
+  // 2. Workers AI — free, built-in
+  if (env.AI) {
+    const workersAiModels = [
+      '@cf/meta/llama-3.1-8b-instruct-fp8',
+      '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+      '@cf/qwen/qwen3-30b-a3b-fp8',
+      '@cf/mistralai/mistral-small-3.1-24b-instruct',
+    ];
+    for (const m of workersAiModels) {
+      const result = await workersAiChat(env, messages, m, Math.min(maxTokens, 4096));
+      if (result) return result;
+      errors.push(`WAI:${m}:null`);
+    }
+  }
+
+  // 3. Google Gemini — free tier
+  if (getGeminiKey(env)) {
+    const geminiModels = [
+      { model: 'gemini-2.0-flash', timeout: 20000 },
+      { model: 'gemini-1.5-flash', timeout: 20000 },
+    ];
+    for (const { model, timeout } of geminiModels) {
+      const result = await geminiChat(env, messages, model, maxTokens, timeout);
+      if (result) return result;
+      errors.push(`Gemini:${model}:null`);
+    }
+  }
+
+  // 4. OpenRouter — last resort (uses credits)
+  if (getOpenRouterKey(env)) {
+    const orModels = [
+      { model: 'meta-llama/llama-4-maverick', timeout: 30000 },
+      { model: 'mistralai/mistral-small-3.1-24b-instruct', timeout: 20000 },
+    ];
+    for (const { model, timeout } of orModels) {
+      const result = await openrouterChat(env, messages, model, maxTokens, timeout);
+      if (result) return result;
+      errors.push(`OR:${model}:null`);
+    }
+  }
+
+  throw new Error(`All LLM providers failed (Apex 1.7 Free). Tried: ${errors.join(', ')}`);
+}
+
+// Apex 2.3 — Premium tier model routing (OpenRouter → Gemini → Workers AI → Pollinations)
+async function llmApexPremium(env, messages, maxTokens = 4096) {
+  const errors = [];
+
+  // 1. OpenRouter — premium models first
+  if (getOpenRouterKey(env)) {
+    const orModels = [
+      { model: 'meta-llama/llama-4-maverick', timeout: 30000 },
+      { model: 'deepseek/deepseek-chat-v3-0324', timeout: 25000 },
+      { model: 'qwen/qwen3-235b-a22b', timeout: 30000 },
+    ];
+    for (const { model, timeout } of orModels) {
+      const result = await openrouterChat(env, messages, model, maxTokens, timeout);
+      if (result) return result;
+      errors.push(`OR:${model}:null`);
+    }
+  }
+
+  // 2. Google Gemini
+  if (getGeminiKey(env)) {
+    const geminiModels = [
+      { model: 'gemini-2.5-flash', timeout: 90000 },
+      { model: 'gemini-2.0-flash', timeout: 60000 },
+    ];
+    for (const { model, timeout } of geminiModels) {
+      const result = await geminiChat(env, messages, model, maxTokens, timeout);
+      if (result) return result;
+      errors.push(`Gemini:${model}:null`);
+    }
+  }
+
+  // 3. Workers AI
+  if (env.AI) {
+    const workersAiModels = [
+      '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+      '@cf/qwen/qwen3-30b-a3b-fp8',
+      '@cf/mistralai/mistral-small-3.1-24b-instruct',
+    ];
+    for (const m of workersAiModels) {
+      const result = await workersAiChat(env, messages, m, Math.min(maxTokens, 4096));
+      if (result) return result;
+      errors.push(`WAI:${m}:null`);
+    }
+  }
+
+  // 4. Pollinations — free fallback
+  const pollModels = ['openai', 'mistral'];
+  for (const model of pollModels) {
+    const result = await pollinationsChat(messages, model, maxTokens, 30000);
+    if (result) return result;
+    errors.push(`Poll:${model}:null`);
+  }
+
+  throw new Error(`All LLM providers failed (Apex 2.3 Premium). Tried: ${errors.join(', ')}`);
 }
 
 // Quick LLM — uses reliable model chain
@@ -707,7 +848,7 @@ function extractFollowups(text) {
 // MAIN RESEARCH PIPELINE — SPEED OPTIMIZED
 // ══════════════════════════════════════════════════════════════════
 
-async function quickResearch(query, env) {
+async function quickResearch(query, env, apexModel = 'apex-free') {
   const t0 = Date.now();
   
   // Step 1: Fast search (2 providers, ~2s)
@@ -725,14 +866,22 @@ async function quickResearch(query, env) {
     `[${i + 1}] ${s.title}\n${s.snippet}`
   ).join('\n\n');
 
-  // Step 3: Generate report with fast LLM
+  // Step 3: Generate report with Apex model routing
   console.log('[Quick] Generating report...');
   const userContent = `Research query: "${query}"\n\nSources:\n${sourcesContext}`;
 
-  const rawReport = await llmQuick(env, [
-    { role: 'system', content: QUICK_SYSTEM_PROMPT },
-    { role: 'user', content: userContent },
-  ], 4096);
+  let rawReport;
+  if (apexModel === 'apex-premium') {
+    rawReport = await llmApexPremium(env, [
+      { role: 'system', content: QUICK_SYSTEM_PROMPT },
+      { role: 'user', content: userContent },
+    ], 4096);
+  } else {
+    rawReport = await llmApexFree(env, [
+      { role: 'system', content: QUICK_SYSTEM_PROMPT },
+      { role: 'user', content: userContent },
+    ], 4096);
+  }
 
   console.log(`[Quick] Report generated in ${Date.now() - t0}ms`);
 
@@ -755,7 +904,7 @@ async function quickResearch(query, env) {
   return { sources, report, content, title, followups, mode: 'quick' };
 }
 
-async function deepResearch(query, env) {
+async function deepResearch(query, env, apexModel = 'apex-free') {
   const t0 = Date.now();
 
   // ── PHASE 1: Search (3 providers, ~2.5s) ──
@@ -791,7 +940,7 @@ async function deepResearch(query, env) {
   }));
 
   // ── PHASE 3: Multi-section report generation ──
-  // 2 parallel LLM calls (credit-efficient: sends context 2x instead of 3x)
+  // 2 parallel LLM calls with Apex model routing
   console.log('[Deep] Phase 3: Generating multi-section report...');
 
   const allSourcesContext = sources.map((s, i) =>
@@ -803,6 +952,9 @@ async function deepResearch(query, env) {
   ).join('\n\n');
 
   const contextBlock = `Research query: "${query}"\n\nSOURCES:\n${allSourcesContext}\n\nDEEP CONTENT:\n${deepContent}`;
+
+  const llmFn = apexModel === 'apex-premium' ? llmApexPremium : llmApexFree;
+  const effectiveMaxTokens = apexModel === 'apex-premium' ? 8192 : 6000;
 
   // Section prompts — 2 parallel LLM calls for credit efficiency
   const sections = [
@@ -874,10 +1026,10 @@ FOLLOWUPS:
   // Generate both parts in parallel for speed
   const sectionPromises = sections.map(async (section) => {
     const sectionT0 = Date.now();
-    const result = await llmDeep(env, [
+    const result = await llmFn(env, [
       { role: 'system', content: section.prompt },
       { role: 'user', content: contextBlock },
-    ], 6000);
+    ], effectiveMaxTokens);
     console.log(`[Deep] Section '${section.name}' done in ${Date.now() - sectionT0}ms, ${result?.length || 0} chars`);
     return { name: section.name, content: result || '' };
   });
@@ -919,6 +1071,7 @@ export default {
         tavily: getTavilyKey(env) ? `yes-${getTavilyKey(env).length}chars` : 'no',
         firecrawl: getFirecrawlKey(env) ? `yes-${getFirecrawlKey(env).length}chars` : 'no',
         brave: getBraveKey(env) ? `yes-${getBraveKey(env).length}chars` : 'no',
+        pollinations: 'available (free)',
       });
     }
 
@@ -987,11 +1140,12 @@ export default {
       return jsonRes({
         status: 'ok',
         service: 'kivora-research',
-        version: '3.0.0',
+        version: '4.0.0',
         providers: {
           openrouter: !!getOpenRouterKey(env),
           gemini: !!getGeminiKey(env),
           workers_ai: !!env.AI,
+          pollinations: true,
           tavily: !!getTavilyKey(env),
           brave: !!getBraveKey(env),
           firecrawl: !!getFirecrawlKey(env),
@@ -1003,7 +1157,7 @@ export default {
     if (url.pathname === '/research' && request.method === 'POST') {
       try {
         const body = await request.json();
-        const { query, mode = 'quick', openrouter_key = '' } = body;
+        const { query, mode = 'quick', openrouter_key = '', apex_model = 'apex-free' } = body;
 
         if (!query || typeof query !== 'string') {
           return jsonRes({ error: 'Query is required' }, 400);
@@ -1019,11 +1173,11 @@ export default {
           env.OPENROUTER_API_KEY = openrouter_key;
         }
 
-        console.log(`[Research] ${mode} mode: "${query}", OR key: ${getOpenRouterKey(env) ? `yes-${getOpenRouterKey(env).length}chars` : 'no'}`);
+        console.log(`[Research] ${mode} mode: "${query}", OR key: ${getOpenRouterKey(env) ? `yes-${getOpenRouterKey(env).length}chars` : 'no'}, apex: ${apex_model}`);
 
         const result = mode === 'deep'
-          ? await deepResearch(query, env)
-          : await quickResearch(query, env);
+          ? await deepResearch(query, env, apex_model)
+          : await quickResearch(query, env, apex_model);
 
         if (result.error) {
           return jsonRes(result, 500);

@@ -31,11 +31,11 @@ const SYSTEM_TEMPLATES = [
 ]
 
 const MODELS = [
-  { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', tag: 'Default · Fastest', short: '3.3 70B' },
-  { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B', tag: 'Quick responses', short: '3.1 8B' },
-  { id: 'llama3-70b-8192', name: 'Llama 3 70B', tag: 'Detailed', short: '3 70B' },
-  { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', tag: 'Long context', short: 'Mixtral' },
-  { id: 'gemma2-9b-it', name: 'Gemma 2 9B', tag: 'Efficient', short: 'Gemma 2' },
+  { id: 'llama-3.3-70b-versatile', name: 'Nova 2.3', tag: 'Premium · Detailed', short: 'Nova 2.3' },
+  { id: 'llama-3.1-8b-instant', name: 'Nova 1.7', tag: 'Free · Fast', short: 'Nova 1.7' },
+  { id: 'llama3-70b-8192', name: 'Nova 2.3 Pro', tag: 'Extended context', short: '2.3 Pro' },
+  { id: 'mixtral-8x7b-32768', name: 'Nova 2.3 Mix', tag: 'Long context', short: '2.3 Mix' },
+  { id: 'gemma2-9b-it', name: 'Nova 1.7 Lite', tag: 'Efficient', short: '1.7 Lite' },
 ]
 
 const DEFAULT_MODEL = 'llama-3.3-70b-versatile'

@@ -42,6 +42,11 @@ const PIPELINE_STAGES_DEEP = [
   { id: 'writing', name: 'Generating report', detail: 'Composing comprehensive research report' },
 ]
 
+const APEX_MODELS = [
+  { id: 'apex-free', name: 'Apex 1.7', tag: 'Free', color: 'gray' },
+  { id: 'apex-premium', name: 'Apex 2.3', tag: 'Premium', color: 'red' },
+]
+
 // ── Helpers ──
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
@@ -275,6 +280,7 @@ export default function ResearchPage() {
   const [placeholderText, setPlaceholderText] = useState('')
   const [collapsedPlaceholder, setCollapsedPlaceholder] = useState('')
   const [mode, setMode] = useState('quick')
+  const [apexModel, setApexModel] = useState('apex-free')
   const [activeResearch, setActiveResearch] = useState(null)
   const [isResearching, setIsResearching] = useState(false)
   const [error, setError] = useState('')
@@ -419,6 +425,7 @@ export default function ResearchPage() {
       id,
       query: query.trim(),
       mode: researchMode,
+      apexModel,
       sources: [],
       report: '',
       data: null,
@@ -462,7 +469,7 @@ export default function ResearchPage() {
         res = await fetch('/api/research', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: query.trim(), mode: researchMode }),
+          body: JSON.stringify({ query: query.trim(), mode: researchMode, apex_model: apexModel }),
           signal: controller.signal,
         })
       } finally {
@@ -483,6 +490,7 @@ export default function ResearchPage() {
         id,
         query: query.trim(),
         mode: researchMode,
+        apexModel,
         sources: data.sources || [],
         report: data.report || '',
         content: data.content || '',
@@ -655,11 +663,27 @@ export default function ResearchPage() {
                       <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
                     </svg>
                   </button>
+                  {/* Apex model selector dropdown */}
+                  <div className="relative" style={{position:'relative'}}>
+                    <button
+                      onClick={() => {
+                        const next = apexModel === 'apex-free' ? 'apex-premium' : 'apex-free'
+                        setApexModel(next)
+                      }}
+                      className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ml-0.5 flex items-center gap-1 ${
+                        apexModel === 'apex-premium'
+                          ? 'bg-[rgba(220,38,38,0.12)] text-[#ef4444] border-[rgba(220,38,38,0.2)]'
+                          : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
+                      }`}
+                    >
+                      {apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}
+                    </button>
+                  </div>
                   <button
                     onClick={() => setMode(mode === 'quick' ? 'deep' : 'quick')}
                     className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ml-0.5 ${
                       mode === 'deep'
-                        ? 'bg-[rgba(220,38,38,0.12)] text-[#ef4444] border-[rgba(220,38,38,0.2)]'
+                        ? 'bg-[rgba(168,85,247,0.12)] text-[#a855f7] border-[rgba(168,85,247,0.2)]'
                         : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
                     }`}
                   >
@@ -700,7 +724,7 @@ export default function ResearchPage() {
                     <p className="research-pipeline-query">{activeResearch.query}</p>
                     <span className={`research-pipeline-mode ${
                       activeResearch.mode === 'deep' ? 'research-pipeline-mode-deep' : 'research-pipeline-mode-quick'
-                    }`}>{activeResearch.mode === 'deep' ? 'Deep' : 'Quick'}</span>
+                    }`}>{activeResearch.mode === 'deep' ? 'Deep' : 'Quick'} · {activeResearch.apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}</span>
                   </div>
 
                   {/* Vertical stage pipeline */}
@@ -748,7 +772,7 @@ export default function ResearchPage() {
                     <h2 className="text-lg font-semibold text-white truncate flex-1">{activeResearch.query}</h2>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                       activeResearch.mode === 'deep' ? 'bg-red-500 text-white' : 'bg-[#1f1f1f] text-red-400 border border-red-500/30'
-                    }`}>{activeResearch.mode === 'deep' ? 'Deep' : 'Quick'}</span>
+                    }`}>{activeResearch.mode === 'deep' ? 'Deep' : 'Quick'} · {activeResearch.apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}</span>
                     {reportText && !isResearching && (
                       <button
                         onClick={() => navigator.clipboard.writeText(activeResearch?.report || '')}
@@ -928,12 +952,26 @@ export default function ResearchPage() {
                   />
                 </div>
 
+                {/* Apex model chip */}
+                <button
+                  onClick={() => {
+                    const next = apexModel === 'apex-free' ? 'apex-premium' : 'apex-free'
+                    setApexModel(next)
+                  }}
+                  className={`text-[10px] px-2 py-1 rounded-full transition-all duration-200 border shrink-0 ${
+                    apexModel === 'apex-premium'
+                      ? 'bg-[rgba(220,38,38,0.12)] text-[#ef4444] border-[rgba(220,38,38,0.2)]'
+                      : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
+                  }`}
+                >
+                  {apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}
+                </button>
                 {/* Mode chip */}
                 <button
                   onClick={() => setMode(mode === 'quick' ? 'deep' : 'quick')}
                   className={`text-[10px] px-2 py-1 rounded-full transition-all duration-200 border shrink-0 ${
                     mode === 'deep'
-                      ? 'bg-[rgba(220,38,38,0.12)] text-[#ef4444] border-[rgba(220,38,38,0.2)]'
+                      ? 'bg-[rgba(168,85,247,0.12)] text-[#a855f7] border-[rgba(168,85,247,0.2)]'
                       : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
                   }`}
                 >

@@ -14,7 +14,7 @@ export async function POST(req) {
 
   try {
     const body = await req.json()
-    const { query, mode = 'quick' } = body
+    const { query, mode = 'quick', apex_model = 'apex-free' } = body
 
     if (!query || typeof query !== 'string') {
       return Response.json({ error: 'Query is required' }, { status: 400 })
@@ -36,6 +36,7 @@ export async function POST(req) {
       body: JSON.stringify({
         query: query.trim(),
         mode,
+        apex_model,
         openrouter_key: openrouterKey || '',
       }),
       signal: AbortSignal.timeout(workerTimeout),
