@@ -49,3 +49,26 @@ Stage Summary:
 - Wiki dialogue: chat-style UI for asking follow-up questions about research
 - Version: APEX 2.1.0
 - Commit: d1280e3 on horsnel/kivora main
+
+---
+Task ID: 3
+Agent: Main
+Task: Deploy all repos to Cloudflare (Workers + Pages)
+
+Work Log:
+- Authenticated with Cloudflare API token (cfut_...) for account odehebuka48@gmail.com
+- Deployed research-worker → https://kivora-research.odehebuka48.workers.dev (Version: 293350e7)
+- Built Kivora Next.js with @cloudflare/next-on-pages v1.13.16 (32 static pages, 44 edge functions)
+- Deployed Kivora Pages → https://kivora.pages.dev (Deployment: c114ba17)
+- Created D1 database apex-db (ID: 50f0ec88-23f7-4ca4-a3f4-f6d11b9a8949) for apex-worker
+- Commented out R2 and Vectorize bindings in apex-worker wrangler.toml (R2 not enabled on account, Vectorize auth error)
+- Deployed apex-worker → https://apex-research-agent.odehebuka48.workers.dev (Version: 1285e722, D1+AI bindings active)
+- Verified all 3 deployments are live and responding
+- Verified APEX 2.1.0 status endpoint returns all feature flags
+- Pushed updated wrangler.toml and worklog to GitHub (commit 86f02f3)
+
+Stage Summary:
+- Kivora Pages: https://kivora.pages.dev — LIVE (APEX 2.1.0 with all features)
+- Research Worker: https://kivora-research.odehebuka48.workers.dev — LIVE (cache, tier enforcement, query classification, academic routing)
+- APEX Worker: https://apex-research-agent.odehebuka48.workers.dev — LIVE (D1 + Workers AI, R2/Vectorize pending account enablement)
+- Pending: R2 needs to be enabled in Cloudflare Dashboard for full apex-worker functionality
