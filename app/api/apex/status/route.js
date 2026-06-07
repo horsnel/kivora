@@ -11,8 +11,8 @@ export async function GET() {
   const admin = getSupabaseAdmin()
 
   const status = {
-    version: '2.0.0',
-    engine: 'APEX 2.0',
+    version: '2.1.0',
+    engine: 'APEX 2.1',
     features: [
       'source_tier_enforcement',
       'verification_loop',
@@ -27,6 +27,10 @@ export async function GET() {
       'conflict_detection',
       'dialogic_wiki',
       'concurrency_safety',
+      'cache_first_routing',
+      'query_classification',
+      'academic_search_routing',
+      'tier_badges_ui',
     ],
     tiers: {
       P1: 'Top-tier academic/government/institutional',

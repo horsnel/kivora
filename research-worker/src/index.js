@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════
-// KIVORA RESEARCH WORKER — Cloudflare Worker (v4.0.0)
+// KIVORA RESEARCH WORKER — Cloudflare Worker (v5.0.0)
 // Target: Quick ~10-15s, Deep ~30-60s (with 16K+ token output)
 // Key optimizations:
 //   - Quick mode: fast search (Tavily basic + Firecrawl), fast LLM (4K tokens)
@@ -7,6 +7,9 @@
 //   - Models: Gemini 2.5 Flash (65K output) via OpenRouter as primary for Deep
 //   - Multiple LLM providers: OpenRouter → Google Gemini → Workers AI → Pollinations AI
 //   - Apex model routing: apex-free (Pollinations-first) and apex-premium (OpenRouter-first)
+//   - Query classification: academic/biomedical/tech/finance/general search routing
+//   - Academic providers: Semantic Scholar, Crossref, PubMed (free, no API keys)
+//   - Tech providers: GitHub repository search (free, rate-limited)
 // ══════════════════════════════════════════════════════════════════
 
 const CORS_HEADERS = {
@@ -34,6 +37,159 @@ function getBraveKey(env) {
 }
 function getFirecrawlKey(env) {
   return env.FIRECRAWL_API_KEY || 'fc-9afd24762f1348c68c0c05e88130e890';
+}
+
+// ── Source Tier Enforcement ──
+const SOURCE_TIER_DOMAINS = {
+  P1: [
+    'arxiv.org', 'pubmed.ncbi.nlm.nih.gov', 'nature.com', 'science.org',
+    'who.int', 'cdc.gov', 'nih.gov', 'fda.gov', 'sec.gov', 'doi.org',
+    'dl.acm.org', 'ieeexplore.ieee.org', 'jmlr.org', 'aclanthology.org',
+    'openreview.net', 'biorxiv.org', 'medrxiv.org', 'springer.com',
+    'wiley.com', 'plos.org', 'nejm.org', 'lancet.com', 'cell.com',
+    'pnas.org', 'bmj.com', 'eur-lex.europa.eu', 'gov.uk',
+    'cambridge.org', 'oxfordacademic.com', 'chemrxiv.org',
+  ],
+  P2: [
+    'reuters.com', 'bloomberg.com', 'economist.com', 'ft.com',
+    'wsj.com', 'nytimes.com', 'bbc.com', 'apa.org', 'ieee.org',
+    'acm.org', 'mit.edu', 'stanford.edu', 'harvard.edu',
+    'semanticscholar.org', 'openalex.org', 'clinicaltrials.gov',
+    'cochrane.org', 'ourworldindata.org', 'pewresearch.org',
+    'nber.org', 'ssrn.com', 'hbr.org', 'mckinsey.com',
+  ],
+  P3: [
+    'medium.com', 'towardsdatascience.com', 'wikipedia.org',
+    'wikidata.org', 'stackoverflow.com', 'github.com', 'reddit.com',
+    'hackernews.com', 'youtube.com', 'substack.com', 'quora.com',
+    'researchgate.net', 'academia.edu',
+  ],
+};
+
+// Reverse lookup: domain → tier
+const _DOMAIN_TIER_MAP = {};
+for (const [tier, domains] of Object.entries(SOURCE_TIER_DOMAINS)) {
+  for (const domain of domains) {
+    _DOMAIN_TIER_MAP[domain] = tier;
+  }
+}
+
+const TIER_LABELS = {
+  P1: 'P1 — Academic',
+  P2: 'P2 — Professional',
+  P3: 'P3 — Community',
+  UNV: 'UNV — Unverified',
+};
+
+/**
+ * Classify a source URL into a tier (P1/P2/P3/UNV).
+ * Checks exact domain match first, then walks up to parent domains.
+ * @param {string} url  The source URL
+ * @param {string} [currentTier]  Existing tier to keep if no match found
+ * @returns {{ tier: string, tierLabel: string }}
+ */
+function enforceSourceTier(url, currentTier) {
+  if (!url || typeof url !== 'string') {
+    const tier = currentTier || 'UNV';
+    return { tier, tierLabel: TIER_LABELS[tier] };
+  }
+
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+
+    // 1. Exact match
+    if (_DOMAIN_TIER_MAP[hostname]) {
+      const tier = _DOMAIN_TIER_MAP[hostname];
+      return { tier, tierLabel: TIER_LABELS[tier] };
+    }
+
+    // 2. Walk up parent domains (e.g. subdomain.nature.com → nature.com)
+    const parts = hostname.split('.');
+    for (let i = 1; i < parts.length - 1; i++) {
+      const parent = parts.slice(i).join('.');
+      if (_DOMAIN_TIER_MAP[parent]) {
+        const tier = _DOMAIN_TIER_MAP[parent];
+        return { tier, tierLabel: TIER_LABELS[tier] };
+      }
+    }
+  } catch {
+    // Invalid URL — fall through
+  }
+
+  const tier = currentTier || 'UNV';
+  return { tier, tierLabel: TIER_LABELS[tier] };
+}
+
+// ══════════════════════════════════════════════════════════════════
+// QUERY CLASSIFICATION
+// ══════════════════════════════════════════════════════════════════
+
+const CLASSIFICATION_PATTERNS = {
+  academic: [
+    'research', 'study', 'paper', 'journal', 'effect of', 'meta-analysis',
+    'systematic review', 'RCT', 'clinical trial', 'hypothesis', 'methodology',
+    'DOI', 'arxiv', 'peer-reviewed', 'publication', 'literature review',
+    'empirical', 'qualitative', 'quantitative', 'longitudinal',
+  ],
+  biomedical: [
+    'health', 'medical', 'disease', 'treatment', 'drug', 'therapy',
+    'diagnosis', 'symptoms', 'patient', 'clinical', 'pharmaceutical',
+    'vaccine', 'epidemiology', 'pathology', 'medicine', 'hospital',
+    'surgery', 'prognosis', 'mortality', 'morbidity',
+  ],
+  tech: [
+    'software', 'programming', 'framework', 'API', 'library', 'algorithm',
+    'code', 'developer', 'deployment', 'infrastructure', 'cloud',
+    'AI model', 'machine learning', 'open source', 'repository',
+    'devops', 'kubernetes', 'docker', 'serverless',
+  ],
+  finance: [
+    'stock', 'market', 'investment', 'revenue', 'profit', 'GDP',
+    'economy', 'financial', 'crypto', 'bitcoin', 'trading', 'portfolio',
+    'hedge fund', 'equity', 'dividend', 'fiscal', 'monetary',
+    'inflation', 'bond', 'commodity',
+  ],
+};
+
+function classifyQuery(query) {
+  const lower = query.toLowerCase();
+  const scores = {};
+
+  for (const [category, terms] of Object.entries(CLASSIFICATION_PATTERNS)) {
+    let score = 0;
+    for (const term of terms) {
+      // Use word boundary matching for short terms, substring for phrases
+      if (term.includes(' ')) {
+        // Multi-word: simple substring match
+        if (lower.includes(term.toLowerCase())) score += 2;
+      } else {
+        // Single word: word boundary match to avoid false positives
+        const regex = new RegExp(`\\b${term.toLowerCase()}\\b`, 'i');
+        if (regex.test(lower)) score += 1;
+      }
+    }
+    scores[category] = score;
+  }
+
+  // Find the highest scoring category
+  let bestCategory = 'general';
+  let bestScore = 0;
+  for (const [category, score] of Object.entries(scores)) {
+    if (score > bestScore) {
+      bestScore = score;
+      bestCategory = category;
+    }
+  }
+
+  // Need at least 1 match to override 'general'
+  if (bestScore === 0) return 'general';
+
+  // Biomedical wins over academic if both match (biomedical is more specific)
+  if (bestCategory === 'academic' && scores.biomedical >= bestScore) {
+    return 'biomedical';
+  }
+
+  return bestCategory;
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -82,12 +238,17 @@ async function searchBrave(query, env, count = 8) {
     });
     if (!res.ok) return [];
     const data = await res.json();
-    return (data.web?.results || []).map(r => ({
-      title: r.title || '',
-      url: r.url || '',
-      snippet: r.description || '',
-      score: 0,
-    }));
+    return (data.web?.results || []).map(r => {
+      const { tier, tierLabel } = enforceSourceTier(r.url);
+      return {
+        title: r.title || '',
+        url: r.url || '',
+        snippet: r.description || '',
+        score: 0,
+        tier,
+        tierLabel,
+      };
+    });
   } catch {
     return [];
   }
@@ -121,39 +282,212 @@ async function searchFirecrawl(query, env, limit = 8) {
   }
 }
 
-// ── Fast search for quick mode (2 providers, ~2s total) ──
-async function searchQuick(query, env, maxSources = 10) {
-  const [tavilyResults, firecrawlResults] = await Promise.all([
+// ── Academic Search Providers ──
+
+// Semantic Scholar — free academic search API
+async function searchSemanticScholar(query, limit = 5) {
+  try {
+    const res = await fetch(
+      `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=${limit}&fields=title,url,abstract,year,citationCount,authors,externalIds`,
+      { signal: AbortSignal.timeout(8000) },
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.data || []).map(p => ({
+      title: p.title || '',
+      url: p.url || `https://semanticscholar.org/paper/${p.paperId}`,
+      snippet: p.abstract || '',
+      score: p.citationCount || 0,
+      source: 'semantic-scholar',
+      authors: (p.authors || []).map(a => a.name || ''),
+      year: p.year || null,
+      citations: p.citationCount || 0,
+      doi: p.externalIds?.DOI || '',
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// Crossref — free scholarly metadata API (no API key needed)
+async function searchCrossref(query, rows = 5) {
+  try {
+    const res = await fetch(
+      `https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=${rows}`,
+      { signal: AbortSignal.timeout(8000) },
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.message?.items || []).map(item => ({
+      title: (item.title || [])[0] || '',
+      url: item.URL || (item.doi ? `https://doi.org/${item.doi}` : ''),
+      snippet: (item.abstract || '').replace(/<[^>]*>/g, '').slice(0, 500),
+      score: item['is-referenced-by-count'] || 0,
+      source: 'crossref',
+      authors: (item.author || []).map(a => `${a.given || ''} ${a.family || ''}`.trim()),
+      year: item.published?.['date-parts']?.[0]?.[0] || item.created?.['date-parts']?.[0]?.[0] || null,
+      citations: item['is-referenced-by-count'] || 0,
+      doi: item.doi || '',
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// PubMed — via NCBI E-utilities (free, no API key required for basic use)
+async function searchPubMed(query, retmax = 5) {
+  try {
+    // Step 1: Search for PMIDs
+    const searchRes = await fetch(
+      `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=${retmax}&retmode=json`,
+      { signal: AbortSignal.timeout(6000) },
+    );
+    if (!searchRes.ok) return [];
+    const searchData = await searchRes.json();
+    const ids = searchData.esearchresult?.idlist || [];
+    if (ids.length === 0) return [];
+
+    // Step 2: Get summaries for those PMIDs
+    const summaryRes = await fetch(
+      `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${ids.join(',')}&retmode=json`,
+      { signal: AbortSignal.timeout(6000) },
+    );
+    if (!summaryRes.ok) return [];
+    const summaryData = await summaryRes.json();
+    const result = summaryData.result || {};
+
+    return ids.map(id => {
+      const item = result[id] || {};
+      return {
+        title: item.title || '',
+        url: id ? `https://pubmed.ncbi.nlm.nih.gov/${id}/` : '',
+        snippet: (item.abstract || '').slice(0, 500),
+        score: 0,
+        source: 'pubmed',
+        authors: (item.authors || []).map(a => a.name || ''),
+        year: item.pubdate ? parseInt(item.pubdate, 10) || null : null,
+        citations: 0,
+        doi: item.elocationid || '',
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+// GitHub — search repositories (free, unauthenticated rate limit: 10 req/min)
+async function searchGitHub(query, perPage = 5) {
+  try {
+    const res = await fetch(
+      `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&per_page=${perPage}&sort=stars`,
+      {
+        headers: { 'Accept': 'application/vnd.github.v3+json' },
+        signal: AbortSignal.timeout(6000),
+      },
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.items || []).map(repo => ({
+      title: repo.full_name || repo.name || '',
+      url: repo.html_url || '',
+      snippet: repo.description || '',
+      score: repo.stargazers_count || 0,
+      source: 'github',
+      authors: [repo.owner?.login || ''],
+      year: repo.created_at ? new Date(repo.created_at).getFullYear() : null,
+      citations: repo.stargazers_count || 0,
+      doi: '',
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// ── Fast search for quick mode (2 providers + classified extras, ~2-3s total) ──
+async function searchQuick(query, env, maxSources = 10, classification = 'general') {
+  // Base providers always run
+  const basePromises = [
     searchTavily(query, env, 8, 'basic'),  // ~1.4s
     searchFirecrawl(query, env, 6),         // ~1.7s
-  ]);
+  ];
+
+  // Add classified search providers
+  if (classification === 'academic' || classification === 'biomedical') {
+    basePromises.push(searchSemanticScholar(query, 5));
+    basePromises.push(searchCrossref(query, 5));
+    if (classification === 'biomedical') {
+      basePromises.push(searchPubMed(query, 5));
+    }
+  } else if (classification === 'tech') {
+    basePromises.push(searchGitHub(query, 5));
+  }
+
+  const results = await Promise.all(basePromises);
+
+  // Merge all results — base providers first, then classified extras
+  const allArrays = [results[0], results[1]];
+  for (let i = 2; i < results.length; i++) {
+    allArrays.push(results[i]);
+  }
 
   const seen = new Set();
   const all = [];
-  for (const r of [...tavilyResults, ...firecrawlResults]) {
+  for (const r of allArrays.flat()) {
     const key = r.url.toLowerCase().replace(/\/+$/, '');
     if (key && !seen.has(key)) {
       seen.add(key);
+      // Apply tier enforcement if not already classified
+      if (!r.tier) {
+        const { tier, tierLabel } = enforceSourceTier(r.url);
+        r.tier = tier;
+        r.tierLabel = tierLabel;
+      }
       all.push(r);
     }
   }
   return all.slice(0, maxSources);
 }
 
-// ── Full search for deep mode (4 providers, ~2.5s total) ──
-async function searchDeep(query, env, maxSources = 15) {
-  const [tavilyResults, braveResults, firecrawlResults] = await Promise.all([
+// ── Full search for deep mode (3+ providers + classified extras, ~2.5-4s total) ──
+async function searchDeep(query, env, maxSources = 15, classification = 'general') {
+  // Base providers always run
+  const basePromises = [
     searchTavily(query, env, 10, 'advanced'), // ~2.2s
     searchBrave(query, env, 8),                // ~skip if no key
     searchFirecrawl(query, env, 8),            // ~1.7s
-  ]);
+  ];
+
+  // Add classified search providers
+  if (classification === 'academic' || classification === 'biomedical') {
+    basePromises.push(searchSemanticScholar(query, 5));
+    basePromises.push(searchCrossref(query, 5));
+    if (classification === 'biomedical') {
+      basePromises.push(searchPubMed(query, 5));
+    }
+  } else if (classification === 'tech') {
+    basePromises.push(searchGitHub(query, 5));
+  }
+
+  const results = await Promise.all(basePromises);
+
+  // Merge all results — base providers first, then classified extras
+  const allArrays = [results[0], results[1], results[2]];
+  for (let i = 3; i < results.length; i++) {
+    allArrays.push(results[i]);
+  }
 
   const seen = new Set();
   const all = [];
-  for (const r of [...tavilyResults, ...braveResults, ...firecrawlResults]) {
+  for (const r of allArrays.flat()) {
     const key = r.url.toLowerCase().replace(/\/+$/, '');
     if (key && !seen.has(key)) {
       seen.add(key);
+      // Apply tier enforcement if not already classified
+      if (!r.tier) {
+        const { tier, tierLabel } = enforceSourceTier(r.url);
+        r.tier = tier;
+        r.tierLabel = tierLabel;
+      }
       all.push(r);
     }
   }
@@ -915,9 +1249,13 @@ function extractFollowups(text) {
 async function quickResearch(query, env, apexModel = 'apex-free') {
   const t0 = Date.now();
   
-  // Step 1: Fast search (2 providers, ~2s)
+  // Step 0: Classify the query for search routing
+  const classification = classifyQuery(query);
+  console.log(`[Quick] Query classified as: ${classification}`);
+  
+  // Step 1: Fast search (2 providers + classified extras, ~2-3s)
   console.log('[Quick] Searching...');
-  const searchResults = await searchQuick(query, env, 10);
+  const searchResults = await searchQuick(query, env, 10, classification);
 
   if (searchResults.length === 0) {
     return { error: 'No sources found. Please try a different query.' };
@@ -956,24 +1294,46 @@ async function quickResearch(query, env, apexModel = 'apex-free') {
   const titleMatch = report.match(/^##\s+(.+)$/m) || report.match(/^#\s+(.+)$/m);
   const title = titleMatch ? titleMatch[1].replace(/[*_]/g, '') : query;
 
-  const sources = searchResults.map((s, i) => ({
-    id: i,
-    url: s.url,
-    title: s.title || `Source ${i + 1}`,
-    snippet: s.snippet?.slice(0, 200) || '',
-    favicon: '',
-    status: 'loaded',
-  }));
+  const sources = searchResults.map((s, i) => {
+    const sourceObj = {
+      id: i,
+      url: s.url,
+      title: s.title || `Source ${i + 1}`,
+      snippet: s.snippet?.slice(0, 200) || '',
+      favicon: '',
+      status: 'loaded',
+      tier: s.tier || 'UNV',
+      tierLabel: s.tierLabel || 'UNV — Unverified',
+    };
+    // Add enhanced metadata for academic sources
+    if (s.source === 'semantic-scholar' || s.source === 'crossref' || s.source === 'pubmed') {
+      sourceObj.authors = s.authors || [];
+      sourceObj.year = s.year || null;
+      sourceObj.citations = s.citations || 0;
+      sourceObj.doi = s.doi || '';
+      sourceObj.sourceType = s.source;
+    }
+    if (s.source === 'github') {
+      sourceObj.authors = s.authors || [];
+      sourceObj.year = s.year || null;
+      sourceObj.sourceType = 'github';
+    }
+    return sourceObj;
+  });
 
-  return { sources, report, content, title, followups, mode: 'quick' };
+  return { sources, report, content, title, followups, mode: 'quick', classification };
 }
 
 async function deepResearch(query, env, apexModel = 'apex-free') {
   const t0 = Date.now();
 
-  // ── PHASE 1: Search (3 providers, ~2.5s) ──
+  // ── PHASE 0: Classify the query for search routing ──
+  const classification = classifyQuery(query);
+  console.log(`[Deep] Query classified as: ${classification}`);
+
+  // ── PHASE 1: Search (3+ providers + classified extras, ~2.5-4s) ──
   console.log('[Deep] Phase 1: Searching...');
-  const searchResults = await searchDeep(query, env, 15);
+  const searchResults = await searchDeep(query, env, 15, classification);
 
   if (searchResults.length === 0) {
     return { error: 'No sources found. Please try a different query.' };
@@ -994,14 +1354,32 @@ async function deepResearch(query, env, apexModel = 'apex-free') {
   console.log(`[Deep] Phase 2 done in ${Date.now() - t0}ms, read ${deepContents.length} URLs`);
 
   // Mark deep-read sources
-  const sources = searchResults.map((s, i) => ({
-    id: i,
-    url: s.url,
-    title: s.title || `Source ${i + 1}`,
-    snippet: s.snippet?.slice(0, 200) || '',
-    favicon: '',
-    status: deepContents.some(dc => dc.url === s.url) ? 'deep' : 'loaded',
-  }));
+  const sources = searchResults.map((s, i) => {
+    const sourceObj = {
+      id: i,
+      url: s.url,
+      title: s.title || `Source ${i + 1}`,
+      snippet: s.snippet?.slice(0, 200) || '',
+      favicon: '',
+      status: deepContents.some(dc => dc.url === s.url) ? 'deep' : 'loaded',
+      tier: s.tier || 'UNV',
+      tierLabel: s.tierLabel || 'UNV — Unverified',
+    };
+    // Add enhanced metadata for academic sources
+    if (s.source === 'semantic-scholar' || s.source === 'crossref' || s.source === 'pubmed') {
+      sourceObj.authors = s.authors || [];
+      sourceObj.year = s.year || null;
+      sourceObj.citations = s.citations || 0;
+      sourceObj.doi = s.doi || '';
+      sourceObj.sourceType = s.source;
+    }
+    if (s.source === 'github') {
+      sourceObj.authors = s.authors || [];
+      sourceObj.year = s.year || null;
+      sourceObj.sourceType = 'github';
+    }
+    return sourceObj;
+  });
 
   // ── PHASE 3: Multi-section report generation ──
   // 2 parallel LLM calls with Apex model routing
@@ -1111,7 +1489,7 @@ FOLLOWUPS:
   const titleMatch = report.match(/^##\s+(.+)$/m) || report.match(/^#\s+(.+)$/m);
   const title = titleMatch ? titleMatch[1].replace(/[*_]/g, '') : query;
 
-  return { sources, report, content, title, followups, mode: 'deep' };
+  return { sources, report, content, title, followups, mode: 'deep', classification };
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1136,7 +1514,27 @@ export default {
         firecrawl: getFirecrawlKey(env) ? `yes-${getFirecrawlKey(env).length}chars` : 'no',
         brave: getBraveKey(env) ? `yes-${getBraveKey(env).length}chars` : 'no',
         pollinations: 'available (free)',
+        academic_providers: {
+          semantic_scholar: 'available (free)',
+          crossref: 'available (free)',
+          pubmed: 'available (free)',
+          github: 'available (free, rate-limited)',
+        },
+        classifications: ['academic', 'biomedical', 'tech', 'finance', 'general'],
       });
+    }
+
+    // Classify endpoint — returns query classification for testing
+    if (url.pathname === '/classify' && request.method === 'POST') {
+      try {
+        const body = await request.json();
+        const { query } = body;
+        if (!query) return jsonRes({ error: 'Query is required' }, 400);
+        const classification = classifyQuery(query);
+        return jsonRes({ query, classification });
+      } catch {
+        return jsonRes({ error: 'Invalid JSON body' }, 400);
+      }
     }
 
     // Test AI endpoint — tests each LLM provider and returns detailed results
@@ -1204,7 +1602,7 @@ export default {
       return jsonRes({
         status: 'ok',
         service: 'kivora-research',
-        version: '4.0.0',
+        version: '5.0.0',
         providers: {
           openrouter: !!getOpenRouterKey(env),
           gemini: !!getGeminiKey(env),
@@ -1213,7 +1611,12 @@ export default {
           tavily: !!getTavilyKey(env),
           brave: !!getBraveKey(env),
           firecrawl: !!getFirecrawlKey(env),
+          semantic_scholar: true,
+          crossref: true,
+          pubmed: true,
+          github: true,
         },
+        classifications: ['academic', 'biomedical', 'tech', 'finance', 'general'],
       });
     }
 

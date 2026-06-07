@@ -41,6 +41,7 @@
     "skills",
     "src",
     "examples",
-    "sandbox-worker"
+    "sandbox-worker",
+    "apex-research-agent"
   ]
 }

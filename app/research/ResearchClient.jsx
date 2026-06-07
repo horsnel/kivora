@@ -200,6 +200,11 @@ export default function ResearchClient() {
   const [reportDisplay, setReportDisplay] = useState('') // for streaming effect
   const [sourcesVisible, setSourcesVisible] = useState(0) // for stagger animation
 
+  // ── APEX Wiki Dialogue states ──
+  const [dialogueMessages, setDialogueMessages] = useState([])
+  const [dialogueInput, setDialogueInput] = useState('')
+  const [dialogueLoading, setDialogueLoading] = useState(false)
+
   // ── Expandable text bar states ──
   const [barExpanded, setBarExpanded] = useState(false)
 
@@ -338,6 +343,12 @@ export default function ResearchClient() {
         progress: 100,
         stage: 'done',
         timestamp: Date.now(),
+        fromCache: data.fromCache || false,
+        cacheId: data.cacheId || null,
+        wikiPageId: data.wikiPageId || null,
+        wikiLifecycle: data.wikiLifecycle || null,
+        wikiSlug: data.wikiSlug || null,
+        wikiVersion: data.wikiVersion || null,
       }
 
       setActiveResearch(completed)
@@ -436,6 +447,65 @@ export default function ResearchClient() {
     setNewFolderName('')
     setShowNewFolder(false)
   }
+
+  // ── Wiki Dialogue Submit ──
+  async function submitDialogue(message) {
+    if (!message.trim() || !activeResearch?.wikiPageId || dialogueLoading) return
+
+    const userMsg = { role: 'user', message: message.trim(), timestamp: Date.now() }
+    setDialogueMessages(prev => [...prev, userMsg])
+    setDialogueInput('')
+    setDialogueLoading(true)
+
+    try {
+      const res = await fetch('/api/apex/dialogue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pageId: activeResearch.wikiPageId,
+          message: message.trim(),
+          messageType: 'question',
+          intent: 'explore',
+        }),
+      })
+      const data = await res.json()
+
+      if (data.success) {
+        // Add APEX placeholder response
+        setDialogueMessages(prev => [...prev, {
+          role: 'apex',
+          message: 'Your question has been recorded. APEX will analyze the wiki page and provide a detailed response.',
+          timestamp: Date.now(),
+          apexMessageId: data.apexMessageId,
+        }])
+      }
+    } catch (err) {
+      console.error('[Dialogue] Error:', err)
+    } finally {
+      setDialogueLoading(false)
+    }
+  }
+
+  // ── Load dialogue when wiki page changes ──
+  useEffect(() => {
+    if (activeResearch?.wikiPageId) {
+      fetch(`/api/apex/dialogue?page_id=${activeResearch.wikiPageId}&limit=20`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.dialogue) {
+            setDialogueMessages(data.dialogue.map(d => ({
+              role: d.role,
+              message: d.message,
+              timestamp: new Date(d.created_at).getTime(),
+              type: d.message_type,
+            })))
+          }
+        })
+        .catch(() => {})
+    } else {
+      setDialogueMessages([])
+    }
+  }, [activeResearch?.wikiPageId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Keyboard shortcut ──
   function handleKeyDown(e) {
@@ -567,13 +637,16 @@ export default function ResearchClient() {
                   }`}
                   style={{ animationDelay: `${idx * 80}ms` }}
                 >
-                  {/* Status dot */}
-                  <div className="mt-1.5 shrink-0">
-                    {source.status === 'deep' ? (
-                      <div className="w-2 h-2 rounded-full bg-green-500" />
-                    ) : (
-                      <div className="w-2 h-2 rounded-full bg-green-500/70" />
-                    )}
+                  {/* Tier badge */}
+                  <div className="mt-1 shrink-0">
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                      source.tier === 'P1' ? 'bg-emerald-500/20 text-emerald-400' :
+                      source.tier === 'P2' ? 'bg-blue-500/20 text-blue-400' :
+                      source.tier === 'P3' ? 'bg-amber-500/20 text-amber-400' :
+                      'bg-[#1f1f1f] text-[#525252]'
+                    }`}>
+                      {source.tier || 'UNV'}
+                    </span>
                   </div>
                   {/* Content */}
                   <div className="flex-1 min-w-0">
@@ -643,6 +716,25 @@ export default function ResearchClient() {
             <div className="min-w-0">
               <p className="text-[10px] text-[#525252] mb-1.5 font-mono uppercase tracking-widest">Research Report</p>
               <h2 className="text-lg font-bold text-white tracking-tight leading-snug">{reportTitle}</h2>
+              {/* APEX 2.0 Badges */}
+              <div className="flex items-center gap-1.5 mt-2">
+                {activeResearch?.fromCache && (
+                  <span className="text-[9px] font-medium px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                    Cached
+                  </span>
+                )}
+                {activeResearch?.wikiLifecycle && (
+                  <span className={`text-[9px] font-medium px-2 py-0.5 rounded-full ${
+                    activeResearch.wikiLifecycle === 'active' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                    activeResearch.wikiLifecycle === 'draft' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                    activeResearch.wikiLifecycle === 'stale' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                    activeResearch.wikiLifecycle === 'contradicted' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                    'bg-[#1f1f1f] text-[#525252] border border-[#262626]'
+                  }`}>
+                    Wiki: {activeResearch.wikiLifecycle}
+                  </span>
+                )}
+              </div>
             </div>
             <button
               onClick={() => {
@@ -695,6 +787,69 @@ export default function ResearchClient() {
                   </svg>
                 </button>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* APEX Wiki Dialogue — only shown when wiki page exists */}
+        {!isResearching && activeResearch?.wikiPageId && (
+          <div className="border-t border-[#1a1a1a] px-5 py-4">
+            <h3 className="text-[10px] font-semibold text-[#525252] uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-400">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              Wiki Dialogue
+            </h3>
+            {/* Dialogue messages */}
+            <div className="space-y-2 mb-3 max-h-40 overflow-y-auto custom-scrollbar">
+              {dialogueMessages.length === 0 ? (
+                <p className="text-[11px] text-[#404040] text-center py-3">
+                  Ask a question about this research to dive deeper
+                </p>
+              ) : (
+                dialogueMessages.map((msg, i) => (
+                  <div key={i} className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[85%] rounded-lg px-3 py-2 text-xs leading-relaxed ${
+                      msg.role === 'user'
+                        ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
+                        : 'bg-[#0f0f0f] text-[#a0a0a0] border border-[#1a1a1a]'
+                    }`}>
+                      <p>{msg.message}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+              {dialogueLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 border border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                      <span className="text-[10px] text-[#525252]">Analyzing...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* Dialogue input */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Ask about this research..."
+                value={dialogueInput}
+                onChange={e => setDialogueInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitDialogue(dialogueInput) } }}
+                className="flex-1 bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-3 py-2 text-xs text-white placeholder-[#404040] focus:outline-none focus:border-purple-500/30 transition-colors"
+                disabled={dialogueLoading}
+              />
+              <button
+                onClick={() => submitDialogue(dialogueInput)}
+                disabled={!dialogueInput.trim() || dialogueLoading}
+                className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 hover:bg-purple-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4 20-7z" />
+                </svg>
+              </button>
             </div>
           </div>
         )}
