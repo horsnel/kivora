@@ -72,3 +72,34 @@ Stage Summary:
 - Research Worker: https://kivora-research.odehebuka48.workers.dev — LIVE (cache, tier enforcement, query classification, academic routing)
 - APEX Worker: https://apex-research-agent.odehebuka48.workers.dev — LIVE (D1 + Workers AI, R2/Vectorize pending account enablement)
 - Pending: R2 needs to be enabled in Cloudflare Dashboard for full apex-worker functionality
+
+---
+Task ID: 4
+Agent: Main + Subagent
+Task: Refactor apex-worker to remove R2+Vectorize dependencies (replace with D1-only)
+
+Work Log:
+- Analyzed all 9 source files referencing R2 (BUCKET) and Vectorize bindings
+- Replaced R2 storage with D1 `content_text` column on wiki_pages and documents tables
+- Replaced Vectorize vector search with D1-stored embedding JSON + JS cosine similarity
+- Updated types.ts: removed BUCKET/VECTORIZE from Env, added content_text/embedding to DocumentRow
+- Rewrote embedder.ts: upsertToVectorize → D1 UPDATE, queryVectorize → D1 SELECT + cosine similarity
+- Updated index.ts: removed R2 health check, ingest stores content_text+embedding in D1
+- Updated retriever.ts: reads content_text from D1 row instead of R2 bucket
+- Updated wiki-engine.ts: stores full wiki content in content_text column, reads from D1
+- Updated dialogic-wiki.ts: contradiction pages stored via D1 UPDATE with content_text
+- Updated concurrency.ts: merge conflict resolution writes to D1, not R2
+- Updated security.ts: adversarial review reads content_text from D1, not R2
+- Created migration-r2-to-d1.sql with ALTER TABLE statements
+- Applied D1 migration: added content_text and embedding columns to documents and wiki_pages
+- Deployed apex-worker v2.1.0 (D1-only, no external service dependencies)
+- Pushed to GitHub: horsnel/apex-research-agent (commit 90c9816) and horsnel/kivora (commit f409740)
+
+Stage Summary:
+- APEX Worker now runs with ZERO external service dependencies beyond D1 + Workers AI
+- Architecture: cloudflare_worker+d1+llm_wiki (was +r2+vectorize)
+- D1 migration applied: content_text + embedding columns added
+- All 3 services verified healthy:
+  - Kivora Pages: https://kivora.pages.dev — LIVE
+  - Research Worker: https://kivora-research.odehebuka48.workers.dev — LIVE
+  - APEX Worker: https://apex-research-agent.odehebuka48.workers.dev — LIVE (D1+AI only)
