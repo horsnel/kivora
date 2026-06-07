@@ -502,6 +502,7 @@ export default function ResearchPage() {
       const timeout = setTimeout(() => controller.abort(), researchMode === 'deep' ? 180000 : 60000)
 
       let res
+      let usedFallback = false
       try {
         res = await fetch('/api/research', {
           method: 'POST',
@@ -513,7 +514,35 @@ export default function ResearchPage() {
         clearTimeout(timeout)
       }
 
-      const data = await res.json()
+      let data = await res.json()
+
+      // ── Groq Fallback: if worker failed, try Groq directly ──
+      if (data.error) {
+        console.log('[Research] Worker failed, trying Groq fallback...', data.error)
+        try {
+          const fallbackController = new AbortController()
+          const fallbackTimeout = setTimeout(() => fallbackController.abort(), 60000)
+          const fallbackRes = await fetch('/api/research-fallback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: query.trim(), mode: researchMode, apex_model: apexModel }),
+            signal: fallbackController.signal,
+          })
+          clearTimeout(fallbackTimeout)
+          const fallbackData = await fallbackRes.json()
+
+          if (!fallbackData.error) {
+            data = fallbackData
+            usedFallback = true
+            console.log('[Research] Groq fallback succeeded')
+          } else {
+            console.log('[Research] Groq fallback also failed:', fallbackData.error)
+          }
+        } catch (fallbackErr) {
+          console.log('[Research] Groq fallback exception:', fallbackErr.message)
+        }
+      }
+
       clearInterval(progressInterval)
 
       if (data.error) {
@@ -537,6 +566,9 @@ export default function ResearchPage() {
         progress: 100,
         stage: 'done',
         timestamp: Date.now(),
+        fallback: usedFallback || data.fallback || false,
+        fallbackProvider: data.fallback_provider || null,
+        fallbackModel: data.fallback_model || null,
       }
 
       setActiveResearch(completed)
@@ -810,6 +842,11 @@ export default function ResearchPage() {
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                       activeResearch.mode === 'deep' ? 'bg-red-500 text-white' : 'bg-[#1f1f1f] text-red-400 border border-red-500/30'
                     }`}>{activeResearch.mode === 'deep' ? 'Deep' : 'Quick'} · {activeResearch.apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}</span>
+                    {activeResearch.fallback && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                        Fallback · {activeResearch.fallbackModel || 'Groq'}
+                      </span>
+                    )}
                     {reportText && !isResearching && (
                       <button
                         onClick={() => navigator.clipboard.writeText(activeResearch?.report || '')}

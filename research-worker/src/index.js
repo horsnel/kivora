@@ -318,16 +318,55 @@ async function pollinationsChat(messages, model = 'openai', maxTokens = 4096, ti
   }
 }
 
+// ── Output Quality Validation ──
+// Checks if LLM output is usable. Returns true if good, false if bad (triggers next provider).
+function validateOutput(text, mode = 'quick') {
+  if (!text || typeof text !== 'string') return false;
+
+  // Absolute minimum — anything less is clearly broken
+  const minLen = mode === 'deep' ? 500 : 200;
+  if (text.length < minLen) {
+    console.log(`[Validate] FAIL: too short (${text.length} < ${minLen})`);
+    return false;
+  }
+
+  // Must contain at least some real words (not just symbols/repeat chars)
+  const wordCount = text.split(/\s+/).filter(w => w.length > 1).length;
+  if (wordCount < 50) {
+    console.log(`[Validate] FAIL: too few words (${wordCount})`);
+    return false;
+  }
+
+  // Should have at least one heading-like structure (## or ** or line with caps)
+  const hasStructure = /^#{1,3}\s/m.test(text) || /\*\*.+\*\*/m.test(text);
+  if (!hasStructure && mode === 'deep') {
+    console.log('[Validate] FAIL: no heading structure for deep mode');
+    return false;
+  }
+
+  // Should not be truncated mid-sentence (ends without punctuation)
+  const trimmed = text.trimEnd();
+  const endsWithPunctuation = /[.!?]$/m.test(trimmed) || trimmed.endsWith('---') || trimmed.endsWith('```');
+  if (!endsWithPunctuation && text.length > 1000) {
+    // Likely truncated — still usable but log it
+    console.log('[Validate] WARN: output may be truncated (no ending punctuation)');
+  }
+
+  console.log(`[Validate] PASS: ${text.length} chars, ${wordCount} words`);
+  return true;
+}
+
 // Apex 1.7 — Free tier model routing (Pollinations → Workers AI → Gemini → OpenRouter)
-async function llmApexFree(env, messages, maxTokens = 4096) {
+async function llmApexFree(env, messages, maxTokens = 4096, mode = 'quick') {
   const errors = [];
 
   // 1. Pollinations AI — completely free
   const pollModels = ['openai', 'mistral', 'llama'];
   for (const model of pollModels) {
     const result = await pollinationsChat(messages, model, maxTokens, 30000);
-    if (result) return result;
-    errors.push(`Poll:${model}:null`);
+    if (result && validateOutput(result, mode)) return result;
+    if (result) errors.push(`Poll:${model}:bad-output`);
+    else errors.push(`Poll:${model}:null`);
   }
 
   // 2. Workers AI — free, built-in
@@ -340,8 +379,9 @@ async function llmApexFree(env, messages, maxTokens = 4096) {
     ];
     for (const m of workersAiModels) {
       const result = await workersAiChat(env, messages, m, Math.min(maxTokens, 4096));
-      if (result) return result;
-      errors.push(`WAI:${m}:null`);
+      if (result && validateOutput(result, mode)) return result;
+      if (result) errors.push(`WAI:${m}:bad-output`);
+      else errors.push(`WAI:${m}:null`);
     }
   }
 
@@ -353,8 +393,9 @@ async function llmApexFree(env, messages, maxTokens = 4096) {
     ];
     for (const { model, timeout } of geminiModels) {
       const result = await geminiChat(env, messages, model, maxTokens, timeout);
-      if (result) return result;
-      errors.push(`Gemini:${model}:null`);
+      if (result && validateOutput(result, mode)) return result;
+      if (result) errors.push(`Gemini:${model}:bad-output`);
+      else errors.push(`Gemini:${model}:null`);
     }
   }
 
@@ -366,8 +407,9 @@ async function llmApexFree(env, messages, maxTokens = 4096) {
     ];
     for (const { model, timeout } of orModels) {
       const result = await openrouterChat(env, messages, model, maxTokens, timeout);
-      if (result) return result;
-      errors.push(`OR:${model}:null`);
+      if (result && validateOutput(result, mode)) return result;
+      if (result) errors.push(`OR:${model}:bad-output`);
+      else errors.push(`OR:${model}:null`);
     }
   }
 
@@ -375,7 +417,7 @@ async function llmApexFree(env, messages, maxTokens = 4096) {
 }
 
 // Apex 2.3 — Premium tier model routing (OpenRouter → Gemini → Workers AI → Pollinations)
-async function llmApexPremium(env, messages, maxTokens = 4096) {
+async function llmApexPremium(env, messages, maxTokens = 4096, mode = 'quick') {
   const errors = [];
 
   // 1. OpenRouter — premium models first
@@ -387,8 +429,9 @@ async function llmApexPremium(env, messages, maxTokens = 4096) {
     ];
     for (const { model, timeout } of orModels) {
       const result = await openrouterChat(env, messages, model, maxTokens, timeout);
-      if (result) return result;
-      errors.push(`OR:${model}:null`);
+      if (result && validateOutput(result, mode)) return result;
+      if (result) errors.push(`OR:${model}:bad-output`);
+      else errors.push(`OR:${model}:null`);
     }
   }
 
@@ -400,8 +443,9 @@ async function llmApexPremium(env, messages, maxTokens = 4096) {
     ];
     for (const { model, timeout } of geminiModels) {
       const result = await geminiChat(env, messages, model, maxTokens, timeout);
-      if (result) return result;
-      errors.push(`Gemini:${model}:null`);
+      if (result && validateOutput(result, mode)) return result;
+      if (result) errors.push(`Gemini:${model}:bad-output`);
+      else errors.push(`Gemini:${model}:null`);
     }
   }
 
@@ -414,8 +458,9 @@ async function llmApexPremium(env, messages, maxTokens = 4096) {
     ];
     for (const m of workersAiModels) {
       const result = await workersAiChat(env, messages, m, Math.min(maxTokens, 4096));
-      if (result) return result;
-      errors.push(`WAI:${m}:null`);
+      if (result && validateOutput(result, mode)) return result;
+      if (result) errors.push(`WAI:${m}:bad-output`);
+      else errors.push(`WAI:${m}:null`);
     }
   }
 
@@ -423,8 +468,9 @@ async function llmApexPremium(env, messages, maxTokens = 4096) {
   const pollModels = ['openai', 'mistral'];
   for (const model of pollModels) {
     const result = await pollinationsChat(messages, model, maxTokens, 30000);
-    if (result) return result;
-    errors.push(`Poll:${model}:null`);
+    if (result && validateOutput(result, mode)) return result;
+    if (result) errors.push(`Poll:${model}:bad-output`);
+    else errors.push(`Poll:${model}:null`);
   }
 
   throw new Error(`All LLM providers failed (Apex 2.3 Premium). Tried: ${errors.join(', ')}`);
@@ -893,12 +939,12 @@ async function quickResearch(query, env, apexModel = 'apex-free') {
     rawReport = await llmApexPremium(env, [
       { role: 'system', content: QUICK_SYSTEM_PROMPT },
       { role: 'user', content: userContent },
-    ], 4096);
+    ], 4096, 'quick');
   } else {
     rawReport = await llmApexFree(env, [
       { role: 'system', content: QUICK_SYSTEM_PROMPT },
       { role: 'user', content: userContent },
-    ], 4096);
+    ], 4096, 'quick');
   }
 
   console.log(`[Quick] Report generated in ${Date.now() - t0}ms`);
@@ -1047,7 +1093,7 @@ FOLLOWUPS:
     const result = await llmFn(env, [
       { role: 'system', content: section.prompt },
       { role: 'user', content: contextBlock },
-    ], effectiveMaxTokens);
+    ], effectiveMaxTokens, 'deep');
     console.log(`[Deep] Section '${section.name}' done in ${Date.now() - sectionT0}ms, ${result?.length || 0} chars`);
     return { name: section.name, content: result || '' };
   });
