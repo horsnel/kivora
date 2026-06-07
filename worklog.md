@@ -20,3 +20,32 @@ Stage Summary:
 - Frontend: Source tier indicators (P1/P2/P3/UNV), wiki lifecycle badges, cache badge
 - API: 5 new edge runtime routes for APEX 2.0 features
 - Files: apex-v2-migration.sql, agent/llm_wiki.py, 5 API routes, updated page.jsx + research_engine.py
+
+---
+Task ID: 2
+Agent: Main
+Task: APEX 2.1 — Close the gap between backend features and frontend/Worker integration
+
+Work Log:
+- Rewired /api/research/route.js with cache-first routing (check Supabase before Worker, store after)
+- Added source tier enforcement (P1/P2/P3) to CF Worker with domain-to-tier mapping
+- Added tier badges (P1 emerald, P2 blue, P3 amber, UNV gray) to ResearchClient.jsx
+- Added cache hit indicator (purple "Cached" badge) and wiki lifecycle badge to report header
+- Added query classification (academic/biomedical/tech/finance/general) to CF Worker
+- Added academic search providers (Semantic Scholar, Crossref, PubMed) to CF Worker
+- Added GitHub repository search for tech queries
+- Added wiki dialogue UI panel below report with chat-style messages
+- Updated APEX status to v2.1.0 with new feature flags
+- Fixed tsconfig.json to exclude apex-research-agent from Next.js build
+- Verified Next.js build succeeds (all pages compile)
+- Pushed to GitHub (horsnel/kivora main branch)
+
+Stage Summary:
+- Cache integration: /api/research now checks cache first → instant responses for repeated queries
+- Source tiers: CF Worker classifies all sources with P1/P2/P3/UNV + tierLabel
+- Frontend badges: tier badges on sources, cache badge, wiki lifecycle badge all visible
+- Query routing: academic queries now search Semantic Scholar + Crossref + PubMed
+- Tech queries: search GitHub repositories
+- Wiki dialogue: chat-style UI for asking follow-up questions about research
+- Version: APEX 2.1.0
+- Commit: d1280e3 on horsnel/kivora main
