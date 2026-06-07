@@ -516,9 +516,9 @@ export default function ResearchPage() {
 
       let data = await res.json()
 
-      // ── Groq Fallback: if worker failed, try Groq directly ──
+      // ── Fallback: if worker failed, try Mistral/Groq directly ──
       if (data.error) {
-        console.log('[Research] Worker failed, trying Groq fallback...', data.error)
+        console.log('[Research] Worker failed, trying fallback providers...', data.error)
         try {
           const fallbackController = new AbortController()
           const fallbackTimeout = setTimeout(() => fallbackController.abort(), 60000)
@@ -534,12 +534,12 @@ export default function ResearchPage() {
           if (!fallbackData.error) {
             data = fallbackData
             usedFallback = true
-            console.log('[Research] Groq fallback succeeded')
+            console.log('[Research] Fallback succeeded')
           } else {
-            console.log('[Research] Groq fallback also failed:', fallbackData.error)
+            console.log('[Research] Fallback also failed:', fallbackData.error)
           }
         } catch (fallbackErr) {
-          console.log('[Research] Groq fallback exception:', fallbackErr.message)
+          console.log('[Research] Fallback exception:', fallbackErr.message)
         }
       }
 
@@ -844,7 +844,7 @@ export default function ResearchPage() {
                     }`}>{activeResearch.mode === 'deep' ? 'Deep' : 'Quick'} · {activeResearch.apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}</span>
                     {activeResearch.fallback && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                        Fallback · {activeResearch.fallbackModel || 'Groq'}
+                        Fallback · {activeResearch.fallbackModel || 'Mistral'}
                       </span>
                     )}
                     {reportText && !isResearching && (
