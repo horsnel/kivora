@@ -38,8 +38,8 @@ const PIPELINE_STAGES_QUICK = [
 
 const PIPELINE_STAGES_DEEP = [
   { id: 'search', name: 'Searching the web', detail: 'Finding relevant sources and information' },
-  { id: 'analyzing', name: 'Analyzing sources', detail: 'Evaluating credibility and extracting key insights' },
-  { id: 'writing', name: 'Generating report', detail: 'Composing comprehensive research report' },
+  { id: 'analyzing', name: 'Analyzing & verifying', detail: 'Evaluating credibility, verifying claims, and extracting key insights' },
+  { id: 'writing', name: 'Compiling wiki page', detail: 'Generating research report and compiling into persistent wiki' },
 ]
 
 const APEX_MODELS = [
@@ -569,6 +569,13 @@ export default function ResearchPage() {
         fallback: usedFallback || data.fallback || false,
         fallbackProvider: data.fallback_provider || null,
         fallbackModel: data.fallback_model || null,
+        // APEX 2.0 Wiki fields
+        wikiPageId: data.wiki_page_id || data.wikiPageId || null,
+        wikiCacheId: data.wiki_cache_id || data.wikiCacheId || null,
+        wikiLifecycle: data.wiki_lifecycle || data.wikiLifecycle || 'draft',
+        wikiSlug: data.wiki_slug || data.wikiSlug || '',
+        wikiVersion: data.wiki_version || data.wikiVersion || 0,
+        fromCache: data.from_cache || data.fromCache || false,
       }
 
       setActiveResearch(completed)
@@ -847,6 +854,22 @@ export default function ResearchPage() {
                         Fallback · {activeResearch.fallbackModel || 'Mistral'}
                       </span>
                     )}
+                    {/* APEX 2.0 Wiki & Cache badges */}
+                    {activeResearch.fromCache && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-blue-500/10 text-blue-400 border border-blue-500/30">
+                        Cached
+                      </span>
+                    )}
+                    {activeResearch.wikiLifecycle && activeResearch.wikiLifecycle !== 'draft' && (
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                        activeResearch.wikiLifecycle === 'active' ? 'bg-green-500/10 text-green-400 border border-green-500/30' :
+                        activeResearch.wikiLifecycle === 'stale' ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/30' :
+                        activeResearch.wikiLifecycle === 'contradicted' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30' :
+                        'bg-gray-500/10 text-gray-400 border border-gray-500/30'
+                      }`}>
+                        Wiki · {activeResearch.wikiLifecycle}{activeResearch.wikiVersion > 0 ? ` v${activeResearch.wikiVersion}` : ''}
+                      </span>
+                    )}
                     {reportText && !isResearching && (
                       <button
                         onClick={() => navigator.clipboard.writeText(activeResearch?.report || '')}
@@ -894,12 +917,25 @@ export default function ResearchPage() {
                             }`}
                           >
                             <div className="mt-1.5 shrink-0">
-                              <div className="w-2 h-2 rounded-full bg-green-500/70" />
+                              <div className={`w-2 h-2 rounded-full ${
+                                source.tier === 'P1' ? 'bg-emerald-400' :
+                                source.tier === 'P2' ? 'bg-blue-400' :
+                                source.tier === 'P3' ? 'bg-yellow-400/70' :
+                                'bg-gray-500/50'
+                              }`} />
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-0.5">
                                 {source.favicon && <img src={source.favicon} alt="" className="w-3.5 h-3.5 rounded" />}
                                 <span className="text-[10px] text-[#525252] truncate">{getDomain(source.url)}</span>
+                                {source.tier && (
+                                  <span className={`text-[8px] px-1 py-0 rounded font-medium ${
+                                    source.tier === 'P1' ? 'bg-emerald-500/10 text-emerald-400' :
+                                    source.tier === 'P2' ? 'bg-blue-500/10 text-blue-400' :
+                                    source.tier === 'P3' ? 'bg-yellow-500/10 text-yellow-400' :
+                                    'bg-gray-500/10 text-gray-500'
+                                  }`}>{source.tier}</span>
+                                )}
                               </div>
                               <p className="text-xs text-[#c0c0c0] font-medium leading-snug line-clamp-1">
                                 {source.title}
