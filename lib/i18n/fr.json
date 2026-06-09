@@ -476,6 +476,7 @@
   "nav.community": "Communauté",
   "nav.dashboard": "Tableau de bord",
   "nav.devtools": "Outils Dev",
+  "nav.colab": "Lab GPU",
   "nav.explore": "Explorer",
   "nav.home": "Accueil",
   "nav.research": "Recherche",

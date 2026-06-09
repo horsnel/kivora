@@ -122,6 +122,16 @@ export async function POST(req) {
     // Handle tool calls
     if (useTools && message.tool_calls && message.tool_calls.length > 0) {
       const toolContext = { supabaseAdmin: admin, userId: userId || null }
+
+      // Set Colab access token from server-side env if available (for run_on_gpu tool)
+      const colabToken = await getEnvVar('GOOGLE_COLAB_ACCESS_TOKEN')
+      if (colabToken) {
+        try {
+          const { setColabAccessToken } = await import('@/lib/colab')
+          setColabAccessToken(colabToken)
+        } catch {}
+      }
+
       const toolResults = {}
 
       // Execute all tool calls
@@ -193,6 +203,14 @@ export async function POST(req) {
         if (name === 'sandbox_exec' || name === 'sandbox_file' || name === 'sandbox_git') {
           response.codeExecuted = true
           response.sandboxUsed = true
+        }
+        if (name === 'run_on_gpu') {
+          response.codeExecuted = true
+          response.gpuUsed = true
+          try {
+            const gpuArgs = JSON.parse(toolCall.function.arguments)
+            response.accelerator = gpuArgs.gpu || gpuArgs.tpu || 'T4'
+          } catch {}
         }
         if (name === 'generate_downloadable') {
           try {

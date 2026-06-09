@@ -478,6 +478,7 @@
   "nav.community": "Community",
   "nav.dashboard": "Dashboard",
   "nav.devtools": "Dev Tools",
+  "nav.colab": "GPU Lab",
   "nav.explore": "Explore",
   "nav.home": "Home",
   "nav.research": "Research",

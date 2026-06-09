@@ -103,3 +103,30 @@ Stage Summary:
   - Kivora Pages: https://kivora.pages.dev — LIVE
   - Research Worker: https://kivora-research.odehebuka48.workers.dev — LIVE
   - APEX Worker: https://apex-research-agent.odehebuka48.workers.dev — LIVE (D1+AI only)
+
+---
+Task ID: 5
+Agent: Main
+Task: Integrate Google Colab CLI into Kivora — add GPU/TPU execution capabilities
+
+Work Log:
+- Created lib/colab.js — Full Colab API client library (633 lines) with session management, code execution, GPU jobs, keep-alive, OAuth2 flow, file I/O, and Drive mount support
+- Created app/api/colab/route.js — Edge runtime API with POST (12 actions: auth-url, status, new, exec, run, stop, sessions, install, ls, download, upload, drivemount, accelerators) + GET (OAuth2 callback)
+- Created app/colab/page.jsx + app/colab/ColabClient.jsx — Full React UI with sidebar sessions, accelerator selector, code editor, output panel, template picker, file management, auth flow, toast system
+- Added run_on_gpu tool (#26) to lib/toolRegistry.js — Definition, handler wired to lib/colab.js, and TOOL_INSTRUCTIONS documentation
+- Added IconGpu and IconTpu to components/Icons.jsx — GPU chip and TPU board icons
+- Created colab-sessions-migration.sql — Supabase table with RLS policies for session persistence
+- Added /colab nav link to components/Navbar.jsx with IconGpu icon and i18n keys (en, fr, sw, yo)
+- Wired chat API (app/api/chat/route.js) to set Colab access token from server env before tool handlers run
+- Added run_on_gpu UI indicator (gpuUsed, accelerator) to chat API response metadata
+- Added Google Colab env vars to .env.local.example (GOOGLE_COLAB_CLIENT_ID, GOOGLE_COLAB_CLIENT_SECRET, GOOGLE_COLAB_ACCESS_TOKEN)
+
+Stage Summary:
+- Core library: lib/colab.js with full Colab CLI integration (OAuth2, sessions, code exec, GPU jobs, file mgmt, Drive mount)
+- API: /api/colab with 12 actions + OAuth callback, edge runtime compatible
+- Frontend: /colab page with full GPU/TPU IDE (session manager, code editor, output viewer, templates, file browser)
+- Chat integration: run_on_gpu tool (tool #26) available in AI chat, server-side token wiring, UI badges
+- Database: colab_sessions table for session persistence with RLS
+- Navigation: GPU Lab link in sidebar with GPU icon
+- Config: Environment variables documented for OAuth setup
+- Architecture: Edge-first, compatible with Cloudflare Pages deployment

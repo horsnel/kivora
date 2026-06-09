@@ -1054,3 +1054,29 @@ export function IconChartBar({ size = 16, className = '' }) {
     </svg>
   )
 }
+
+/* ── Colab GPU/TPU Icons ── */
+
+export function IconGpu({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <rect x="2" y="4" width="12" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M5 4V2M8 4V2M11 4V2" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+      <path d="M5 12v2M8 12v2M11 12v2" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+      <path d="M4.5 7h7M4.5 9h5" stroke="currentColor" strokeWidth="0.75" strokeLinecap="round" opacity="0.5"/>
+    </svg>
+  )
+}
+
+export function IconTpu({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <rect x="1.5" y="3" width="13" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M1.5 6h13" stroke="currentColor" strokeWidth="0.75" opacity="0.4"/>
+      <path d="M5 3V1M8 3V1M11 3V1" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+      <circle cx="4" cy="9.5" r="1" stroke="currentColor" strokeWidth="0.75" opacity="0.6"/>
+      <circle cx="8" cy="9.5" r="1" stroke="currentColor" strokeWidth="0.75" opacity="0.6"/>
+      <circle cx="12" cy="9.5" r="1" stroke="currentColor" strokeWidth="0.75" opacity="0.6"/>
+    </svg>
+  )
+}
