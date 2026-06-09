@@ -645,6 +645,10 @@ export default function ChatClient() {
         assistantMsg.gpuUsed = true
         assistantMsg.accelerator = data.accelerator || 'T4'
       }
+      if (data.remoteExecUsed) {
+        assistantMsg.remoteExecUsed = true
+        assistantMsg.execLanguage = data.execLanguage || 'python'
+      }
       if (data.downloadFile) {
         assistantMsg.downloadFile = data.downloadFile
       }
@@ -1545,11 +1549,11 @@ export default function ChatClient() {
                     )}
                     {msg.role === 'assistant' && msg.codeExecuted && (
                       <div className="flex items-center gap-1.5 mb-1.5">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={msg.gpuUsed ? "#a78bfa" : msg.sandboxUsed ? "#f59e0b" : "#4ade80"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={msg.gpuUsed ? "#a78bfa" : msg.remoteExecUsed ? "#60a5fa" : msg.sandboxUsed ? "#f59e0b" : "#4ade80"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
                         </svg>
-                        <span className={`text-[11px] ${msg.gpuUsed ? 'text-[#a78bfa]/70' : msg.sandboxUsed ? 'text-[#f59e0b]/70' : 'text-[#4ade80]/70'}`}>
-                          {msg.gpuUsed ? `GPU executed (${msg.accelerator || 'T4'})` : msg.sandboxUsed ? 'Sandbox executed' : 'Code executed'}
+                        <span className={`text-[11px] ${msg.gpuUsed ? 'text-[#a78bfa]/70' : msg.remoteExecUsed ? 'text-[#60a5fa]/70' : msg.sandboxUsed ? 'text-[#f59e0b]/70' : 'text-[#4ade80]/70'}`}>
+                          {msg.gpuUsed ? `GPU executed (${msg.accelerator || 'T4'})` : msg.remoteExecUsed ? `Remote executed (${msg.execLanguage || 'python'})` : msg.sandboxUsed ? 'Sandbox executed' : 'Code executed'}
                         </span>
                       </div>
                     )}

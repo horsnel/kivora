@@ -1,0 +1,30 @@
+'use client'
+import dynamic from 'next/dynamic'
+
+const ColabClient = dynamic(() => import('./ColabClient'), {
+  loading: () => (
+    <main className="h-dvh flex bg-[#0a0a0a] overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0">
+        <div className="border-b border-[#141414] px-4 py-2.5 shrink-0 flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="skeleton w-6 h-6 rounded-md" />
+            <div>
+              <div className="skeleton w-14 h-3 rounded mb-1" />
+              <div className="skeleton w-24 h-2 rounded" />
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="skeleton w-12 h-12 rounded-xl mx-auto mb-4" />
+            <div className="skeleton w-32 h-5 rounded mx-auto" />
+          </div>
+        </div>
+      </div>
+    </main>
+  ),
+})
+
+export default function ColabPage() {
+  return <ColabClient />
+}

@@ -142,6 +142,24 @@ export async function POST(req) {
         } catch {}
       }
 
+      // Set E2B API key from server-side env if available (for run_code tool)
+      const e2bKey = await getEnvVar('E2B_API_KEY')
+      if (e2bKey) {
+        try {
+          const { setE2BApiKey } = await import('@/lib/e2b')
+          setE2BApiKey(e2bKey)
+        } catch {}
+      }
+
+      // Set GitHub token from server-side env if available (for codespaces tool)
+      const githubToken = await getEnvVar('GITHUB_TOKEN')
+      if (githubToken) {
+        try {
+          const { setGitHubToken } = await import('@/lib/codespaces')
+          setGitHubToken(githubToken)
+        } catch {}
+      }
+
       const toolResults = {}
 
       // Execute all tool calls
@@ -220,6 +238,14 @@ export async function POST(req) {
           try {
             const gpuArgs = JSON.parse(toolCall.function.arguments)
             response.accelerator = gpuArgs.gpu || gpuArgs.tpu || 'T4'
+          } catch {}
+        }
+        if (name === 'run_code') {
+          response.codeExecuted = true
+          response.remoteExecUsed = true
+          try {
+            const codeArgs = JSON.parse(toolCall.function.arguments)
+            response.execLanguage = codeArgs.language || 'python'
           } catch {}
         }
         if (name === 'generate_downloadable') {
