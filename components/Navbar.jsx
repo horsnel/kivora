@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
-import { IconMenu, IconClose, IconDashboard, IconUser, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconVideo, IconEye, IconMicroscope, IconCommunity, IconOpportunity, IconGpu } from '@/components/Icons'
+import { IconMenu, IconClose, IconDashboard, IconUser, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconVideo, IconEye, IconMicroscope, IconCommunity, IconOpportunity } from '@/components/Icons'
 import { supabasePublic } from '@/lib/supabase'
 import { useCurrency } from '@/components/CurrencyToggle'
 import { useTranslation } from '@/components/LanguageProvider'
@@ -15,7 +15,6 @@ const NAV_LINKS = [
   { labelKey: 'nav.opportunities',  href: '/opportunities',  Icon: IconOpportunity },
   { labelKey: 'nav.studydesk',      href: '/study',          Icon: IconBook },
   { labelKey: 'nav.devtools',       href: '/devtools',       Icon: IconCode },
-  { labelKey: 'nav.colab',          href: '/colab',          Icon: IconGpu },
   { labelKey: 'nav.reelpen',        href: '/reelpen',        Icon: IconVideo },
   { labelKey: 'nav.3dviewer',       href: '/3d',             Icon: IconEye },
 ]

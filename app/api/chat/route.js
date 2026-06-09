@@ -132,6 +132,16 @@ export async function POST(req) {
         } catch {}
       }
 
+      // Set Kaggle credentials from server-side env if available (for run_on_gpu tool)
+      const kaggleUsername = await getEnvVar('KAGGLE_USERNAME')
+      const kaggleKey = await getEnvVar('KAGGLE_KEY')
+      if (kaggleUsername && kaggleKey) {
+        try {
+          const { setKaggleCredentials } = await import('@/lib/kaggle')
+          setKaggleCredentials(kaggleUsername, kaggleKey)
+        } catch {}
+      }
+
       const toolResults = {}
 
       // Execute all tool calls
