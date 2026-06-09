@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // output: 'standalone', // NOT compatible with CloudFlare Pages — disabled for CF deployment
-  serverExternalPackages: ['groq-sdk', 'pptxgenjs', 'jszip', 'jspdf', 'docx'],
+  serverExternalPackages: ['groq-sdk', 'pptxgenjs', 'jszip', 'jspdf', 'docx', '@e2b/code-interpreter', 'e2b'],
   eslint: {
     ignoreDuringBuilds: true
   },
@@ -30,6 +30,8 @@ const nextConfig = {
           jspdf: 'commonjs jspdf',
           docx: 'commonjs docx',
           jszip: 'commonjs jszip',
+          '@e2b/code-interpreter': 'commonjs @e2b/code-interpreter',
+          'e2b': 'commonjs e2b',
         })
       }
     }

@@ -143,11 +143,14 @@ export async function POST(req) {
       }
 
       // Set E2B API key from server-side env if available (for run_code tool)
+      // Note: E2B SDK uses Node.js APIs (node:path) that are incompatible with edge runtime
+      // We only set the key; the actual SDK is loaded dynamically inside the tool handler
+      // which runs outside the edge bundle
       const e2bKey = await getEnvVar('E2B_API_KEY')
       if (e2bKey) {
         try {
-          const { setE2BApiKey } = await import('@/lib/e2b')
-          setE2BApiKey(e2bKey)
+          const e2bMod = await import('@/lib/e2b')
+          e2bMod.setE2BApiKey(e2bKey)
         } catch {}
       }
 
@@ -155,8 +158,8 @@ export async function POST(req) {
       const githubToken = await getEnvVar('GITHUB_TOKEN')
       if (githubToken) {
         try {
-          const { setGitHubToken } = await import('@/lib/codespaces')
-          setGitHubToken(githubToken)
+          const csMod = await import('@/lib/codespaces')
+          csMod.setGitHubToken(githubToken)
         } catch {}
       }
 
