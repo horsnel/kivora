@@ -13,22 +13,8 @@ import VoiceSettings from '@/components/VoiceSettings'
 import { useVoiceTTS } from '@/hooks/useVoiceTTS'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
-import dynamic from 'next/dynamic'
 
-// Dynamic import xterm — it only works in the browser
-const XTerminal = dynamic(() => import('@/components/XTerminal'), { ssr: false })
 
-// ── System Templates (Google AI Studio-style) ──
-const SYSTEM_TEMPLATES = [
-  { id: 'summarize', label: 'Summarize', Icon: IconClipboard, prompt: 'Summarize the following content concisely, highlighting key points:' },
-  { id: 'translate', label: 'Translate', Icon: IconGlobe, prompt: 'Translate the following to' },
-  { id: 'code-review', label: 'Code Review', Icon: IconSearch, prompt: 'Review this code for bugs, performance issues, and best practices:' },
-  { id: 'explain', label: 'Explain', Icon: IconBulb, prompt: 'Explain the following in simple terms:' },
-  { id: 'rewrite', label: 'Rewrite', Icon: IconWrite, prompt: 'Rewrite the following to be more clear and professional:' },
-  { id: 'debug', label: 'Debug', Icon: IconTool, prompt: 'Debug this code. Find and fix all errors:' },
-  { id: 'compare', label: 'Compare', Icon: IconFilter, prompt: 'Compare the following options with a table showing pros, cons, and best use cases:' },
-  { id: 'extract', label: 'Extract Data', Icon: IconDatabase, prompt: 'Extract and organize all key data points from the following:' },
-]
 
 const MODELS = [
   { id: 'llama-3.3-70b-versatile', name: 'Nova 2.3', tag: 'Premium · Detailed', short: 'Nova 2.3' },
@@ -183,16 +169,7 @@ export default function ChatClient() {
   const [morphIndex, setMorphIndex] = useState(0) // 0 = chat bubble (resting), settles on typing
   const [morphActive, setMorphActive] = useState(true)
 
-  // ── Image Generation ──
-  const [imageMode, setImageMode] = useState(false) // Toggle between chat & image generation
-  const [imageGenLoading, setImageGenLoading] = useState(false)
-  const [imageSize, setImageSize] = useState('1024x1024')
-  const [image3dMode, setImage3dMode] = useState(false)
-  const [image3dLoading, setImage3dLoading] = useState(false)
-  const [modelViewerLoaded, setModelViewerLoaded] = useState(false)
-  // Track 3D model loading state per message: { [msgIndex]: 'loading' | 'loaded' | 'error' | 'timeout' }
-  const [model3dLoadStates, setModel3dLoadStates] = useState({})
-  const model3dTimers = useRef({})
+
 
   // Chat sidebar settings panel
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -204,13 +181,7 @@ export default function ChatClient() {
   const [activeArtifact, setActiveArtifact] = useState(null) // { type, title, code }
   const [artifactPanelOpen, setArtifactPanelOpen] = useState(false)
 
-  // ── System Templates ──
-  const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
 
-  // ── Live Terminal Mode ──
-  const [terminalMode, setTerminalMode] = useState(false)
-  const [aiSuggestion, setAiSuggestion] = useState(null) // pending command from AI
-  const xtermRef = useRef(null)
 
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
@@ -676,172 +647,12 @@ export default function ChatClient() {
     setLoading(false)
   }
 
-  // ── Image Generation ──
-  async function sendImageGeneration() {
-    const q = input.trim()
-    if (!q || imageGenLoading) return
 
-    const userMsg = { role: 'user', content: q, isImagePrompt: true }
-    const loadingMsg = { role: 'assistant', content: '', isImageLoading: true, promptImage: q }
-    setMessages(prev => [...prev, userMsg, loadingMsg])
-    setInput('')
-    setThinkingConfig('chatWithImage')
-    setImageGenLoading(true)
-
-    try {
-      const res = await fetch('/api/image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: q, size: imageSize })
-      })
-      const data = await res.json()
-
-      if (data.error) {
-        setMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: `Image generation failed: ${data.error}` }])
-      } else {
-        setMessages(prev => [...prev.slice(0, -1), {
-          role: 'assistant',
-          content: `Generated image: **${q}**`,
-          isImage: true,
-          imageData: data.image,
-          imageUrl: data.imageUrl || null,
-          imageSize: data.size || imageSize,
-          imageModel: data.model || 'flux',
-        }])
-      }
-    } catch {
-      setMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: 'Image generation failed. Please try again.' }])
-    }
-    setImageGenLoading(false)
-  }
-
-  // ── 3D Generation ──
-  // Lazy-load the <model-viewer> web component
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (customElements.get('model-viewer')) { setModelViewerLoaded(true); return }
-    const script = document.createElement('script')
-    script.type = 'module'
-    script.src = 'https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js'
-    script.onload = () => setModelViewerLoaded(true)
-    script.onerror = () => console.warn('[3D] model-viewer failed to load')
-    document.head.appendChild(script)
-  }, [])
-
-  async function send3DGeneration() {
-    const q = input.trim()
-    if (!q || image3dLoading || imageGenLoading) return
-
-    const userMsg = { role: 'user', content: q, is3DPrompt: true }
-    setMessages(prev => [...prev, userMsg])
-    setInput('')
-    setImage3dLoading(true)
-
-    // Show a loading message immediately
-    const loadingMsg = { role: 'assistant', content: '', is3DLoading: true, prompt3d: q }
-    setMessages(prev => [...prev, loadingMsg])
-
-    try {
-      const res = await fetch('/api/image3d', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: q })
-      })
-      const data = await res.json()
-
-      if (!res.ok || data.error) {
-        setMessages(prev => prev.map(m =>
-          m.is3DLoading ? {
-            ...m,
-            is3DLoading: false,
-            role: 'assistant',
-            content: data.error || '3D generation failed. Please try again.',
-            is3DStub: true
-          } : m
-        ))
-        setImage3dLoading(false)
-        return
-      }
-
-      // Replace loading message with actual 3D model
-      setMessages(prev => {
-        const newMessages = prev.map(m =>
-          m.is3DLoading ? {
-            ...m,
-            is3DLoading: false,
-            role: 'assistant',
-            content: `Generated 3D model: **${q}**`,
-            is3DModel: true,
-            glbUrl: data.glbUrl,
-            thumbnailUrl: data.thumbnailUrl,
-            tripoThumbnail: data.tripoThumbnail || null,
-            hasTexture: data.hasTexture,
-            isPollinationsPreview: data.isPollinationsPreview || false,
-          } : m
-        )
-        // Set initial 3D model load state after a tick (need index)
-        if (data.glbUrl) {
-          const msgIdx = newMessages.findIndex(m => m.is3DModel && m.glbUrl === data.glbUrl)
-          if (msgIdx >= 0) {
-            setModel3dLoadStates(prev => ({ ...prev, [msgIdx]: 'loading' }))
-          }
-        }
-        return newMessages
-      })
-    } catch {
-      setMessages(prev => prev.map(m =>
-        m.is3DLoading ? {
-          ...m,
-          is3DLoading: false,
-          role: 'assistant',
-          content: '3D generation service unavailable. Please try again.',
-          is3DStub: true
-        } : m
-      ))
-    }
-    setImage3dLoading(false)
-  }
 
   function copy(content, i) {
     navigator.clipboard.writeText(stripMarkdown(content))
     setCopiedIndex(i)
     setTimeout(() => setCopiedIndex(null), 2000)
-  }
-
-  // ── 3D Model Viewer Event Handlers ──
-  const MODEL_3D_TIMEOUT = 60000 // 60s timeout for GLB loading
-
-  function handle3DModelLoad(msgIndex) {
-    // Clear timeout timer
-    if (model3dTimers.current[msgIndex]) {
-      clearTimeout(model3dTimers.current[msgIndex])
-      delete model3dTimers.current[msgIndex]
-    }
-    setModel3dLoadStates(prev => ({ ...prev, [msgIndex]: 'loaded' }))
-  }
-
-  function handle3DModelError(msgIndex) {
-    // Clear timeout timer
-    if (model3dTimers.current[msgIndex]) {
-      clearTimeout(model3dTimers.current[msgIndex])
-      delete model3dTimers.current[msgIndex]
-    }
-    setModel3dLoadStates(prev => ({ ...prev, [msgIndex]: 'error' }))
-  }
-
-  function start3DModelTimeout(msgIndex) {
-    // Start a timeout — if model hasn't loaded in 60s, mark as timeout
-    if (model3dTimers.current[msgIndex]) return // already started
-    model3dTimers.current[msgIndex] = setTimeout(() => {
-      setModel3dLoadStates(prev => {
-        // Only timeout if still loading
-        if (prev[msgIndex] === 'loading') {
-          return { ...prev, [msgIndex]: 'timeout' }
-        }
-        return prev
-      })
-      delete model3dTimers.current[msgIndex]
-    }, MODEL_3D_TIMEOUT)
   }
 
   // ── Voice Input (ASR) ──
@@ -994,158 +805,6 @@ export default function ChatClient() {
   const hasInput = input.trim().length > 0 || attachedFile
 
   const currentModel = MODELS.find(m => m.id === model) || MODELS[0]
-
-  // ── Live Terminal Handlers ──
-  const [sandboxAvailable, setSandboxAvailable] = useState(false)
-
-  // Check sandbox availability on mount
-  useEffect(() => {
-    fetch('/api/sandbox?action=health')
-      .then(r => r.json())
-      .then(data => setSandboxAvailable(data.sandbox_available === true))
-      .catch(() => setSandboxAvailable(false))
-  }, [])
-
-  // Helper to write to xterm with ANSI colors
-  const termWrite = (text, color) => {
-    const term = xtermRef.current
-    if (!term) return
-    if (color) {
-      const colorMap = { green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m', cyan: '\x1b[36m', gray: '\x1b[90m', reset: '\x1b[0m' }
-      term.write(`${colorMap[color] || ''}${text}${colorMap.reset}`)
-    } else {
-      term.write(text)
-    }
-  }
-
-  const termWriteln = (text, color) => {
-    termWrite(text + '\r\n', color)
-  }
-
-  const termPrompt = () => {
-    const term = xtermRef.current
-    if (!term) return
-    term.write('\r\n\x1b[32m$\x1b[0m ')
-  }
-
-  const executeCommand = async (cmd) => {
-    // ── Try Cloudflare Sandbox first ──
-    if (sandboxAvailable) {
-      try {
-        const res = await fetch('/api/sandbox', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'exec', sandbox_id: 'terminal', command: cmd, timeout: 30000 })
-        })
-        const data = await res.json()
-        if (data.sandbox_available && data.success !== undefined) {
-          let output = data.stdout || ''
-          if (data.stderr) output += (output ? '\n' : '') + data.stderr
-          if (!output) output = '(no output)'
-          if (data.exitCode && data.exitCode !== 0) {
-            termWriteln(output)
-            termWriteln(`[Exit code: ${data.exitCode}]`, 'red')
-          } else {
-            termWriteln(output)
-          }
-          termPrompt()
-          return
-        }
-      } catch {
-        // Fall through to Judge0
-      }
-    }
-
-    // ── Fallback: Judge0 ──
-    try {
-      const res = await fetch('/api/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source_code: cmd, language_id: 46 }) // Bash
-      })
-      const data = await res.json()
-
-      let output = ''
-      if (data.error && !data.status) {
-        output = data.error
-      } else {
-        if (data.stdout) output += data.stdout
-        if (data.compile_output) output += (output ? '\n' : '') + data.compile_output
-        if (data.stderr) output += (output ? '\n' : '') + data.stderr
-        if (!output) output = '(no output)'
-        if (data.exit_code && data.exit_code !== 0) output += `\n[Exit code: ${data.exit_code}]`
-        if (data.status?.id && data.status.id !== 3 && data.status.id !== 4) {
-          output += `\n[${data.status.description}]`
-        }
-      }
-
-      termWriteln(output)
-    } catch {
-      termWriteln('Execution failed. Check your connection.', 'red')
-    }
-
-    termPrompt()
-  }
-
-  const askAIForCommand = async (query) => {
-    termWriteln(`\x1b[90m# ${query}\x1b[0m`)
-
-    try {
-      const messages = [{ role: 'user', content: `I need a shell command for: ${query}\n\nRespond with ONLY the command, no explanation, no markdown, no code blocks. Just the raw command that can be pasted into a terminal.` }]
-
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages, model: 'llama-3.1-8b-instant' })
-      })
-      const data = await res.json()
-
-      if (data.reply) {
-        let cmd = data.reply.trim()
-        cmd = cmd.replace(/^```(?:bash|sh|shell)?\n?/, '').replace(/\n?```$/, '').trim()
-        cmd = cmd.replace(/^`|`$/g, '').trim()
-
-        if (cmd) {
-          setAiSuggestion(cmd)
-          termWriteln(`\x1b[33mAI suggests:\x1b[0m ${cmd}`)
-          termWriteln('\x1b[90mPress Enter to run · Esc to dismiss\x1b[0m')
-        }
-      }
-    } catch {
-      termWriteln('AI request failed.', 'red')
-    }
-
-    termPrompt()
-  }
-
-  // Handle xterm input (command submitted via Enter)
-  const handleXTermInput = async (cmd) => {
-    // If there's an AI suggestion pending, execute it
-    if (aiSuggestion) {
-      const suggestion = aiSuggestion
-      setAiSuggestion(null)
-      await executeCommand(suggestion)
-      return
-    }
-
-    // Check if this looks like a shell command
-    const isCommand = /^[a-z]/.test(cmd) && (
-      /^(ls|cd|pwd|cat|echo|mkdir|rm|cp|mv|grep|find|curl|wget|npm|npx|node|python|pip|git|docker|make|chmod|chown|export|source|sudo|apt|yum|brew|which|whoami|uname|df|du|ps|top|kill|clear|history)/.test(cmd)
-    )
-
-    if (isCommand) {
-      await executeCommand(cmd)
-    } else {
-      await askAIForCommand(cmd)
-    }
-  }
-
-  // Handle xterm key events for AI suggestion dismiss
-  const handleXTermKey = (domEvent) => {
-    if (domEvent.key === 'Escape') {
-      setAiSuggestion(null)
-    }
-  }
 
   return (
     <main className="h-dvh flex bg-[#0a0a0a] overflow-hidden">
@@ -1443,36 +1102,7 @@ export default function ChatClient() {
           </button>
         </div>
 
-        {/* Messages area / Terminal area */}
-        {terminalMode ? (
-          <div className="flex-1 flex flex-col min-h-0">
-            {/* Terminal header */}
-            <div className="flex items-center gap-2 px-4 py-2 border-b border-white/[0.06]">
-              <span className={`w-2 h-2 rounded-full ${sandboxAvailable ? 'bg-amber-500' : 'bg-green-500'} animate-pulse`} />
-              <span className="text-[12px] font-mono text-muted uppercase tracking-wider">Live Terminal</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${sandboxAvailable ? 'bg-amber-500/10 text-amber-400/70 border border-amber-500/20' : 'bg-green-500/10 text-green-400/70 border border-green-500/20'}`}>
-                {sandboxAvailable ? 'SANDBOX' : 'JUDGE0'}
-              </span>
-              {sandboxAvailable && (
-                <span className="text-[10px] text-[#525252]">· internet · pip/npm · persistent</span>
-              )}
-              {aiSuggestion && (
-                <span className="text-[10px] text-yellow-400 ml-auto animate-pulse">AI suggestion pending — Enter to run</span>
-              )}
-            </div>
-
-            {/* xterm.js terminal */}
-            <div className="flex-1 bg-[#0d0d0d] p-2 terminal-xterm-container">
-              <XTerminal
-                ref={xtermRef}
-                onInput={handleXTermInput}
-                onKey={handleXTermKey}
-                welcomeMessage={'\x1b[32mWelcome to Live Terminal\x1b[0m\r\nType a shell command to execute it directly.\r\nOr type a natural language query and AI will suggest a command.' + (sandboxAvailable ? '\r\n\x1b[33mSandbox mode active — internet access, pip/npm install, and persistent filesystem available.\x1b[0m' : '')}
-                className="terminal-xterm"
-              />
-            </div>
-          </div>
-        ) : (
+        {/* Messages area */}
         <div className="flex-1 overflow-y-auto overscroll-behavior-contain">
           <div className="max-w-[720px] mx-auto px-[min(5vw,48px)] py-6 space-y-4">
             {messages.length === 0 && (
@@ -1689,156 +1319,6 @@ export default function ChatClient() {
                             </a>
                           )}
                         </div>
-                      ) : msg.isImageLoading ? (
-                        <div className="space-y-2">
-                          <div className="bg-gradient-to-br from-purple-500/10 to-red-500/10 border border-purple-500/20 rounded-xl p-5 text-center max-w-sm">
-                            <div className="inline-flex items-center justify-center w-10 h-10 mb-2">
-                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-purple-400 animate-spin" style={{ animationDuration: '3s' }}>
-                                <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>
-                              </svg>
-                            </div>
-                            <p className="text-xs text-purple-300 font-medium">Generating Image</p>
-                            <p className="text-[11px] text-muted mt-1">{msg.promptImage}</p>
-                            <div className="mt-3 w-full bg-white/[0.04] rounded-full h-1 overflow-hidden">
-                              <div className="h-full progress-3d rounded-full animate-pulse" style={{ width: '60%' }} />
-                            </div>
-                            <p className="text-[10px] text-muted mt-2">Creating your image...</p>
-                          </div>
-                        </div>
-                      ) : msg.is3DLoading ? (
-                        <div className="space-y-2">
-                          <div className="bg-gradient-to-br from-purple-500/10 to-red-500/10 border border-purple-500/20 rounded-xl p-5 text-center max-w-sm">
-                            <div className="inline-flex items-center justify-center w-10 h-10 mb-2">
-                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-purple-400 animate-spin" style={{ animationDuration: '3s' }}>
-                                <path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z"/><path d="M12 12l9-4.5"/><path d="M12 12v9"/><path d="M12 12L3 7.5"/>
-                              </svg>
-                            </div>
-                            <p className="text-xs text-purple-300 font-medium">Generating 3D Model</p>
-                            <p className="text-[11px] text-muted mt-1">{msg.prompt3d}</p>
-                            <div className="mt-3 w-full bg-white/[0.04] rounded-full h-1 overflow-hidden">
-                              <div className="h-full progress-3d rounded-full animate-pulse" style={{ width: '60%' }} />
-                            </div>
-                            <p className="text-[10px] text-muted mt-2">This may take 1-2 minutes...</p>
-                          </div>
-                        </div>
-                      ) : msg.is3DModel ? (
-                        <div className="space-y-2">
-                          {/* High-quality preview image (Pollinations or Tripo3D thumbnail) */}
-                          {msg.thumbnailUrl && (
-                            <div className="rounded-xl overflow-hidden border border-purple-500/20 max-w-md bg-[#111]">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={msg.thumbnailUrl}
-                                alt={msg.prompt3d || '3D Model preview'}
-                                className="w-full h-auto object-cover"
-                                style={{ maxHeight: '400px' }}
-                              />
-                              {msg.isPollinationsPreview && (
-                                <div className="px-2 py-1 bg-purple-500/10 border-t border-purple-500/20 text-[9px] text-purple-300/70 text-center">
-                                  AI Preview &middot; Interactive 3D viewer below
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {/* Interactive 3D viewer (if GLB URL available and model-viewer loaded) */}
-                          {msg.glbUrl && modelViewerLoaded && (() => {
-                            const loadState = model3dLoadStates[i] || 'loading'
-                            // Start timeout on first render
-                            if (loadState === 'loading') start3DModelTimeout(i)
-
-                            return (
-                              <div className="rounded-xl overflow-hidden border border-purple-500/20 max-w-md bg-[#111] relative">
-                                <model-viewer
-                                  src={msg.glbUrl}
-                                  alt={msg.prompt3d || '3D Model'}
-                                  auto-rotate
-                                  camera-controls
-                                  shadow-intensity="1"
-                                  exposure="1.2"
-                                  environment-image="neutral"
-                                  interaction-prompt="auto"
-                                  style={{ width: '100%', height: '360px', backgroundColor: '#111' }}
-                                  onLoad={() => handle3DModelLoad(i)}
-                                  onError={() => handle3DModelError(i)}
-                                />
-                                {/* Loading overlay */}
-                                {loadState === 'loading' && (
-                                  <div className="absolute inset-0 flex items-center justify-center bg-[#111]/80 pointer-events-none">
-                                    <div className="text-center">
-                                      <IconSpinner size={20} className="text-purple-400 mx-auto mb-2" />
-                                      <p className="text-[11px] text-purple-300">Loading 3D model...</p>
-                                      <p className="text-[9px] text-muted mt-1">This may take a moment</p>
-                                    </div>
-                                  </div>
-                                )}
-                                {/* Error overlay */}
-                                {loadState === 'error' && (
-                                  <div className="absolute inset-0 flex items-center justify-center bg-[#111]/90 pointer-events-none">
-                                    <div className="text-center px-4">
-                                      <p className="text-[11px] text-red-300 font-medium">3D viewer failed to load</p>
-                                      <p className="text-[9px] text-muted mt-1">Try downloading the GLB file below</p>
-                                    </div>
-                                  </div>
-                                )}
-                                {/* Timeout overlay */}
-                                {loadState === 'timeout' && (
-                                  <div className="absolute inset-0 flex items-center justify-center bg-[#111]/90 pointer-events-none">
-                                    <div className="text-center px-4">
-                                      <p className="text-[11px] text-yellow-300 font-medium">3D model is taking too long</p>
-                                      <p className="text-[9px] text-muted mt-1">The file may be large. Download the GLB to view locally.</p>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          })()}
-                          {msg.glbUrl && !modelViewerLoaded && (
-                            <div className="w-full h-20 flex items-center justify-center text-muted text-xs bg-[#111] rounded-xl border border-purple-500/20 max-w-md">
-                              <IconSpinner size={14} className="mr-2" /> Loading 3D viewer component...
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2 text-[10px] text-muted">
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z"/><path d="M12 12l9-4.5"/><path d="M12 12v9"/><path d="M12 12L3 7.5"/>
-                            </svg>
-                            <span>3D Model &middot; {msg.hasTexture ? 'Textured' : 'Preview'}{msg.glbUrl ? ' \u00b7 Drag to rotate' : ''}</span>
-                          </div>
-                          <div className="flex items-center gap-3 mt-1 flex-wrap">
-                            {msg.glbUrl && (
-                              <a
-                                href={msg.glbUrl}
-                                download
-                                className="inline-flex items-center gap-1 text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
-                              >
-                                <IconDownload size={10} />
-                                Download GLB
-                              </a>
-                            )}
-                            {msg.thumbnailUrl && !msg.isPollinationsPreview && (
-                              <a
-                                href={msg.thumbnailUrl}
-                                download
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
-                              >
-                                <IconDownload size={10} />
-                                Save Preview
-                              </a>
-                            )}
-                          </div>
-                          {!msg.glbUrl && (
-                            <p className="text-[10px] text-muted leading-relaxed max-w-md">GLB file not available for this model. You can save the preview image above. To view GLB files in the future, use <a href="https://3dviewer.net" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 underline">3dviewer.net</a> or any 3D viewer app.</p>
-                          )}
-                        </div>
-                      ) : msg.is3DStub ? (
-                        <div className="space-y-2">
-                          <div className="bg-gradient-to-br from-red-500/10 to-orange-500/10 border border-red-500/20 rounded-xl p-4 text-center max-w-sm">
-                            <div className="text-2xl mb-1">⚠️</div>
-                            <p className="text-xs text-red-300 font-medium">3D Generation Error</p>
-                          </div>
-                          <MarkdownRenderer content={msg.content} />
-                        </div>
                       ) : (
                         <MarkdownRenderer content={msg.content} />
                       )
@@ -1890,10 +1370,8 @@ export default function ChatClient() {
             <div ref={bottomRef} />
           </div>
         </div>
-        )}
 
-        {/* ── Expandable Chat Bar (hidden in terminal mode) ────────────────────── */}
-        {!terminalMode && (
+        {/* ── Expandable Chat Bar ────────────────────── */}
         <div className="shrink-0 px-[min(5vw,48px)] pb-4 pt-2" style={{ overflow: 'visible' }}>
           <div className="max-w-[720px] mx-auto" style={{ overflow: 'visible' }}>
             {/* Suggestion pills — above chat bar, single scrollable row */}
@@ -1991,12 +1469,12 @@ export default function ChatClient() {
 
                 {/* Send button */}
                 <button
-                  onClick={imageMode ? sendImageGeneration : image3dMode ? send3DGeneration : send}
-                  disabled={loading || imageGenLoading || image3dLoading || !hasInput}
+                  onClick={send}
+                  disabled={loading || !hasInput}
                   className={`chat-collapsed-send ${hasInput ? 'chat-collapsed-send-active' : ''}`}
-                  aria-label={imageMode ? 'Generate image' : image3dMode ? 'Generate 3D' : 'Send message'}
+                  aria-label="Send message"
                 >
-                  {loading || imageGenLoading || image3dLoading ? (
+                  {loading ? (
                     <IconSpinner size={16} />
                   ) : hasInput ? (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
@@ -2015,36 +1493,12 @@ export default function ChatClient() {
                   ref={textareaRef}
                   rows={1}
                   className="chat-textarea-expanded scrollbar-none"
-                  placeholder={imageMode ? 'Describe the image you want to generate...' : image3dMode ? 'Describe the 3D model you want to create...' : t('chat.placeholder')}
+                  placeholder={t('chat.placeholder')}
                   value={input}
                   onChange={e => { setInput(e.target.value); autoResize(e.target) }}
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); imageMode ? sendImageGeneration() : image3dMode ? send3DGeneration() : send() } }}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
                   autoFocus
                 />
-
-                {/* Image/3D mode indicator */}
-                {(imageMode || image3dMode) && (
-                  <div className="flex items-center gap-1.5 px-1 pt-1">
-                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${imageMode ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'}`}>
-                      {imageMode ? 'Image Mode' : '3D Mode'}
-                    </span>
-                    {imageMode && (
-                      <select
-                        value={imageSize}
-                        onChange={e => setImageSize(e.target.value)}
-                        className="text-[10px] bg-[#0a0a0a] border border-[#262626] rounded px-1 py-0.5 text-[#a3a3a3] outline-none"
-                      >
-                        <option value="1024x1024">1:1</option>
-                        <option value="1344x768">16:9</option>
-                        <option value="1152x864">4:3</option>
-                        <option value="864x1152">3:4</option>
-                        <option value="768x1344">9:16</option>
-                        <option value="1440x720">2:1</option>
-                        <option value="720x1440">1:2</option>
-                      </select>
-                    )}
-                  </div>
-                )}
 
                 {/* Toolbar */}
                 <div className="chat-toolbar-expanded">
@@ -2100,45 +1554,6 @@ export default function ChatClient() {
                       title="Voice settings"
                     >
                       <IconSpeaker size={16} />
-                    </button>
-
-                    {/* System Templates picker */}
-                    <div className="relative">
-                      <button
-                        className={`chat-toolbar-btn ${templatePickerOpen ? 'chat-toolbar-btn-active' : ''}`}
-                        onClick={() => setTemplatePickerOpen(!templatePickerOpen)}
-                        title="Templates"
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
-                        </svg>
-                      </button>
-                      {templatePickerOpen && (
-                        <div className="absolute bottom-full left-0 mb-2 w-56 bg-[#1a1a1a] border border-[#262626] rounded-xl shadow-2xl p-2 z-50">
-                          <p className="text-[10px] text-[#525252] uppercase tracking-wider font-medium px-2 pb-1.5">Templates</p>
-                          {SYSTEM_TEMPLATES.map(template => (
-                            <button
-                              key={template.id}
-                              onClick={() => { setInput(template.prompt + ' '); setTemplatePickerOpen(false); textareaRef.current?.focus() }}
-                              className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12px] text-[#a1a1a1] hover:text-white hover:bg-[#262626] transition-colors text-left"
-                            >
-                              <template.Icon size={14} />
-                              <span>{template.label}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Terminal mode toggle */}
-                    <button
-                      className={`chat-toolbar-btn ${terminalMode ? 'chat-toolbar-btn-active' : ''}`}
-                      onClick={() => setTerminalMode(!terminalMode)}
-                      title={terminalMode ? 'Switch to chat mode' : 'Live terminal'}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
-                      </svg>
                     </button>
 
                     {/* Model chip — model selector dropdown (logged in only) */}
@@ -2223,17 +1638,13 @@ export default function ChatClient() {
 
                     {/* Submit button */}
                     <button
-                      onClick={imageMode ? sendImageGeneration : image3dMode ? send3DGeneration : send}
-                      disabled={loading || imageGenLoading || image3dLoading || !hasInput}
+                      onClick={send}
+                      disabled={loading || !hasInput}
                       className={`chat-submit-btn ${hasInput ? 'chat-submit-btn-active' : ''}`}
-                      aria-label={imageMode ? 'Generate image' : image3dMode ? 'Generate 3D' : 'Send message'}
+                      aria-label="Send message"
                     >
-                      {loading || imageGenLoading || image3dLoading ? (
+                      {loading ? (
                         <IconSpinner size={16} />
-                      ) : imageMode ? (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                      ) : image3dMode ? (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z"/><path d="M12 12l9-4.5"/><path d="M12 12v9"/><path d="M12 12L3 7.5"/></svg>
                       ) : (
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                       )}
@@ -2246,7 +1657,6 @@ export default function ChatClient() {
 
           </div>
         </div>
-        )}
       </div>
 
       {/* ── Voice Settings Panel ── */}
@@ -3030,26 +2440,6 @@ export default function ChatClient() {
           }
         }
 
-        /* ═══════════════════════════════════════
-           LIVE TERMINAL (xterm.js)
-           ═══════════════════════════════════════ */
-        .terminal-xterm-container {
-          overflow: hidden;
-        }
-        .terminal-xterm-container .terminal-xterm {
-          height: 100%;
-          width: 100%;
-        }
-        .terminal-xterm-container .xterm {
-          height: 100%;
-          padding: 8px;
-        }
-        .terminal-xterm-container .xterm-viewport {
-          overflow-y: auto !important;
-        }
-        .terminal-xterm-container .xterm-viewport::-webkit-scrollbar { width: 3px; }
-        .terminal-xterm-container .xterm-viewport::-webkit-scrollbar-thumb { background: #262626; border-radius: 2px; }
-        .terminal-xterm-container .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
       `}</style>
     </main>
   )
