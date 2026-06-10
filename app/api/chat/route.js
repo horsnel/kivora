@@ -171,6 +171,17 @@ export async function POST(req) {
         } catch {}
       }
 
+      // Set Daytona API key from server-side env (primary sandbox provider)
+      const daytonaKey = await getEnvVar('DAYTONA_API_KEY')
+      if (daytonaKey) {
+        try {
+          const daytonaMod = await import('@/lib/daytona')
+          daytonaMod.setDaytonaApiKey(daytonaKey)
+          const daytonaUrl = await getEnvVar('DAYTONA_API_URL')
+          if (daytonaUrl) daytonaMod.setDaytonaConfig({ apiUrl: daytonaUrl })
+        } catch {}
+      }
+
       // Set GitHub token and default repo from server-side env if available (for codespaces tool)
       const githubToken = await getEnvVar('GITHUB_TOKEN')
       if (githubToken) {
