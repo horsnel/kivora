@@ -14,7 +14,24 @@ function extractArtifacts(text) {
   const regex = /<artifact\s+type="(\w+)"\s+title="([^"]*)">([\s\S]*?)<\/artifact>/g
   let match
   while ((match = regex.exec(text)) !== null) {
-    artifacts.push({ type: match[1], title: match[2], code: match[3].trim() })
+    const type = match[1]
+    const title = match[2]
+    const content = match[3].trim()
+
+    if (type === 'project') {
+      // Parse multi-file project
+      const files = []
+      const fileRegex = /<file\s+path="([^"]+)">([\s\S]*?)<\/file>/g
+      let fileMatch
+      while ((fileMatch = fileRegex.exec(content)) !== null) {
+        files.push({ path: fileMatch[1], content: fileMatch[2].trim() })
+      }
+      if (files.length > 0) {
+        artifacts.push({ type: 'project', title, files })
+      }
+    } else {
+      artifacts.push({ type, title, code: content })
+    }
   }
   return artifacts
 }
@@ -285,6 +302,16 @@ export async function POST(req) {
             const oppResult = JSON.parse(toolResults[toolCall.id])
             if (oppResult.opportunities && oppResult.opportunities.length > 0) {
               response.opportunityCards = oppResult.opportunities
+            }
+          } catch {}
+        }
+        if (name === 'deploy_site') {
+          try {
+            const deployResult = JSON.parse(toolResults[toolCall.id])
+            if (deployResult.success) {
+              response.siteDeployed = true
+              response.deployUrl = deployResult.url
+              response.deployProject = deployResult.project_name
             }
           } catch {}
         }
