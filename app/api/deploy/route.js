@@ -1,10 +1,11 @@
 export const runtime = 'edge'
 
-import { getEnvVar } from '@/lib/cfEnv'
+import { getEnvVar, getCloudflareAccountId } from '@/lib/cfEnv'
 import { rateLimit } from '@/lib/ratelimit'
 
 // ── Deploy Site to Cloudflare Pages ──
 // Accepts a project name + files, deploys to CF Pages, returns live URL
+// CF_ACCOUNT_ID is auto-detected from the API token if not set explicitly
 
 export async function POST(req) {
   const ip = req.headers.get('x-forwarded-for') || 'unknown'
@@ -14,10 +15,13 @@ export async function POST(req) {
 
   try {
     const CF_API_TOKEN = await getEnvVar('CF_API_TOKEN')
-    const CF_ACCOUNT_ID = await getEnvVar('CF_ACCOUNT_ID')
+    const CF_ACCOUNT_ID = await getCloudflareAccountId()
 
-    if (!CF_API_TOKEN || !CF_ACCOUNT_ID) {
-      return Response.json({ error: 'Deployment not configured.' }, { status: 503 })
+    if (!CF_API_TOKEN) {
+      return Response.json({ error: 'Deployment not configured — CF_API_TOKEN missing.' }, { status: 503 })
+    }
+    if (!CF_ACCOUNT_ID) {
+      return Response.json({ error: 'Could not determine Cloudflare Account ID. Set CF_ACCOUNT_ID env var or ensure your API token has Account Read permission.' }, { status: 503 })
     }
 
     const { project_name, files, framework } = await req.json()

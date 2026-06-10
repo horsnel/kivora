@@ -932,7 +932,7 @@ export default function ChatClient() {
         {settingsOpen && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setSettingsOpen(false)}>
             <div
-              className="w-[260px] bg-[#1a1a1a] border border-[#262626] rounded-2xl shadow-2xl p-4 animate-scale-in"
+              className="w-[290px] bg-[#1a1a1a] border border-[#262626] rounded-2xl shadow-2xl p-4 animate-scale-in"
               onClick={e => e.stopPropagation()}
             >
               {/* Header */}
@@ -978,6 +978,75 @@ export default function ChatClient() {
                       <IconCheck size={8} /> Saved
                     </span>
                   )}
+                </div>
+              </div>
+
+              {/* Voice Settings */}
+              <div className="mb-4">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <IconSpeaker size={11} className="text-muted" />
+                  <span className="text-[11px] font-medium text-muted">Voice</span>
+                </div>
+
+                {/* Engine Quick Toggle */}
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="text-[10px] text-muted2 w-10 shrink-0">Engine</span>
+                  <div className="flex gap-1 flex-wrap">
+                    {(tts.engines?.length > 0 ? tts.engines.slice(0, 3) : [{ id: 'browser', name: 'Browser' }]).map(eng => (
+                      <button
+                        key={eng.id}
+                        onClick={() => tts.setEngine?.(eng.id)}
+                        className={`px-1.5 py-1 rounded text-[9px] font-medium transition-colors ${
+                          tts.currentEngine === eng.id
+                            ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                            : 'bg-[#1a1a1a] text-[#525252] border border-[#262626] hover:text-white hover:border-[#3a3a3a]'
+                        }`}
+                      >
+                        {eng.name?.split(' ')[0] || eng.id}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Speed Quick Slider */}
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="text-[10px] text-muted2 w-10 shrink-0">Speed</span>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="2.0"
+                    step="0.1"
+                    value={tts.speed || 1.0}
+                    onChange={e => tts.setSpeed?.(parseFloat(e.target.value))}
+                    className="settings-voice-slider flex-1 h-1 rounded-full appearance-none cursor-pointer bg-[#262626]"
+                    style={{
+                      background: `linear-gradient(to right, #a855f7 0%, #ef4444 ${(((tts.speed || 1.0) - 0.5) / 1.5) * 100}%, #262626 ${(((tts.speed || 1.0) - 0.5) / 1.5) * 100}%)`,
+                    }}
+                  />
+                  <span className="text-[10px] text-muted2 font-mono w-6 text-right">{(tts.speed || 1.0).toFixed(1)}x</span>
+                </div>
+
+                {/* Server Status + Test + Full Settings */}
+                <div className="flex items-center gap-1.5">
+                  <div className={`w-1.5 h-1.5 rounded-full ${tts.serverAvailable ? 'bg-green-500' : 'bg-red-500/60'}`} title={tts.serverAvailable ? 'Voice server connected' : 'Voice server offline'} />
+                  <button
+                    onClick={() => {
+                      if (tts.speak) {
+                        tts.speak("Hello from Kivora", { interrupt: true }).catch(() => {})
+                      } else if (typeof window !== 'undefined' && window.speechSynthesis) {
+                        window.speechSynthesis.speak(new SpeechSynthesisUtterance("Hello from Kivora"))
+                      }
+                    }}
+                    className="px-2 py-1 rounded text-[9px] font-medium bg-[#1a1a1a] text-[#525252] border border-[#262626] hover:text-white hover:border-[#3a3a3a] transition-colors"
+                  >
+                    Test Voice
+                  </button>
+                  <button
+                    onClick={() => { setSettingsOpen(false); setVoiceSettingsOpen(true) }}
+                    className="px-2 py-1 rounded text-[9px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors ml-auto"
+                  >
+                    Full Settings →
+                  </button>
                 </div>
               </div>
 
@@ -2437,6 +2506,25 @@ export default function ChatClient() {
           }
           .chat-model-dropdown {
             animation: dropUpRight 0.15s ease-out;
+          }
+          /* Settings voice speed slider */
+          input[type="range"].settings-voice-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #a855f7, #ef4444);
+            cursor: pointer;
+            box-shadow: 0 0 4px rgba(168,85,247,0.3);
+            border: 2px solid #1a1a1a;
+          }
+          input[type="range"].settings-voice-slider::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #a855f7, #ef4444);
+            cursor: pointer;
+            border: 2px solid #1a1a1a;
           }
         }
 

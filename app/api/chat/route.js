@@ -171,12 +171,14 @@ export async function POST(req) {
         } catch {}
       }
 
-      // Set GitHub token from server-side env if available (for codespaces tool)
+      // Set GitHub token and default repo from server-side env if available (for codespaces tool)
       const githubToken = await getEnvVar('GITHUB_TOKEN')
       if (githubToken) {
         try {
           const csMod = await import('@/lib/codespaces')
           csMod.setGitHubToken(githubToken)
+          const defaultRepo = await getEnvVar('GITHUB_DEFAULT_REPO')
+          if (defaultRepo) csMod.setDefaultRepository(defaultRepo)
         } catch {}
       }
 
