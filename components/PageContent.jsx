@@ -26,7 +26,11 @@ export default function PageContent({ children }) {
   const overflowClass = isFullViewport ? 'overflow-hidden' : 'overflow-y-auto'
 
   return (
-    <div id="app-scroll-container" className={`flex-1 min-h-0 ${overflowClass} ${hasFixedNav ? 'pt-12 sm:pt-14' : ''} ${hamburgerPadding}`}>
+    <div
+      id="app-scroll-container"
+      style={{ viewTransitionName: 'main-scroll' }}
+      className={`flex-1 min-h-0 ${overflowClass} ${hasFixedNav ? 'pt-12 sm:pt-14' : ''} ${hamburgerPadding}`}
+    >
       {children}
     </div>
   )

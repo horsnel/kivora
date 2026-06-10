@@ -8,6 +8,9 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
+  experimental: {
+    viewTransition: true,
+  },
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // Don't bundle Node.js-only modules on the client

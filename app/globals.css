@@ -191,6 +191,75 @@ input, textarea, select {
 .animate-slide-down { animation: slideDown 0.25s cubic-bezier(0.16,1,0.3,1) forwards; }
 .animate-scale-in  { animation: scaleIn 0.25s cubic-bezier(0.16,1,0.3,1) forwards; }
 
+/* ═══════════════════════════════════════════════════════════════
+   View Transitions API — Smooth page transitions
+   Chrome 111+, Edge 111+, Safari 18+ (graceful fallback for others)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Default root transition — cross-fade with slight upward slide */
+::view-transition-old(root) {
+  animation: vtFadeOut 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+::view-transition-new(root) {
+  animation: vtFadeSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Main content area — separate transition name for more granular control */
+::view-transition-old(page-content) {
+  animation: vtFadeSlideOut 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+::view-transition-new(page-content) {
+  animation: vtFadeSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Scroll container — instant swap (no animation to avoid jank) */
+::view-transition-old(main-scroll),
+::view-transition-new(main-scroll) {
+  animation: none;
+}
+
+/* Prevent the sidebar/navbar from animating during transitions */
+::view-transition-group(root) {
+  animation-duration: 0.35s;
+}
+
+@keyframes vtFadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes vtFadeSlideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes vtFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Reduce motion — respect user preference */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root),
+  ::view-transition-old(page-content),
+  ::view-transition-new(page-content) {
+    animation: none !important;
+  }
+}
+
 .skeleton {
   background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 50%, var(--surface) 75%);
   background-size: 200% 100%;
