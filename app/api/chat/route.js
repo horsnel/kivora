@@ -182,6 +182,15 @@ export async function POST(req) {
         } catch {}
       }
 
+      // Set Docker host URL from server-side env (self-hosted sandbox fallback)
+      const dockerHostUrl = await getEnvVar('DOCKER_HOST_URL')
+      if (dockerHostUrl) {
+        try {
+          const dockerMod = await import('@/lib/dockerSandbox')
+          dockerMod.setDockerHost(dockerHostUrl)
+        } catch {}
+      }
+
       // Set GitHub token and default repo from server-side env if available (for codespaces tool)
       const githubToken = await getEnvVar('GITHUB_TOKEN')
       if (githubToken) {
