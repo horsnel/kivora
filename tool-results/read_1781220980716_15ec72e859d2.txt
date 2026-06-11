@@ -1,0 +1,502 @@
+   950→              ))}
+   951→            </div>
+   952→          ) : user ? (
+   953→            <p className="text-caption text-[#2e2e2e] px-1 pt-2">{convSearch.trim() ? (t('chat.no_results') || 'No conversations found') : (t('chat.history.empty') || 'No conversations yet')}</p>
+   954→          ) : null}
+   955→        </div>
+   956→
+   957→        {/* ── Settings bottom sheet (Claude AI stacked navigation) ── */}
+   958→        {settingsOpen && (
+   959→          <div
+   960→            className="absolute inset-0 z-50 bg-black/60 animate-fade-in"
+   961→            onClick={() => { setSettingsOpen(false); settingsReset() }}
+   962→          >
+   963→            <div
+   964→              className="absolute bottom-0 left-0 right-0 max-h-[88vh] bg-[#1a1a1a] rounded-t-3xl flex flex-col overflow-hidden animate-slide-up-sheet"
+   965→              onClick={e => e.stopPropagation()}
+   966→            >
+   967→              {/* Handle bar */}
+   968→              <div className="flex justify-center pt-2 pb-1 shrink-0">
+   969→                <div className="w-10 h-1 rounded-full bg-[#444]" />
+   970→              </div>
+   971→
+   972→              {/* Header */}
+   973→              <div className="flex items-center justify-center px-4 py-2 relative min-h-[44px] shrink-0 border-b border-[#1e1e1e]">
+   974→                {settingsCurrentPage !== 'root' ? (
+   975→                  <button
+   976→                    onClick={settingsPop}
+   977→                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
+   978→                  >
+   979→                    <IconArrowLeft size={16} className="text-[#ccc]" />
+   980→                  </button>
+   981→                ) : (
+   982→                  <button
+   983→                    onClick={() => { setSettingsOpen(false); settingsReset() }}
+   984→                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
+   985→                  >
+   986→                    <IconClose size={16} className="text-[#ccc]" />
+   987→                  </button>
+   988→                )}
+   989→                <span className="text-[17px] font-semibold tracking-tight text-white">
+   990→                  {settingsCurrentPage === 'root' && (t('chat.settings') || 'Settings')}
+   991→                  {settingsCurrentPage === 'model' && 'Select model'}
+   992→                  {settingsCurrentPage === 'effort' && 'Effort'}
+   993→                  {settingsCurrentPage === 'more-models' && 'More models'}
+   994→                  {settingsCurrentPage === 'voice' && 'Voice'}
+   995→                  {settingsCurrentPage === 'prompt' && (t('chat.custom_prompt') || 'System Prompt')}
+   996→                  {settingsCurrentPage === 'export' && (t('chat.export.title') || 'Export Chat')}
+   997→                  {settingsCurrentPage === 'sandbox' && 'Sandbox'}
+   998→                  {settingsCurrentPage === 'sandbox-provider' && 'Provider'}
+   999→                  {settingsCurrentPage === 'sandbox-runtime' && 'Runtime'}
+  1000→                </span>
+  1001→              </div>
+  1002→
+  1003→              {/* Screens container */}
+  1004→              <div className="flex-1 overflow-y-auto px-4 py-3 settings-sheet-content" style={{ scrollbarWidth: 'none' }}>
+  1005→
+  1006→                {/* ══════ ROOT: Settings categories ══════ */}
+  1007→                {settingsCurrentPage === 'root' && (
+  1008→                  <div className="divide-y divide-[#2a2a2a]">
+  1009→                    {/* Model */}
+  1010→                    <button
+  1011→                      onClick={() => settingsPush('model')}
+  1012→                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+  1013→                    >
+  1014→                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(74,127,181,0.15)] flex items-center justify-center shrink-0">
+  1015→                        <IconLightning size={18} className="text-[#4a7fb5]" />
+  1016→                      </div>
+  1017→                      <div className="flex-1 min-w-0">
+  1018→                        <div className="text-[16px] font-medium text-white">Model</div>
+  1019→                        <div className="text-[13px] text-[#888] truncate">{currentModel?.name || 'Default'}</div>
+  1020→                      </div>
+  1021→                      <span className="text-[20px] text-[#888]">›</span>
+  1022→                    </button>
+  1023→
+  1024→                    {/* Voice */}
+  1025→                    <button
+  1026→                      onClick={() => settingsPush('voice')}
+  1027→                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+  1028→                    >
+  1029→                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(138,90,180,0.15)] flex items-center justify-center shrink-0">
+  1030→                        <IconSpeaker size={18} className="text-[#8a5ab4]" />
+  1031→                      </div>
+  1032→                      <div className="flex-1 min-w-0">
+  1033→                        <div className="text-[16px] font-medium text-white">Voice</div>
+  1034→                        <div className="text-[13px] text-[#888] truncate">
+  1035→                          {tts.currentEngine === 'browser' ? 'Browser TTS' : (tts.engines?.find(e => e.id === tts.currentEngine)?.name || 'Browser')} · {(tts.speed || 1.0).toFixed(1)}x
+  1036→                        </div>
+  1037→                      </div>
+  1038→                      <div className="flex items-center gap-2 shrink-0">
+  1039→                        <div className={`w-2 h-2 rounded-full ${tts.serverAvailable ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.4)]' : 'bg-red-500/60'}`} />
+  1040→                        <span className="text-[20px] text-[#888]">›</span>
+  1041→                      </div>
+  1042→                    </button>
+  1043→
+  1044→                    {/* System Prompt */}
+  1045→                    <button
+  1046→                      onClick={() => settingsPush('prompt')}
+  1047→                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+  1048→                    >
+  1049→                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(200,170,80,0.15)] flex items-center justify-center shrink-0">
+  1050→                        <IconSliders size={18} className="text-[#c8aa50]" />
+  1051→                      </div>
+  1052→                      <div className="flex-1 min-w-0">
+  1053→                        <div className="text-[16px] font-medium text-white">System Prompt</div>
+  1054→                        <div className="text-[13px] text-[#888] truncate">
+  1055→                          {customSystemPrompt ? customSystemPrompt.slice(0, 35) + '...' : 'Default'}
+  1056→                        </div>
+  1057→                      </div>
+  1058→                      <span className="text-[20px] text-[#888]">›</span>
+  1059→                    </button>
+  1060→
+  1061→                    {/* Export Chat */}
+  1062→                    <button
+  1063→                      onClick={() => settingsPush('export')}
+  1064→                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+  1065→                    >
+  1066→                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(196,92,74,0.15)] flex items-center justify-center shrink-0">
+  1067→                        <IconDownload size={18} className="text-[#c45c4a]" />
+  1068→                      </div>
+  1069→                      <div className="flex-1 min-w-0">
+  1070→                        <div className="text-[16px] font-medium text-white">Export Chat</div>
+  1071→                        <div className="text-[13px] text-[#888] truncate">
+  1072→                          {messages.length === 0 ? 'No conversation yet' : `${messages.length} messages`}
+  1073→                        </div>
+  1074→                      </div>
+  1075→                      <span className="text-[20px] text-[#888]">›</span>
+  1076→                    </button>
+  1077→
+  1078→                    {/* Sandbox */}
+  1079→                    <button
+  1080→                      onClick={() => settingsPush('sandbox')}
+  1081→                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+  1082→                    >
+  1083→                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(76,175,80,0.15)] flex items-center justify-center shrink-0">
+  1084→                        <IconCube size={18} className="text-[#4caf50]" />
+  1085→                      </div>
+  1086→                      <div className="flex-1 min-w-0">
+  1087→                        <div className="text-[16px] font-medium text-white">Sandbox</div>
+  1088→                        <div className="text-[13px] text-[#888] truncate">Daytona · Docker · E2B</div>
+  1089→                      </div>
+  1090→                      <span className="text-[20px] text-[#888]">›</span>
+  1091→                    </button>
+  1092→
+  1093→                    {/* Full Voice Settings shortcut */}
+  1094→                    <div className="pt-4">
+  1095→                      <button
+  1096→                        onClick={() => { setSettingsOpen(false); settingsReset(); setVoiceSettingsOpen(true) }}
+  1097→                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[rgba(138,90,180,0.12)] text-[#b88fd8] active:bg-[rgba(138,90,180,0.2)] transition-colors"
+  1098→                      >
+  1099→                        <IconSpeaker size={16} /> Full Voice Settings Panel
+  1100→                      </button>
+  1101→                    </div>
+  1102→                  </div>
+  1103→                )}
+  1104→
+  1105→                {/* ══════ MODEL SELECTOR ══════ */}
+  1106→                {settingsCurrentPage === 'model' && (
+  1107→                  <div className="divide-y divide-[#2a2a2a]">
+  1108→                    {MODELS.map(m => (
+  1109→                      <button
+  1110→                        key={m.id}
+  1111→                        onClick={() => setModel(m.id)}
+  1112→                        className="w-full py-4 text-left active:opacity-60 transition-opacity"
+  1113→                      >
+  1114→                        <div className="flex items-center gap-2.5 mb-1">
+  1115→                          <span className={`text-[17px] font-medium ${model === m.id ? 'text-[#4a9fd1]' : 'text-white'}`}>{m.name}</span>
+  1116→                          {m.tag && (
+  1117→                            <span className={`text-[10px] font-bold tracking-[0.5px] px-[7px] py-[2px] rounded-[5px] uppercase ${
+  1118→                              m.tag.toLowerCase().includes('premium') || m.tag.toLowerCase().includes('pro')
+  1119→                                ? 'text-[#4a7fb5] bg-[rgba(74,127,181,0.12)]'
+  1120→                                : m.tag.toLowerCase().includes('free') || m.tag.toLowerCase().includes('fast')
+  1121→                                  ? 'text-[#4caf50] bg-[rgba(76,175,80,0.12)]'
+  1122→                                  : 'text-[#888] bg-[rgba(255,255,255,0.06)]'
+  1123→                            }`}>
+  1124→                              {m.tag}
+  1125→                            </span>
+  1126→                          )}
+  1127→                        </div>
+  1128→                        <div className={`text-[14px] flex items-center justify-between ${model === m.id ? 'text-[#4a9fd1]' : 'text-[#888]'}`}>
+  1129→                          <span>{m.id}</span>
+  1130→                          {model === m.id && <span className="text-[20px]">✓</span>}
+  1131→                        </div>
+  1132→                      </button>
+  1133→                    ))}
+  1134→
+  1135→                    {/* Effort row */}
+  1136→                    <div className="border-t border-[#2a2a2a]" />
+  1137→                    <button
+  1138→                      onClick={() => settingsPush('effort')}
+  1139→                      className="w-full flex items-center py-3.5 text-left active:opacity-60 transition-opacity"
+  1140→                    >
+  1141→                      <div className="flex-1">
+  1142→                        <div className="text-[16px] font-medium text-white">Effort</div>
+  1143→                        <div className="text-[13px] text-[#888]" id="currentEffortLabel">Low</div>
+  1144→                      </div>
+  1145→                      <span className="text-[20px] text-[#888]">›</span>
+  1146→                    </button>
+  1147→
+  1148→                    {/* More models row */}
+  1149→                    <button
+  1150→                      onClick={() => settingsPush('more-models')}
+  1151→                      className="w-full flex items-center py-3.5 text-left active:opacity-60 transition-opacity"
+  1152→                    >
+  1153→                      <div className="flex-1">
+  1154→                        <div className="text-[16px] font-medium text-white">More models</div>
+  1155→                      </div>
+  1156→                      <span className="text-[20px] text-[#888]">›</span>
+  1157→                    </button>
+  1158→                  </div>
+  1159→                )}
+  1160→
+  1161→                {/* ══════ EFFORT SELECTOR ══════ */}
+  1162→                {settingsCurrentPage === 'effort' && (
+  1163→                  <div className="space-y-2 pt-2">
+  1164→                    {[
+  1165→                      { level: 'Low', desc: 'Faster responses, less reasoning', selected: true },
+  1166→                      { level: 'Medium', desc: 'Balanced speed and depth', selected: false },
+  1167→                      { level: 'High', desc: 'Deeper reasoning, slower responses', selected: false },
+  1168→                    ].map(opt => (
+  1169→                      <button
+  1170→                        key={opt.level}
+  1171→                        onClick={() => {
+  1172→                          // Update effort label on model page
+  1173→                          const el = document.getElementById('currentEffortLabel')
+  1174→                          if (el) el.textContent = opt.level
+  1175→                        }}
+  1176→                        className={`w-full flex items-center justify-between px-4 py-[18px] rounded-[14px] transition-all active:scale-[0.98] ${
+  1177→                          opt.selected
+  1178→                            ? 'bg-[rgba(196,92,74,0.08)] border-2 border-[#c45c4a]'
+  1179→                            : 'bg-[#242424] border-2 border-transparent'
+  1180→                        }`}
+  1181→                      >
+  1182→                        <span className="text-[16px] font-medium text-white">{opt.level}</span>
+  1183→                        <span className={`text-[20px] text-[#c45c4a] transition-opacity ${opt.selected ? 'opacity-100' : 'opacity-0'}`}>✓</span>
+  1184→                      </button>
+  1185→                    ))}
+  1186→                  </div>
+  1187→                )}
+  1188→
+  1189→                {/* ══════ MORE MODELS ══════ */}
+  1190→                {settingsCurrentPage === 'more-models' && (
+  1191→                  <div className="divide-y divide-[#2a2a2a]">
+  1192→                    {[
+  1193→                      { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1', tag: 'Reasoning', pro: true },
+  1194→                      { id: 'qwen-qwq-32b', name: 'Qwen QwQ', tag: 'Reasoning', pro: true },
+  1195→                      { id: 'llama-3.2-3b-preview', name: 'Nova 0.9', tag: 'Lightweight', pro: false },
+  1196→                    ].map(m => (
+  1197→                      <button
+  1198→                        key={m.id}
+  1199→                        onClick={() => setModel(m.id)}
+  1200→                        className="w-full py-4 text-left active:opacity-60 transition-opacity"
+  1201→                      >
+  1202→                        <div className="flex items-center gap-2.5">
+  1203→                          <span className={`text-[17px] font-medium ${model === m.id ? 'text-[#4a9fd1]' : 'text-white'}`}>{m.name}</span>
+  1204→                          {m.pro && (
+  1205→                            <span className="text-[10px] font-bold tracking-[0.5px] px-[7px] py-[2px] rounded-[5px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.12)]">
+  1206→                              Pro
+  1207→                            </span>
+  1208→                          )}
+  1209→                        </div>
+  1210→                        <div className={`text-[14px] flex items-center justify-between mt-1 ${model === m.id ? 'text-[#4a9fd1]' : 'text-[#888]'}`}>
+  1211→                          <span>{m.id}</span>
+  1212→                          {model === m.id && <span className="text-[20px]">✓</span>}
+  1213→                        </div>
+  1214→                      </button>
+  1215→                    ))}
+  1216→                  </div>
+  1217→                )}
+  1218→
+  1219→                {/* ══════ VOICE ══════ */}
+  1220→                {settingsCurrentPage === 'voice' && (
+  1221→                  <div className="divide-y divide-[#2a2a2a]">
+  1222→                    {/* Server status */}
+  1223→                    <div className="flex items-center gap-2.5 py-3.5">
+  1224→                      <div className={`w-2.5 h-2.5 rounded-full ${tts.serverAvailable ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-red-500/60'}`} />
+  1225→                      <span className="text-[14px] text-[#aaa]">
+  1226→                        Voice Server {tts.serverAvailable ? 'Connected' : 'Offline'}
+  1227→                      </span>
+  1228→                      <span className="text-[11px] text-[#555] ml-auto">
+  1229→                        {tts.serverAvailable ? 'High-quality TTS' : 'Browser fallback'}
+  1230→                      </span>
+  1231→                    </div>
+  1232→
+  1233→                    {/* Engine */}
+  1234→                    <div className="py-3.5">
+  1235→                      <div className="text-[10px] font-medium text-[#666] uppercase tracking-wider mb-2">Engine</div>
+  1236→                      <div className="space-y-1">
+  1237→                        {(tts.engines?.length > 0 ? tts.engines : [{ id: 'browser', name: 'Browser TTS', features: ['free', 'low-latency'] }]).map(eng => (
+  1238→                          <button
+  1239→                            key={eng.id}
+  1240→                            onClick={() => tts.setEngine?.(eng.id)}
+  1241→                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-left ${
+  1242→                              tts.currentEngine === eng.id
+  1243→                                ? 'bg-[rgba(138,90,180,0.1)] border border-[rgba(138,90,180,0.2)]'
+  1244→                                : 'hover:bg-[#222] border border-transparent'
+  1245→                            }`}
+  1246→                          >
+  1247→                            <div className="flex-1 min-w-0">
+  1248→                              <div className={`text-[14px] font-medium ${tts.currentEngine === eng.id ? 'text-[#b88fd8]' : 'text-white'}`}>
+  1249→                                {eng.name}
+  1250→                              </div>
+  1251→                              {eng.features && (
+  1252→                                <div className="flex gap-1 mt-0.5">
+  1253→                                  {eng.features.map(f => (
+  1254→                                    <span key={f} className="text-[9px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-[#555]">{f}</span>
+  1255→                                  ))}
+  1256→                                </div>
+  1257→                              )}
+  1258→                            </div>
+  1259→                            {tts.currentEngine === eng.id && (
+  1260→                              <span className="text-[#b88fd8] text-[16px]">✓</span>
+  1261→                            )}
+  1262→                          </button>
+  1263→                        ))}
+  1264→                      </div>
+  1265→                    </div>
+  1266→
+  1267→                    {/* Speed */}
+  1268→                    <div className="py-3.5">
+  1269→                      <div className="flex items-center justify-between mb-2">
+  1270→                        <span className="text-[10px] font-medium text-[#666] uppercase tracking-wider">Speed</span>
+  1271→                        <span className="text-[13px] text-[#aaa] font-mono">{(tts.speed || 1.0).toFixed(1)}x</span>
+  1272→                      </div>
+  1273→                      <input
+  1274→                        type="range"
+  1275→                        min="0.5"
+  1276→                        max="2.0"
+  1277→                        step="0.1"
+  1278→                        value={tts.speed || 1.0}
+  1279→                        onChange={e => tts.setSpeed?.(parseFloat(e.target.value))}
+  1280→                        className="settings-voice-slider w-full h-1.5 rounded-full appearance-none cursor-pointer"
+  1281→                        style={{
+  1282→                          background: `linear-gradient(to right, #a855f7 0%, #ef4444 ${(((tts.speed || 1.0) - 0.5) / 1.5) * 100}%, #262626 ${(((tts.speed || 1.0) - 0.5) / 1.5) * 100}%)`,
+  1283→                        }}
+  1284→                      />
+  1285→                      <div className="flex justify-between mt-1.5">
+  1286→                        <span className="text-[11px] text-[#444]">0.5x</span>
+  1287→                        <span className="text-[11px] text-[#444]">1.0x</span>
+  1288→                        <span className="text-[11px] text-[#444]">2.0x</span>
+  1289→                      </div>
+  1290→                    </div>
+  1291→
+  1292→                    {/* Test Voice */}
+  1293→                    <div className="py-3.5">
+  1294→                      <button
+  1295→                        onClick={() => {
+  1296→                          if (tts.speak) {
+  1297→                            tts.speak("Hello from Kivora", { interrupt: true }).catch(() => {})
+  1298→                          } else if (typeof window !== 'undefined' && window.speechSynthesis) {
+  1299→                            window.speechSynthesis.speak(new SpeechSynthesisUtterance("Hello from Kivora"))
+  1300→                          }
+  1301→                        }}
+  1302→                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-[14px] text-[15px] font-medium transition-all active:scale-[0.98]"
+  1303→                        style={{
+  1304→                          background: 'linear-gradient(135deg, rgba(168,85,247,0.12), rgba(239,68,68,0.12))',
+  1305→                          border: '1px solid rgba(168,85,247,0.15)',
+  1306→                          color: '#d4d4d4',
+  1307→                        }}
+  1308→                      >
+  1309→                        <IconSpeaker size={16} /> Test Voice
+  1310→                      </button>
+  1311→                    </div>
+  1312→
+  1313→                    {/* Full Voice Panel link */}
+  1314→                    <div className="py-3.5">
+  1315→                      <button
+  1316→                        onClick={() => { setSettingsOpen(false); settingsReset(); setVoiceSettingsOpen(true) }}
+  1317→                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[rgba(138,90,180,0.12)] text-[#b88fd8] active:bg-[rgba(138,90,180,0.2)] transition-colors"
+  1318→                      >
+  1319→                        Full Voice Settings Panel →
+  1320→                      </button>
+  1321→                    </div>
+  1322→                  </div>
+  1323→                )}
+  1324→
+  1325→                {/* ══════ SYSTEM PROMPT ══════ */}
+  1326→                {settingsCurrentPage === 'prompt' && (
+  1327→                  <div className="py-3">
+  1328→                    <div className="text-[13px] text-[#888] mb-3">Current prompt</div>
+  1329→                    <textarea
+  1330→                      rows={6}
+  1331→                      className="w-full bg-[#242424] border border-[#2a2a2a] rounded-[12px] px-4 py-3.5 text-[14px] text-white placeholder-[#3a3a3a] resize-vertical outline-none focus:border-[#3a3a3a] transition-colors font-[inherit] leading-relaxed"
+  1332→                      placeholder="Enter system prompt..."
+  1333→                      value={customSystemPrompt}
+  1334→                      onChange={e => {
+  1335→                        saveCustomSystemPrompt(e.target.value)
+  1336→                        setSettingsPromptSaved(true)
+  1337→                        setTimeout(() => setSettingsPromptSaved(false), 1500)
+  1338→                      }}
+  1339→                    />
+  1340→                    <div className="flex items-center justify-between mt-2.5">
+  1341→                      <button
+  1342→                        onClick={() => { resetCustomSystemPrompt(); setSettingsPromptSaved(true); setTimeout(() => setSettingsPromptSaved(false), 1500) }}
+  1343→                        className="text-[13px] text-[#555] hover:text-red-400 transition-colors"
+  1344→                      >
+  1345→                        {t('chat.custom_prompt.reset') || 'Reset to default'}
+  1346→                      </button>
+  1347→                      {settingsPromptSaved && (
+  1348→                        <span className="text-[13px] text-emerald-400 flex items-center gap-1">
+  1349→                          <IconCheck size={12} /> Saved
+  1350→                        </span>
+  1351→                      )}
+  1352→                    </div>
+  1353→                  </div>
+  1354→                )}
+  1355→
+  1356→                {/* ══════ EXPORT CHAT ══════ */}
+  1357→                {settingsCurrentPage === 'export' && (
+  1358→                  <div>
+  1359→                    {messages.length === 0 ? (
+  1360→                      <div className="flex flex-col items-center justify-center py-10 text-center">
+  1361→                        <div className="text-[48px] mb-4">📭</div>
+  1362→                        <div className="text-[16px] text-[#888]">No conversation to export yet</div>
+  1363→                      </div>
+  1364→                    ) : (
+  1365→                      <div>
+  1366→                        <div className="text-[13px] text-[#888] mb-3">
+  1367→                          Export {messages.length} messages from this conversation.
+  1368→                        </div>
+  1369→                        <div className="divide-y divide-[#2a2a2a]">
+  1370→                          {[
+  1371→                            { id: 'pdf', label: 'PDF', desc: 'Formatted document', Icon: IconFile },
+  1372→                            { id: 'docx', label: 'DOCX', desc: 'Word document', Icon: IconWrite },
+  1373→                            { id: 'html', label: 'HTML', desc: 'Web page', Icon: IconGlobe },
+  1374→                            { id: 'md', label: 'Markdown', desc: 'Plain text markup', Icon: IconClipboard },
+  1375→                            { id: 'txt', label: 'TXT', desc: 'Plain text', Icon: IconFile },
+  1376→                          ].map(fmt => (
+  1377→                            <button
+  1378→                              key={fmt.id}
+  1379→                              onClick={() => setSettingsExportFormat(fmt.id)}
+  1380→                              className={`w-full flex items-center gap-3.5 py-3.5 text-left transition-colors ${
+  1381→                                settingsExportFormat === fmt.id ? 'opacity-100' : 'opacity-70'
+  1382→                              }`}
+  1383→                            >
+  1384→                              <fmt.Icon size={16} className={settingsExportFormat === fmt.id ? 'text-[#c45c4a]' : 'text-[#555]'} />
+  1385→                              <div className="flex-1">
+  1386→                                <div className={`text-[16px] font-medium ${settingsExportFormat === fmt.id ? 'text-[#c45c4a]' : 'text-white'}`}>{fmt.label}</div>
+  1387→                                <div className="text-[13px] text-[#888]">{fmt.desc}</div>
+  1388→                              </div>
+  1389→                              {settingsExportFormat === fmt.id && (
+  1390→                                <span className="text-[#c45c4a] text-[16px]">✓</span>
+  1391→                              )}
+  1392→                            </button>
+  1393→                          ))}
+  1394→                        </div>
+  1395→                        <button
+  1396→                          onClick={async () => { await exportChat(settingsExportFormat); setSettingsExported(true); setTimeout(() => setSettingsExported(false), 2000) }}
+  1397→                          className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-[14px] text-[15px] font-semibold mt-3 transition-colors ${
+  1398→                            settingsExported
+  1399→                              ? 'bg-emerald-600 text-white'
+  1400→                              : 'bg-[#c45c4a] hover:bg-[#d97a6a] text-white'
+  1401→                          }`}
+  1402→                        >
+  1403→                          {settingsExported ? (
+  1404→                            <><IconCheck size={16} /> Exported</>
+  1405→                          ) : (
+  1406→                            <><IconDownload size={16} /> Export as {settingsExportFormat.toUpperCase()}</>
+  1407→                          )}
+  1408→                        </button>
+  1409→                      </div>
+  1410→                    )}
+  1411→                  </div>
+  1412→                )}
+  1413→
+  1414→                {/* ══════ SANDBOX ══════ */}
+  1415→                {settingsCurrentPage === 'sandbox' && (
+  1416→                  <div className="divide-y divide-[#2a2a2a]">
+  1417→                    {/* Provider row */}
+  1418→                    <button
+  1419→                      onClick={() => settingsPush('sandbox-provider')}
+  1420→                      className="w-full flex items-center py-3.5 text-left active:opacity-60 transition-opacity"
+  1421→                    >
+  1422→                      <div className="flex-1">
+  1423→                        <div className="text-[16px] font-medium text-white">Provider</div>
+  1424→                        <div className="text-[13px] text-[#888]">Daytona</div>
+  1425→                      </div>
+  1426→                      <span className="text-[20px] text-[#888]">›</span>
+  1427→                    </button>
+  1428→
+  1429→                    {/* Runtime row */}
+  1430→                    <button
+  1431→                      onClick={() => settingsPush('sandbox-runtime')}
+  1432→                      className="w-full flex items-center py-3.5 text-left active:opacity-60 transition-opacity"
+  1433→                    >
+  1434→                      <div className="flex-1">
+  1435→                        <div className="text-[16px] font-medium text-white">Runtime</div>
+  1436→                        <div className="text-[13px] text-[#888]">Docker</div>
+  1437→                      </div>
+  1438→                      <span className="text-[20px] text-[#888]">›</span>
+  1439→                    </button>
+  1440→
+  1441→                    {/* Fallback chain */}
+  1442→                    <div className="py-3.5">
+  1443→                      <div className="text-[10px] font-medium text-[#666] uppercase tracking-wider mb-2">Auto-fallback chain</div>
+  1444→                      <div className="flex items-center flex-wrap gap-1">
+  1445→                        {['Daytona', 'Docker', 'E2B', 'Kaggle', 'Colab', 'Codespaces'].map((name, i) => (
+  1446→                          <span key={name} className="flex items-center">
+  1447→                            <span className={`text-[11px] px-2 py-1 rounded-lg ${i === 0 ? 'bg-[rgba(76,175,80,0.12)] text-[#4caf50]' : 'bg-[#242424] text-[#888]'}`}>
+  1448→                              {name}
+  1449→                            </span>
+
+[showing lines 950-1449 of 2936; use offset=1450 with limit to continue reading]

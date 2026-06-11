@@ -1,0 +1,552 @@
+     1→   958→        {settingsOpen && (
+     2→   959→          <div
+     3→   960→            className="absolute inset-0 z-50 bg-black/60 animate-fade-in"
+     4→   961→            onClick={() => { setSettingsOpen(false); settingsReset() }}
+     5→   962→          >
+     6→   963→            <div
+     7→   964→              className="absolute bottom-0 left-0 right-0 max-h-[88vh] bg-[#1a1a1a] rounded-t-3xl flex flex-col overflow-hidden animate-slide-up-sheet"
+     8→   965→              onClick={e => e.stopPropagation()}
+     9→   966→            >
+    10→   967→              {/* Handle bar */}
+    11→   968→              <div className="flex justify-center pt-2 pb-1 shrink-0">
+    12→   969→                <div className="w-10 h-1 rounded-full bg-[#444]" />
+    13→   970→              </div>
+    14→   971→
+    15→   972→              {/* Header */}
+    16→   973→              <div className="flex items-center justify-center px-4 py-2 relative min-h-[44px] shrink-0 border-b border-[#1e1e1e]">
+    17→   974→                {settingsCurrentPage !== 'root' ? (
+    18→   975→                  <button
+    19→   976→                    onClick={settingsPop}
+    20→   977→                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
+    21→   978→                  >
+    22→   979→                    <IconArrowLeft size={16} className="text-[#ccc]" />
+    23→   980→                  </button>
+    24→   981→                ) : (
+    25→   982→                  <button
+    26→   983→                    onClick={() => { setSettingsOpen(false); settingsReset() }}
+    27→   984→                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
+    28→   985→                  >
+    29→   986→                    <IconClose size={16} className="text-[#ccc]" />
+    30→   987→                  </button>
+    31→   988→                )}
+    32→   989→                <span className="text-[17px] font-semibold tracking-tight text-white">
+    33→   990→                  {settingsCurrentPage === 'root' && (t('chat.settings') || 'Settings')}
+    34→   991→                  {settingsCurrentPage === 'model' && 'Select model'}
+    35→   992→                  {settingsCurrentPage === 'effort' && 'Effort'}
+    36→   993→                  {settingsCurrentPage === 'more-models' && 'More models'}
+    37→   994→                  {settingsCurrentPage === 'voice' && 'Voice'}
+    38→   995→                  {settingsCurrentPage === 'prompt' && (t('chat.custom_prompt') || 'System Prompt')}
+    39→   996→                  {settingsCurrentPage === 'export' && (t('chat.export.title') || 'Export Chat')}
+    40→   997→                  {settingsCurrentPage === 'sandbox' && 'Sandbox'}
+    41→   998→                  {settingsCurrentPage === 'sandbox-provider' && 'Provider'}
+    42→   999→                  {settingsCurrentPage === 'sandbox-runtime' && 'Runtime'}
+    43→  1000→                </span>
+    44→  1001→              </div>
+    45→  1002→
+    46→  1003→              {/* Screens container */}
+    47→  1004→              <div className="flex-1 overflow-y-auto px-4 py-3 settings-sheet-content" style={{ scrollbarWidth: 'none' }}>
+    48→  1005→
+    49→  1006→                {/* ══════ ROOT: Settings categories ══════ */}
+    50→  1007→                {settingsCurrentPage === 'root' && (
+    51→  1008→                  <div className="divide-y divide-[#2a2a2a]">
+    52→  1009→                    {/* Model */}
+    53→  1010→                    <button
+    54→  1011→                      onClick={() => settingsPush('model')}
+    55→  1012→                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+    56→  1013→                    >
+    57→  1014→                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(74,127,181,0.15)] flex items-center justify-center shrink-0">
+    58→  1015→                        <IconLightning size={18} className="text-[#4a7fb5]" />
+    59→  1016→                      </div>
+    60→  1017→                      <div className="flex-1 min-w-0">
+    61→  1018→                        <div className="text-[16px] font-medium text-white">Model</div>
+    62→  1019→                        <div className="text-[13px] text-[#888] truncate">{currentModel?.name || 'Default'}</div>
+    63→  1020→                      </div>
+    64→  1021→                      <span className="text-[20px] text-[#888]">›</span>
+    65→  1022→                    </button>
+    66→  1023→
+    67→  1024→                    {/* Voice */}
+    68→  1025→                    <button
+    69→  1026→                      onClick={() => settingsPush('voice')}
+    70→  1027→                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+    71→  1028→                    >
+    72→  1029→                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(138,90,180,0.15)] flex items-center justify-center shrink-0">
+    73→  1030→                        <IconSpeaker size={18} className="text-[#8a5ab4]" />
+    74→  1031→                      </div>
+    75→  1032→                      <div className="flex-1 min-w-0">
+    76→  1033→                        <div className="text-[16px] font-medium text-white">Voice</div>
+    77→  1034→                        <div className="text-[13px] text-[#888] truncate">
+    78→  1035→                          {tts.currentEngine === 'browser' ? 'Browser TTS' : (tts.engines?.find(e => e.id === tts.currentEngine)?.name || 'Browser')} · {(tts.speed || 1.0).toFixed(1)}x
+    79→  1036→                        </div>
+    80→  1037→                      </div>
+    81→  1038→                      <div className="flex items-center gap-2 shrink-0">
+    82→  1039→                        <div className={`w-2 h-2 rounded-full ${tts.serverAvailable ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.4)]' : 'bg-red-500/60'}`} />
+    83→  1040→                        <span className="text-[20px] text-[#888]">›</span>
+    84→  1041→                      </div>
+    85→  1042→                    </button>
+    86→  1043→
+    87→  1044→                    {/* System Prompt */}
+    88→  1045→                    <button
+    89→  1046→                      onClick={() => settingsPush('prompt')}
+    90→  1047→                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+    91→  1048→                    >
+    92→  1049→                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(200,170,80,0.15)] flex items-center justify-center shrink-0">
+    93→  1050→                        <IconSliders size={18} className="text-[#c8aa50]" />
+    94→  1051→                      </div>
+    95→  1052→                      <div className="flex-1 min-w-0">
+    96→  1053→                        <div className="text-[16px] font-medium text-white">System Prompt</div>
+    97→  1054→                        <div className="text-[13px] text-[#888] truncate">
+    98→  1055→                          {customSystemPrompt ? customSystemPrompt.slice(0, 35) + '...' : 'Default'}
+    99→  1056→                        </div>
+   100→  1057→                      </div>
+   101→  1058→                      <span className="text-[20px] text-[#888]">›</span>
+   102→  1059→                    </button>
+   103→  1060→
+   104→  1061→                    {/* Export Chat */}
+   105→  1062→                    <button
+   106→  1063→                      onClick={() => settingsPush('export')}
+   107→  1064→                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+   108→  1065→                    >
+   109→  1066→                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(196,92,74,0.15)] flex items-center justify-center shrink-0">
+   110→  1067→                        <IconDownload size={18} className="text-[#c45c4a]" />
+   111→  1068→                      </div>
+   112→  1069→                      <div className="flex-1 min-w-0">
+   113→  1070→                        <div className="text-[16px] font-medium text-white">Export Chat</div>
+   114→  1071→                        <div className="text-[13px] text-[#888] truncate">
+   115→  1072→                          {messages.length === 0 ? 'No conversation yet' : `${messages.length} messages`}
+   116→  1073→                        </div>
+   117→  1074→                      </div>
+   118→  1075→                      <span className="text-[20px] text-[#888]">›</span>
+   119→  1076→                    </button>
+   120→  1077→
+   121→  1078→                    {/* Sandbox */}
+   122→  1079→                    <button
+   123→  1080→                      onClick={() => settingsPush('sandbox')}
+   124→  1081→                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+   125→  1082→                    >
+   126→  1083→                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(76,175,80,0.15)] flex items-center justify-center shrink-0">
+   127→  1084→                        <IconCube size={18} className="text-[#4caf50]" />
+   128→  1085→                      </div>
+   129→  1086→                      <div className="flex-1 min-w-0">
+   130→  1087→                        <div className="text-[16px] font-medium text-white">Sandbox</div>
+   131→  1088→                        <div className="text-[13px] text-[#888] truncate">Daytona · Docker · E2B</div>
+   132→  1089→                      </div>
+   133→  1090→                      <span className="text-[20px] text-[#888]">›</span>
+   134→  1091→                    </button>
+   135→  1092→
+   136→  1093→                    {/* Full Voice Settings shortcut */}
+   137→  1094→                    <div className="pt-4">
+   138→  1095→                      <button
+   139→  1096→                        onClick={() => { setSettingsOpen(false); settingsReset(); setVoiceSettingsOpen(true) }}
+   140→  1097→                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[rgba(138,90,180,0.12)] text-[#b88fd8] active:bg-[rgba(138,90,180,0.2)] transition-colors"
+   141→  1098→                      >
+   142→  1099→                        <IconSpeaker size={16} /> Full Voice Settings Panel
+   143→  1100→                      </button>
+   144→  1101→                    </div>
+   145→  1102→                  </div>
+   146→  1103→                )}
+   147→  1104→
+   148→  1105→                {/* ══════ MODEL SELECTOR ══════ */}
+   149→  1106→                {settingsCurrentPage === 'model' && (
+   150→  1107→                  <div className="divide-y divide-[#2a2a2a]">
+   151→  1108→                    {MODELS.map(m => (
+   152→  1109→                      <button
+   153→  1110→                        key={m.id}
+   154→  1111→                        onClick={() => setModel(m.id)}
+   155→  1112→                        className="w-full py-4 text-left active:opacity-60 transition-opacity"
+   156→  1113→                      >
+   157→  1114→                        <div className="flex items-center gap-2.5 mb-1">
+   158→  1115→                          <span className={`text-[17px] font-medium ${model === m.id ? 'text-[#4a9fd1]' : 'text-white'}`}>{m.name}</span>
+   159→  1116→                          {m.tag && (
+   160→  1117→                            <span className={`text-[10px] font-bold tracking-[0.5px] px-[7px] py-[2px] rounded-[5px] uppercase ${
+   161→  1118→                              m.tag.toLowerCase().includes('premium') || m.tag.toLowerCase().includes('pro')
+   162→  1119→                                ? 'text-[#4a7fb5] bg-[rgba(74,127,181,0.12)]'
+   163→  1120→                                : m.tag.toLowerCase().includes('free') || m.tag.toLowerCase().includes('fast')
+   164→  1121→                                  ? 'text-[#4caf50] bg-[rgba(76,175,80,0.12)]'
+   165→  1122→                                  : 'text-[#888] bg-[rgba(255,255,255,0.06)]'
+   166→  1123→                            }`}>
+   167→  1124→                              {m.tag}
+   168→  1125→                            </span>
+   169→  1126→                          )}
+   170→  1127→                        </div>
+   171→  1128→                        <div className={`text-[14px] flex items-center justify-between ${model === m.id ? 'text-[#4a9fd1]' : 'text-[#888]'}`}>
+   172→  1129→                          <span>{m.id}</span>
+   173→  1130→                          {model === m.id && <span className="text-[20px]">✓</span>}
+   174→  1131→                        </div>
+   175→  1132→                      </button>
+   176→  1133→                    ))}
+   177→  1134→
+   178→  1135→                    {/* Effort row */}
+   179→  1136→                    <div className="border-t border-[#2a2a2a]" />
+   180→  1137→                    <button
+   181→  1138→                      onClick={() => settingsPush('effort')}
+   182→  1139→                      className="w-full flex items-center py-3.5 text-left active:opacity-60 transition-opacity"
+   183→  1140→                    >
+   184→  1141→                      <div className="flex-1">
+   185→  1142→                        <div className="text-[16px] font-medium text-white">Effort</div>
+   186→  1143→                        <div className="text-[13px] text-[#888]" id="currentEffortLabel">Low</div>
+   187→  1144→                      </div>
+   188→  1145→                      <span className="text-[20px] text-[#888]">›</span>
+   189→  1146→                    </button>
+   190→  1147→
+   191→  1148→                    {/* More models row */}
+   192→  1149→                    <button
+   193→  1150→                      onClick={() => settingsPush('more-models')}
+   194→  1151→                      className="w-full flex items-center py-3.5 text-left active:opacity-60 transition-opacity"
+   195→  1152→                    >
+   196→  1153→                      <div className="flex-1">
+   197→  1154→                        <div className="text-[16px] font-medium text-white">More models</div>
+   198→  1155→                      </div>
+   199→  1156→                      <span className="text-[20px] text-[#888]">›</span>
+   200→  1157→                    </button>
+   201→  1158→                  </div>
+   202→  1159→                )}
+   203→  1160→
+   204→  1161→                {/* ══════ EFFORT SELECTOR ══════ */}
+   205→  1162→                {settingsCurrentPage === 'effort' && (
+   206→  1163→                  <div className="space-y-2 pt-2">
+   207→  1164→                    {[
+   208→  1165→                      { level: 'Low', desc: 'Faster responses, less reasoning', selected: true },
+   209→  1166→                      { level: 'Medium', desc: 'Balanced speed and depth', selected: false },
+   210→  1167→                      { level: 'High', desc: 'Deeper reasoning, slower responses', selected: false },
+   211→  1168→                    ].map(opt => (
+   212→  1169→                      <button
+   213→  1170→                        key={opt.level}
+   214→  1171→                        onClick={() => {
+   215→  1172→                          // Update effort label on model page
+   216→  1173→                          const el = document.getElementById('currentEffortLabel')
+   217→  1174→                          if (el) el.textContent = opt.level
+   218→  1175→                        }}
+   219→  1176→                        className={`w-full flex items-center justify-between px-4 py-[18px] rounded-[14px] transition-all active:scale-[0.98] ${
+   220→  1177→                          opt.selected
+   221→  1178→                            ? 'bg-[rgba(196,92,74,0.08)] border-2 border-[#c45c4a]'
+   222→  1179→                            : 'bg-[#242424] border-2 border-transparent'
+   223→  1180→                        }`}
+   224→  1181→                      >
+   225→  1182→                        <span className="text-[16px] font-medium text-white">{opt.level}</span>
+   226→  1183→                        <span className={`text-[20px] text-[#c45c4a] transition-opacity ${opt.selected ? 'opacity-100' : 'opacity-0'}`}>✓</span>
+   227→  1184→                      </button>
+   228→  1185→                    ))}
+   229→  1186→                  </div>
+   230→  1187→                )}
+   231→  1188→
+   232→  1189→                {/* ══════ MORE MODELS ══════ */}
+   233→  1190→                {settingsCurrentPage === 'more-models' && (
+   234→  1191→                  <div className="divide-y divide-[#2a2a2a]">
+   235→  1192→                    {[
+   236→  1193→                      { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1', tag: 'Reasoning', pro: true },
+   237→  1194→                      { id: 'qwen-qwq-32b', name: 'Qwen QwQ', tag: 'Reasoning', pro: true },
+   238→  1195→                      { id: 'llama-3.2-3b-preview', name: 'Nova 0.9', tag: 'Lightweight', pro: false },
+   239→  1196→                    ].map(m => (
+   240→  1197→                      <button
+   241→  1198→                        key={m.id}
+   242→  1199→                        onClick={() => setModel(m.id)}
+   243→  1200→                        className="w-full py-4 text-left active:opacity-60 transition-opacity"
+   244→  1201→                      >
+   245→  1202→                        <div className="flex items-center gap-2.5">
+   246→  1203→                          <span className={`text-[17px] font-medium ${model === m.id ? 'text-[#4a9fd1]' : 'text-white'}`}>{m.name}</span>
+   247→  1204→                          {m.pro && (
+   248→  1205→                            <span className="text-[10px] font-bold tracking-[0.5px] px-[7px] py-[2px] rounded-[5px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.12)]">
+   249→  1206→                              Pro
+   250→  1207→                            </span>
+   251→  1208→                          )}
+   252→  1209→                        </div>
+   253→  1210→                        <div className={`text-[14px] flex items-center justify-between mt-1 ${model === m.id ? 'text-[#4a9fd1]' : 'text-[#888]'}`}>
+   254→  1211→                          <span>{m.id}</span>
+   255→  1212→                          {model === m.id && <span className="text-[20px]">✓</span>}
+   256→  1213→                        </div>
+   257→  1214→                      </button>
+   258→  1215→                    ))}
+   259→  1216→                  </div>
+   260→  1217→                )}
+   261→  1218→
+   262→  1219→                {/* ══════ VOICE ══════ */}
+   263→  1220→                {settingsCurrentPage === 'voice' && (
+   264→  1221→                  <div className="divide-y divide-[#2a2a2a]">
+   265→  1222→                    {/* Server status */}
+   266→  1223→                    <div className="flex items-center gap-2.5 py-3.5">
+   267→  1224→                      <div className={`w-2.5 h-2.5 rounded-full ${tts.serverAvailable ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-red-500/60'}`} />
+   268→  1225→                      <span className="text-[14px] text-[#aaa]">
+   269→  1226→                        Voice Server {tts.serverAvailable ? 'Connected' : 'Offline'}
+   270→  1227→                      </span>
+   271→  1228→                      <span className="text-[11px] text-[#555] ml-auto">
+   272→  1229→                        {tts.serverAvailable ? 'High-quality TTS' : 'Browser fallback'}
+   273→  1230→                      </span>
+   274→  1231→                    </div>
+   275→  1232→
+   276→  1233→                    {/* Engine */}
+   277→  1234→                    <div className="py-3.5">
+   278→  1235→                      <div className="text-[10px] font-medium text-[#666] uppercase tracking-wider mb-2">Engine</div>
+   279→  1236→                      <div className="space-y-1">
+   280→  1237→                        {(tts.engines?.length > 0 ? tts.engines : [{ id: 'browser', name: 'Browser TTS', features: ['free', 'low-latency'] }]).map(eng => (
+   281→  1238→                          <button
+   282→  1239→                            key={eng.id}
+   283→  1240→                            onClick={() => tts.setEngine?.(eng.id)}
+   284→  1241→                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-left ${
+   285→  1242→                              tts.currentEngine === eng.id
+   286→  1243→                                ? 'bg-[rgba(138,90,180,0.1)] border border-[rgba(138,90,180,0.2)]'
+   287→  1244→                                : 'hover:bg-[#222] border border-transparent'
+   288→  1245→                            }`}
+   289→  1246→                          >
+   290→  1247→                            <div className="flex-1 min-w-0">
+   291→  1248→                              <div className={`text-[14px] font-medium ${tts.currentEngine === eng.id ? 'text-[#b88fd8]' : 'text-white'}`}>
+   292→  1249→                                {eng.name}
+   293→  1250→                              </div>
+   294→  1251→                              {eng.features && (
+   295→  1252→                                <div className="flex gap-1 mt-0.5">
+   296→  1253→                                  {eng.features.map(f => (
+   297→  1254→                                    <span key={f} className="text-[9px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-[#555]">{f}</span>
+   298→  1255→                                  ))}
+   299→  1256→                                </div>
+   300→  1257→                              )}
+   301→  1258→                            </div>
+   302→  1259→                            {tts.currentEngine === eng.id && (
+   303→  1260→                              <span className="text-[#b88fd8] text-[16px]">✓</span>
+   304→  1261→                            )}
+   305→  1262→                          </button>
+   306→  1263→                        ))}
+   307→  1264→                      </div>
+   308→  1265→                    </div>
+   309→  1266→
+   310→  1267→                    {/* Speed */}
+   311→  1268→                    <div className="py-3.5">
+   312→  1269→                      <div className="flex items-center justify-between mb-2">
+   313→  1270→                        <span className="text-[10px] font-medium text-[#666] uppercase tracking-wider">Speed</span>
+   314→  1271→                        <span className="text-[13px] text-[#aaa] font-mono">{(tts.speed || 1.0).toFixed(1)}x</span>
+   315→  1272→                      </div>
+   316→  1273→                      <input
+   317→  1274→                        type="range"
+   318→  1275→                        min="0.5"
+   319→  1276→                        max="2.0"
+   320→  1277→                        step="0.1"
+   321→  1278→                        value={tts.speed || 1.0}
+   322→  1279→                        onChange={e => tts.setSpeed?.(parseFloat(e.target.value))}
+   323→  1280→                        className="settings-voice-slider w-full h-1.5 rounded-full appearance-none cursor-pointer"
+   324→  1281→                        style={{
+   325→  1282→                          background: `linear-gradient(to right, #a855f7 0%, #ef4444 ${(((tts.speed || 1.0) - 0.5) / 1.5) * 100}%, #262626 ${(((tts.speed || 1.0) - 0.5) / 1.5) * 100}%)`,
+   326→  1283→                        }}
+   327→  1284→                      />
+   328→  1285→                      <div className="flex justify-between mt-1.5">
+   329→  1286→                        <span className="text-[11px] text-[#444]">0.5x</span>
+   330→  1287→                        <span className="text-[11px] text-[#444]">1.0x</span>
+   331→  1288→                        <span className="text-[11px] text-[#444]">2.0x</span>
+   332→  1289→                      </div>
+   333→  1290→                    </div>
+   334→  1291→
+   335→  1292→                    {/* Test Voice */}
+   336→  1293→                    <div className="py-3.5">
+   337→  1294→                      <button
+   338→  1295→                        onClick={() => {
+   339→  1296→                          if (tts.speak) {
+   340→  1297→                            tts.speak("Hello from Kivora", { interrupt: true }).catch(() => {})
+   341→  1298→                          } else if (typeof window !== 'undefined' && window.speechSynthesis) {
+   342→  1299→                            window.speechSynthesis.speak(new SpeechSynthesisUtterance("Hello from Kivora"))
+   343→  1300→                          }
+   344→  1301→                        }}
+   345→  1302→                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-[14px] text-[15px] font-medium transition-all active:scale-[0.98]"
+   346→  1303→                        style={{
+   347→  1304→                          background: 'linear-gradient(135deg, rgba(168,85,247,0.12), rgba(239,68,68,0.12))',
+   348→  1305→                          border: '1px solid rgba(168,85,247,0.15)',
+   349→  1306→                          color: '#d4d4d4',
+   350→  1307→                        }}
+   351→  1308→                      >
+   352→  1309→                        <IconSpeaker size={16} /> Test Voice
+   353→  1310→                      </button>
+   354→  1311→                    </div>
+   355→  1312→
+   356→  1313→                    {/* Full Voice Panel link */}
+   357→  1314→                    <div className="py-3.5">
+   358→  1315→                      <button
+   359→  1316→                        onClick={() => { setSettingsOpen(false); settingsReset(); setVoiceSettingsOpen(true) }}
+   360→  1317→                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[rgba(138,90,180,0.12)] text-[#b88fd8] active:bg-[rgba(138,90,180,0.2)] transition-colors"
+   361→  1318→                      >
+   362→  1319→                        Full Voice Settings Panel →
+   363→  1320→                      </button>
+   364→  1321→                    </div>
+   365→  1322→                  </div>
+   366→  1323→                )}
+   367→  1324→
+   368→  1325→                {/* ══════ SYSTEM PROMPT ══════ */}
+   369→  1326→                {settingsCurrentPage === 'prompt' && (
+   370→  1327→                  <div className="py-3">
+   371→  1328→                    <div className="text-[13px] text-[#888] mb-3">Current prompt</div>
+   372→  1329→                    <textarea
+   373→  1330→                      rows={6}
+   374→  1331→                      className="w-full bg-[#242424] border border-[#2a2a2a] rounded-[12px] px-4 py-3.5 text-[14px] text-white placeholder-[#3a3a3a] resize-vertical outline-none focus:border-[#3a3a3a] transition-colors font-[inherit] leading-relaxed"
+   375→  1332→                      placeholder="Enter system prompt..."
+   376→  1333→                      value={customSystemPrompt}
+   377→  1334→                      onChange={e => {
+   378→  1335→                        saveCustomSystemPrompt(e.target.value)
+   379→  1336→                        setSettingsPromptSaved(true)
+   380→  1337→                        setTimeout(() => setSettingsPromptSaved(false), 1500)
+   381→  1338→                      }}
+   382→  1339→                    />
+   383→  1340→                    <div className="flex items-center justify-between mt-2.5">
+   384→  1341→                      <button
+   385→  1342→                        onClick={() => { resetCustomSystemPrompt(); setSettingsPromptSaved(true); setTimeout(() => setSettingsPromptSaved(false), 1500) }}
+   386→  1343→                        className="text-[13px] text-[#555] hover:text-red-400 transition-colors"
+   387→  1344→                      >
+   388→  1345→                        {t('chat.custom_prompt.reset') || 'Reset to default'}
+   389→  1346→                      </button>
+   390→  1347→                      {settingsPromptSaved && (
+   391→  1348→                        <span className="text-[13px] text-emerald-400 flex items-center gap-1">
+   392→  1349→                          <IconCheck size={12} /> Saved
+   393→  1350→                        </span>
+   394→  1351→                      )}
+   395→  1352→                    </div>
+   396→  1353→                  </div>
+   397→  1354→                )}
+   398→  1355→
+   399→  1356→                {/* ══════ EXPORT CHAT ══════ */}
+   400→  1357→                {settingsCurrentPage === 'export' && (
+   401→  1358→                  <div>
+   402→  1359→                    {messages.length === 0 ? (
+   403→  1360→                      <div className="flex flex-col items-center justify-center py-10 text-center">
+   404→  1361→                        <div className="text-[48px] mb-4">📭</div>
+   405→  1362→                        <div className="text-[16px] text-[#888]">No conversation to export yet</div>
+   406→  1363→                      </div>
+   407→  1364→                    ) : (
+   408→  1365→                      <div>
+   409→  1366→                        <div className="text-[13px] text-[#888] mb-3">
+   410→  1367→                          Export {messages.length} messages from this conversation.
+   411→  1368→                        </div>
+   412→  1369→                        <div className="divide-y divide-[#2a2a2a]">
+   413→  1370→                          {[
+   414→  1371→                            { id: 'pdf', label: 'PDF', desc: 'Formatted document', Icon: IconFile },
+   415→  1372→                            { id: 'docx', label: 'DOCX', desc: 'Word document', Icon: IconWrite },
+   416→  1373→                            { id: 'html', label: 'HTML', desc: 'Web page', Icon: IconGlobe },
+   417→  1374→                            { id: 'md', label: 'Markdown', desc: 'Plain text markup', Icon: IconClipboard },
+   418→  1375→                            { id: 'txt', label: 'TXT', desc: 'Plain text', Icon: IconFile },
+   419→  1376→                          ].map(fmt => (
+   420→  1377→                            <button
+   421→  1378→                              key={fmt.id}
+   422→  1379→                              onClick={() => setSettingsExportFormat(fmt.id)}
+   423→  1380→                              className={`w-full flex items-center gap-3.5 py-3.5 text-left transition-colors ${
+   424→  1381→                                settingsExportFormat === fmt.id ? 'opacity-100' : 'opacity-70'
+   425→  1382→                              }`}
+   426→  1383→                            >
+   427→  1384→                              <fmt.Icon size={16} className={settingsExportFormat === fmt.id ? 'text-[#c45c4a]' : 'text-[#555]'} />
+   428→  1385→                              <div className="flex-1">
+   429→  1386→                                <div className={`text-[16px] font-medium ${settingsExportFormat === fmt.id ? 'text-[#c45c4a]' : 'text-white'}`}>{fmt.label}</div>
+   430→  1387→                                <div className="text-[13px] text-[#888]">{fmt.desc}</div>
+   431→  1388→                              </div>
+   432→  1389→                              {settingsExportFormat === fmt.id && (
+   433→  1390→                                <span className="text-[#c45c4a] text-[16px]">✓</span>
+   434→  1391→                              )}
+   435→  1392→                            </button>
+   436→  1393→                          ))}
+   437→  1394→                        </div>
+   438→  1395→                        <button
+   439→  1396→                          onClick={async () => { await exportChat(settingsExportFormat); setSettingsExported(true); setTimeout(() => setSettingsExported(false), 2000) }}
+   440→  1397→                          className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-[14px] text-[15px] font-semibold mt-3 transition-colors ${
+   441→  1398→                            settingsExported
+   442→  1399→                              ? 'bg-emerald-600 text-white'
+   443→  1400→                              : 'bg-[#c45c4a] hover:bg-[#d97a6a] text-white'
+   444→  1401→                          }`}
+   445→  1402→                        >
+   446→  1403→                          {settingsExported ? (
+   447→  1404→                            <><IconCheck size={16} /> Exported</>
+   448→  1405→                          ) : (
+   449→  1406→                            <><IconDownload size={16} /> Export as {settingsExportFormat.toUpperCase()}</>
+   450→  1407→                          )}
+   451→  1408→                        </button>
+   452→  1409→                      </div>
+   453→  1410→                    )}
+   454→  1411→                  </div>
+   455→  1412→                )}
+   456→  1413→
+   457→  1414→                {/* ══════ SANDBOX ══════ */}
+   458→  1415→                {settingsCurrentPage === 'sandbox' && (
+   459→  1416→                  <div className="divide-y divide-[#2a2a2a]">
+   460→  1417→                    {/* Provider row */}
+   461→  1418→                    <button
+   462→  1419→                      onClick={() => settingsPush('sandbox-provider')}
+   463→  1420→                      className="w-full flex items-center py-3.5 text-left active:opacity-60 transition-opacity"
+   464→  1421→                    >
+   465→  1422→                      <div className="flex-1">
+   466→  1423→                        <div className="text-[16px] font-medium text-white">Provider</div>
+   467→  1424→                        <div className="text-[13px] text-[#888]">Daytona</div>
+   468→  1425→                      </div>
+   469→  1426→                      <span className="text-[20px] text-[#888]">›</span>
+   470→  1427→                    </button>
+   471→  1428→
+   472→  1429→                    {/* Runtime row */}
+   473→  1430→                    <button
+   474→  1431→                      onClick={() => settingsPush('sandbox-runtime')}
+   475→  1432→                      className="w-full flex items-center py-3.5 text-left active:opacity-60 transition-opacity"
+   476→  1433→                    >
+   477→  1434→                      <div className="flex-1">
+   478→  1435→                        <div className="text-[16px] font-medium text-white">Runtime</div>
+   479→  1436→                        <div className="text-[13px] text-[#888]">Docker</div>
+   480→  1437→                      </div>
+   481→  1438→                      <span className="text-[20px] text-[#888]">›</span>
+   482→  1439→                    </button>
+   483→  1440→
+   484→  1441→                    {/* Fallback chain */}
+   485→  1442→                    <div className="py-3.5">
+   486→  1443→                      <div className="text-[10px] font-medium text-[#666] uppercase tracking-wider mb-2">Auto-fallback chain</div>
+   487→  1444→                      <div className="flex items-center flex-wrap gap-1">
+   488→  1445→                        {['Daytona', 'Docker', 'E2B', 'Kaggle', 'Colab', 'Codespaces'].map((name, i) => (
+   489→  1446→                          <span key={name} className="flex items-center">
+   490→  1447→                            <span className={`text-[11px] px-2 py-1 rounded-lg ${i === 0 ? 'bg-[rgba(76,175,80,0.12)] text-[#4caf50]' : 'bg-[#242424] text-[#888]'}`}>
+   491→  1448→                              {name}
+   492→  1449→                            </span>
+   493→  1450→                            {i < 5 && <span className="text-[10px] text-[#333] mx-1">→</span>}
+   494→  1451→                          </span>
+   495→  1452→                        ))}
+   496→  1453→                      </div>
+   497→  1454→                    </div>
+   498→  1455→                  </div>
+   499→  1456→                )}
+   500→  1457→
+   501→  1458→                {/* ══════ SANDBOX PROVIDER ══════ */}
+   502→  1459→                {settingsCurrentPage === 'sandbox-provider' && (
+   503→  1460→                  <div className="divide-y divide-[#2a2a2a]">
+   504→  1461→                    {[
+   505→  1462→                      { id: 'daytona', name: 'Daytona', desc: 'Cloud sandbox · GPU · <90ms cold start', primary: true },
+   506→  1463→                      { id: 'docker', name: 'Docker Engine', desc: 'Self-hosted containers · Any language', primary: false },
+   507→  1464→                      { id: 'e2b', name: 'E2B', desc: 'Cloud microVMs · Secure · Fast', primary: false },
+   508→  1465→                      { id: 'kaggle', name: 'Kaggle', desc: 'Free notebooks · GPU · Python/R', primary: false },
+   509→  1466→                      { id: 'colab', name: 'Colab', desc: 'Google notebooks · Free GPU', primary: false },
+   510→  1467→                      { id: 'codespaces', name: 'Codespaces', desc: 'Full VS Code · GitHub integration', primary: false },
+   511→  1468→                    ].map(p => (
+   512→  1469→                      <div key={p.id} className="flex items-center gap-3 py-3.5">
+   513→  1470→                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${p.primary ? 'bg-[rgba(76,175,80,0.15)]' : 'bg-[#1a1a1a]'}`}>
+   514→  1471→                          <IconCube size={14} className={p.primary ? 'text-[#4caf50]' : 'text-[#555]'} />
+   515→  1472→                        </div>
+   516→  1473→                        <div className="flex-1 min-w-0">
+   517→  1474→                          <div className="flex items-center gap-2">
+   518→  1475→                            <span className={`text-[16px] font-medium ${p.primary ? 'text-[#4caf50]' : 'text-[#aaa]'}`}>{p.name}</span>
+   519→  1476→                            {p.primary && (
+   520→  1477→                              <span className="text-[9px] font-bold tracking-[0.5px] px-2 py-0.5 rounded bg-[rgba(76,175,80,0.12)] text-[#4caf50] uppercase">Primary</span>
+   521→  1478→                            )}
+   522→  1479→                          </div>
+   523→  1480→                          <div className="text-[13px] text-[#555] truncate">{p.desc}</div>
+   524→  1481→                        </div>
+   525→  1482→                      </div>
+   526→  1483→                    ))}
+   527→  1484→                  </div>
+   528→  1485→                )}
+   529→  1486→
+   530→  1487→                {/* ══════ SANDBOX RUNTIME ══════ */}
+   531→  1488→                {settingsCurrentPage === 'sandbox-runtime' && (
+   532→  1489→                  <div className="divide-y divide-[#2a2a2a]">
+   533→  1490→                    {[
+   534→  1491→                      { id: 'docker', name: 'Docker', desc: 'Container-based isolation' },
+   535→  1492→                      { id: 'microvm', name: 'MicroVM', desc: 'Lightweight VM sandbox' },
+   536→  1493→                      { id: 'notebook', name: 'Notebook', desc: 'Jupyter-style execution' },
+   537→  1494→                    ].map(r => (
+   538→  1495→                      <div key={r.id} className="py-3.5">
+   539→  1496→                        <div className="text-[16px] font-medium text-[#aaa]">{r.name}</div>
+   540→  1497→                        <div className="text-[13px] text-[#555]">{r.desc}</div>
+   541→  1498→                      </div>
+   542→  1499→                    ))}
+   543→  1500→                  </div>
+   544→  1501→                )}
+   545→  1502→              </div>
+   546→  1503→            </div>
+   547→  1504→          </div>
+   548→  1505→        )}
+   549→  1506→
+   550→  1507→        {/* ── Settings toggle + Profile avatar — pinned to bottom ── */}
+   551→
+   552→[showing lines 958-1507 of 2936; use offset=1508 with limit to continue reading]
