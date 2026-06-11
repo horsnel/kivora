@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { AnimatePresence, motion } from 'framer-motion'
 import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings, IconCopy as IconClipboard, IconWrite, IconFilter, IconRobot, IconTarget, IconDatabase, IconStack, IconSpeaker, IconArrowLeft, IconArrowRight, IconCube } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
@@ -174,21 +175,30 @@ export default function ChatClient() {
   // Chat sidebar settings panel
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsStack, setSettingsStack] = useState(['root']) // Navigation stack: ['root'] | ['root', 'model'] | ['root', 'model', 'effort'] etc
+  const [settingsCurrentPage, setSettingsCurrentPage] = useState('root')
+  const [settingsSlideDir, setSettingsSlideDir] = useState('push') // 'push' | 'pop'
   const [settingsExportFormat, setSettingsExportFormat] = useState('md')
   const [settingsPromptSaved, setSettingsPromptSaved] = useState(false)
   const [settingsExported, setSettingsExported] = useState(false)
 
-  // Settings navigation helpers
+  // Settings navigation helpers with slide direction
   const settingsPush = useCallback((page) => {
+    setSettingsSlideDir('push')
     setSettingsStack(prev => [...prev, page])
+    setSettingsCurrentPage(page)
   }, [])
   const settingsPop = useCallback(() => {
-    setSettingsStack(prev => prev.length > 1 ? prev.slice(0, -1) : prev)
-  }, [])
+    if (settingsStack.length <= 1) return
+    setSettingsSlideDir('pop')
+    const prevPage = settingsStack[settingsStack.length - 2]
+    setSettingsStack(prev => prev.slice(0, -1))
+    setSettingsCurrentPage(prevPage)
+  }, [settingsStack])
   const settingsReset = useCallback(() => {
     setSettingsStack(['root'])
+    setSettingsCurrentPage('root')
+    setSettingsSlideDir('push')
   }, [])
-  const settingsCurrentPage = settingsStack[settingsStack.length - 1]
 
   // Escape key + swipe-to-go-back for settings sheet
   useEffect(() => {
@@ -1001,7 +1011,16 @@ export default function ChatClient() {
               </div>
 
               {/* Screens container */}
-              <div className="flex-1 overflow-y-auto px-4 py-3 settings-sheet-content" style={{ scrollbarWidth: 'none' }}>
+              <div className="flex-1 overflow-y-auto relative settings-sheet-content" style={{ scrollbarWidth: 'none' }}>
+                <AnimatePresence mode="popLayout" initial={false}>
+                  <motion.div
+                    key={settingsCurrentPage}
+                    initial={{ x: settingsSlideDir === 'push' ? 300 : -100, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: settingsSlideDir === 'push' ? -100 : 300, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                    className="px-4 py-3"
+                  >
 
                 {/* ══════ ROOT: Settings categories ══════ */}
                 {settingsCurrentPage === 'root' && (
@@ -1499,6 +1518,8 @@ export default function ChatClient() {
                     ))}
                   </div>
                 )}
+                  </motion.div>
+                </AnimatePresence>
               </div>
             </div>
           </div>
