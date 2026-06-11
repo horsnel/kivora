@@ -964,36 +964,31 @@ export default function ChatClient() {
           ) : null}
         </div>
 
-        {/* ── Settings bottom sheet (Claude AI stacked navigation) ── */}
+        {/* ── Settings full-page modal (Claude AI stacked navigation) ── */}
         {settingsOpen && (
           <div
-            className="absolute inset-0 z-50 bg-black/60 animate-fade-in"
+            className="fixed inset-0 z-50 bg-[#1a1a1a] animate-fade-in"
             onClick={() => { setSettingsOpen(false); settingsReset() }}
           >
             <div
-              className="absolute bottom-0 left-0 right-0 max-h-[88vh] bg-[#1a1a1a] rounded-t-3xl flex flex-col overflow-hidden animate-slide-up-sheet"
+              className="w-full h-full flex flex-col overflow-hidden"
               onClick={e => e.stopPropagation()}
             >
-              {/* Handle bar */}
-              <div className="flex justify-center pt-2 pb-1 shrink-0">
-                <div className="w-10 h-1 rounded-full bg-[#444]" />
-              </div>
-
               {/* Header */}
-              <div className="flex items-center justify-center px-4 py-2 relative min-h-[44px] shrink-0 border-b border-[#1e1e1e]">
+              <div className="flex items-center justify-center px-4 py-3 relative min-h-[52px] shrink-0 border-b border-[#2a2a2a]">
                 {settingsCurrentPage !== 'root' ? (
                   <button
                     onClick={settingsPop}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
                   >
-                    <IconArrowLeft size={16} className="text-[#ccc]" />
+                    <IconArrowLeft size={18} className="text-[#ccc]" />
                   </button>
                 ) : (
                   <button
                     onClick={() => { setSettingsOpen(false); settingsReset() }}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
                   >
-                    <IconClose size={16} className="text-[#ccc]" />
+                    <IconClose size={18} className="text-[#ccc]" />
                   </button>
                 )}
                 <span className="text-[17px] font-semibold tracking-tight text-white">
@@ -1010,8 +1005,8 @@ export default function ChatClient() {
                 </span>
               </div>
 
-              {/* Screens container */}
-              <div className="flex-1 overflow-y-auto relative settings-sheet-content" style={{ scrollbarWidth: 'none' }}>
+              {/* Screens container - now fills remaining height */}
+              <div className="flex-1 overflow-y-auto px-5 py-4" style={{ scrollbarWidth: 'none' }}>
                 <AnimatePresence mode="popLayout" initial={false}>
                   <motion.div
                     key={settingsCurrentPage}
@@ -1019,7 +1014,6 @@ export default function ChatClient() {
                     animate={{ x: 0, opacity: 1 }}
                     exit={{ x: settingsSlideDir === 'push' ? -100 : 300, opacity: 0 }}
                     transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                    className="px-4 py-3"
                   >
 
                 {/* ══════ ROOT: Settings categories ══════ */}
