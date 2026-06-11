@@ -11,6 +11,9 @@ const nextConfig = {
   experimental: {
     viewTransition: true,
   },
+  turbopack: {
+    root: '/home/z/my-project',
+  },
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // Don't bundle Node.js-only modules on the client

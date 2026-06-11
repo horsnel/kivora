@@ -191,6 +191,40 @@ input, textarea, select {
 .animate-slide-down { animation: slideDown 0.25s cubic-bezier(0.16,1,0.3,1) forwards; }
 .animate-scale-in  { animation: scaleIn 0.25s cubic-bezier(0.16,1,0.3,1) forwards; }
 
+/* ── Settings bottom sheet animation ── */
+@keyframes slideUpSheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-slide-up-sheet { animation: slideUpSheet 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
+
+/* Settings sheet scrollable content - hide scrollbar */
+.settings-sheet-content::-webkit-scrollbar { display: none; }
+.settings-sheet-content { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Settings voice slider thumb */
+.settings-voice-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #a855f7, #ef4444);
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(168,85,247,0.3);
+  border: 2px solid #1a1a1a;
+  transition: box-shadow 0.2s ease;
+}
+.settings-voice-slider::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 10px rgba(168,85,247,0.5);
+}
+.settings-voice-slider::-moz-range-thumb {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #a855f7, #ef4444);
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(168,85,247,0.3);
+  border: 2px solid #1a1a1a;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    View Transitions API — Smooth page transitions
    Chrome 111+, Edge 111+, Safari 18+ (graceful fallback for others)

@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings, IconCopy as IconClipboard, IconWrite, IconFilter, IconRobot, IconTarget, IconDatabase, IconStack, IconSpeaker } from '@/components/Icons'
+import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings, IconCopy as IconClipboard, IconWrite, IconFilter, IconRobot, IconTarget, IconDatabase, IconStack, IconSpeaker, IconArrowLeft, IconArrowRight, IconCube } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
@@ -173,9 +173,35 @@ export default function ChatClient() {
 
   // Chat sidebar settings panel
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsStack, setSettingsStack] = useState(['root']) // Navigation stack: ['root'] | ['root', 'model'] | ['root', 'model', 'effort'] etc
   const [settingsExportFormat, setSettingsExportFormat] = useState('md')
   const [settingsPromptSaved, setSettingsPromptSaved] = useState(false)
   const [settingsExported, setSettingsExported] = useState(false)
+
+  // Settings navigation helpers
+  const settingsPush = useCallback((page) => {
+    setSettingsStack(prev => [...prev, page])
+  }, [])
+  const settingsPop = useCallback(() => {
+    setSettingsStack(prev => prev.length > 1 ? prev.slice(0, -1) : prev)
+  }, [])
+  const settingsReset = useCallback(() => {
+    setSettingsStack(['root'])
+  }, [])
+  const settingsCurrentPage = settingsStack[settingsStack.length - 1]
+
+  // Escape key + swipe-to-go-back for settings sheet
+  useEffect(() => {
+    if (!settingsOpen) return
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        if (settingsStack.length > 1) settingsPop()
+        else { setSettingsOpen(false); settingsReset() }
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [settingsOpen, settingsStack, settingsPop, settingsReset])
 
   // ── Artifacts (Claude-style side panel) ──
   const [activeArtifact, setActiveArtifact] = useState(null) // { type, title, code }
@@ -928,175 +954,550 @@ export default function ChatClient() {
           ) : null}
         </div>
 
-        {/* ── Settings popup overlay (ChatGPT-style) ── */}
+        {/* ── Settings bottom sheet (Claude AI stacked navigation) ── */}
         {settingsOpen && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setSettingsOpen(false)}>
+          <div
+            className="absolute inset-0 z-50 bg-black/60 animate-fade-in"
+            onClick={() => { setSettingsOpen(false); settingsReset() }}
+          >
             <div
-              className="w-[290px] bg-[#1a1a1a] border border-[#262626] rounded-2xl shadow-2xl p-4 animate-scale-in"
+              className="absolute bottom-0 left-0 right-0 max-h-[88vh] bg-[#1a1a1a] rounded-t-3xl flex flex-col overflow-hidden animate-slide-up-sheet"
               onClick={e => e.stopPropagation()}
             >
+              {/* Handle bar */}
+              <div className="flex justify-center pt-2 pb-1 shrink-0">
+                <div className="w-10 h-1 rounded-full bg-[#444]" />
+              </div>
+
               {/* Header */}
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-sm tracking-tight flex items-center gap-2">
-                  <IconSettings size={14} className="text-muted" />
-                  {t('chat.settings') || 'Settings'}
-                </h2>
-                <button
-                  onClick={() => setSettingsOpen(false)}
-                  className="w-6 h-6 flex items-center justify-center text-[#525252] hover:text-white rounded-md hover:bg-[#262626] transition-colors"
-                >
-                  <IconClose size={12} />
-                </button>
-              </div>
-
-              {/* Custom System Prompt */}
-              <div className="mb-4">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <IconSliders size={11} className="text-muted" />
-                  <span className="text-[11px] font-medium text-muted">{t('chat.custom_prompt')}</span>
-                </div>
-                <textarea
-                  rows={3}
-                  className="w-full bg-[#0a0a0a] border border-[#262626] rounded-lg px-2.5 py-2 text-[11px] text-[#d4d4d4] placeholder-[#525252] resize-none outline-none focus:border-[#3a3a3a] transition-colors"
-                  placeholder="e.g. You are a sarcastic coding mentor..."
-                  value={customSystemPrompt}
-                  onChange={e => {
-                    saveCustomSystemPrompt(e.target.value)
-                    setSettingsPromptSaved(true)
-                    setTimeout(() => setSettingsPromptSaved(false), 1500)
-                  }}
-                />
-                <div className="flex items-center justify-between mt-1">
+              <div className="flex items-center justify-center px-4 py-2 relative min-h-[44px] shrink-0 border-b border-[#1e1e1e]">
+                {settingsCurrentPage !== 'root' ? (
                   <button
-                    onClick={() => { resetCustomSystemPrompt(); setSettingsPromptSaved(true); setTimeout(() => setSettingsPromptSaved(false), 1500) }}
-                    className="text-[10px] text-[#525252] hover:text-red-400 transition-colors"
+                    onClick={settingsPop}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
                   >
-                    {t('chat.custom_prompt.reset')}
+                    <IconArrowLeft size={16} className="text-[#ccc]" />
                   </button>
-                  {settingsPromptSaved && (
-                    <span className="text-[10px] text-emerald-400 flex items-center gap-0.5">
-                      <IconCheck size={8} /> Saved
-                    </span>
-                  )}
-                </div>
+                ) : (
+                  <button
+                    onClick={() => { setSettingsOpen(false); settingsReset() }}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
+                  >
+                    <IconClose size={16} className="text-[#ccc]" />
+                  </button>
+                )}
+                <span className="text-[17px] font-semibold tracking-tight text-white">
+                  {settingsCurrentPage === 'root' && (t('chat.settings') || 'Settings')}
+                  {settingsCurrentPage === 'model' && 'Select model'}
+                  {settingsCurrentPage === 'effort' && 'Effort'}
+                  {settingsCurrentPage === 'more-models' && 'More models'}
+                  {settingsCurrentPage === 'voice' && 'Voice'}
+                  {settingsCurrentPage === 'prompt' && (t('chat.custom_prompt') || 'System Prompt')}
+                  {settingsCurrentPage === 'export' && (t('chat.export.title') || 'Export Chat')}
+                  {settingsCurrentPage === 'sandbox' && 'Sandbox'}
+                  {settingsCurrentPage === 'sandbox-provider' && 'Provider'}
+                  {settingsCurrentPage === 'sandbox-runtime' && 'Runtime'}
+                </span>
               </div>
 
-              {/* Voice Settings */}
-              <div className="mb-4">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <IconSpeaker size={11} className="text-muted" />
-                  <span className="text-[11px] font-medium text-muted">Voice</span>
-                </div>
+              {/* Screens container */}
+              <div className="flex-1 overflow-y-auto px-4 py-3 settings-sheet-content" style={{ scrollbarWidth: 'none' }}>
 
-                {/* Engine Quick Toggle */}
-                <div className="flex items-center gap-1.5 mb-2">
-                  <span className="text-[10px] text-muted2 w-10 shrink-0">Engine</span>
-                  <div className="flex gap-1 flex-wrap">
-                    {(tts.engines?.length > 0 ? tts.engines.slice(0, 3) : [{ id: 'browser', name: 'Browser' }]).map(eng => (
+                {/* ══════ ROOT: Settings categories ══════ */}
+                {settingsCurrentPage === 'root' && (
+                  <div className="divide-y divide-[#2a2a2a]">
+                    {/* Model */}
+                    <button
+                      onClick={() => settingsPush('model')}
+                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+                    >
+                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(74,127,181,0.15)] flex items-center justify-center shrink-0">
+                        <IconLightning size={18} className="text-[#4a7fb5]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[16px] font-medium text-white">Model</div>
+                        <div className="text-[13px] text-[#888] truncate">{currentModel?.name || 'Default'}</div>
+                      </div>
+                      <span className="text-[20px] text-[#888]">›</span>
+                    </button>
+
+                    {/* Voice */}
+                    <button
+                      onClick={() => settingsPush('voice')}
+                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+                    >
+                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(138,90,180,0.15)] flex items-center justify-center shrink-0">
+                        <IconSpeaker size={18} className="text-[#8a5ab4]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[16px] font-medium text-white">Voice</div>
+                        <div className="text-[13px] text-[#888] truncate">
+                          {tts.currentEngine === 'browser' ? 'Browser TTS' : (tts.engines?.find(e => e.id === tts.currentEngine)?.name || 'Browser')} · {(tts.speed || 1.0).toFixed(1)}x
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className={`w-2 h-2 rounded-full ${tts.serverAvailable ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.4)]' : 'bg-red-500/60'}`} />
+                        <span className="text-[20px] text-[#888]">›</span>
+                      </div>
+                    </button>
+
+                    {/* System Prompt */}
+                    <button
+                      onClick={() => settingsPush('prompt')}
+                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+                    >
+                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(200,170,80,0.15)] flex items-center justify-center shrink-0">
+                        <IconSliders size={18} className="text-[#c8aa50]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[16px] font-medium text-white">System Prompt</div>
+                        <div className="text-[13px] text-[#888] truncate">
+                          {customSystemPrompt ? customSystemPrompt.slice(0, 35) + '...' : 'Default'}
+                        </div>
+                      </div>
+                      <span className="text-[20px] text-[#888]">›</span>
+                    </button>
+
+                    {/* Export Chat */}
+                    <button
+                      onClick={() => settingsPush('export')}
+                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+                    >
+                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(196,92,74,0.15)] flex items-center justify-center shrink-0">
+                        <IconDownload size={18} className="text-[#c45c4a]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[16px] font-medium text-white">Export Chat</div>
+                        <div className="text-[13px] text-[#888] truncate">
+                          {messages.length === 0 ? 'No conversation yet' : `${messages.length} messages`}
+                        </div>
+                      </div>
+                      <span className="text-[20px] text-[#888]">›</span>
+                    </button>
+
+                    {/* Sandbox */}
+                    <button
+                      onClick={() => settingsPush('sandbox')}
+                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+                    >
+                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(76,175,80,0.15)] flex items-center justify-center shrink-0">
+                        <IconCube size={18} className="text-[#4caf50]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[16px] font-medium text-white">Sandbox</div>
+                        <div className="text-[13px] text-[#888] truncate">Daytona · Docker · E2B</div>
+                      </div>
+                      <span className="text-[20px] text-[#888]">›</span>
+                    </button>
+
+                    {/* Full Voice Settings shortcut */}
+                    <div className="pt-4">
                       <button
-                        key={eng.id}
-                        onClick={() => tts.setEngine?.(eng.id)}
-                        className={`px-1.5 py-1 rounded text-[9px] font-medium transition-colors ${
-                          tts.currentEngine === eng.id
-                            ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                            : 'bg-[#1a1a1a] text-[#525252] border border-[#262626] hover:text-white hover:border-[#3a3a3a]'
+                        onClick={() => { setSettingsOpen(false); settingsReset(); setVoiceSettingsOpen(true) }}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[rgba(138,90,180,0.12)] text-[#b88fd8] active:bg-[rgba(138,90,180,0.2)] transition-colors"
+                      >
+                        <IconSpeaker size={16} /> Full Voice Settings Panel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ══════ MODEL SELECTOR ══════ */}
+                {settingsCurrentPage === 'model' && (
+                  <div className="divide-y divide-[#2a2a2a]">
+                    {MODELS.map(m => (
+                      <button
+                        key={m.id}
+                        onClick={() => setModel(m.id)}
+                        className="w-full py-4 text-left active:opacity-60 transition-opacity"
+                      >
+                        <div className="flex items-center gap-2.5 mb-1">
+                          <span className={`text-[17px] font-medium ${model === m.id ? 'text-[#4a9fd1]' : 'text-white'}`}>{m.name}</span>
+                          {m.tag && (
+                            <span className={`text-[10px] font-bold tracking-[0.5px] px-[7px] py-[2px] rounded-[5px] uppercase ${
+                              m.tag.toLowerCase().includes('premium') || m.tag.toLowerCase().includes('pro')
+                                ? 'text-[#4a7fb5] bg-[rgba(74,127,181,0.12)]'
+                                : m.tag.toLowerCase().includes('free') || m.tag.toLowerCase().includes('fast')
+                                  ? 'text-[#4caf50] bg-[rgba(76,175,80,0.12)]'
+                                  : 'text-[#888] bg-[rgba(255,255,255,0.06)]'
+                            }`}>
+                              {m.tag}
+                            </span>
+                          )}
+                        </div>
+                        <div className={`text-[14px] flex items-center justify-between ${model === m.id ? 'text-[#4a9fd1]' : 'text-[#888]'}`}>
+                          <span>{m.id}</span>
+                          {model === m.id && <span className="text-[20px]">✓</span>}
+                        </div>
+                      </button>
+                    ))}
+
+                    {/* Effort row */}
+                    <div className="border-t border-[#2a2a2a]" />
+                    <button
+                      onClick={() => settingsPush('effort')}
+                      className="w-full flex items-center py-3.5 text-left active:opacity-60 transition-opacity"
+                    >
+                      <div className="flex-1">
+                        <div className="text-[16px] font-medium text-white">Effort</div>
+                        <div className="text-[13px] text-[#888]" id="currentEffortLabel">Low</div>
+                      </div>
+                      <span className="text-[20px] text-[#888]">›</span>
+                    </button>
+
+                    {/* More models row */}
+                    <button
+                      onClick={() => settingsPush('more-models')}
+                      className="w-full flex items-center py-3.5 text-left active:opacity-60 transition-opacity"
+                    >
+                      <div className="flex-1">
+                        <div className="text-[16px] font-medium text-white">More models</div>
+                      </div>
+                      <span className="text-[20px] text-[#888]">›</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* ══════ EFFORT SELECTOR ══════ */}
+                {settingsCurrentPage === 'effort' && (
+                  <div className="space-y-2 pt-2">
+                    {[
+                      { level: 'Low', desc: 'Faster responses, less reasoning', selected: true },
+                      { level: 'Medium', desc: 'Balanced speed and depth', selected: false },
+                      { level: 'High', desc: 'Deeper reasoning, slower responses', selected: false },
+                    ].map(opt => (
+                      <button
+                        key={opt.level}
+                        onClick={() => {
+                          // Update effort label on model page
+                          const el = document.getElementById('currentEffortLabel')
+                          if (el) el.textContent = opt.level
+                        }}
+                        className={`w-full flex items-center justify-between px-4 py-[18px] rounded-[14px] transition-all active:scale-[0.98] ${
+                          opt.selected
+                            ? 'bg-[rgba(196,92,74,0.08)] border-2 border-[#c45c4a]'
+                            : 'bg-[#242424] border-2 border-transparent'
                         }`}
                       >
-                        {eng.name?.split(' ')[0] || eng.id}
+                        <span className="text-[16px] font-medium text-white">{opt.level}</span>
+                        <span className={`text-[20px] text-[#c45c4a] transition-opacity ${opt.selected ? 'opacity-100' : 'opacity-0'}`}>✓</span>
                       </button>
                     ))}
                   </div>
-                </div>
+                )}
 
-                {/* Speed Quick Slider */}
-                <div className="flex items-center gap-1.5 mb-2">
-                  <span className="text-[10px] text-muted2 w-10 shrink-0">Speed</span>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="2.0"
-                    step="0.1"
-                    value={tts.speed || 1.0}
-                    onChange={e => tts.setSpeed?.(parseFloat(e.target.value))}
-                    className="settings-voice-slider flex-1 h-1 rounded-full appearance-none cursor-pointer bg-[#262626]"
-                    style={{
-                      background: `linear-gradient(to right, #a855f7 0%, #ef4444 ${(((tts.speed || 1.0) - 0.5) / 1.5) * 100}%, #262626 ${(((tts.speed || 1.0) - 0.5) / 1.5) * 100}%)`,
-                    }}
-                  />
-                  <span className="text-[10px] text-muted2 font-mono w-6 text-right">{(tts.speed || 1.0).toFixed(1)}x</span>
-                </div>
+                {/* ══════ MORE MODELS ══════ */}
+                {settingsCurrentPage === 'more-models' && (
+                  <div className="divide-y divide-[#2a2a2a]">
+                    {[
+                      { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1', tag: 'Reasoning', pro: true },
+                      { id: 'qwen-qwq-32b', name: 'Qwen QwQ', tag: 'Reasoning', pro: true },
+                      { id: 'llama-3.2-3b-preview', name: 'Nova 0.9', tag: 'Lightweight', pro: false },
+                    ].map(m => (
+                      <button
+                        key={m.id}
+                        onClick={() => setModel(m.id)}
+                        className="w-full py-4 text-left active:opacity-60 transition-opacity"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className={`text-[17px] font-medium ${model === m.id ? 'text-[#4a9fd1]' : 'text-white'}`}>{m.name}</span>
+                          {m.pro && (
+                            <span className="text-[10px] font-bold tracking-[0.5px] px-[7px] py-[2px] rounded-[5px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.12)]">
+                              Pro
+                            </span>
+                          )}
+                        </div>
+                        <div className={`text-[14px] flex items-center justify-between mt-1 ${model === m.id ? 'text-[#4a9fd1]' : 'text-[#888]'}`}>
+                          <span>{m.id}</span>
+                          {model === m.id && <span className="text-[20px]">✓</span>}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
 
-                {/* Server Status + Test + Full Settings */}
-                <div className="flex items-center gap-1.5">
-                  <div className={`w-1.5 h-1.5 rounded-full ${tts.serverAvailable ? 'bg-green-500' : 'bg-red-500/60'}`} title={tts.serverAvailable ? 'Voice server connected' : 'Voice server offline'} />
-                  <button
-                    onClick={() => {
-                      if (tts.speak) {
-                        tts.speak("Hello from Kivora", { interrupt: true }).catch(() => {})
-                      } else if (typeof window !== 'undefined' && window.speechSynthesis) {
-                        window.speechSynthesis.speak(new SpeechSynthesisUtterance("Hello from Kivora"))
-                      }
-                    }}
-                    className="px-2 py-1 rounded text-[9px] font-medium bg-[#1a1a1a] text-[#525252] border border-[#262626] hover:text-white hover:border-[#3a3a3a] transition-colors"
-                  >
-                    Test Voice
-                  </button>
-                  <button
-                    onClick={() => { setSettingsOpen(false); setVoiceSettingsOpen(true) }}
-                    className="px-2 py-1 rounded text-[9px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors ml-auto"
-                  >
-                    Full Settings →
-                  </button>
-                </div>
-              </div>
+                {/* ══════ VOICE ══════ */}
+                {settingsCurrentPage === 'voice' && (
+                  <div className="divide-y divide-[#2a2a2a]">
+                    {/* Server status */}
+                    <div className="flex items-center gap-2.5 py-3.5">
+                      <div className={`w-2.5 h-2.5 rounded-full ${tts.serverAvailable ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-red-500/60'}`} />
+                      <span className="text-[14px] text-[#aaa]">
+                        Voice Server {tts.serverAvailable ? 'Connected' : 'Offline'}
+                      </span>
+                      <span className="text-[11px] text-[#555] ml-auto">
+                        {tts.serverAvailable ? 'High-quality TTS' : 'Browser fallback'}
+                      </span>
+                    </div>
 
-              {/* Export Chat */}
-              <div>
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <IconDownload size={11} className="text-muted" />
-                  <span className="text-[11px] font-medium text-muted">{t('chat.export.title') || 'Export Chat'}</span>
-                </div>
+                    {/* Engine */}
+                    <div className="py-3.5">
+                      <div className="text-[10px] font-medium text-[#666] uppercase tracking-wider mb-2">Engine</div>
+                      <div className="space-y-1">
+                        {(tts.engines?.length > 0 ? tts.engines : [{ id: 'browser', name: 'Browser TTS', features: ['free', 'low-latency'] }]).map(eng => (
+                          <button
+                            key={eng.id}
+                            onClick={() => tts.setEngine?.(eng.id)}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-left ${
+                              tts.currentEngine === eng.id
+                                ? 'bg-[rgba(138,90,180,0.1)] border border-[rgba(138,90,180,0.2)]'
+                                : 'hover:bg-[#222] border border-transparent'
+                            }`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className={`text-[14px] font-medium ${tts.currentEngine === eng.id ? 'text-[#b88fd8]' : 'text-white'}`}>
+                                {eng.name}
+                              </div>
+                              {eng.features && (
+                                <div className="flex gap-1 mt-0.5">
+                                  {eng.features.map(f => (
+                                    <span key={f} className="text-[9px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-[#555]">{f}</span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            {tts.currentEngine === eng.id && (
+                              <span className="text-[#b88fd8] text-[16px]">✓</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
-                {messages.length === 0 ? (
-                  <p className="text-[10px] text-muted2">No conversation to export</p>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-3 gap-1.5 mb-2">
-                      {[
-                        { id: 'pdf', label: 'PDF', Icon: IconFile },
-                        { id: 'docx', label: 'DOCX', Icon: IconWrite },
-                        { id: 'html', label: 'HTML', Icon: IconGlobe },
-                        { id: 'md', label: 'MD', Icon: IconClipboard },
-                        { id: 'txt', label: 'TXT', Icon: IconFile },
-                      ].map(fmt => (
+                    {/* Speed */}
+                    <div className="py-3.5">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-medium text-[#666] uppercase tracking-wider">Speed</span>
+                        <span className="text-[13px] text-[#aaa] font-mono">{(tts.speed || 1.0).toFixed(1)}x</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="2.0"
+                        step="0.1"
+                        value={tts.speed || 1.0}
+                        onChange={e => tts.setSpeed?.(parseFloat(e.target.value))}
+                        className="settings-voice-slider w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                        style={{
+                          background: `linear-gradient(to right, #a855f7 0%, #ef4444 ${(((tts.speed || 1.0) - 0.5) / 1.5) * 100}%, #262626 ${(((tts.speed || 1.0) - 0.5) / 1.5) * 100}%)`,
+                        }}
+                      />
+                      <div className="flex justify-between mt-1.5">
+                        <span className="text-[11px] text-[#444]">0.5x</span>
+                        <span className="text-[11px] text-[#444]">1.0x</span>
+                        <span className="text-[11px] text-[#444]">2.0x</span>
+                      </div>
+                    </div>
+
+                    {/* Test Voice */}
+                    <div className="py-3.5">
+                      <button
+                        onClick={() => {
+                          if (tts.speak) {
+                            tts.speak("Hello from Kivora", { interrupt: true }).catch(() => {})
+                          } else if (typeof window !== 'undefined' && window.speechSynthesis) {
+                            window.speechSynthesis.speak(new SpeechSynthesisUtterance("Hello from Kivora"))
+                          }
+                        }}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-[14px] text-[15px] font-medium transition-all active:scale-[0.98]"
+                        style={{
+                          background: 'linear-gradient(135deg, rgba(168,85,247,0.12), rgba(239,68,68,0.12))',
+                          border: '1px solid rgba(168,85,247,0.15)',
+                          color: '#d4d4d4',
+                        }}
+                      >
+                        <IconSpeaker size={16} /> Test Voice
+                      </button>
+                    </div>
+
+                    {/* Full Voice Panel link */}
+                    <div className="py-3.5">
+                      <button
+                        onClick={() => { setSettingsOpen(false); settingsReset(); setVoiceSettingsOpen(true) }}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[rgba(138,90,180,0.12)] text-[#b88fd8] active:bg-[rgba(138,90,180,0.2)] transition-colors"
+                      >
+                        Full Voice Settings Panel →
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ══════ SYSTEM PROMPT ══════ */}
+                {settingsCurrentPage === 'prompt' && (
+                  <div className="py-3">
+                    <div className="text-[13px] text-[#888] mb-3">Current prompt</div>
+                    <textarea
+                      rows={6}
+                      className="w-full bg-[#242424] border border-[#2a2a2a] rounded-[12px] px-4 py-3.5 text-[14px] text-white placeholder-[#3a3a3a] resize-vertical outline-none focus:border-[#3a3a3a] transition-colors font-[inherit] leading-relaxed"
+                      placeholder="Enter system prompt..."
+                      value={customSystemPrompt}
+                      onChange={e => {
+                        saveCustomSystemPrompt(e.target.value)
+                        setSettingsPromptSaved(true)
+                        setTimeout(() => setSettingsPromptSaved(false), 1500)
+                      }}
+                    />
+                    <div className="flex items-center justify-between mt-2.5">
+                      <button
+                        onClick={() => { resetCustomSystemPrompt(); setSettingsPromptSaved(true); setTimeout(() => setSettingsPromptSaved(false), 1500) }}
+                        className="text-[13px] text-[#555] hover:text-red-400 transition-colors"
+                      >
+                        {t('chat.custom_prompt.reset') || 'Reset to default'}
+                      </button>
+                      {settingsPromptSaved && (
+                        <span className="text-[13px] text-emerald-400 flex items-center gap-1">
+                          <IconCheck size={12} /> Saved
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* ══════ EXPORT CHAT ══════ */}
+                {settingsCurrentPage === 'export' && (
+                  <div>
+                    {messages.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 text-center">
+                        <div className="text-[48px] mb-4">📭</div>
+                        <div className="text-[16px] text-[#888]">No conversation to export yet</div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="text-[13px] text-[#888] mb-3">
+                          Export {messages.length} messages from this conversation.
+                        </div>
+                        <div className="divide-y divide-[#2a2a2a]">
+                          {[
+                            { id: 'pdf', label: 'PDF', desc: 'Formatted document', Icon: IconFile },
+                            { id: 'docx', label: 'DOCX', desc: 'Word document', Icon: IconWrite },
+                            { id: 'html', label: 'HTML', desc: 'Web page', Icon: IconGlobe },
+                            { id: 'md', label: 'Markdown', desc: 'Plain text markup', Icon: IconClipboard },
+                            { id: 'txt', label: 'TXT', desc: 'Plain text', Icon: IconFile },
+                          ].map(fmt => (
+                            <button
+                              key={fmt.id}
+                              onClick={() => setSettingsExportFormat(fmt.id)}
+                              className={`w-full flex items-center gap-3.5 py-3.5 text-left transition-colors ${
+                                settingsExportFormat === fmt.id ? 'opacity-100' : 'opacity-70'
+                              }`}
+                            >
+                              <fmt.Icon size={16} className={settingsExportFormat === fmt.id ? 'text-[#c45c4a]' : 'text-[#555]'} />
+                              <div className="flex-1">
+                                <div className={`text-[16px] font-medium ${settingsExportFormat === fmt.id ? 'text-[#c45c4a]' : 'text-white'}`}>{fmt.label}</div>
+                                <div className="text-[13px] text-[#888]">{fmt.desc}</div>
+                              </div>
+                              {settingsExportFormat === fmt.id && (
+                                <span className="text-[#c45c4a] text-[16px]">✓</span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
                         <button
-                          key={fmt.id}
-                          onClick={() => setSettingsExportFormat(fmt.id)}
-                          className={`flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors ${
-                            settingsExportFormat === fmt.id
-                              ? 'bg-[#262626] text-white'
-                              : 'text-[#525252] hover:text-white hover:bg-[#262626]'
+                          onClick={async () => { await exportChat(settingsExportFormat); setSettingsExported(true); setTimeout(() => setSettingsExported(false), 2000) }}
+                          className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-[14px] text-[15px] font-semibold mt-3 transition-colors ${
+                            settingsExported
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-[#c45c4a] hover:bg-[#d97a6a] text-white'
                           }`}
                         >
-                          <fmt.Icon size={10} /> {fmt.label}
+                          {settingsExported ? (
+                            <><IconCheck size={16} /> Exported</>
+                          ) : (
+                            <><IconDownload size={16} /> Export as {settingsExportFormat.toUpperCase()}</>
+                          )}
                         </button>
-                      ))}
-                    </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ══════ SANDBOX ══════ */}
+                {settingsCurrentPage === 'sandbox' && (
+                  <div className="divide-y divide-[#2a2a2a]">
+                    {/* Provider row */}
                     <button
-                      onClick={async () => { await exportChat(settingsExportFormat); setSettingsExported(true); setTimeout(() => setSettingsExported(false), 2000) }}
-                      className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-semibold transition-colors ${
-                        settingsExported
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-[#dc2626] hover:bg-red-700 text-white'
-                      }`}
+                      onClick={() => settingsPush('sandbox-provider')}
+                      className="w-full flex items-center py-3.5 text-left active:opacity-60 transition-opacity"
                     >
-                      {settingsExported ? (
-                        <><IconCheck size={11} /> Exported</>
-                      ) : (
-                        <><IconDownload size={11} /> Export as {settingsExportFormat.toUpperCase()}</>
-                      )}
+                      <div className="flex-1">
+                        <div className="text-[16px] font-medium text-white">Provider</div>
+                        <div className="text-[13px] text-[#888]">Daytona</div>
+                      </div>
+                      <span className="text-[20px] text-[#888]">›</span>
                     </button>
-                  </>
+
+                    {/* Runtime row */}
+                    <button
+                      onClick={() => settingsPush('sandbox-runtime')}
+                      className="w-full flex items-center py-3.5 text-left active:opacity-60 transition-opacity"
+                    >
+                      <div className="flex-1">
+                        <div className="text-[16px] font-medium text-white">Runtime</div>
+                        <div className="text-[13px] text-[#888]">Docker</div>
+                      </div>
+                      <span className="text-[20px] text-[#888]">›</span>
+                    </button>
+
+                    {/* Fallback chain */}
+                    <div className="py-3.5">
+                      <div className="text-[10px] font-medium text-[#666] uppercase tracking-wider mb-2">Auto-fallback chain</div>
+                      <div className="flex items-center flex-wrap gap-1">
+                        {['Daytona', 'Docker', 'E2B', 'Kaggle', 'Colab', 'Codespaces'].map((name, i) => (
+                          <span key={name} className="flex items-center">
+                            <span className={`text-[11px] px-2 py-1 rounded-lg ${i === 0 ? 'bg-[rgba(76,175,80,0.12)] text-[#4caf50]' : 'bg-[#242424] text-[#888]'}`}>
+                              {name}
+                            </span>
+                            {i < 5 && <span className="text-[10px] text-[#333] mx-1">→</span>}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ══════ SANDBOX PROVIDER ══════ */}
+                {settingsCurrentPage === 'sandbox-provider' && (
+                  <div className="divide-y divide-[#2a2a2a]">
+                    {[
+                      { id: 'daytona', name: 'Daytona', desc: 'Cloud sandbox · GPU · <90ms cold start', primary: true },
+                      { id: 'docker', name: 'Docker Engine', desc: 'Self-hosted containers · Any language', primary: false },
+                      { id: 'e2b', name: 'E2B', desc: 'Cloud microVMs · Secure · Fast', primary: false },
+                      { id: 'kaggle', name: 'Kaggle', desc: 'Free notebooks · GPU · Python/R', primary: false },
+                      { id: 'colab', name: 'Colab', desc: 'Google notebooks · Free GPU', primary: false },
+                      { id: 'codespaces', name: 'Codespaces', desc: 'Full VS Code · GitHub integration', primary: false },
+                    ].map(p => (
+                      <div key={p.id} className="flex items-center gap-3 py-3.5">
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${p.primary ? 'bg-[rgba(76,175,80,0.15)]' : 'bg-[#1a1a1a]'}`}>
+                          <IconCube size={14} className={p.primary ? 'text-[#4caf50]' : 'text-[#555]'} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[16px] font-medium ${p.primary ? 'text-[#4caf50]' : 'text-[#aaa]'}`}>{p.name}</span>
+                            {p.primary && (
+                              <span className="text-[9px] font-bold tracking-[0.5px] px-2 py-0.5 rounded bg-[rgba(76,175,80,0.12)] text-[#4caf50] uppercase">Primary</span>
+                            )}
+                          </div>
+                          <div className="text-[13px] text-[#555] truncate">{p.desc}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* ══════ SANDBOX RUNTIME ══════ */}
+                {settingsCurrentPage === 'sandbox-runtime' && (
+                  <div className="divide-y divide-[#2a2a2a]">
+                    {[
+                      { id: 'docker', name: 'Docker', desc: 'Container-based isolation' },
+                      { id: 'microvm', name: 'MicroVM', desc: 'Lightweight VM sandbox' },
+                      { id: 'notebook', name: 'Notebook', desc: 'Jupyter-style execution' },
+                    ].map(r => (
+                      <div key={r.id} className="py-3.5">
+                        <div className="text-[16px] font-medium text-[#aaa]">{r.name}</div>
+                        <div className="text-[13px] text-[#555]">{r.desc}</div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
@@ -1106,7 +1507,7 @@ export default function ChatClient() {
         {/* ── Settings toggle + Profile avatar — pinned to bottom ── */}
         <div className="p-2.5 border-t border-[#181818] shrink-0 space-y-0.5">
           <button
-            onClick={() => setSettingsOpen(!settingsOpen)}
+            onClick={() => { setSettingsOpen(!settingsOpen); if (!settingsOpen) settingsReset() }}
             className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors font-medium ${
               settingsOpen
                 ? 'bg-[#1a1a1a] text-white'
