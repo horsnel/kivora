@@ -1,12 +1,14 @@
 // ══════════════════════════════════════════════════════════════════
-// KIVORA RESEARCH WORKER — Cloudflare Worker (v5.0.0)
-// Target: Quick ~10-15s, Deep ~30-60s (with 16K+ token output)
+// KIVORA RESEARCH WORKER — Cloudflare Worker (v5.1.0)
+// Target: Quick ~8-12s, Deep ~25-45s (with 16K+ token output)
 // Key optimizations:
 //   - Quick mode: fast search (Tavily basic + Firecrawl), fast LLM (4K tokens)
 //   - Deep mode: parallel URL reads, high-output LLM (16K tokens = ~12K words)
 //   - Models: Gemini 2.5 Flash (65K output) via OpenRouter as primary for Deep
-//   - Multiple LLM providers: OpenRouter → Google Gemini → Workers AI → Pollinations AI
-//   - Apex model routing: apex-free (Pollinations-first) and apex-premium (OpenRouter-first)
+//   - Multiple LLM providers: OpenRouter → Workers AI → Gemini → Pollinations AI
+//   - Apex model routing: apex-free (OpenRouter-first) and apex-premium (OpenRouter-first)
+//   - Pollinations moved to last resort (429 errors, unreliable)
+//   - Deprecated @cf/meta/llama-3.1-8b-instruct removed from all chains
 //   - Query classification: academic/biomedical/tech/finance/general search routing
 //   - Academic providers: Semantic Scholar, Crossref, PubMed (free, no API keys)
 //   - Tech providers: GitHub repository search (free, rate-limited)
@@ -625,7 +627,7 @@ async function geminiChat(env, messages, model = 'gemini-2.0-flash', maxTokens =
 }
 
 // Pollinations AI — free, no API key needed. ~3-8s for 4K tokens
-async function pollinationsChat(messages, model = 'openai', maxTokens = 4096, timeout = 30000) {
+async function pollinationsChat(messages, model = 'openai', maxTokens = 4096, timeout = 8000) {
   try {
     const t0 = Date.now();
     const res = await fetch('https://text.pollinations.ai/', {
@@ -690,20 +692,25 @@ function validateOutput(text, mode = 'quick') {
   return true;
 }
 
-// Apex 1.7 — Free tier model routing (Pollinations → Workers AI → Gemini → OpenRouter)
+// Apex 1.7 — Free tier model routing (OpenRouter → Workers AI → Gemini → Pollinations)
 async function llmApexFree(env, messages, maxTokens = 4096, mode = 'quick') {
   const errors = [];
 
-  // 1. Pollinations AI — completely free
-  const pollModels = ['openai', 'mistral', 'llama'];
-  for (const model of pollModels) {
-    const result = await pollinationsChat(messages, model, maxTokens, 30000);
-    if (result && validateOutput(result, mode)) return result;
-    if (result) errors.push(`Poll:${model}:bad-output`);
-    else errors.push(`Poll:${model}:null`);
+  // 1. OpenRouter — fastest when credits available
+  if (getOpenRouterKey(env)) {
+    const orModels = [
+      { model: 'mistralai/mistral-small-3.1-24b-instruct', timeout: 15000, maxTokens: Math.min(maxTokens, 3000) },
+      { model: 'meta-llama/llama-4-maverick', timeout: 15000, maxTokens: Math.min(maxTokens, 2000) },
+    ];
+    for (const { model, timeout, maxTokens: mt } of orModels) {
+      const result = await openrouterChat(env, messages, model, mt, timeout);
+      if (result && validateOutput(result, mode)) return result;
+      if (result) errors.push(`OR:${model}:bad-output`);
+      else errors.push(`OR:${model}:null`);
+    }
   }
 
-  // 2. Workers AI — free, built-in
+  // 2. Workers AI — free, built-in (skip deprecated models)
   if (env.AI) {
     const workersAiModels = [
       '@cf/meta/llama-3.1-8b-instruct-fp8',
@@ -722,8 +729,8 @@ async function llmApexFree(env, messages, maxTokens = 4096, mode = 'quick') {
   // 3. Google Gemini — free tier
   if (getGeminiKey(env)) {
     const geminiModels = [
-      { model: 'gemini-2.0-flash', timeout: 20000 },
-      { model: 'gemini-1.5-flash', timeout: 20000 },
+      { model: 'gemini-2.0-flash', timeout: 15000 },
+      { model: 'gemini-1.5-flash', timeout: 15000 },
     ];
     for (const { model, timeout } of geminiModels) {
       const result = await geminiChat(env, messages, model, maxTokens, timeout);
@@ -733,18 +740,13 @@ async function llmApexFree(env, messages, maxTokens = 4096, mode = 'quick') {
     }
   }
 
-  // 4. OpenRouter — last resort (uses credits)
-  if (getOpenRouterKey(env)) {
-    const orModels = [
-      { model: 'meta-llama/llama-4-maverick', timeout: 30000 },
-      { model: 'mistralai/mistral-small-3.1-24b-instruct', timeout: 20000 },
-    ];
-    for (const { model, timeout } of orModels) {
-      const result = await openrouterChat(env, messages, model, maxTokens, timeout);
-      if (result && validateOutput(result, mode)) return result;
-      if (result) errors.push(`OR:${model}:bad-output`);
-      else errors.push(`OR:${model}:null`);
-    }
+  // 4. Pollinations AI — last resort (free but unreliable, 429 errors common)
+  const pollModels = ['openai', 'mistral'];
+  for (const model of pollModels) {
+    const result = await pollinationsChat(messages, model, maxTokens, 8000);
+    if (result && validateOutput(result, mode)) return result;
+    if (result) errors.push(`Poll:${model}:bad-output`);
+    else errors.push(`Poll:${model}:null`);
   }
 
   throw new Error(`All LLM providers failed (Apex 1.7 Free). Tried: ${errors.join(', ')}`);
@@ -810,41 +812,13 @@ async function llmApexPremium(env, messages, maxTokens = 4096, mode = 'quick') {
   throw new Error(`All LLM providers failed (Apex 2.3 Premium). Tried: ${errors.join(', ')}`);
 }
 
-// Quick LLM — uses reliable model chain
+// Quick LLM — uses reliable model chain (credit-aware)
 async function llmQuick(env, messages, maxTokens = 4096) {
   const errors = [];
 
-  // 1. OpenRouter — try models fastest-first
-  if (getOpenRouterKey(env)) {
-    const orModels = [
-      { model: 'meta-llama/llama-4-maverick', timeout: 30000 },
-      { model: 'mistralai/mistral-small-3.1-24b-instruct', timeout: 20000 },
-      { model: 'deepseek/deepseek-chat-v3-0324', timeout: 25000 },
-    ];
-    for (const { model, timeout } of orModels) {
-      const result = await openrouterChat(env, messages, model, maxTokens, timeout);
-      if (result) return result;
-      errors.push(`OR:${model}:null`);
-    }
-  }
-
-  // 2. Google Gemini — free tier, very fast
-  if (getGeminiKey(env)) {
-    const geminiModels = [
-      { model: 'gemini-2.0-flash', timeout: 20000 },
-      { model: 'gemini-1.5-flash', timeout: 20000 },
-    ];
-    for (const { model, timeout } of geminiModels) {
-      const result = await geminiChat(env, messages, model, maxTokens, timeout);
-      if (result) return result;
-      errors.push(`Gemini:${model}:null`);
-    }
-  }
-
-  // 3. Workers AI — fallback chain
+  // 1. Workers AI — free, fast, no credit limit
   if (env.AI) {
     const workersAiModels = [
-      '@cf/meta/llama-3.1-8b-instruct',
       '@cf/meta/llama-3.1-8b-instruct-fp8',
       '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
       '@cf/qwen/qwen3-30b-a3b-fp8',
@@ -857,24 +831,61 @@ async function llmQuick(env, messages, maxTokens = 4096) {
     }
   }
 
+  // 2. OpenRouter — credit-limited, use reduced token counts
+  if (getOpenRouterKey(env)) {
+    const orModels = [
+      { model: 'mistralai/mistral-small-3.1-24b-instruct', timeout: 15000, mt: Math.min(maxTokens, 3000) },
+      { model: 'meta-llama/llama-4-maverick', timeout: 15000, mt: Math.min(maxTokens, 2000) },
+    ];
+    for (const { model, timeout, mt } of orModels) {
+      const result = await openrouterChat(env, messages, model, mt, timeout);
+      if (result) return result;
+      errors.push(`OR:${model}:null`);
+    }
+  }
+
+  // 3. Google Gemini — free tier, very fast
+  if (getGeminiKey(env)) {
+    const geminiModels = [
+      { model: 'gemini-2.0-flash', timeout: 15000 },
+      { model: 'gemini-1.5-flash', timeout: 15000 },
+    ];
+    for (const { model, timeout } of geminiModels) {
+      const result = await geminiChat(env, messages, model, maxTokens, timeout);
+      if (result) return result;
+      errors.push(`Gemini:${model}:null`);
+    }
+  }
+
   throw new Error(`All LLM providers failed. Tried: ${errors.join(', ')}`);
 }
 
-// Deep LLM — prioritizes high-output models (16K+ tokens = ~12K words)
+// Deep LLM — prioritizes high-output models (credit-aware)
 async function llmDeep(env, messages, maxTokens = 16384) {
   const errors = [];
 
-  // 1. OpenRouter — try models that work within credit limits
-  //    Note: Gemini models are 403 region-blocked, Qwen/DeepSeek may exceed credit limits
-  //    Maverick is the most credit-efficient model available
-  if (getOpenRouterKey(env)) {
-    const orModels = [
-      { model: 'meta-llama/llama-4-maverick', timeout: 90000 },       // Most credit-efficient
-      { model: 'deepseek/deepseek-chat-v3-0324', timeout: 90000 },    // Fallback
-      { model: 'qwen/qwen3-235b-a22b', timeout: 90000 },              // Fallback
+  // 1. Workers AI — free, no credit limit (limited to 4K output but reliable)
+  if (env.AI) {
+    const workersAiModels = [
+      '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+      '@cf/qwen/qwen3-30b-a3b-fp8',
+      '@cf/mistralai/mistral-small-3.1-24b-instruct',
+      '@cf/meta/llama-3.1-8b-instruct-fp8',
     ];
-    // Cap maxTokens to what credits can afford (~6K output with large context)
-    const effectiveMaxTokens = Math.min(maxTokens, 6000);
+    for (const m of workersAiModels) {
+      const result = await workersAiChat(env, messages, m, Math.min(maxTokens, 4096));
+      if (result) return result;
+      errors.push(`WAI:${m}:null`);
+    }
+  }
+
+  // 2. OpenRouter — credit-limited, cap tokens to what's affordable
+  if (getOpenRouterKey(env)) {
+    const effectiveMaxTokens = Math.min(maxTokens, 2000);
+    const orModels = [
+      { model: 'mistralai/mistral-small-3.1-24b-instruct', timeout: 30000 },
+      { model: 'meta-llama/llama-4-maverick', timeout: 30000 },
+    ];
     for (const { model, timeout } of orModels) {
       const result = await openrouterChat(env, messages, model, effectiveMaxTokens, timeout);
       if (result) return result;
@@ -882,7 +893,7 @@ async function llmDeep(env, messages, maxTokens = 16384) {
     }
   }
 
-  // 2. Google Gemini direct — free tier (lower output limits but still good)
+  // 3. Google Gemini direct — free tier (lower output limits but still good)
   if (getGeminiKey(env)) {
     const geminiModels = [
       { model: 'gemini-2.5-flash', timeout: 90000 },
@@ -893,21 +904,6 @@ async function llmDeep(env, messages, maxTokens = 16384) {
       const result = await geminiChat(env, messages, model, maxTokens, timeout);
       if (result) return result;
       errors.push(`Gemini:${model}:null`);
-    }
-  }
-
-  // 3. Workers AI — fallback chain (limited to 4K output)
-  if (env.AI) {
-    const workersAiModels = [
-      '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
-      '@cf/qwen/qwen3-30b-a3b-fp8',
-      '@cf/mistralai/mistral-small-3.1-24b-instruct',
-      '@cf/meta/llama-3.1-8b-instruct-fp8',
-    ];
-    for (const m of workersAiModels) {
-      const result = await workersAiChat(env, messages, m, Math.min(maxTokens, 4096));
-      if (result) return result;
-      errors.push(`WAI:${m}:null`);
     }
   }
 
@@ -928,7 +924,7 @@ async function llmGapAnalysis(env, messages) {
     if (result) return result;
   }
 
-  // 3. Workers AI — always use 8b for gap analysis (speed > quality)
+  // 3. Workers AI — always use fp8 for gap analysis (speed > quality, deprecated model skipped)
   const result = await workersAiChat(env, messages, '@cf/meta/llama-3.1-8b-instruct-fp8', 512);
   if (result) return result;
 
@@ -1602,7 +1598,7 @@ export default {
       return jsonRes({
         status: 'ok',
         service: 'kivora-research',
-        version: '5.0.0',
+        version: '5.1.0',
         providers: {
           openrouter: !!getOpenRouterKey(env),
           gemini: !!getGeminiKey(env),
