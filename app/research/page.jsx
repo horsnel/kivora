@@ -577,14 +577,29 @@ function ResearchPageContent() {
   }
 
   function loadResearch(item) {
-    setActiveResearch(item)
-    setReportDisplay(item.report || '')
-    setSourcesVisible(item.sources?.length || 0)
+    // Ensure item has all expected fields (guard against stale localStorage data)
+    const safeItem = {
+      ...item,
+      apexModel: item.apexModel || 'apex-free',
+      mode: item.mode || 'quick',
+      sources: Array.isArray(item.sources) ? item.sources : [],
+      followups: Array.isArray(item.followups) ? item.followups : [],
+      report: item.report || '',
+      content: item.content || '',
+      title: item.title || item.query || '',
+    }
+    setActiveResearch(safeItem)
+    setReportDisplay(safeItem.report)
+    setSourcesVisible(safeItem.sources.length)
     setError('')
     setIsResearching(false)
     setResearchStage('done')
     setProgress(100)
-    router.replace(`/research?q=${encodeURIComponent(item.query)}`, { scroll: false })
+    try {
+      router.replace(`/research?q=${encodeURIComponent(safeItem.query)}`, { scroll: false })
+    } catch (e) {
+      // router.replace may throw in certain Next.js contexts; safe to ignore
+    }
   }
 
   function handleFollowup(question) {
@@ -731,7 +746,7 @@ function ResearchPageContent() {
       {hasActiveResearch && (
         <>
           {/* Research output area */}
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="flex-1 flex flex-col min-h-0 overflow-y-auto" style={{ contain: 'layout style' }}>
 
             {/* Progress pipeline */}
             {researchStage !== 'done' && (
@@ -780,8 +795,8 @@ function ResearchPageContent() {
               </div>
             )}
 
-            {/* Results area — scrollable */}
-            <div ref={reportRef} className="flex-1 overflow-y-auto overscroll-behavior-contain px-4 pb-4">
+            {/* Results area — scrollable via parent */}
+            <div ref={reportRef} className="flex-1 min-h-0 px-4 pb-4">
               <div className="max-w-4xl mx-auto space-y-4">
 
                 {/* Query header */}
