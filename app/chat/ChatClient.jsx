@@ -894,7 +894,7 @@ export default function ChatClient() {
               className="lg:hidden w-7 h-7 flex items-center justify-center text-[#525252] hover:text-white transition-colors"
               onClick={() => setHistoryOpen(false)}
             >
-              <IconClose size={14} />
+              <IconClose size={18} />
             </button>
           </div>
         </div>
@@ -910,7 +910,7 @@ export default function ChatClient() {
             }`}
             onClick={() => setHistoryOpen(false)}
           >
-            <IconSearch size={14} className="shrink-0" />
+            <IconSearch size={18} className="shrink-0" />
             {t('nav.explore') || 'Explore'}
           </Link>
         </div>
@@ -994,7 +994,7 @@ export default function ChatClient() {
               className="flex items-center justify-center gap-1.5 bg-[#dc2626] hover:bg-red-700 text-white text-sm py-2 rounded-lg transition-colors font-semibold"
               onClick={() => setHistoryOpen(false)}
             >
-              <IconUser size={12} />
+              <IconUser size={18} />
               {t('nav.signin') || 'Sign in'}
             </Link>
           )}
@@ -1066,8 +1066,8 @@ export default function ChatClient() {
                       onClick={() => settingsPush('model')}
                       className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
                     >
-                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(74,127,181,0.15)] flex items-center justify-center shrink-0">
-                        <IconLightning size={18} className="text-[#4a7fb5]" />
+                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(115,115,115,0.1)] flex items-center justify-center shrink-0">
+                        <IconLightning size={18} className="text-[#737373]" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-[16px] font-medium text-white">Model</div>
@@ -1081,8 +1081,8 @@ export default function ChatClient() {
                       onClick={() => settingsPush('voice')}
                       className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
                     >
-                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(138,90,180,0.15)] flex items-center justify-center shrink-0">
-                        <IconSpeaker size={18} className="text-[#8a5ab4]" />
+                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(115,115,115,0.1)] flex items-center justify-center shrink-0">
+                        <IconSpeaker size={18} className="text-[#737373]" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-[16px] font-medium text-white">Voice</div>
@@ -1101,8 +1101,8 @@ export default function ChatClient() {
                       onClick={() => settingsPush('prompt')}
                       className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
                     >
-                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(200,170,80,0.15)] flex items-center justify-center shrink-0">
-                        <IconSliders size={18} className="text-[#c8aa50]" />
+                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(115,115,115,0.1)] flex items-center justify-center shrink-0">
+                        <IconSliders size={18} className="text-[#737373]" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-[16px] font-medium text-white">System Prompt</div>
@@ -1118,8 +1118,8 @@ export default function ChatClient() {
                       onClick={() => settingsPush('export')}
                       className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
                     >
-                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(196,92,74,0.15)] flex items-center justify-center shrink-0">
-                        <IconDownload size={18} className="text-[#c45c4a]" />
+                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(115,115,115,0.1)] flex items-center justify-center shrink-0">
+                        <IconDownload size={18} className="text-[#737373]" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-[16px] font-medium text-white">Export Chat</div>
@@ -1135,8 +1135,8 @@ export default function ChatClient() {
                       onClick={() => settingsPush('sandbox')}
                       className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
                     >
-                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(76,175,80,0.15)] flex items-center justify-center shrink-0">
-                        <IconCube size={18} className="text-[#4caf50]" />
+                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(115,115,115,0.1)] flex items-center justify-center shrink-0">
+                        <IconCube size={18} className="text-[#737373]" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-[16px] font-medium text-white">Sandbox</div>
@@ -1572,7 +1572,7 @@ export default function ChatClient() {
               onClick={() => setHistoryOpen(true)}
               aria-label={t('chat.history')}
             >
-              <IconMenu size={16} />
+              <IconMenu size={20} />
             </button>
           </div>
           {/* Center: spacer for balanced layout */}
@@ -2165,7 +2165,7 @@ export default function ChatClient() {
           >
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-red-500/10 rounded-xl flex items-center justify-center shrink-0">
-                <IconMicrophone size={20} className="text-red-400" />
+                <IconMicrophone size={20} className="text-[#737373]" />
               </div>
               <div>
                 <h3 className="font-semibold text-white text-[15px]">Microphone Access Required</h3>
