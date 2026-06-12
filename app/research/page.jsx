@@ -619,7 +619,7 @@ function ResearchPageContent() {
 
   // ── Render ──
   return (
-    <main className="flex-1 min-h-0 flex flex-col bg-[#0a0a0a] text-white overflow-hidden">
+    <main className="h-full flex flex-col bg-[#0a0a0a] text-white overflow-hidden">
 
       {/* ═══════════════════════════════════════════
           STATE 1: No active research → centered greeting + big text bar
@@ -749,7 +749,6 @@ function ResearchPageContent() {
         <>
           {/* Research output area — single scroll container */}
           <div className="flex-1 min-h-0 overflow-y-auto">
-            <div className="shrink-0">
 
             {/* Progress pipeline */}
             {researchStage !== 'done' && (
@@ -955,7 +954,6 @@ function ResearchPageContent() {
                 })()}
 
               </div>
-            </div>
             </div>
           </div>
 
