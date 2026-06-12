@@ -1728,11 +1728,11 @@ export default function ChatClient() {
         </div>
 
         {/* ── Expandable Chat Bar ────────────────────── */}
-        <div className="shrink-0 w-full px-0 pb-4 pt-2" style={{ overflow: 'visible' }}>
-          <div className="w-full mx-0" style={{ overflow: 'visible' }}>
+        <div className="shrink-0 px-[min(5vw,48px)] pb-4 pt-2" style={{ overflow: 'visible' }}>
+          <div className="max-w-[960px] mx-auto" style={{ overflow: 'visible' }}>
             {/* Suggestion pills — above chat bar, single scrollable row */}
             {messages.length === 0 && (
-              <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none pb-0.5 animate-fade-up px-4">
+              <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none pb-0.5 animate-fade-up">
                 {STARTERS.map(({ labelKey, icon: Icon }) => (
                   <button
                     key={labelKey}
@@ -1747,7 +1747,7 @@ export default function ChatClient() {
             )}
             {/* Voice toast notification */}
             {voiceToast && (
-              <div className={`mb-2 flex items-center justify-center animate-slide-down px-4`}>
+              <div className={`mb-2 flex items-center justify-center animate-slide-down`}>
                 <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium ${
                   voiceToast.type === 'error'
                     ? 'bg-red-950/60 border border-red-900/40 text-red-400'
@@ -1764,7 +1764,7 @@ export default function ChatClient() {
             )}
             {/* File attachment chip */}
             {attachedFile && barExpanded && (
-              <div className="mb-2 flex items-center justify-end px-4">
+              <div className="mb-2 flex items-center justify-end">
                 <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-1.5 text-[12px] text-[#a3a3a3]">
                   {attachedIsImage ? (
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1.5"/><path d="M2 11l3.5-3.5 2.5 2.5 2-2L14 11"/></svg>
@@ -2078,21 +2078,19 @@ export default function ChatClient() {
       {/* ── Perplexity-style chat bar CSS ── */}
       <style jsx>{`
         /* ═══════════════════════════════════════
-           COLLAPSED STATE — Full-width panel bar (edge-to-edge)
+           COLLAPSED STATE — Floating pill bar
            ═══════════════════════════════════════ */
         .chat-bar-collapsed {
           display: flex;
           align-items: center;
           background: rgba(255,255,255,0.04);
-          border-radius: 20px 20px 0 0;
-          padding: 8px 16px;
+          border-radius: 28px;
+          padding: 8px 12px;
           gap: 8px;
           border: 1px solid rgba(255,255,255,0.06);
-          border-bottom: none;
           min-height: 56px;
           transition: border-color 0.3s ease;
           position: relative;
-          width: 100%;
         }
         .chat-bar-collapsed:focus-within {
           border-color: transparent;
@@ -2102,7 +2100,7 @@ export default function ChatClient() {
           content: '';
           position: absolute;
           inset: 0;
-          border-radius: 20px 20px 0 0;
+          border-radius: 28px;
           padding: 1.5px;
           background: linear-gradient(90deg, #a855f7, #ef4444);
           -webkit-mask:
@@ -2195,14 +2193,13 @@ export default function ChatClient() {
         }
 
         /* ═══════════════════════════════════════
-           EXPANDED STATE — Full-width panel (edge-to-edge)
+           EXPANDED STATE — Floating pill with chips
            ═══════════════════════════════════════ */
         .chat-container-expanded {
           width: 100%;
           background-color: rgba(255,255,255,0.03);
           border: 1px solid rgba(255,255,255,0.06);
-          border-bottom: none;
-          border-radius: 20px 20px 0 0;
+          border-radius: 20px;
           padding: 16px 16px 10px 16px;
           display: flex;
           flex-direction: column;
@@ -2231,7 +2228,7 @@ export default function ChatClient() {
           content: '';
           position: absolute;
           inset: 0;
-          border-radius: 20px 20px 0 0;
+          border-radius: 20px;
           padding: 1.5px;
           background: linear-gradient(90deg, #a855f7, #ef4444);
           -webkit-mask:
@@ -2779,10 +2776,7 @@ export default function ChatClient() {
           }
           .chat-container-expanded {
             padding: 12px 10px 8px 10px;
-            border-radius: 16px 16px 0 0;
-          }
-          .chat-bar-collapsed {
-            border-radius: 16px 16px 0 0;
+            border-radius: 16px;
           }
           .chat-textarea-expanded {
             font-size: 15px;
