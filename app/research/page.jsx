@@ -667,7 +667,7 @@ export default function ResearchPage() {
           STATE 1: No active research → centered greeting + big text bar
           ═══════════════════════════════════════════ */}
       {!hasActiveResearch && (
-        <div className="flex-1 flex flex-col items-center justify-center px-4 overflow-y-auto">
+        <div className="flex-1 flex flex-col items-center px-4 overflow-y-auto pt-[30vh]">
           {/* Good Morning Builder */}
           <div className="flex flex-col items-center pb-4 animate-fade-up">
             <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-1">

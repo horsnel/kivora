@@ -274,9 +274,15 @@ export default function ChatClient() {
     } catch {}
   }
 
+  // Debounced history reload — only when a new assistant message appears (prevents freezing)
+  const lastAssistantMsgId = useRef(null)
   useEffect(() => {
     if (user && messages.length > 0 && messages[messages.length - 1].role === 'assistant') {
-      loadHistory(user.id)
+      const lastId = messages[messages.length - 1].content?.slice(0, 50)
+      if (lastId !== lastAssistantMsgId.current) {
+        lastAssistantMsgId.current = lastId
+        loadHistory(user.id)
+      }
     }
   }, [messages])
 
@@ -1722,7 +1728,7 @@ export default function ChatClient() {
         </div>
 
         {/* ── Expandable Chat Bar ────────────────────── */}
-        <div className="shrink-0 w-full px-0 pb-0 pt-2" style={{ overflow: 'visible' }}>
+        <div className="shrink-0 w-full px-0 pb-4 pt-2" style={{ overflow: 'visible' }}>
           <div className="w-full mx-0" style={{ overflow: 'visible' }}>
             {/* Suggestion pills — above chat bar, single scrollable row */}
             {messages.length === 0 && (
