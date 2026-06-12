@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef, useMemo, useDeferredValue, startTransition, memo } from 'react'
+import { useState, useEffect, useRef, useMemo, Suspense, memo } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/LanguageProvider'
 import { supabasePublic } from '@/lib/supabase'
@@ -238,8 +238,16 @@ const KivoraResearchThinking = memo(function KivoraResearchThinking({ stage, sou
   )
 })
 
-// ── Main Component ──
+// ── Main Component (with Suspense wrapper for useSearchParams) ──
 export default function ResearchPage() {
+  return (
+    <Suspense fallback={<main className="h-full flex items-center justify-center bg-[#0a0a0a] text-white"><div className="w-6 h-6 border-2 border-[#262626] border-t-red-500 rounded-full animate-spin" /></main>}>
+      <ResearchPageContent />
+    </Suspense>
+  )
+}
+
+function ResearchPageContent() {
   const { t } = useTranslation()
   const searchParams = useSearchParams()
   const router = useRouter()
