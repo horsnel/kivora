@@ -974,7 +974,7 @@ export default function ChatClient() {
                 : 'text-muted hover:text-white hover:bg-[#141414]'
             }`}
           >
-            <IconSettings size={17} className="shrink-0" />
+            <IconSettings size={20} className="shrink-0" />
             {t('chat.settings') || 'Settings'}
           </button>
 
