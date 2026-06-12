@@ -200,7 +200,7 @@ export async function POST(req) {
     const workerStartTime = Date.now()
 
     // Deep mode with 16K token output can take up to 2 minutes
-    const workerTimeout = mode === 'deep' ? 180000 : 60000
+    const workerTimeout = mode === 'deep' ? 120000 : 45000
     const workerRes = await fetch(RESEARCH_WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

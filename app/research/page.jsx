@@ -431,29 +431,29 @@ function ResearchPageContent() {
     stageTimersRef.current = []
     if (progressRef.current) clearInterval(progressRef.current)
 
-    // Animate progress — 2000ms interval with smaller increments
+    // Animate progress — fast interval for snappy feel
     let fakeProgress = 0
     progressRef.current = setInterval(() => {
-      fakeProgress += Math.random() * 8
-      if (fakeProgress > 90) fakeProgress = 90
-      setProgress(Math.min(fakeProgress, 90))
-    }, 2000)
+      fakeProgress += Math.random() * 6
+      if (fakeProgress > 85) fakeProgress = 85
+      setProgress(Math.min(fakeProgress, 85))
+    }, 800)
 
     try {
       const t1 = setTimeout(() => {
         setResearchStage(researchMode === 'deep' ? 'analyzing' : 'writing')
-      }, 2000)
+      }, 800)
       stageTimersRef.current.push(t1)
 
       if (researchMode === 'deep') {
-        const t2 = setTimeout(() => { setResearchStage('writing') }, 5000)
+        const t2 = setTimeout(() => { setResearchStage('writing') }, 2500)
         stageTimersRef.current.push(t2)
       }
 
       // Call our server-side proxy — it forwards to the Worker with the API key
       // This avoids CORS issues and keeps the API key secure (never exposed to browser)
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), researchMode === 'deep' ? 180000 : 60000)
+      const timeout = setTimeout(() => controller.abort(), researchMode === 'deep' ? 120000 : 45000)
 
       let res
       let usedFallback = false
@@ -475,7 +475,7 @@ function ResearchPageContent() {
         console.log('[Research] Worker failed, trying fallback providers...', data.error)
         try {
           const fallbackController = new AbortController()
-          const fallbackTimeout = setTimeout(() => fallbackController.abort(), 60000)
+          const fallbackTimeout = setTimeout(() => fallbackController.abort(), 30000)
           const fallbackRes = await fetch('/api/research-fallback', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
