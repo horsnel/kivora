@@ -106,7 +106,7 @@ export default function Navbar() {
               onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
             >
-              <IconMenu size={16} />
+              <IconMenu size={20} />
             </button>
             <span className="ml-2.5 font-bold text-[15px] tracking-tight">
               Ki<span className="text-red-500">vora</span>
@@ -155,7 +155,7 @@ export default function Navbar() {
             onClick={() => setMobileOpen(true)}
             aria-label="Open sidebar"
           >
-            <IconMenu size={16} />
+            <IconMenu size={20} />
           </button>
           <span className="ml-2.5 font-bold text-[15px] tracking-tight">
             Ki<span className="text-red-500">vora</span>
@@ -191,7 +191,7 @@ function NavLinks({ pathname, onClose, minimal, user }) {
         className={linkClass(href)}
         onClick={onClose}
       >
-        <Icon size={minimal ? 13 : 14} className={minimal ? '' : 'shrink-0'} />
+        <Icon size={minimal ? 16 : 20} className={minimal ? '' : 'shrink-0'} />
         {t(labelKey)}
       </Link>
     )
@@ -230,7 +230,7 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
             className="lg:hidden w-7 h-7 flex items-center justify-center text-[#525252] hover:text-white transition-colors"
             onClick={onClose}
           >
-            <IconClose size={14} />
+            <IconClose size={20} />
           </button>
         </div>
       </div>
@@ -264,7 +264,7 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
             }`}
             onClick={onClose}
           >
-            <IconDashboard size={14} />
+            <IconDashboard size={20} />
             {t('nav.dashboard')}
           </Link>
         )}
@@ -293,7 +293,7 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
             className="flex items-center justify-center gap-1.5 bg-[#dc2626] hover:bg-red-700 text-white text-sm py-2 rounded-lg transition-colors font-semibold"
             onClick={onClose}
           >
-            <IconUser size={12} />
+            <IconUser size={20} />
             {t('nav.signin')}
           </Link>
         )}
