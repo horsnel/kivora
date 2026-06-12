@@ -625,7 +625,8 @@ function ResearchPageContent() {
           STATE 1: No active research → centered greeting + big text bar
           ═══════════════════════════════════════════ */}
       {!hasActiveResearch && (
-        <div className="flex-1 flex flex-col items-center px-4 overflow-y-auto pt-[30vh]">
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="flex flex-col items-center px-4 pt-[30vh] shrink-0">
           {/* Good Morning Builder */}
           <div className="flex flex-col items-center pb-4 animate-fade-up">
             <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-1">
@@ -737,6 +738,7 @@ function ResearchPageContent() {
               </div>
             </div>
           </div>
+          </div>
         </div>
       )}
 
@@ -746,7 +748,8 @@ function ResearchPageContent() {
       {hasActiveResearch && (
         <>
           {/* Research output area — single scroll container */}
-          <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="shrink-0">
 
             {/* Progress pipeline */}
             {researchStage !== 'done' && (
@@ -952,6 +955,7 @@ function ResearchPageContent() {
                 })()}
 
               </div>
+            </div>
             </div>
           </div>
 
