@@ -619,7 +619,7 @@ function ResearchPageContent() {
 
   // ── Render ──
   return (
-    <main className="h-full flex flex-col bg-[#0a0a0a] text-white overflow-hidden">
+    <main className="flex-1 min-h-0 flex flex-col bg-[#0a0a0a] text-white overflow-hidden">
 
       {/* ═══════════════════════════════════════════
           STATE 1: No active research → centered greeting + big text bar
@@ -745,8 +745,8 @@ function ResearchPageContent() {
           ═══════════════════════════════════════════ */}
       {hasActiveResearch && (
         <>
-          {/* Research output area */}
-          <div className="flex-1 flex flex-col min-h-0 overflow-y-auto" style={{ contain: 'layout style' }}>
+          {/* Research output area — single scroll container */}
+          <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
 
             {/* Progress pipeline */}
             {researchStage !== 'done' && (
@@ -795,8 +795,8 @@ function ResearchPageContent() {
               </div>
             )}
 
-            {/* Results area — scrollable via parent */}
-            <div ref={reportRef} className="flex-1 min-h-0 px-4 pb-4">
+            {/* Results area — content flows naturally, parent scrolls */}
+            <div ref={reportRef} className="px-4 pb-4">
               <div className="max-w-4xl mx-auto space-y-4">
 
                 {/* Query header */}
