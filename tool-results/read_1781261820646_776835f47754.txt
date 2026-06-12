@@ -1,0 +1,502 @@
+  1000→  1000→            >
+  1001→  1001→              <div className="w-7 h-7 bg-[#dc2626] rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+  1002→  1002→                {(user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || '').slice(0, 2).toUpperCase()}
+  1003→  1003→              </div>
+  1004→  1004→            </Link>
+  1005→  1005→          ) : (
+  1006→  1006→            <Link
+  1007→  1007→              href="/auth"
+  1008→  1008→              className="flex items-center justify-center gap-1.5 bg-[#dc2626] hover:bg-red-700 text-white text-sm py-2 rounded-lg transition-colors font-semibold"
+  1009→  1009→              onClick={() => setHistoryOpen(false)}
+  1010→  1010→            >
+  1011→  1011→              <IconUser size={18} />
+  1012→  1012→              {t('nav.signin') || 'Sign in'}
+  1013→  1013→            </Link>
+  1014→  1014→          )}
+  1015→  1015→        </div>
+  1016→  1016→      </aside>
+  1017→  1017→
+  1018→  1018→      {/* ── Settings bottom sheet (Claude AI style) — at root level so it's not constrained by sidebar ── */}
+  1019→  1019→      {settingsOpen && (
+  1020→  1020→        <div
+  1021→  1021→          className="fixed inset-0 z-[60] bg-black/60"
+  1022→  1022→          onClick={() => { setSettingsOpen(false); settingsReset() }}
+  1023→  1023→        >
+  1024→  1024→          <div
+  1025→  1025→            className="absolute bottom-0 left-0 right-0 h-[92vh] bg-[#1a1a1a] rounded-t-[24px] flex flex-col overflow-hidden animate-slide-up"
+  1026→  1026→            onClick={e => e.stopPropagation()}
+  1027→  1027→          >
+  1028→  1028→            {/* Handle bar */}
+  1029→  1029→            <div className="flex justify-center pt-2.5 pb-1 shrink-0">
+  1030→  1030→              <div className="w-10 h-1 rounded-full bg-[#444]" />
+  1031→  1031→            </div>
+  1032→  1032→
+  1033→  1033→            {/* Header */}
+  1034→  1034→            <div className="flex items-center justify-center px-4 py-2 relative min-h-[44px] shrink-0">
+  1035→  1035→              {settingsCurrentPage !== 'root' ? (
+  1036→  1036→                <button
+  1037→  1037→                  onClick={settingsPop}
+  1038→  1038→                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
+  1039→  1039→                >
+  1040→  1040→                  <IconArrowLeft size={16} className="text-[#ccc]" />
+  1041→  1041→                </button>
+  1042→  1042→              ) : (
+  1043→  1043→                <button
+  1044→  1044→                  onClick={() => { setSettingsOpen(false); settingsReset() }}
+  1045→  1045→                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
+  1046→  1046→                >
+  1047→  1047→                  <IconClose size={16} className="text-[#ccc]" />
+  1048→  1048→                </button>
+  1049→  1049→              )}
+  1050→  1050→              <span className="text-[17px] font-semibold tracking-tight text-white">
+  1051→  1051→                {settingsCurrentPage === 'root' && (t('chat.settings') || 'Settings')}
+  1052→  1052→                {settingsCurrentPage === 'model' && 'Select model'}
+  1053→  1053→                {settingsCurrentPage === 'effort' && 'Effort'}
+  1054→  1054→                {settingsCurrentPage === 'more-models' && 'More models'}
+  1055→  1055→                {settingsCurrentPage === 'voice' && 'Voice'}
+  1056→  1056→                {settingsCurrentPage === 'prompt' && (t('chat.custom_prompt') || 'System Prompt')}
+  1057→  1057→              </span>
+  1058→  1058→            </div>
+  1059→  1059→
+  1060→  1060→            {/* Content */}
+  1061→  1061→            <div className="flex-1 overflow-y-auto px-4 py-3" style={{ scrollbarWidth: 'none' }}>
+  1062→  1062→              <AnimatePresence mode="popLayout" initial={false}>
+  1063→  1063→                <motion.div
+  1064→  1064→                  key={settingsCurrentPage}
+  1065→  1065→                  initial={{ x: settingsSlideDir === 'push' ? 300 : -100, opacity: 0 }}
+  1066→  1066→                  animate={{ x: 0, opacity: 1 }}
+  1067→  1067→                  exit={{ x: settingsSlideDir === 'push' ? -100 : 300, opacity: 0 }}
+  1068→  1068→                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+  1069→  1069→                >
+  1070→  1070→
+  1071→  1071→                {/* ══════ ROOT: Settings categories ══════ */}
+  1072→  1072→                {settingsCurrentPage === 'root' && (
+  1073→  1073→                  <div className="divide-y divide-[#2a2a2a]">
+  1074→  1074→                    {/* Model */}
+  1075→  1075→                    <button
+  1076→  1076→                      onClick={() => settingsPush('model')}
+  1077→  1077→                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+  1078→  1078→                    >
+  1079→  1079→                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(115,115,115,0.1)] flex items-center justify-center shrink-0">
+  1080→  1080→                        <IconLightning size={18} className="text-[#737373]" />
+  1081→  1081→                      </div>
+  1082→  1082→                      <div className="flex-1 min-w-0">
+  1083→  1083→                        <div className="text-[16px] font-medium text-white">Model</div>
+  1084→  1084→                        <div className="text-[13px] text-[#888] truncate">{currentModel?.name || 'Default'}</div>
+  1085→  1085→                      </div>
+  1086→  1086→                      <span className="text-[20px] text-[#888]">›</span>
+  1087→  1087→                    </button>
+  1088→  1088→
+  1089→  1089→                    {/* Voice */}
+  1090→  1090→                    <button
+  1091→  1091→                      onClick={() => settingsPush('voice')}
+  1092→  1092→                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+  1093→  1093→                    >
+  1094→  1094→                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(115,115,115,0.1)] flex items-center justify-center shrink-0">
+  1095→  1095→                        <IconSpeaker size={18} className="text-[#737373]" />
+  1096→  1096→                      </div>
+  1097→  1097→                      <div className="flex-1 min-w-0">
+  1098→  1098→                        <div className="text-[16px] font-medium text-white">Voice</div>
+  1099→  1099→                        <div className="text-[13px] text-[#888] truncate">
+  1100→  1100→                          {tts.currentEngine === 'browser' ? 'Browser TTS' : (tts.engines?.find(e => e.id === tts.currentEngine)?.name || 'Browser')} · {(tts.speed || 1.0).toFixed(1)}x
+  1101→  1101→                        </div>
+  1102→  1102→                      </div>
+  1103→  1103→                      <div className="flex items-center gap-2 shrink-0">
+  1104→  1104→                        <div className={`w-2 h-2 rounded-full ${tts.serverAvailable ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.4)]' : 'bg-red-500/60'}`} />
+  1105→  1105→                        <span className="text-[20px] text-[#888]">›</span>
+  1106→  1106→                      </div>
+  1107→  1107→                    </button>
+  1108→  1108→
+  1109→  1109→                    {/* System Prompt */}
+  1110→  1110→                    <button
+  1111→  1111→                      onClick={() => settingsPush('prompt')}
+  1112→  1112→                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+  1113→  1113→                    >
+  1114→  1114→                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(115,115,115,0.1)] flex items-center justify-center shrink-0">
+  1115→  1115→                        <IconSliders size={18} className="text-[#737373]" />
+  1116→  1116→                      </div>
+  1117→  1117→                      <div className="flex-1 min-w-0">
+  1118→  1118→                        <div className="text-[16px] font-medium text-white">System Prompt</div>
+  1119→  1119→                        <div className="text-[13px] text-[#888] truncate">
+  1120→  1120→                          {customSystemPrompt ? customSystemPrompt.slice(0, 35) + '...' : 'Default'}
+  1121→  1121→                        </div>
+  1122→  1122→                      </div>
+  1123→  1123→                      <span className="text-[20px] text-[#888]">›</span>
+  1124→  1124→                    </button>
+  1125→  1125→
+  1126→  1126→                    {/* Full Voice Settings shortcut */}
+  1127→  1127→                    <div className="pt-4">
+  1128→  1128→                      <button
+  1129→  1129→                        onClick={() => { setSettingsOpen(false); settingsReset(); setVoiceSettingsOpen(true) }}
+  1130→  1130→                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[rgba(115,115,115,0.1)] text-[#737373] active:bg-[rgba(115,115,115,0.18)] transition-colors"
+  1131→  1131→                      >
+  1132→  1132→                        <IconSpeaker size={16} /> Full Voice Settings Panel
+  1133→  1133→                      </button>
+  1134→  1134→                    </div>
+  1135→  1135→                  </div>
+  1136→  1136→                )}
+  1137→  1137→
+  1138→  1138→                {/* ══════ MODEL SELECTOR ══════ */}
+  1139→  1139→                {settingsCurrentPage === 'model' && (
+  1140→  1140→                  <div className="divide-y divide-[#2a2a2a]">
+  1141→  1141→                    {MODELS.map(m => (
+  1142→  1142→                      <button
+  1143→  1143→                        key={m.id}
+  1144→  1144→                        onClick={() => setModel(m.id)}
+  1145→  1145→                        className="w-full py-4 text-left active:opacity-60 transition-opacity"
+  1146→  1146→                      >
+  1147→  1147→                        <div className="flex items-center gap-2.5 mb-1">
+  1148→  1148→                          <span className={`text-[17px] font-medium ${model === m.id ? 'text-[#4a9fd1]' : 'text-white'}`}>{m.name}</span>
+  1149→  1149→                          {m.tag && (
+  1150→  1150→                            <span className={`text-[10px] font-bold tracking-[0.5px] px-[7px] py-[2px] rounded-[5px] uppercase ${
+  1151→  1151→                              m.tag.toLowerCase().includes('premium') || m.tag.toLowerCase().includes('pro')
+  1152→  1152→                                ? 'text-[#4a7fb5] bg-[rgba(74,127,181,0.12)]'
+  1153→  1153→                                : m.tag.toLowerCase().includes('free') || m.tag.toLowerCase().includes('fast')
+  1154→  1154→                                  ? 'text-[#4caf50] bg-[rgba(76,175,80,0.12)]'
+  1155→  1155→                                  : 'text-[#888] bg-[rgba(255,255,255,0.06)]'
+  1156→  1156→                            }`}>
+  1157→  1157→                              {m.tag}
+  1158→  1158→                            </span>
+  1159→  1159→                          )}
+  1160→  1160→                        </div>
+  1161→  1161→                        <div className={`text-[14px] flex items-center justify-between ${model === m.id ? 'text-[#4a9fd1]' : 'text-[#888]'}`}>
+  1162→  1162→                          <span>{m.id}</span>
+  1163→  1163→                          {model === m.id && <span className="text-[20px]">✓</span>}
+  1164→  1164→                        </div>
+  1165→  1165→                      </button>
+  1166→  1166→                    ))}
+  1167→  1167→
+  1168→  1168→                    {/* Effort row */}
+  1169→  1169→                    <div className="border-t border-[#2a2a2a]" />
+  1170→  1170→                    <button
+  1171→  1171→                      onClick={() => settingsPush('effort')}
+  1172→  1172→                      className="w-full flex items-center py-3.5 text-left active:opacity-60 transition-opacity"
+  1173→  1173→                    >
+  1174→  1174→                      <div className="flex-1">
+  1175→  1175→                        <div className="text-[16px] font-medium text-white">Effort</div>
+  1176→  1176→                        <div className="text-[13px] text-[#888]" id="currentEffortLabel">Low</div>
+  1177→  1177→                      </div>
+  1178→  1178→                      <span className="text-[20px] text-[#888]">›</span>
+  1179→  1179→                    </button>
+  1180→  1180→
+  1181→  1181→                    {/* More models row */}
+  1182→  1182→                    <button
+  1183→  1183→                      onClick={() => settingsPush('more-models')}
+  1184→  1184→                      className="w-full flex items-center py-3.5 text-left active:opacity-60 transition-opacity"
+  1185→  1185→                    >
+  1186→  1186→                      <div className="flex-1">
+  1187→  1187→                        <div className="text-[16px] font-medium text-white">More models</div>
+  1188→  1188→                      </div>
+  1189→  1189→                      <span className="text-[20px] text-[#888]">›</span>
+  1190→  1190→                    </button>
+  1191→  1191→                  </div>
+  1192→  1192→                )}
+  1193→  1193→
+  1194→  1194→                {/* ══════ EFFORT SELECTOR ══════ */}
+  1195→  1195→                {settingsCurrentPage === 'effort' && (
+  1196→  1196→                  <div className="space-y-2 pt-2">
+  1197→  1197→                    {[
+  1198→  1198→                      { level: 'Low', desc: 'Faster responses, less reasoning', selected: true },
+  1199→  1199→                      { level: 'Medium', desc: 'Balanced speed and depth', selected: false },
+  1200→  1200→                      { level: 'High', desc: 'Deeper reasoning, slower responses', selected: false },
+  1201→  1201→                    ].map(opt => (
+  1202→  1202→                      <button
+  1203→  1203→                        key={opt.level}
+  1204→  1204→                        onClick={() => {
+  1205→  1205→                          const el = document.getElementById('currentEffortLabel')
+  1206→  1206→                          if (el) el.textContent = opt.level
+  1207→  1207→                        }}
+  1208→  1208→                        className={`w-full flex items-center justify-between px-4 py-[18px] rounded-[14px] transition-all active:scale-[0.98] ${
+  1209→  1209→                          opt.selected
+  1210→  1210→                            ? 'bg-[rgba(196,92,74,0.08)] border-2 border-[#c45c4a]'
+  1211→  1211→                            : 'bg-[#242424] border-2 border-transparent'
+  1212→  1212→                        }`}
+  1213→  1213→                      >
+  1214→  1214→                        <span className="text-[16px] font-medium text-white">{opt.level}</span>
+  1215→  1215→                        <span className={`text-[20px] text-[#c45c4a] transition-opacity ${opt.selected ? 'opacity-100' : 'opacity-0'}`}>✓</span>
+  1216→  1216→                      </button>
+  1217→  1217→                    ))}
+  1218→  1218→                  </div>
+  1219→  1219→                )}
+  1220→  1220→
+  1221→  1221→                {/* ══════ MORE MODELS ══════ */}
+  1222→  1222→                {settingsCurrentPage === 'more-models' && (
+  1223→  1223→                  <div className="divide-y divide-[#2a2a2a]">
+  1224→  1224→                    {[
+  1225→  1225→                      { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1', tag: 'Reasoning', pro: true },
+  1226→  1226→                      { id: 'qwen-qwq-32b', name: 'Qwen QwQ', tag: 'Reasoning', pro: true },
+  1227→  1227→                      { id: 'llama-3.2-3b-preview', name: 'Nova 0.9', tag: 'Lightweight', pro: false },
+  1228→  1228→                    ].map(m => (
+  1229→  1229→                      <button
+  1230→  1230→                        key={m.id}
+  1231→  1231→                        onClick={() => setModel(m.id)}
+  1232→  1232→                        className="w-full py-4 text-left active:opacity-60 transition-opacity"
+  1233→  1233→                      >
+  1234→  1234→                        <div className="flex items-center gap-2.5">
+  1235→  1235→                          <span className={`text-[17px] font-medium ${model === m.id ? 'text-[#4a9fd1]' : 'text-white'}`}>{m.name}</span>
+  1236→  1236→                          {m.pro && (
+  1237→  1237→                            <span className="text-[10px] font-bold tracking-[0.5px] px-[7px] py-[2px] rounded-[5px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.12)]">
+  1238→  1238→                              Pro
+  1239→  1239→                            </span>
+  1240→  1240→                          )}
+  1241→  1241→                        </div>
+  1242→  1242→                        <div className={`text-[14px] flex items-center justify-between mt-1 ${model === m.id ? 'text-[#4a9fd1]' : 'text-[#888]'}`}>
+  1243→  1243→                          <span>{m.id}</span>
+  1244→  1244→                          {model === m.id && <span className="text-[20px]">✓</span>}
+  1245→  1245→                        </div>
+  1246→  1246→                      </button>
+  1247→  1247→                    ))}
+  1248→  1248→                  </div>
+  1249→  1249→                )}
+  1250→  1250→
+  1251→  1251→                {/* ══════ VOICE ══════ */}
+  1252→  1252→                {settingsCurrentPage === 'voice' && (
+  1253→  1253→                  <div className="divide-y divide-[#2a2a2a]">
+  1254→  1254→                    {/* Server status */}
+  1255→  1255→                    <div className="flex items-center gap-2.5 py-3.5">
+  1256→  1256→                      <div className={`w-2.5 h-2.5 rounded-full ${tts.serverAvailable ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-red-500/60'}`} />
+  1257→  1257→                      <span className="text-[14px] text-[#aaa]">
+  1258→  1258→                        Voice Server {tts.serverAvailable ? 'Connected' : 'Offline'}
+  1259→  1259→                      </span>
+  1260→  1260→                      <span className="text-[11px] text-[#555] ml-auto">
+  1261→  1261→                        {tts.serverAvailable ? 'High-quality TTS' : 'Browser fallback'}
+  1262→  1262→                      </span>
+  1263→  1263→                    </div>
+  1264→  1264→
+  1265→  1265→                    {/* Engine */}
+  1266→  1266→                    <div className="py-3.5">
+  1267→  1267→                      <div className="text-[10px] font-medium text-[#666] uppercase tracking-wider mb-2">Engine</div>
+  1268→  1268→                      <div className="space-y-1">
+  1269→  1269→                        {(tts.engines?.length > 0 ? tts.engines : [{ id: 'browser', name: 'Browser TTS', features: ['free', 'low-latency'] }]).map(eng => (
+  1270→  1270→                          <button
+  1271→  1271→                            key={eng.id}
+  1272→  1272→                            onClick={() => tts.setEngine?.(eng.id)}
+  1273→  1273→                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-left ${
+  1274→  1274→                              tts.currentEngine === eng.id
+  1275→  1275→                                ? 'bg-[rgba(138,90,180,0.1)] border border-[rgba(138,90,180,0.2)]'
+  1276→  1276→                                : 'hover:bg-[#222] border border-transparent'
+  1277→  1277→                            }`}
+  1278→  1278→                          >
+  1279→  1279→                            <div className="flex-1 min-w-0">
+  1280→  1280→                              <div className={`text-[14px] font-medium ${tts.currentEngine === eng.id ? 'text-[#b88fd8]' : 'text-white'}`}>
+  1281→  1281→                                {eng.name}
+  1282→  1282→                              </div>
+  1283→  1283→                              {eng.features && (
+  1284→  1284→                                <div className="flex gap-1 mt-0.5">
+  1285→  1285→                                  {eng.features.map(f => (
+  1286→  1286→                                    <span key={f} className="text-[9px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-[#555]">{f}</span>
+  1287→  1287→                                  ))}
+  1288→  1288→                                </div>
+  1289→  1289→                              )}
+  1290→  1290→                            </div>
+  1291→  1291→                            {tts.currentEngine === eng.id && (
+  1292→  1292→                              <span className="text-[#b88fd8] text-[16px]">✓</span>
+  1293→  1293→                            )}
+  1294→  1294→                          </button>
+  1295→  1295→                        ))}
+  1296→  1296→                      </div>
+  1297→  1297→                    </div>
+  1298→  1298→
+  1299→  1299→                    {/* Speed */}
+  1300→  1300→                    <div className="py-3.5">
+  1301→  1301→                      <div className="flex items-center justify-between mb-2">
+  1302→  1302→                        <span className="text-[10px] font-medium text-[#666] uppercase tracking-wider">Speed</span>
+  1303→  1303→                        <span className="text-[13px] text-[#aaa] font-mono">{(tts.speed || 1.0).toFixed(1)}x</span>
+  1304→  1304→                      </div>
+  1305→  1305→                      <input
+  1306→  1306→                        type="range"
+  1307→  1307→                        min="0.5"
+  1308→  1308→                        max="2.0"
+  1309→  1309→                        step="0.1"
+  1310→  1310→                        value={tts.speed || 1.0}
+  1311→  1311→                        onChange={e => tts.setSpeed?.(parseFloat(e.target.value))}
+  1312→  1312→                        className="settings-voice-slider w-full h-1.5 rounded-full appearance-none cursor-pointer"
+  1313→  1313→                        style={{
+  1314→  1314→                          background: `linear-gradient(to right, #a855f7 0%, #ef4444 ${(((tts.speed || 1.0) - 0.5) / 1.5) * 100}%, #262626 ${(((tts.speed || 1.0) - 0.5) / 1.5) * 100}%)`,
+  1315→  1315→                        }}
+  1316→  1316→                      />
+  1317→  1317→                      <div className="flex justify-between mt-1.5">
+  1318→  1318→                        <span className="text-[11px] text-[#444]">0.5x</span>
+  1319→  1319→                        <span className="text-[11px] text-[#444]">1.0x</span>
+  1320→  1320→                        <span className="text-[11px] text-[#444]">2.0x</span>
+  1321→  1321→                      </div>
+  1322→  1322→                    </div>
+  1323→  1323→
+  1324→  1324→                    {/* Test Voice */}
+  1325→  1325→                    <div className="py-3.5">
+  1326→  1326→                      <button
+  1327→  1327→                        onClick={() => {
+  1328→  1328→                          if (tts.speak) {
+  1329→  1329→                            tts.speak("Hello from Kivora", { interrupt: true }).catch(() => {})
+  1330→  1330→                          } else if (typeof window !== 'undefined' && window.speechSynthesis) {
+  1331→  1331→                            window.speechSynthesis.speak(new SpeechSynthesisUtterance("Hello from Kivora"))
+  1332→  1332→                          }
+  1333→  1333→                        }}
+  1334→  1334→                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-[14px] text-[15px] font-medium transition-all active:scale-[0.98]"
+  1335→  1335→                        style={{
+  1336→  1336→                          background: 'linear-gradient(135deg, rgba(168,85,247,0.12), rgba(239,68,68,0.12))',
+  1337→  1337→                          border: '1px solid rgba(168,85,247,0.15)',
+  1338→  1338→                          color: '#d4d4d4',
+  1339→  1339→                        }}
+  1340→  1340→                      >
+  1341→  1341→                        <IconSpeaker size={16} /> Test Voice
+  1342→  1342→                      </button>
+  1343→  1343→                    </div>
+  1344→  1344→
+  1345→  1345→                    {/* Full Voice Panel link */}
+  1346→  1346→                    <div className="py-3.5">
+  1347→  1347→                      <button
+  1348→  1348→                        onClick={() => { setSettingsOpen(false); settingsReset(); setVoiceSettingsOpen(true) }}
+  1349→  1349→                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[rgba(138,90,180,0.12)] text-[#b88fd8] active:bg-[rgba(138,90,180,0.2)] transition-colors"
+  1350→  1350→                      >
+  1351→  1351→                        Full Voice Settings Panel →
+  1352→  1352→                      </button>
+  1353→  1353→                    </div>
+  1354→  1354→                  </div>
+  1355→  1355→                )}
+  1356→  1356→
+  1357→  1357→                {/* ══════ SYSTEM PROMPT ══════ */}
+  1358→  1358→                {settingsCurrentPage === 'prompt' && (
+  1359→  1359→                  <div className="py-3">
+  1360→  1360→                    <div className="text-[13px] text-[#888] mb-3">Current prompt</div>
+  1361→  1361→                    <textarea
+  1362→  1362→                      rows={6}
+  1363→  1363→                      className="w-full bg-[#242424] border border-[#2a2a2a] rounded-[12px] px-4 py-3.5 text-[14px] text-white placeholder-[#3a3a3a] resize-vertical outline-none focus:border-[#3a3a3a] transition-colors font-[inherit] leading-relaxed"
+  1364→  1364→                      placeholder="Enter system prompt..."
+  1365→  1365→                      value={customSystemPrompt}
+  1366→  1366→                      onChange={e => {
+  1367→  1367→                        saveCustomSystemPrompt(e.target.value)
+  1368→  1368→                        setSettingsPromptSaved(true)
+  1369→  1369→                        setTimeout(() => setSettingsPromptSaved(false), 1500)
+  1370→  1370→                      }}
+  1371→  1371→                    />
+  1372→  1372→                    <div className="flex items-center justify-between mt-2.5">
+  1373→  1373→                      <button
+  1374→  1374→                        onClick={() => { resetCustomSystemPrompt(); setSettingsPromptSaved(true); setTimeout(() => setSettingsPromptSaved(false), 1500) }}
+  1375→  1375→                        className="text-[13px] text-[#555] hover:text-red-400 transition-colors"
+  1376→  1376→                      >
+  1377→  1377→                        {t('chat.custom_prompt.reset') || 'Reset to default'}
+  1378→  1378→                      </button>
+  1379→  1379→                      {settingsPromptSaved && (
+  1380→  1380→                        <span className="text-[13px] text-emerald-400 flex items-center gap-1">
+  1381→  1381→                          <IconCheck size={12} /> Saved
+  1382→  1382→                        </span>
+  1383→  1383→                      )}
+  1384→  1384→                    </div>
+  1385→  1385→                  </div>
+  1386→  1386→                )}
+  1387→  1387→
+  1388→  1388→
+  1389→  1389→
+  1390→  1390→                </motion.div>
+  1391→  1391→              </AnimatePresence>
+  1392→  1392→            </div>
+  1393→  1393→          </div>
+  1394→  1394→        </div>
+  1395→  1395→      )}
+  1396→  1396→
+  1397→  1397→      {/* Main chat area */}
+  1398→  1398→      <div className="flex-1 flex flex-col min-w-0">
+  1399→  1399→        {/* Top bar */}
+  1400→  1400→        <div className="shrink-0 flex items-center justify-between px-[min(5vw,48px)] py-3">
+  1401→  1401→          {/* Left: hamburger (mobile) / spacer (desktop) */}
+  1402→  1402→          <div className="w-8 flex items-center justify-center">
+  1403→  1403→            <button
+  1404→  1404→              className="lg:hidden w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors -ml-1"
+  1405→  1405→              onClick={() => setHistoryOpen(true)}
+  1406→  1406→              aria-label={t('chat.history')}
+  1407→  1407→            >
+  1408→  1408→              <IconMenu size={20} />
+  1409→  1409→            </button>
+  1410→  1410→          </div>
+  1411→  1411→          {/* Center: spacer for balanced layout */}
+  1412→  1412→          <div className="flex-1" />
+  1413→  1413→          {/* Right: new conversation */}
+  1414→  1414→          <button
+  1415→  1415→            onClick={clearChat}
+  1416→  1416→            className="w-8 h-8 flex items-center justify-center rounded-full text-[#525252] hover:text-[#e2e2e2] hover:bg-white/[0.04] transition-all duration-200"
+  1417→  1417→            aria-label={t('chat.new')}
+  1418→  1418→            title={t('chat.new')}
+  1419→  1419→          >
+  1420→  1420→            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  1421→  1421→              <path d="M12 2l8.66 5v10L12 22l-8.66-5V7L12 2z"/>
+  1422→  1422→              <path d="M12 8v8"/>
+  1423→  1423→              <path d="M8 12h8"/>
+  1424→  1424→            </svg>
+  1425→  1425→          </button>
+  1426→  1426→        </div>
+  1427→  1427→
+  1428→  1428→        {/* Messages area */}
+  1429→  1429→        <div className="flex-1 overflow-y-auto overscroll-behavior-contain">
+  1430→  1430→          <div className="max-w-[960px] mx-auto px-[min(5vw,48px)] py-6 space-y-4">
+  1431→  1431→            {messages.length === 0 && (
+  1432→  1432→              <div className="flex flex-col items-center min-h-[65vh]">
+  1433→  1433→                {/* Morphing brand mark — the chat page's nav icon, ghosted and alive in the upper void */}
+  1434→  1434→                <div className="flex-1 flex items-center justify-center">
+  1435→  1435→                  <div className={`morph-logo-container ${!morphActive ? 'morph-logo-settled' : ''}`}>
+  1436→  1436→                    <div className="relative w-[56px] h-[56px] sm:w-[64px] sm:h-[64px]">
+  1437→  1437→                      {MORPH_SHAPES.map((shape, i) => (
+  1438→  1438→                        <div key={i} className={`morph-shape ${i === morphIndex ? 'morph-shape-active' : ''}`}>
+  1439→  1439→                          <svg width="44" height="44" viewBox="0 0 32 32" fill="none" className="sm:w-[52px] sm:h-[52px] text-[#525252]">
+  1440→  1440→                            {shape}
+  1441→  1441→                          </svg>
+  1442→  1442→                        </div>
+  1443→  1443→                      ))}
+  1444→  1444→                    </div>
+  1445→  1445→                  </div>
+  1446→  1446→                </div>
+  1447→  1447→
+  1448→  1448→              </div>
+  1449→  1449→            )}
+  1450→  1450→
+  1451→  1451→            {messages.map((msg, i) => {
+  1452→  1452→              // For display: strip [File: ...] prefix but keep text, show [Image: ...] as label
+  1453→  1453→              let displayContent = msg.content
+  1454→  1454→              let hasFileAttachment = false
+  1455→  1455→              let hasImageAttachment = false
+  1456→  1456→              let attachmentName = ''
+  1457→  1457→
+  1458→  1458→              if (msg.role === 'user') {
+  1459→  1459→                const fileMatch = msg.content.match(/^\[File: (.+?)\]\n/)
+  1460→  1460→                if (fileMatch) {
+  1461→  1461→                  hasFileAttachment = true
+  1462→  1462→                  attachmentName = fileMatch[1]
+  1463→  1463→                  displayContent = msg.content.replace(/^\[File: .+?\]\n/, '').replace(/^\n+/, '')
+  1464→  1464→                }
+  1465→  1465→                const imageMatch = msg.content.match(/^\[Image: (.+?)\]/)
+  1466→  1466→                if (imageMatch) {
+  1467→  1467→                  hasImageAttachment = true
+  1468→  1468→                  attachmentName = imageMatch[1]
+  1469→  1469→                  // Strip [Image: ...] prefix and base64 data from display text, keep any user text
+  1470→  1470→                  displayContent = msg.content.replace(/^\[Image: .+?\]\n?/, '').replace(/^data:image\/[^\n]+/, '').trim()
+  1471→  1471→                  if (!displayContent) displayContent = ''
+  1472→  1472→                }
+  1473→  1473→              }
+  1474→  1474→
+  1475→  1475→              return (
+  1476→  1476→                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+  1477→  1477→                  <div className={`group ${msg.role === 'user' ? 'max-w-[65%]' : 'w-full'}`}>
+  1478→  1478→                    {/* File/Image attachment indicator */}
+  1479→  1479→                    {hasFileAttachment && (
+  1480→  1480→                      <div className="flex items-center gap-1.5 mb-1.5 justify-end">
+  1481→  1481→                        <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-lg px-2.5 py-1 text-[11px] text-muted">
+  1482→  1482→                          <IconFile size={10} />
+  1483→  1483→                          <span>{attachmentName}</span>
+  1484→  1484→                        </div>
+  1485→  1485→                      </div>
+  1486→  1486→                    )}
+  1487→  1487→                    {hasImageAttachment && !msg.userImageData && (
+  1488→  1488→                      <div className="flex items-center gap-1.5 mb-1.5 justify-end">
+  1489→  1489→                        <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-lg px-2.5 py-1 text-[11px] text-muted">
+  1490→  1490→                          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1.5"/><path d="M2 11l3.5-3.5 2.5 2.5 2-2L14 11"/></svg>
+  1491→  1491→                          <span>{attachmentName}</span>
+  1492→  1492→                        </div>
+  1493→  1493→                      </div>
+  1494→  1494→                    )}
+  1495→  1495→                    {msg.role === 'assistant' && msg.searchUsed && (
+  1496→  1496→                      <div className="flex items-center gap-1.5 mb-1.5">
+  1497→  1497→                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#525252" strokeWidth="1.25" strokeLinecap="round">
+  1498→  1498→                          <circle cx="7" cy="7" r="5"/><path d="M11 11l3 3"/>
+  1499→  1499→                        </svg>
+
+[showing lines 1000-1499 of 2002; use offset=1500 with limit to continue reading]

@@ -1,0 +1,2002 @@
+     1→'use client'
+     2→import Link from 'next/link'
+     3→import { useState, useRef, useEffect, useCallback } from 'react'
+     4→import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+     5→import { AnimatePresence, motion } from 'framer-motion'
+     6→import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings, IconCopy as IconClipboard, IconWrite, IconFilter, IconRobot, IconTarget, IconDatabase, IconStack, IconSpeaker, IconArrowLeft, IconArrowRight, IconCube, IconLink } from '@/components/Icons'
+     7→import { useSessionTracker } from '@/lib/useSessionTracker'
+     8→import { supabasePublic } from '@/lib/supabase'
+     9→import MarkdownRenderer from '@/components/MarkdownRenderer'
+    10→import ArtifactViewer from '@/components/ArtifactViewer'
+    11→import ThinkingState, { STAGE_CONFIGS } from '@/components/ThinkingState'
+    12→import VoiceOutput from '@/components/VoiceOutput'
+    13→import VoiceSettings from '@/components/VoiceSettings'
+    14→import { useVoiceTTS } from '@/hooks/useVoiceTTS'
+    15→import { useTranslation } from '@/components/LanguageProvider'
+    16→import { stripMarkdown } from '@/lib/stripMarkdown'
+    17→
+    18→
+    19→
+    20→const MODELS = [
+    21→  { id: 'llama-3.3-70b-versatile', name: 'Nova 2.3', tag: 'Premium · Detailed', short: 'Nova 2.3' },
+    22→  { id: 'llama-3.1-8b-instant', name: 'Nova 1.7', tag: 'Free · Fast', short: 'Nova 1.7' },
+    23→  { id: 'llama3-70b-8192', name: 'Nova 2.3 Pro', tag: 'Extended context', short: '2.3 Pro' },
+    24→  { id: 'mixtral-8x7b-32768', name: 'Nova 2.3 Mix', tag: 'Long context', short: '2.3 Mix' },
+    25→  { id: 'gemma2-9b-it', name: 'Nova 1.7 Lite', tag: 'Efficient', short: '1.7 Lite' },
+    26→]
+    27→
+    28→const DEFAULT_MODEL = 'llama-3.3-70b-versatile'
+    29→
+    30→const ALLOWED_TEXT_EXTENSIONS = ['.txt', '.md', '.json', '.csv', '.js', '.py', '.ts', '.jsx', '.tsx', '.css', '.html', '.sql']
+    31→const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp']
+    32→const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+    33→
+    34→const STARTERS = [
+    35→  { labelKey: 'chat.starter.build', icon: IconCode },
+    36→  { labelKey: 'chat.starter.earn', icon: IconMoney },
+    37→  { labelKey: 'chat.starter.learn', icon: IconBulb },
+    38→]
+    39→
+    40→// Morphing brand mark shapes — stroke-based, matching platform icon language (1.25 stroke, round caps)
+    41→// All use viewBox="0 0 32 32" with stroke="currentColor"
+    42→// Shape 0 (chat bubble) is the resting form — same icon as the sidebar nav link for the AI chat page
+    43→const MORPH_SHAPES = [
+    44→  // 0: Chat bubble — the sidebar nav icon for AI chat (resting form)
+    45→  <g key="chat" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" fill="none">
+    46→    <path d="M4 6a2 2 0 012-2h20a2 2 0 012 2v14a2 2 0 01-2 2h-10l-6 6v-6H6a2 2 0 01-2-2V6z" />
+    47→    <path d="M10 12h12M10 17h6" />
+    48→  </g>,
+    49→  // 1: Open book — learning / knowledge
+    50→  <g key="book" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" fill="none">
+    51→    <path d="M4 5.5h6a4 4 0 014 4v14a3 3 0 00-3-3H4z" />
+    52→    <path d="M28 5.5h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z" />
+    53→  </g>,
+    54→  // 2: Stacked blocks — building / SaaS
+    55→  <g key="blocks" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" fill="none">
+    56→    <rect x="6" y="4" width="8" height="8" rx="2" />
+    57→    <rect x="18" y="4" width="8" height="8" rx="2" />
+    58→    <rect x="6" y="16" width="20" height="8" rx="2" />
+    59→  </g>,
+    60→  // 3: Neural node — AI intelligence
+    61→  <g key="node" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" fill="none">
+    62→    <circle cx="16" cy="8" r="3.5" />
+    63→    <circle cx="7" cy="24" r="3" />
+    64→    <circle cx="25" cy="24" r="3" />
+    65→    <line x1="16" y1="11.5" x2="7" y2="21" />
+    66→    <line x1="16" y1="11.5" x2="25" y2="21" />
+    67→    <line x1="7" y1="24" x2="25" y2="24" />
+    68→  </g>,
+    69→  // 4: Stacked layers — composition / depth
+    70→  <g key="layers" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" fill="none">
+    71→    <polygon points="16,4 4,10 16,16 28,10" />
+    72→    <polyline points="4,16 16,22 28,16" />
+    73→    <polyline points="4,22 16,28 28,22" />
+    74→  </g>,
+    75→]
+    76→
+    77→const FOCUS_MODES = [
+    78→  { id: 'All', labelKey: 'chat.focus.all', descKey: 'chat.focus.all.desc', Icon: IconSearch },
+    79→  { id: 'Academic', labelKey: 'chat.focus.academic', descKey: 'chat.focus.academic.desc', Icon: IconBook },
+    80→  { id: 'Writing', labelKey: 'chat.focus.writing', descKey: 'chat.focus.writing.desc', Icon: IconWrite },
+    81→  { id: 'Math', labelKey: 'chat.focus.math', descKey: 'chat.focus.math.desc', Icon: IconTarget },
+    82→  { id: 'Code', labelKey: 'chat.focus.code', descKey: 'chat.focus.code.desc', Icon: IconCode },
+    83→]
+    84→
+    85→const PRO_MODES = [
+    86→  { id: 'reasoning', labelKey: 'chat.focus.reasoning', descKey: 'chat.focus.reasoning.desc' },
+    87→  { id: 'prosearch', labelKey: 'chat.focus.prosearch', descKey: 'chat.focus.prosearch.desc' },
+    88→]
+    89→
+    90→function groupByDate(sessions) {
+    91→  const now = new Date()
+    92→  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    93→  const yesterday = new Date(today - 86400000)
+    94→  const weekAgo = new Date(today - 7 * 86400000)
+    95→
+    96→  const groups = { today: [], yesterday: [], week: [], older: [] }
+    97→
+    98→  sessions.forEach(s => {
+    99→    const d = new Date(s.updated_at || s.created_at)
+   100→    if (d >= today) groups.today.push(s)
+   101→    else if (d >= yesterday) groups.yesterday.push(s)
+   102→    else if (d >= weekAgo) groups.week.push(s)
+   103→    else groups.older.push(s)
+   104→  })
+   105→
+   106→  const result = []
+   107→  if (groups.today.length) result.push({ labelKey: 'chat.date.today', sessions: groups.today })
+   108→  if (groups.yesterday.length) result.push({ labelKey: 'chat.date.yesterday', sessions: groups.yesterday })
+   109→  if (groups.week.length) result.push({ labelKey: 'chat.date.this_week', sessions: groups.week })
+   110→  if (groups.older.length) result.push({ labelKey: 'chat.date.older', sessions: groups.older })
+   111→  return result
+   112→}
+   113→
+   114→export default function ChatClient() {
+   115→  const router = useRouter()
+   116→  const searchParams = useSearchParams()
+   117→  const [messages, setMessages] = useState([])
+   118→  const [input, setInput] = useState('')
+   119→  const [loading, setLoading] = useState(false)
+   120→  const [thinkingConfig, setThinkingConfig] = useState('chat')
+   121→  const [sessionId, setSessionId] = useState(() => crypto.randomUUID())
+   122→  const [copiedIndex, setCopiedIndex] = useState(null)
+   123→  const [historyOpen, setHistoryOpen] = useState(false)
+   124→  const [user, setUser] = useState(null)
+   125→  const [chatHistory, setChatHistory] = useState([])
+   126→  const [webSearch, setWebSearch] = useState(false)
+   127→
+   128→  // Feature #54: Multi-Model Support
+   129→  const [model, setModel] = useState(DEFAULT_MODEL)
+   130→  const [modelDropdownOpen, setModelDropdownOpen] = useState(false)
+   131→
+   132→  // Feature #6: File Upload
+   133→  const [attachedFile, setAttachedFile] = useState(null)
+   134→  const [attachedContent, setAttachedContent] = useState('')
+   135→  const [attachedIsImage, setAttachedIsImage] = useState(false)
+   136→  const fileInputRef = useRef(null)
+   137→
+   138→  // Feature: Voice Input
+   139→  const [isListening, setIsListening] = useState(false)
+   140→  const [voiceToast, setVoiceToast] = useState(null) // { type: 'error'|'info', message: string }
+   141→  const voiceToastTimer = useRef(null)
+   142→  const recognitionRef = useRef(null)
+   143→
+   144→  // ── Voice TTS (Text-to-Speech) ──
+   145→  const tts = useVoiceTTS()
+   146→  const [voiceSettingsOpen, setVoiceSettingsOpen] = useState(false)
+   147→
+   148→  function showVoiceToast(type, message) {
+   149→    if (voiceToastTimer.current) clearTimeout(voiceToastTimer.current)
+   150→    setVoiceToast({ type, message })
+   151→    voiceToastTimer.current = setTimeout(() => setVoiceToast(null), 4000)
+   152→  }
+   153→
+   154→  // Feature: System Prompt Customization
+   155→  const [customSystemPrompt, setCustomSystemPrompt] = useState('')
+   156→
+   157→  // Expandable chat bar states
+   158→  const [barExpanded, setBarExpanded] = useState(false)
+   159→  const [focusMode, setFocusMode] = useState('All')
+   160→  const [focusDropdownOpen, setFocusDropdownOpen] = useState(false)
+   161→  const [proMode, setProMode] = useState(false)
+   162→  const [proModeType, setProModeType] = useState('reasoning') // 'reasoning' or 'prosearch'
+   163→  const [proTypeDropdownOpen, setProTypeDropdownOpen] = useState(false)
+   164→  const [modelChipDropdownOpen, setModelChipDropdownOpen] = useState(false)
+   165→
+   166→  // Chat sidebar search
+   167→  const [convSearch, setConvSearch] = useState('')
+   168→
+   169→  // Morphing brand mark state
+   170→  const [morphIndex, setMorphIndex] = useState(0) // 0 = chat bubble (resting), settles on typing
+   171→  const [morphActive, setMorphActive] = useState(true)
+   172→
+   173→
+   174→
+   175→  // Chat sidebar settings panel
+   176→  const [settingsOpen, setSettingsOpen] = useState(false)
+   177→  const [settingsStack, setSettingsStack] = useState(['root']) // Navigation stack: ['root'] | ['root', 'model'] | ['root', 'model', 'effort'] etc
+   178→  const [settingsCurrentPage, setSettingsCurrentPage] = useState('root')
+   179→  const [settingsSlideDir, setSettingsSlideDir] = useState('push') // 'push' | 'pop'
+   180→  const [settingsExportFormat, setSettingsExportFormat] = useState('md')
+   181→  const [settingsPromptSaved, setSettingsPromptSaved] = useState(false)
+   182→  const [settingsExported, setSettingsExported] = useState(false)
+   183→  const [msgMenuOpen, setMsgMenuOpen] = useState(null) // index of message with open 3-dot menu
+   184→  const msgMenuRef = useRef(null)
+   185→
+   186→  // Settings navigation helpers with slide direction
+   187→  const settingsPush = useCallback((page) => {
+   188→    setSettingsSlideDir('push')
+   189→    setSettingsStack(prev => [...prev, page])
+   190→    setSettingsCurrentPage(page)
+   191→  }, [])
+   192→  const settingsPop = useCallback(() => {
+   193→    if (settingsStack.length <= 1) return
+   194→    setSettingsSlideDir('pop')
+   195→    const prevPage = settingsStack[settingsStack.length - 2]
+   196→    setSettingsStack(prev => prev.slice(0, -1))
+   197→    setSettingsCurrentPage(prevPage)
+   198→  }, [settingsStack])
+   199→  const settingsReset = useCallback(() => {
+   200→    setSettingsStack(['root'])
+   201→    setSettingsCurrentPage('root')
+   202→    setSettingsSlideDir('push')
+   203→  }, [])
+   204→
+   205→  // Escape key + swipe-to-go-back for settings sheet
+   206→  useEffect(() => {
+   207→    if (!settingsOpen) return
+   208→    function handleKeyDown(e) {
+   209→      if (e.key === 'Escape') {
+   210→        if (settingsStack.length > 1) settingsPop()
+   211→        else { setSettingsOpen(false); settingsReset() }
+   212→      }
+   213→    }
+   214→    document.addEventListener('keydown', handleKeyDown)
+   215→    return () => document.removeEventListener('keydown', handleKeyDown)
+   216→  }, [settingsOpen, settingsStack, settingsPop, settingsReset])
+   217→
+   218→  // Close 3-dot message menu on outside click
+   219→  useEffect(() => {
+   220→    if (msgMenuOpen === null) return
+   221→    function handleClick(e) {
+   222→      if (msgMenuRef.current && !msgMenuRef.current.contains(e.target)) {
+   223→        setMsgMenuOpen(null)
+   224→      }
+   225→    }
+   226→    document.addEventListener('mousedown', handleClick)
+   227→    return () => document.removeEventListener('mousedown', handleClick)
+   228→  }, [msgMenuOpen])
+   229→
+   230→  // ── Artifacts (Claude-style side panel) ──
+   231→  const [activeArtifact, setActiveArtifact] = useState(null) // { type, title, code }
+   232→  const [artifactPanelOpen, setArtifactPanelOpen] = useState(false)
+   233→
+   234→
+   235→
+   236→  const bottomRef = useRef(null)
+   237→  const textareaRef = useRef(null)
+   238→  const collapsedInputRef = useRef(null)
+   239→  const historyRef = useRef(null)
+   240→  const modelDropdownRef = useRef(null)
+   241→  const chatBarRef = useRef(null)
+   242→  const focusDropdownRef = useRef(null)
+   243→  const proTypeDropdownRef = useRef(null)
+   244→  const modelChipDropdownRef = useRef(null)
+   245→  const pathname = usePathname()
+   246→  const { startSession, endSession, markFollowUp } = useSessionTracker()
+   247→  const studySessionRef = useRef(null)
+   248→  const firstMessageSent = useRef(false)
+   249→  const { t } = useTranslation()
+   250→
+   251→  useEffect(() => {
+   252→    if (!supabasePublic) return
+   253→    supabasePublic.auth.getUser().then(({ data: { user } }) => {
+   254→      setUser(user)
+   255→      if (user) loadHistory(user.id)
+   256→    })
+   257→    const { data: { subscription } } = supabasePublic.auth.onAuthStateChange((event, session) => {
+   258→      setUser(session?.user ?? null)
+   259→      if (session?.user) loadHistory(session.user.id)
+   260→      else setChatHistory([])
+   261→    })
+   262→    return () => subscription.unsubscribe()
+   263→  }, [])
+   264→
+   265→  async function loadHistory(userId) {
+   266→    try {
+   267→      const { data } = await supabasePublic
+   268→        .from('chat_sessions')
+   269→        .select('id, messages, updated_at')
+   270→        .eq('user_id', userId)
+   271→        .order('updated_at', { ascending: false })
+   272→        .limit(30)
+   273→      if (data) setChatHistory(data)
+   274→    } catch {}
+   275→  }
+   276→
+   277→  useEffect(() => {
+   278→    if (user && messages.length > 0 && messages[messages.length - 1].role === 'assistant') {
+   279→      loadHistory(user.id)
+   280→    }
+   281→  }, [messages])
+   282→
+   283→  useEffect(() => {
+   284→    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+   285→  }, [messages])
+   286→
+   287→  useEffect(() => {
+   288→    return () => { if (studySessionRef.current) endSession(studySessionRef.current) }
+   289→  }, [])
+   290→
+   291→  useEffect(() => { setHistoryOpen(false) }, [pathname])
+   292→
+   293→  // Overlay onClick handles closing — no separate mousedown listener needed
+   294→
+   295→  // Close model dropdown on click outside
+   296→  useEffect(() => {
+   297→    if (!modelDropdownOpen) return
+   298→    function handleClick(e) {
+   299→      if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target)) {
+   300→        setModelDropdownOpen(false)
+   301→      }
+   302→    }
+   303→    document.addEventListener('mousedown', handleClick)
+   304→    return () => document.removeEventListener('mousedown', handleClick)
+   305→  }, [modelDropdownOpen])
+   306→
+   307→  // Close focus dropdown on click outside
+   308→  useEffect(() => {
+   309→    if (!focusDropdownOpen) return
+   310→    function handleClick(e) {
+   311→      if (focusDropdownRef.current && !focusDropdownRef.current.contains(e.target)) {
+   312→        setFocusDropdownOpen(false)
+   313→      }
+   314→    }
+   315→    document.addEventListener('mousedown', handleClick)
+   316→    return () => document.removeEventListener('mousedown', handleClick)
+   317→  }, [focusDropdownOpen])
+   318→
+   319→  // Close pro type dropdown on click outside
+   320→  useEffect(() => {
+   321→    if (!proTypeDropdownOpen) return
+   322→    function handleClick(e) {
+   323→      if (proTypeDropdownRef.current && !proTypeDropdownRef.current.contains(e.target)) {
+   324→        setProTypeDropdownOpen(false)
+   325→      }
+   326→    }
+   327→    document.addEventListener('mousedown', handleClick)
+   328→    return () => document.removeEventListener('mousedown', handleClick)
+   329→  }, [proTypeDropdownOpen])
+   330→
+   331→  // Close model chip dropdown on click outside
+   332→  useEffect(() => {
+   333→    if (!modelChipDropdownOpen) return
+   334→    function handleClick(e) {
+   335→      if (modelChipDropdownRef.current && !modelChipDropdownRef.current.contains(e.target)) {
+   336→        setModelChipDropdownOpen(false)
+   337→      }
+   338→    }
+   339→    document.addEventListener('mousedown', handleClick)
+   340→    return () => document.removeEventListener('mousedown', handleClick)
+   341→  }, [modelChipDropdownOpen])
+   342→
+   343→  // Auto-collapse bar on click outside (only when input is empty)
+   344→  useEffect(() => {
+   345→    if (!barExpanded) return
+   346→    function handleClick(e) {
+   347→      if (chatBarRef.current && !chatBarRef.current.contains(e.target)) {
+   348→        if (!input.trim() && !attachedFile) {
+   349→          setBarExpanded(false)
+   350→          setFocusDropdownOpen(false)
+   351→          setProTypeDropdownOpen(false)
+   352→          setModelChipDropdownOpen(false)
+   353→        }
+   354→      }
+   355→    }
+   356→    document.addEventListener('mousedown', handleClick)
+   357→    return () => document.removeEventListener('mousedown', handleClick)
+   358→  }, [barExpanded, input, attachedFile])
+   359→
+   360→  // Auto-expand bar when input is pre-filled (e.g. starter prompts)
+   361→  useEffect(() => {
+   362→    if (input.trim() && !barExpanded) {
+   363→      setBarExpanded(true)
+   364→    }
+   365→  }, [input])
+   366→
+   367→  // Load custom system prompt from localStorage
+   368→  useEffect(() => {
+   369→    try {
+   370→      const saved = localStorage.getItem('kivora-custom-system-prompt')
+   371→      if (saved) setCustomSystemPrompt(saved)
+   372→    } catch {}
+   373→  }, [])
+   374→
+   375→  // ── Handle URL query parameter (pre-fill from homepage) ──
+   376→  const urlQueryHandled = useRef(false)
+   377→  const autoSendRef = useRef(false)
+   378→  useEffect(() => {
+   379→    if (urlQueryHandled.current) return
+   380→    const q = searchParams.get('q')
+   381→    if (q) {
+   382→      urlQueryHandled.current = true
+   383→      setInput(q)
+   384→      autoSendRef.current = true
+   385→      // Clean URL parameter after reading
+   386→      router.replace('/chat')
+   387→    }
+   388→  }, [searchParams, router])
+   389→
+   390→  // Auto-send when input is pre-filled from URL
+   391→  useEffect(() => {
+   392→    if (autoSendRef.current && input.trim() && !loading) {
+   393→      autoSendRef.current = false
+   394→      // Small delay to let barExpanded state sync
+   395→      setTimeout(() => send(), 50)
+   396→    }
+   397→    // eslint-disable-next-line react-hooks/exhaustive-deps
+   398→  }, [input])
+   399→
+   400→  // Cleanup on unmount
+   401→  useEffect(() => {
+   402→    return () => {
+   403→      if (voiceToastTimer.current) clearTimeout(voiceToastTimer.current)
+   404→    }
+   405→  }, [])
+   406→
+   407→  // ── Morphing brand mark timer ──
+   408→  // Random 1.5–3s intervals between shape transitions
+   409→  useEffect(() => {
+   410→    if (!morphActive || messages.length > 0) return
+   411→    const delay = 1500 + Math.random() * 1500
+   412→    const timer = setTimeout(() => {
+   413→      setMorphIndex(prev => (prev + 1) % MORPH_SHAPES.length)
+   414→    }, delay)
+   415→    return () => clearTimeout(timer)
+   416→  }, [morphIndex, morphActive, messages.length])
+   417→
+   418→  // Settle to chat bubble (shape 0) when user is typing; resume morphing when idle
+   419→  useEffect(() => {
+   420→    const isActive = barExpanded || input.trim().length > 0
+   421→    if (isActive) {
+   422→      setMorphActive(false)
+   423→      setMorphIndex(0) // Chat bubble — the page's identity icon
+   424→    } else {
+   425→      setMorphActive(true)
+   426→      setMorphIndex(0) // Stay on chat bubble; morphing will cycle from here
+   427→    }
+   428→  }, [barExpanded, input])
+   429→
+   430→  function autoResize(el) {
+   431→    el.style.height = 'auto'
+   432→    el.style.height = Math.min(el.scrollHeight, 180) + 'px'
+   433→  }
+   434→
+   435→  function clearChat() {
+   436→    if (studySessionRef.current) {
+   437→      endSession(studySessionRef.current)
+   438→      studySessionRef.current = null
+   439→    }
+   440→    setMessages([])
+   441→    setInput('')
+   442→    setSessionId(crypto.randomUUID())
+   443→    firstMessageSent.current = false
+   444→    setAttachedFile(null)
+   445→    setAttachedContent('')
+   446→    setAttachedIsImage(false)
+   447→    if (textareaRef.current) textareaRef.current.style.height = 'auto'
+   448→  }
+   449→
+   450→  function loadSession(session) {
+   451→    if (studySessionRef.current) {
+   452→      endSession(studySessionRef.current)
+   453→      studySessionRef.current = null
+   454→    }
+   455→    setSessionId(session.id)
+   456→    setMessages(session.messages || [])
+   457→    firstMessageSent.current = true
+   458→    setHistoryOpen(false)
+   459→    setAttachedFile(null)
+   460→    setAttachedContent('')
+   461→    setAttachedIsImage(false)
+   462→  }
+   463→
+   464→  // ── Feature #6: File Upload Handler ──
+   465→  function handleFileSelect(e) {
+   466→    const file = e.target.files?.[0]
+   467→    if (!file) return
+   468→
+   469→    const ext = '.' + file.name.split('.').pop().toLowerCase()
+   470→    const isImage = ALLOWED_IMAGE_EXTENSIONS.includes(ext)
+   471→    const isText = ALLOWED_TEXT_EXTENSIONS.includes(ext)
+   472→
+   473→    if (!isImage && !isText) {
+   474→      alert(t('chat.error.unsupported_file'))
+   475→      e.target.value = ''
+   476→      return
+   477→    }
+   478→
+   479→    if (file.size > MAX_FILE_SIZE) {
+   480→      alert(t('chat.error.file_too_large'))
+   481→      e.target.value = ''
+   482→      return
+   483→    }
+   484→
+   485→    if (isImage) {
+   486→      // Read as base64 for vision model
+   487→      const reader = new FileReader()
+   488→      reader.onload = () => {
+   489→        setAttachedFile(file.name)
+   490→        setAttachedContent(reader.result) // data:image/...;base64,...
+   491→        setAttachedIsImage(true)
+   492→      }
+   493→      reader.readAsDataURL(file)
+   494→    } else {
+   495→      // Read as text
+   496→      const reader = new FileReader()
+   497→      reader.onload = () => {
+   498→        setAttachedFile(file.name)
+   499→        setAttachedContent(reader.result)
+   500→        setAttachedIsImage(false)
+   501→      }
+   502→      reader.readAsText(file)
+   503→    }
+   504→    e.target.value = ''
+   505→  }
+   506→
+   507→  function removeAttachment() {
+   508→    setAttachedFile(null)
+   509→    setAttachedContent('')
+   510→    setAttachedIsImage(false)
+   511→  }
+   512→
+   513→  // ── Feature #2: Chat Export ──
+   514→  async function exportChat(format) {
+   515→    if (messages.length === 0) return
+   516→    const now = new Date()
+   517→    const dateStr = now.toISOString().split('T')[0]
+   518→    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+   519→    const currentModel = MODELS.find(m => m.id === model)
+   520→    const modelName = currentModel?.name || model
+   521→
+   522→    try {
+   523→      const { exportChatAsPDF, exportChatAsDOCX, downloadBlob } = await import('@/lib/fileExportHeavy')
+   524→      const { exportChatAsHTML } = await import('@/lib/fileExportClient')
+   525→
+   526→      if (format === 'pdf') {
+   527→        const blob = await exportChatAsPDF(messages, modelName)
+   528→        downloadBlob(blob, `kivora-chat-${dateStr}.pdf`)
+   529→      } else if (format === 'docx') {
+   530→        const blob = await exportChatAsDOCX(messages, modelName)
+   531→        downloadBlob(blob, `kivora-chat-${dateStr}.docx`)
+   532→      } else if (format === 'html') {
+   533→        const blob = exportChatAsHTML(messages, modelName)
+   534→        downloadBlob(blob, `kivora-chat-${dateStr}.html`)
+   535→      } else {
+   536→        // MD and TXT — no external deps needed
+   537→        let content = ''
+   538→        if (format === 'md') {
+   539→          content = `# Kivora AI Chat Export\n\n`
+   540→          content += `**Date:** ${dateStr} ${timeStr}\n`
+   541→          content += `**Model:** ${modelName}\n\n`
+   542→          content += `---\n\n`
+   543→          messages.forEach(msg => {
+   544→            if (msg.role === 'user') {
+   545→              content += `### User\n\n${msg.content}\n\n`
+   546→            } else {
+   547→              content += `### Assistant\n\n${msg.content}\n\n`
+   548→            }
+   549→          })
+   550→        } else {
+   551→          content = `Kivora AI Chat Export\n`
+   552→          content += `Date: ${dateStr} ${timeStr}\n`
+   553→          content += `Model: ${modelName}\n`
+   554→          content += `${'='.repeat(50)}\n\n`
+   555→          messages.forEach(msg => {
+   556→            if (msg.role === 'user') {
+   557→              content += `[User]\n${msg.content}\n\n`
+   558→            } else {
+   559→              content += `[Assistant]\n${msg.content}\n\n`
+   560→            }
+   561→          })
+   562→        }
+   563→        const blob = new Blob([content], { type: format === 'md' ? 'text/markdown' : 'text/plain' })
+   564→        downloadBlob(blob, `kivora-chat-${dateStr}.${format}`)
+   565→      }
+   566→    } catch (err) {
+   567→      console.error('Export failed:', err)
+   568→    }
+   569→  }
+   570→
+   571→  async function send() {
+   572→    const q = input.trim()
+   573→    if ((!q && !attachedFile) || loading) return
+   574→
+   575→    // Build the message content with file attachment if present
+   576→    let messageContent = q
+   577→    if (attachedFile && attachedContent) {
+   578→      if (attachedIsImage) {
+   579→        // For images: [Image: filename]\n<base64 data>
+   580→        messageContent = `[Image: ${attachedFile}]\n${attachedContent}`
+   581→        if (q) messageContent += '\n' + q
+   582→      } else {
+   583→        // For text files: [File: filename]\n<file content>\n\n<user message>
+   584→        messageContent = `[File: ${attachedFile}]\n${attachedContent}`
+   585→        if (q) messageContent += '\n\n' + q
+   586→      }
+   587→    }
+   588→
+   589→    const userMsg = { role: 'user', content: messageContent }
+   590→    // Store image data separately for display rendering (avoids embedding base64 in content string for display)
+   591→    if (attachedIsImage && attachedContent) {
+   592→      userMsg.userImageData = attachedContent
+   593→    }
+   594→    const newMessages = [...messages, userMsg]
+   595→    setMessages(newMessages)
+   596→    setInput('')
+   597→    if (textareaRef.current) textareaRef.current.style.height = 'auto'
+   598→
+   599→    // Capture attachment state before clearing
+   600→    const wasImage = attachedIsImage
+   601→
+   602→    // Select thinking stage config based on context
+   603→    if (wasImage) {
+   604→      setThinkingConfig('chatWithVision')
+   605→    } else if (webSearch) {
+   606→      setThinkingConfig(focusMode === 'Academic' ? 'academicSearch' : 'chatWithSearch')
+   607→    } else if (focusMode === 'Code') {
+   608→      setThinkingConfig('chatWithCode')
+   609→    } else if (focusMode === 'Academic') {
+   610→      setThinkingConfig('academic')
+   611→    } else if (focusMode === 'Writing') {
+   612→      setThinkingConfig('writing')
+   613→    } else if (focusMode === 'Math') {
+   614→      setThinkingConfig('math')
+   615→    } else {
+   616→      setThinkingConfig('chat')
+   617→    }
+   618→    setLoading(true)
+   619→
+   620→    // Collapse bar after sending
+   621→    setBarExpanded(false)
+   622→
+   623→    // Clear attachment after sending
+   624→    setAttachedFile(null)
+   625→    setAttachedContent('')
+   626→    setAttachedIsImage(false)
+   627→
+   628→    if (!firstMessageSent.current) {
+   629→      firstMessageSent.current = true
+   630→      studySessionRef.current = await startSession('chat', null, q.slice(0, 200))
+   631→    } else if (studySessionRef.current) {
+   632→      markFollowUp(studySessionRef.current)
+   633→    }
+   634→
+   635→    try {
+   636→      const res = await fetch('/api/chat', {
+   637→        method: 'POST',
+   638→        headers: { 'Content-Type': 'application/json' },
+   639→        body: JSON.stringify({
+   640→          messages: newMessages,
+   641→          sessionId,
+   642→          userId: user?.id || null,
+   643→          model: wasImage ? undefined : model, // Vision model is auto-selected by API
+   644→          systemPrompt: customSystemPrompt || undefined,
+   645→          focusMode: focusMode || 'All',
+   646→          proMode: proMode || false,
+   647→          proModeType: proMode ? proModeType : undefined
+   648→        })
+   649→      })
+   650→      const data = await res.json()
+   651→      const assistantMsg = { role: 'assistant', content: data.reply || data.error || t('chat.error.general') }
+   652→      if (data.quotaExceeded) {
+   653→        assistantMsg.quotaExceeded = true
+   654→      }
+   655→      if (data.searchUsed) {
+   656→        assistantMsg.searchUsed = true
+   657→        assistantMsg.searchQuery = data.searchQuery || ''
+   658→      }
+   659→      if (data.codeExecuted) {
+   660→        assistantMsg.codeExecuted = true
+   661→      }
+   662→      if (data.sandboxUsed) {
+   663→        assistantMsg.sandboxUsed = true
+   664→      }
+   665→      if (data.gpuUsed) {
+   666→        assistantMsg.gpuUsed = true
+   667→        assistantMsg.accelerator = data.accelerator || 'T4'
+   668→      }
+   669→      if (data.remoteExecUsed) {
+   670→        assistantMsg.remoteExecUsed = true
+   671→        assistantMsg.execLanguage = data.execLanguage || 'python'
+   672→      }
+   673→      if (data.downloadFile) {
+   674→        assistantMsg.downloadFile = data.downloadFile
+   675→      }
+   676→      if (data.urlRead) {
+   677→        assistantMsg.urlRead = true
+   678→        assistantMsg.urlReadSource = data.urlReadSource || ''
+   679→      }
+   680→      if (data.imageGenerated) {
+   681→        assistantMsg.isImage = true
+   682→        assistantMsg.imageData = data.imageData
+   683→        assistantMsg.imagePrompt = data.imagePrompt
+   684→        assistantMsg.imageModel = 'flux'
+   685→        assistantMsg.imageSize = '1024x1024'
+   686→      }
+   687→      if (data.artifacts && data.artifacts.length > 0) {
+   688→        assistantMsg.artifacts = data.artifacts
+   689→      }
+   690→      if (data.opportunityCards && data.opportunityCards.length > 0) {
+   691→        assistantMsg.opportunityCards = data.opportunityCards
+   692→      }
+   693→      setMessages(prev => [...prev, assistantMsg])
+   694→    } catch {
+   695→      setMessages(prev => [...prev, { role: 'assistant', content: t('chat.error.network') }])
+   696→    }
+   697→    setLoading(false)
+   698→  }
+   699→
+   700→
+   701→
+   702→  function copy(content, i) {
+   703→    navigator.clipboard.writeText(stripMarkdown(content))
+   704→    setCopiedIndex(i)
+   705→    setTimeout(() => setCopiedIndex(null), 2000)
+   706→  }
+   707→
+   708→  // ── Voice Input (ASR) ──
+   709→  const [micPermModal, setMicPermModal] = useState(false)
+   710→
+   711→  async function checkMicPermission() {
+   712→    try {
+   713→      const result = await navigator.permissions.query({ name: 'microphone' })
+   714→      return result.state // 'granted', 'denied', or 'prompt'
+   715→    } catch {
+   716→      // permissions.query not supported in some browsers — return null so we fall through to getUserMedia
+   717→      return null
+   718→    }
+   719→  }
+   720→
+   721→  async function toggleListening(e) {
+   722→    // Do NOT call e.preventDefault() — it blocks the browser's permission popup
+   723→    // by cancelling the "user gesture" that the browser requires.
+   724→    if (e) { e.stopPropagation() }
+   725→    if (typeof window === 'undefined') return
+   726→    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+   727→
+   728→    if (!SpeechRecognition) {
+   729→      showVoiceToast('error', t('chat.voice_not_supported') || 'Voice input is not supported in this browser. Please use Chrome or Edge.')
+   730→      return
+   731→    }
+   732→
+   733→    if (isListening) {
+   734→      if (recognitionRef.current) {
+   735→        recognitionRef.current.stop()
+   736→      }
+   737→      setIsListening(false)
+   738→      return
+   739→    }
+   740→
+   741→    // Step 1: Check if permission is already permanently denied.
+   742→    // If so, getUserMedia will silently reject without showing a popup,
+   743→    // so we must show a modal with manual reset instructions instead.
+   744→    const permState = await checkMicPermission()
+   745→    if (permState === 'denied') {
+   746→      setMicPermModal(true)
+   747→      return
+   748→    }
+   749→
+   750→    // Step 2: If permission is 'prompt' (never asked) or 'granted', proceed.
+   751→    // For 'prompt': getUserMedia will trigger the browser's permission popup.
+   752→    // For 'granted': getUserMedia will succeed immediately.
+   753→    // If permissions.query is unsupported (permState === null), try getUserMedia anyway.
+   754→    if (permState === 'prompt' || permState === null) {
+   755→      try {
+   756→        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+   757→        // Release the stream immediately — we only needed the permission grant
+   758→        stream.getTracks().forEach(track => track.stop())
+   759→      } catch (err) {
+   760→        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+   761→          // User just clicked "Block" on the popup, or it was auto-denied
+   762→          setMicPermModal(true)
+   763→        } else if (err.name === 'NotFoundError') {
+   764→          showVoiceToast('error', t('chat.voice_no_mic') || 'No microphone found. Please connect a microphone.')
+   765→        } else {
+   766→          showVoiceToast('error', t('chat.voice_error') || 'Voice input error. Please try again.')
+   767→        }
+   768→        return
+   769→      }
+   770→    }
+   771→
+   772→    // Step 3: Permission is granted — start SpeechRecognition
+   773→    const recognition = new SpeechRecognition()
+   774→    recognition.continuous = true
+   775→    recognition.interimResults = true
+   776→    recognition.lang = 'en-US'
+   777→
+   778→    let finalTranscript = ''
+   779→
+   780→    recognition.onresult = (event) => {
+   781→      for (let i = event.resultIndex; i < event.results.length; i++) {
+   782→        const transcript = event.results[i][0].transcript
+   783→        if (event.results[i].isFinal) {
+   784→          finalTranscript += transcript
+   785→        }
+   786→      }
+   787→      if (finalTranscript) {
+   788→        setInput(prev => prev ? prev + ' ' + finalTranscript : finalTranscript)
+   789→        finalTranscript = ''
+   790→        if (textareaRef.current) {
+   791→          setTimeout(() => autoResize(textareaRef.current), 0)
+   792→        }
+   793→      }
+   794→    }
+   795→
+   796→    recognition.onerror = (event) => {
+   797→      setIsListening(false)
+   798→      if (event.error === 'not-allowed') {
+   799→        setMicPermModal(true)
+   800→      } else if (event.error === 'no-speech') {
+   801→        showVoiceToast('info', t('chat.voice_no_speech') || 'No speech detected. Please try again.')
+   802→      } else if (event.error === 'audio-capture') {
+   803→        showVoiceToast('error', t('chat.voice_no_mic') || 'No microphone found. Please connect a microphone.')
+   804→      } else {
+   805→        showVoiceToast('error', t('chat.voice_error') || 'Voice input error. Please try again.')
+   806→      }
+   807→    }
+   808→
+   809→    recognition.onend = () => {
+   810→      setIsListening(false)
+   811→    }
+   812→
+   813→    recognitionRef.current = recognition
+   814→    setIsListening(true)
+   815→    try {
+   816→      recognition.start()
+   817→      showVoiceToast('info', t('chat.voice_listening') || 'Listening... Speak now.')
+   818→    } catch (e) {
+   819→      setIsListening(false)
+   820→      showVoiceToast('error', t('chat.voice_error') || 'Voice input error. Please try again.')
+   821→    }
+   822→  }
+   823→
+   824→  // ── System Prompt Customization ──
+   825→  function saveCustomSystemPrompt(value) {
+   826→    setCustomSystemPrompt(value)
+   827→    try {
+   828→      localStorage.setItem('kivora-custom-system-prompt', value)
+   829→    } catch {}
+   830→  }
+   831→
+   832→  function resetCustomSystemPrompt() {
+   833→    setCustomSystemPrompt('')
+   834→    try {
+   835→      localStorage.removeItem('kivora-custom-system-prompt')
+   836→    } catch {}
+   837→  }
+   838→
+   839→  const historyGroups = groupByDate(chatHistory)
+   840→
+   841→  // Filter history by search query
+   842→  const filteredHistory = convSearch.trim()
+   843→    ? groupByDate(chatHistory.filter(s => {
+   844→        const title = chatTitle(s)
+   845→        return title.toLowerCase().includes(convSearch.toLowerCase())
+   846→      }))
+   847→    : historyGroups
+   848→
+   849→  function chatTitle(session) {
+   850→    const msgs = session.messages || []
+   851→    const first = msgs.find(m => m.role === 'user')
+   852→    return first?.content?.slice(0, 40) || t('chat.new')
+   853→  }
+   854→
+   855→  const hasInput = input.trim().length > 0 || attachedFile
+   856→
+   857→  const currentModel = MODELS.find(m => m.id === model) || MODELS[0]
+   858→
+   859→  return (
+   860→    <main className="h-dvh flex bg-[#0a0a0a] overflow-hidden">
+   861→      {/* ── Artifact Side Panel (desktop) ── */}
+   862→      {artifactPanelOpen && activeArtifact && (
+   863→        <div className="w-[480px] shrink-0 hidden lg:block">
+   864→          <ArtifactViewer
+   865→            artifact={activeArtifact}
+   866→            onClose={() => { setArtifactPanelOpen(false); setActiveArtifact(null) }}
+   867→          />
+   868→        </div>
+   869→      )}
+   870→      {/* ── Artifact Side Panel (mobile overlay) ── */}
+   871→      {artifactPanelOpen && activeArtifact && (
+   872→        <div className="fixed inset-0 z-50 lg:hidden">
+   873→          <div className="absolute inset-0 bg-black/60" onClick={() => { setArtifactPanelOpen(false); setActiveArtifact(null) }} />
+   874→          <div className="absolute inset-x-0 bottom-0 top-12 bg-[#0f0f0f] border-t border-[#181818] rounded-t-2xl overflow-hidden">
+   875→            <ArtifactViewer
+   876→              artifact={activeArtifact}
+   877→              onClose={() => { setArtifactPanelOpen(false); setActiveArtifact(null) }}
+   878→            />
+   879→          </div>
+   880→        </div>
+   881→      )}
+   882→      {/* ── Chat Sidebar ── */}
+   883→      {historyOpen && (
+   884→        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden" onClick={() => setHistoryOpen(false)} />
+   885→      )}
+   886→      <aside
+   887→        ref={historyRef}
+   888→        className={`fixed lg:relative z-50 lg:z-auto top-0 left-0 h-full w-60 bg-[#0f0f0f] border-r border-[#181818] flex flex-col transition-transform duration-200 ${
+   889→          historyOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+   890→        }`}
+   891→      >
+   892→        {/* ── Logo + close ── */}
+   893→        <div className="px-3 pt-3 pb-2 shrink-0">
+   894→          <div className="flex items-center justify-between mb-3">
+   895→            <Link href="/research" className="flex items-center gap-2.5" onClick={() => setHistoryOpen(false)}>
+   896→              <div className="w-7 h-7 bg-[#dc2626] rounded-lg flex items-center justify-center">
+   897→                <svg width="14" height="14" viewBox="0 0 32 32" fill="none">
+   898→                  <path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95" />
+   899→                  <path d="M16 4L26 24L16 18Z" fill="white" opacity="0.55" />
+   900→                  <rect x="6" y="26" width="20" height="3" rx="1.5" fill="white" opacity="0.3" />
+   901→                </svg>
+   902→              </div>
+   903→              <span className="font-bold text-[15px] tracking-tight">
+   904→                Ki<span className="text-red-500">vora</span>
+   905→              </span>
+   906→            </Link>
+   907→            <button
+   908→              className="lg:hidden w-7 h-7 flex items-center justify-center text-[#525252] hover:text-white transition-colors"
+   909→              onClick={() => setHistoryOpen(false)}
+   910→            >
+   911→              <IconClose size={18} />
+   912→            </button>
+   913→          </div>
+   914→        </div>
+   915→
+   916→        {/* ── Explore link ── */}
+   917→        <div className="px-2.5 shrink-0">
+   918→          <Link
+   919→            href="/explore"
+   920→            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+   921→              false
+   922→                ? 'bg-[#1a1a1a] text-white'
+   923→                : 'text-muted hover:text-white hover:bg-[#141414]'
+   924→            }`}
+   925→            onClick={() => setHistoryOpen(false)}
+   926→          >
+   927→            <IconSearch size={18} className="shrink-0" />
+   928→            {t('nav.explore') || 'Explore'}
+   929→          </Link>
+   930→        </div>
+   931→
+   932→        {/* ── Spacer ── */}
+   933→        <div className="h-3 shrink-0" />
+   934→
+   935→        {/* ── Search conversations ── */}
+   936→        <div className="px-3 shrink-0">
+   937→          <div className="relative">
+   938→            <IconSearch size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#525252] pointer-events-none" />
+   939→            <input
+   940→              type="text"
+   941→              placeholder={t('chat.search_conversations') || 'Search conversations'}
+   942→              value={convSearch}
+   943→              onChange={e => setConvSearch(e.target.value)}
+   944→              className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg pl-8 pr-3 py-1.5 text-[12px] text-[#d4d4d4] placeholder-[#525252] outline-none focus:border-[#3a3a3a] transition-colors"
+   945→              autoComplete="off"
+   946→              spellCheck="false"
+   947→            />
+   948→          </div>
+   949→        </div>
+   950→
+   951→        {/* ── Conversation list ── */}
+   952→        <div className="flex-1 overflow-y-auto overscroll-behavior-contain px-2.5 min-h-0 mt-2">
+   953→          {user && filteredHistory.length > 0 ? (
+   954→            <div className="space-y-3">
+   955→              {filteredHistory.map(group => (
+   956→                <div key={group.labelKey}>
+   957→                  <p className="text-caption text-muted2 px-1 mb-1 uppercase tracking-wider font-medium">{t(group.labelKey)}</p>
+   958→                  <div className="space-y-0.5">
+   959→                    {group.sessions.map(s => (
+   960→                      <button
+   961→                        key={s.id}
+   962→                        onClick={() => loadSession(s)}
+   963→                        className={`w-full text-left px-3 py-2 rounded-lg text-caption transition-colors truncate ${
+   964→                          s.id === sessionId
+   965→                            ? 'bg-[#1a1a1a] text-white'
+   966→                            : 'text-[#525252] hover:text-white hover:bg-[#141414]'
+   967→                        }`}
+   968→                      >
+   969→                        {chatTitle(s)}
+   970→                      </button>
+   971→                    ))}
+   972→                  </div>
+   973→                </div>
+   974→              ))}
+   975→            </div>
+   976→          ) : user ? (
+   977→            <p className="text-caption text-[#2e2e2e] px-1 pt-2">{convSearch.trim() ? (t('chat.no_results') || 'No conversations found') : (t('chat.history.empty') || 'No conversations yet')}</p>
+   978→          ) : null}
+   979→        </div>
+   980→
+   981→        {/* ── Settings toggle + Profile avatar — pinned to bottom ── */}
+   982→        <div className="p-2.5 border-t border-[#181818] shrink-0 space-y-0.5">
+   983→          <button
+   984→            onClick={() => { setSettingsOpen(!settingsOpen); if (!settingsOpen) settingsReset() }}
+   985→            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors font-medium ${
+   986→              settingsOpen
+   987→                ? 'bg-[#1a1a1a] text-white'
+   988→                : 'text-muted hover:text-white hover:bg-[#141414]'
+   989→            }`}
+   990→          >
+   991→            <IconSettings size={20} className="shrink-0" />
+   992→            {t('chat.settings') || 'Settings'}
+   993→          </button>
+   994→
+   995→          {user ? (
+   996→            <Link
+   997→              href="/profile"
+   998→              className="flex items-center justify-center transition-colors rounded-lg hover:bg-[#141414] py-1.5"
+   999→              onClick={() => setHistoryOpen(false)}
+  1000→            >
+  1001→              <div className="w-7 h-7 bg-[#dc2626] rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+  1002→                {(user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || '').slice(0, 2).toUpperCase()}
+  1003→              </div>
+  1004→            </Link>
+  1005→          ) : (
+  1006→            <Link
+  1007→              href="/auth"
+  1008→              className="flex items-center justify-center gap-1.5 bg-[#dc2626] hover:bg-red-700 text-white text-sm py-2 rounded-lg transition-colors font-semibold"
+  1009→              onClick={() => setHistoryOpen(false)}
+  1010→            >
+  1011→              <IconUser size={18} />
+  1012→              {t('nav.signin') || 'Sign in'}
+  1013→            </Link>
+  1014→          )}
+  1015→        </div>
+  1016→      </aside>
+  1017→
+  1018→      {/* ── Settings bottom sheet (Claude AI style) — at root level so it's not constrained by sidebar ── */}
+  1019→      {settingsOpen && (
+  1020→        <div
+  1021→          className="fixed inset-0 z-[60] bg-black/60"
+  1022→          onClick={() => { setSettingsOpen(false); settingsReset() }}
+  1023→        >
+  1024→          <div
+  1025→            className="absolute bottom-0 left-0 right-0 h-[92vh] bg-[#1a1a1a] rounded-t-[24px] flex flex-col overflow-hidden animate-slide-up"
+  1026→            onClick={e => e.stopPropagation()}
+  1027→          >
+  1028→            {/* Handle bar */}
+  1029→            <div className="flex justify-center pt-2.5 pb-1 shrink-0">
+  1030→              <div className="w-10 h-1 rounded-full bg-[#444]" />
+  1031→            </div>
+  1032→
+  1033→            {/* Header */}
+  1034→            <div className="flex items-center justify-center px-4 py-2 relative min-h-[44px] shrink-0">
+  1035→              {settingsCurrentPage !== 'root' ? (
+  1036→                <button
+  1037→                  onClick={settingsPop}
+  1038→                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
+  1039→                >
+  1040→                  <IconArrowLeft size={16} className="text-[#ccc]" />
+  1041→                </button>
+  1042→              ) : (
+  1043→                <button
+  1044→                  onClick={() => { setSettingsOpen(false); settingsReset() }}
+  1045→                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
+  1046→                >
+  1047→                  <IconClose size={16} className="text-[#ccc]" />
+  1048→                </button>
+  1049→              )}
+  1050→              <span className="text-[17px] font-semibold tracking-tight text-white">
+  1051→                {settingsCurrentPage === 'root' && (t('chat.settings') || 'Settings')}
+  1052→                {settingsCurrentPage === 'model' && 'Select model'}
+  1053→                {settingsCurrentPage === 'effort' && 'Effort'}
+  1054→                {settingsCurrentPage === 'more-models' && 'More models'}
+  1055→                {settingsCurrentPage === 'voice' && 'Voice'}
+  1056→                {settingsCurrentPage === 'prompt' && (t('chat.custom_prompt') || 'System Prompt')}
+  1057→              </span>
+  1058→            </div>
+  1059→
+  1060→            {/* Content */}
+  1061→            <div className="flex-1 overflow-y-auto px-4 py-3" style={{ scrollbarWidth: 'none' }}>
+  1062→              <AnimatePresence mode="popLayout" initial={false}>
+  1063→                <motion.div
+  1064→                  key={settingsCurrentPage}
+  1065→                  initial={{ x: settingsSlideDir === 'push' ? 300 : -100, opacity: 0 }}
+  1066→                  animate={{ x: 0, opacity: 1 }}
+  1067→                  exit={{ x: settingsSlideDir === 'push' ? -100 : 300, opacity: 0 }}
+  1068→                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+  1069→                >
+  1070→
+  1071→                {/* ══════ ROOT: Settings categories ══════ */}
+  1072→                {settingsCurrentPage === 'root' && (
+  1073→                  <div className="divide-y divide-[#2a2a2a]">
+  1074→                    {/* Model */}
+  1075→                    <button
+  1076→                      onClick={() => settingsPush('model')}
+  1077→                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+  1078→                    >
+  1079→                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(115,115,115,0.1)] flex items-center justify-center shrink-0">
+  1080→                        <IconLightning size={18} className="text-[#737373]" />
+  1081→                      </div>
+  1082→                      <div className="flex-1 min-w-0">
+  1083→                        <div className="text-[16px] font-medium text-white">Model</div>
+  1084→                        <div className="text-[13px] text-[#888] truncate">{currentModel?.name || 'Default'}</div>
+  1085→                      </div>
+  1086→                      <span className="text-[20px] text-[#888]">›</span>
+  1087→                    </button>
+  1088→
+  1089→                    {/* Voice */}
+  1090→                    <button
+  1091→                      onClick={() => settingsPush('voice')}
+  1092→                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+  1093→                    >
+  1094→                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(115,115,115,0.1)] flex items-center justify-center shrink-0">
+  1095→                        <IconSpeaker size={18} className="text-[#737373]" />
+  1096→                      </div>
+  1097→                      <div className="flex-1 min-w-0">
+  1098→                        <div className="text-[16px] font-medium text-white">Voice</div>
+  1099→                        <div className="text-[13px] text-[#888] truncate">
+  1100→                          {tts.currentEngine === 'browser' ? 'Browser TTS' : (tts.engines?.find(e => e.id === tts.currentEngine)?.name || 'Browser')} · {(tts.speed || 1.0).toFixed(1)}x
+  1101→                        </div>
+  1102→                      </div>
+  1103→                      <div className="flex items-center gap-2 shrink-0">
+  1104→                        <div className={`w-2 h-2 rounded-full ${tts.serverAvailable ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.4)]' : 'bg-red-500/60'}`} />
+  1105→                        <span className="text-[20px] text-[#888]">›</span>
+  1106→                      </div>
+  1107→                    </button>
+  1108→
+  1109→                    {/* System Prompt */}
+  1110→                    <button
+  1111→                      onClick={() => settingsPush('prompt')}
+  1112→                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
+  1113→                    >
+  1114→                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(115,115,115,0.1)] flex items-center justify-center shrink-0">
+  1115→                        <IconSliders size={18} className="text-[#737373]" />
+  1116→                      </div>
+  1117→                      <div className="flex-1 min-w-0">
+  1118→                        <div className="text-[16px] font-medium text-white">System Prompt</div>
+  1119→                        <div className="text-[13px] text-[#888] truncate">
+  1120→                          {customSystemPrompt ? customSystemPrompt.slice(0, 35) + '...' : 'Default'}
+  1121→                        </div>
+  1122→                      </div>
+  1123→                      <span className="text-[20px] text-[#888]">›</span>
+  1124→                    </button>
+  1125→
+  1126→                    {/* Full Voice Settings shortcut */}
+  1127→                    <div className="pt-4">
+  1128→                      <button
+  1129→                        onClick={() => { setSettingsOpen(false); settingsReset(); setVoiceSettingsOpen(true) }}
+  1130→                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[rgba(115,115,115,0.1)] text-[#737373] active:bg-[rgba(115,115,115,0.18)] transition-colors"
+  1131→                      >
+  1132→                        <IconSpeaker size={16} /> Full Voice Settings Panel
+  1133→                      </button>
+  1134→                    </div>
+  1135→                  </div>
+  1136→                )}
+  1137→
+  1138→                {/* ══════ MODEL SELECTOR ══════ */}
+  1139→                {settingsCurrentPage === 'model' && (
+  1140→                  <div className="divide-y divide-[#2a2a2a]">
+  1141→                    {MODELS.map(m => (
+  1142→                      <button
+  1143→                        key={m.id}
+  1144→                        onClick={() => setModel(m.id)}
+  1145→                        className="w-full py-4 text-left active:opacity-60 transition-opacity"
+  1146→                      >
+  1147→                        <div className="flex items-center gap-2.5 mb-1">
+  1148→                          <span className={`text-[17px] font-medium ${model === m.id ? 'text-[#4a9fd1]' : 'text-white'}`}>{m.name}</span>
+  1149→                          {m.tag && (
+  1150→                            <span className={`text-[10px] font-bold tracking-[0.5px] px-[7px] py-[2px] rounded-[5px] uppercase ${
+  1151→                              m.tag.toLowerCase().includes('premium') || m.tag.toLowerCase().includes('pro')
+  1152→                                ? 'text-[#4a7fb5] bg-[rgba(74,127,181,0.12)]'
+  1153→                                : m.tag.toLowerCase().includes('free') || m.tag.toLowerCase().includes('fast')
+  1154→                                  ? 'text-[#4caf50] bg-[rgba(76,175,80,0.12)]'
+  1155→                                  : 'text-[#888] bg-[rgba(255,255,255,0.06)]'
+  1156→                            }`}>
+  1157→                              {m.tag}
+  1158→                            </span>
+  1159→                          )}
+  1160→                        </div>
+  1161→                        <div className={`text-[14px] flex items-center justify-between ${model === m.id ? 'text-[#4a9fd1]' : 'text-[#888]'}`}>
+  1162→                          <span>{m.id}</span>
+  1163→                          {model === m.id && <span className="text-[20px]">✓</span>}
+  1164→                        </div>
+  1165→                      </button>
+  1166→                    ))}
+  1167→
+  1168→                    {/* Effort row */}
+  1169→                    <div className="border-t border-[#2a2a2a]" />
+  1170→                    <button
+  1171→                      onClick={() => settingsPush('effort')}
+  1172→                      className="w-full flex items-center py-3.5 text-left active:opacity-60 transition-opacity"
+  1173→                    >
+  1174→                      <div className="flex-1">
+  1175→                        <div className="text-[16px] font-medium text-white">Effort</div>
+  1176→                        <div className="text-[13px] text-[#888]" id="currentEffortLabel">Low</div>
+  1177→                      </div>
+  1178→                      <span className="text-[20px] text-[#888]">›</span>
+  1179→                    </button>
+  1180→
+  1181→                    {/* More models row */}
+  1182→                    <button
+  1183→                      onClick={() => settingsPush('more-models')}
+  1184→                      className="w-full flex items-center py-3.5 text-left active:opacity-60 transition-opacity"
+  1185→                    >
+  1186→                      <div className="flex-1">
+  1187→                        <div className="text-[16px] font-medium text-white">More models</div>
+  1188→                      </div>
+  1189→                      <span className="text-[20px] text-[#888]">›</span>
+  1190→                    </button>
+  1191→                  </div>
+  1192→                )}
+  1193→
+  1194→                {/* ══════ EFFORT SELECTOR ══════ */}
+  1195→                {settingsCurrentPage === 'effort' && (
+  1196→                  <div className="space-y-2 pt-2">
+  1197→                    {[
+  1198→                      { level: 'Low', desc: 'Faster responses, less reasoning', selected: true },
+  1199→                      { level: 'Medium', desc: 'Balanced speed and depth', selected: false },
+  1200→                      { level: 'High', desc: 'Deeper reasoning, slower responses', selected: false },
+  1201→                    ].map(opt => (
+  1202→                      <button
+  1203→                        key={opt.level}
+  1204→                        onClick={() => {
+  1205→                          const el = document.getElementById('currentEffortLabel')
+  1206→                          if (el) el.textContent = opt.level
+  1207→                        }}
+  1208→                        className={`w-full flex items-center justify-between px-4 py-[18px] rounded-[14px] transition-all active:scale-[0.98] ${
+  1209→                          opt.selected
+  1210→                            ? 'bg-[rgba(196,92,74,0.08)] border-2 border-[#c45c4a]'
+  1211→                            : 'bg-[#242424] border-2 border-transparent'
+  1212→                        }`}
+  1213→                      >
+  1214→                        <span className="text-[16px] font-medium text-white">{opt.level}</span>
+  1215→                        <span className={`text-[20px] text-[#c45c4a] transition-opacity ${opt.selected ? 'opacity-100' : 'opacity-0'}`}>✓</span>
+  1216→                      </button>
+  1217→                    ))}
+  1218→                  </div>
+  1219→                )}
+  1220→
+  1221→                {/* ══════ MORE MODELS ══════ */}
+  1222→                {settingsCurrentPage === 'more-models' && (
+  1223→                  <div className="divide-y divide-[#2a2a2a]">
+  1224→                    {[
+  1225→                      { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1', tag: 'Reasoning', pro: true },
+  1226→                      { id: 'qwen-qwq-32b', name: 'Qwen QwQ', tag: 'Reasoning', pro: true },
+  1227→                      { id: 'llama-3.2-3b-preview', name: 'Nova 0.9', tag: 'Lightweight', pro: false },
+  1228→                    ].map(m => (
+  1229→                      <button
+  1230→                        key={m.id}
+  1231→                        onClick={() => setModel(m.id)}
+  1232→                        className="w-full py-4 text-left active:opacity-60 transition-opacity"
+  1233→                      >
+  1234→                        <div className="flex items-center gap-2.5">
+  1235→                          <span className={`text-[17px] font-medium ${model === m.id ? 'text-[#4a9fd1]' : 'text-white'}`}>{m.name}</span>
+  1236→                          {m.pro && (
+  1237→                            <span className="text-[10px] font-bold tracking-[0.5px] px-[7px] py-[2px] rounded-[5px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.12)]">
+  1238→                              Pro
+  1239→                            </span>
+  1240→                          )}
+  1241→                        </div>
+  1242→                        <div className={`text-[14px] flex items-center justify-between mt-1 ${model === m.id ? 'text-[#4a9fd1]' : 'text-[#888]'}`}>
+  1243→                          <span>{m.id}</span>
+  1244→                          {model === m.id && <span className="text-[20px]">✓</span>}
+  1245→                        </div>
+  1246→                      </button>
+  1247→                    ))}
+  1248→                  </div>
+  1249→                )}
+  1250→
+  1251→                {/* ══════ VOICE ══════ */}
+  1252→                {settingsCurrentPage === 'voice' && (
+  1253→                  <div className="divide-y divide-[#2a2a2a]">
+  1254→                    {/* Server status */}
+  1255→                    <div className="flex items-center gap-2.5 py-3.5">
+  1256→                      <div className={`w-2.5 h-2.5 rounded-full ${tts.serverAvailable ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-red-500/60'}`} />
+  1257→                      <span className="text-[14px] text-[#aaa]">
+  1258→                        Voice Server {tts.serverAvailable ? 'Connected' : 'Offline'}
+  1259→                      </span>
+  1260→                      <span className="text-[11px] text-[#555] ml-auto">
+  1261→                        {tts.serverAvailable ? 'High-quality TTS' : 'Browser fallback'}
+  1262→                      </span>
+  1263→                    </div>
+  1264→
+  1265→                    {/* Engine */}
+  1266→                    <div className="py-3.5">
+  1267→                      <div className="text-[10px] font-medium text-[#666] uppercase tracking-wider mb-2">Engine</div>
+  1268→                      <div className="space-y-1">
+  1269→                        {(tts.engines?.length > 0 ? tts.engines : [{ id: 'browser', name: 'Browser TTS', features: ['free', 'low-latency'] }]).map(eng => (
+  1270→                          <button
+  1271→                            key={eng.id}
+  1272→                            onClick={() => tts.setEngine?.(eng.id)}
+  1273→                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-left ${
+  1274→                              tts.currentEngine === eng.id
+  1275→                                ? 'bg-[rgba(138,90,180,0.1)] border border-[rgba(138,90,180,0.2)]'
+  1276→                                : 'hover:bg-[#222] border border-transparent'
+  1277→                            }`}
+  1278→                          >
+  1279→                            <div className="flex-1 min-w-0">
+  1280→                              <div className={`text-[14px] font-medium ${tts.currentEngine === eng.id ? 'text-[#b88fd8]' : 'text-white'}`}>
+  1281→                                {eng.name}
+  1282→                              </div>
+  1283→                              {eng.features && (
+  1284→                                <div className="flex gap-1 mt-0.5">
+  1285→                                  {eng.features.map(f => (
+  1286→                                    <span key={f} className="text-[9px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-[#555]">{f}</span>
+  1287→                                  ))}
+  1288→                                </div>
+  1289→                              )}
+  1290→                            </div>
+  1291→                            {tts.currentEngine === eng.id && (
+  1292→                              <span className="text-[#b88fd8] text-[16px]">✓</span>
+  1293→                            )}
+  1294→                          </button>
+  1295→                        ))}
+  1296→                      </div>
+  1297→                    </div>
+  1298→
+  1299→                    {/* Speed */}
+  1300→                    <div className="py-3.5">
+  1301→                      <div className="flex items-center justify-between mb-2">
+  1302→                        <span className="text-[10px] font-medium text-[#666] uppercase tracking-wider">Speed</span>
+  1303→                        <span className="text-[13px] text-[#aaa] font-mono">{(tts.speed || 1.0).toFixed(1)}x</span>
+  1304→                      </div>
+  1305→                      <input
+  1306→                        type="range"
+  1307→                        min="0.5"
+  1308→                        max="2.0"
+  1309→                        step="0.1"
+  1310→                        value={tts.speed || 1.0}
+  1311→                        onChange={e => tts.setSpeed?.(parseFloat(e.target.value))}
+  1312→                        className="settings-voice-slider w-full h-1.5 rounded-full appearance-none cursor-pointer"
+  1313→                        style={{
+  1314→                          background: `linear-gradient(to right, #a855f7 0%, #ef4444 ${(((tts.speed || 1.0) - 0.5) / 1.5) * 100}%, #262626 ${(((tts.speed || 1.0) - 0.5) / 1.5) * 100}%)`,
+  1315→                        }}
+  1316→                      />
+  1317→                      <div className="flex justify-between mt-1.5">
+  1318→                        <span className="text-[11px] text-[#444]">0.5x</span>
+  1319→                        <span className="text-[11px] text-[#444]">1.0x</span>
+  1320→                        <span className="text-[11px] text-[#444]">2.0x</span>
+  1321→                      </div>
+  1322→                    </div>
+  1323→
+  1324→                    {/* Test Voice */}
+  1325→                    <div className="py-3.5">
+  1326→                      <button
+  1327→                        onClick={() => {
+  1328→                          if (tts.speak) {
+  1329→                            tts.speak("Hello from Kivora", { interrupt: true }).catch(() => {})
+  1330→                          } else if (typeof window !== 'undefined' && window.speechSynthesis) {
+  1331→                            window.speechSynthesis.speak(new SpeechSynthesisUtterance("Hello from Kivora"))
+  1332→                          }
+  1333→                        }}
+  1334→                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-[14px] text-[15px] font-medium transition-all active:scale-[0.98]"
+  1335→                        style={{
+  1336→                          background: 'linear-gradient(135deg, rgba(168,85,247,0.12), rgba(239,68,68,0.12))',
+  1337→                          border: '1px solid rgba(168,85,247,0.15)',
+  1338→                          color: '#d4d4d4',
+  1339→                        }}
+  1340→                      >
+  1341→                        <IconSpeaker size={16} /> Test Voice
+  1342→                      </button>
+  1343→                    </div>
+  1344→
+  1345→                    {/* Full Voice Panel link */}
+  1346→                    <div className="py-3.5">
+  1347→                      <button
+  1348→                        onClick={() => { setSettingsOpen(false); settingsReset(); setVoiceSettingsOpen(true) }}
+  1349→                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[rgba(138,90,180,0.12)] text-[#b88fd8] active:bg-[rgba(138,90,180,0.2)] transition-colors"
+  1350→                      >
+  1351→                        Full Voice Settings Panel →
+  1352→                      </button>
+  1353→                    </div>
+  1354→                  </div>
+  1355→                )}
+  1356→
+  1357→                {/* ══════ SYSTEM PROMPT ══════ */}
+  1358→                {settingsCurrentPage === 'prompt' && (
+  1359→                  <div className="py-3">
+  1360→                    <div className="text-[13px] text-[#888] mb-3">Current prompt</div>
+  1361→                    <textarea
+  1362→                      rows={6}
+  1363→                      className="w-full bg-[#242424] border border-[#2a2a2a] rounded-[12px] px-4 py-3.5 text-[14px] text-white placeholder-[#3a3a3a] resize-vertical outline-none focus:border-[#3a3a3a] transition-colors font-[inherit] leading-relaxed"
+  1364→                      placeholder="Enter system prompt..."
+  1365→                      value={customSystemPrompt}
+  1366→                      onChange={e => {
+  1367→                        saveCustomSystemPrompt(e.target.value)
+  1368→                        setSettingsPromptSaved(true)
+  1369→                        setTimeout(() => setSettingsPromptSaved(false), 1500)
+  1370→                      }}
+  1371→                    />
+  1372→                    <div className="flex items-center justify-between mt-2.5">
+  1373→                      <button
+  1374→                        onClick={() => { resetCustomSystemPrompt(); setSettingsPromptSaved(true); setTimeout(() => setSettingsPromptSaved(false), 1500) }}
+  1375→                        className="text-[13px] text-[#555] hover:text-red-400 transition-colors"
+  1376→                      >
+  1377→                        {t('chat.custom_prompt.reset') || 'Reset to default'}
+  1378→                      </button>
+  1379→                      {settingsPromptSaved && (
+  1380→                        <span className="text-[13px] text-emerald-400 flex items-center gap-1">
+  1381→                          <IconCheck size={12} /> Saved
+  1382→                        </span>
+  1383→                      )}
+  1384→                    </div>
+  1385→                  </div>
+  1386→                )}
+  1387→
+  1388→
+  1389→
+  1390→                </motion.div>
+  1391→              </AnimatePresence>
+  1392→            </div>
+  1393→          </div>
+  1394→        </div>
+  1395→      )}
+  1396→
+  1397→      {/* Main chat area */}
+  1398→      <div className="flex-1 flex flex-col min-w-0">
+  1399→        {/* Top bar */}
+  1400→        <div className="shrink-0 flex items-center justify-between px-[min(5vw,48px)] py-3">
+  1401→          {/* Left: hamburger (mobile) / spacer (desktop) */}
+  1402→          <div className="w-8 flex items-center justify-center">
+  1403→            <button
+  1404→              className="lg:hidden w-8 h-8 flex items-center justify-center text-[#525252] hover:text-[#e2e2e2] transition-colors -ml-1"
+  1405→              onClick={() => setHistoryOpen(true)}
+  1406→              aria-label={t('chat.history')}
+  1407→            >
+  1408→              <IconMenu size={20} />
+  1409→            </button>
+  1410→          </div>
+  1411→          {/* Center: spacer for balanced layout */}
+  1412→          <div className="flex-1" />
+  1413→          {/* Right: new conversation */}
+  1414→          <button
+  1415→            onClick={clearChat}
+  1416→            className="w-8 h-8 flex items-center justify-center rounded-full text-[#525252] hover:text-[#e2e2e2] hover:bg-white/[0.04] transition-all duration-200"
+  1417→            aria-label={t('chat.new')}
+  1418→            title={t('chat.new')}
+  1419→          >
+  1420→            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  1421→              <path d="M12 2l8.66 5v10L12 22l-8.66-5V7L12 2z"/>
+  1422→              <path d="M12 8v8"/>
+  1423→              <path d="M8 12h8"/>
+  1424→            </svg>
+  1425→          </button>
+  1426→        </div>
+  1427→
+  1428→        {/* Messages area */}
+  1429→        <div className="flex-1 overflow-y-auto overscroll-behavior-contain">
+  1430→          <div className="max-w-[960px] mx-auto px-[min(5vw,48px)] py-6 space-y-4">
+  1431→            {messages.length === 0 && (
+  1432→              <div className="flex flex-col items-center min-h-[65vh]">
+  1433→                {/* Morphing brand mark — the chat page's nav icon, ghosted and alive in the upper void */}
+  1434→                <div className="flex-1 flex items-center justify-center">
+  1435→                  <div className={`morph-logo-container ${!morphActive ? 'morph-logo-settled' : ''}`}>
+  1436→                    <div className="relative w-[56px] h-[56px] sm:w-[64px] sm:h-[64px]">
+  1437→                      {MORPH_SHAPES.map((shape, i) => (
+  1438→                        <div key={i} className={`morph-shape ${i === morphIndex ? 'morph-shape-active' : ''}`}>
+  1439→                          <svg width="44" height="44" viewBox="0 0 32 32" fill="none" className="sm:w-[52px] sm:h-[52px] text-[#525252]">
+  1440→                            {shape}
+  1441→                          </svg>
+  1442→                        </div>
+  1443→                      ))}
+  1444→                    </div>
+  1445→                  </div>
+  1446→                </div>
+  1447→
+  1448→              </div>
+  1449→            )}
+  1450→
+  1451→            {messages.map((msg, i) => {
+  1452→              // For display: strip [File: ...] prefix but keep text, show [Image: ...] as label
+  1453→              let displayContent = msg.content
+  1454→              let hasFileAttachment = false
+  1455→              let hasImageAttachment = false
+  1456→              let attachmentName = ''
+  1457→
+  1458→              if (msg.role === 'user') {
+  1459→                const fileMatch = msg.content.match(/^\[File: (.+?)\]\n/)
+  1460→                if (fileMatch) {
+  1461→                  hasFileAttachment = true
+  1462→                  attachmentName = fileMatch[1]
+  1463→                  displayContent = msg.content.replace(/^\[File: .+?\]\n/, '').replace(/^\n+/, '')
+  1464→                }
+  1465→                const imageMatch = msg.content.match(/^\[Image: (.+?)\]/)
+  1466→                if (imageMatch) {
+  1467→                  hasImageAttachment = true
+  1468→                  attachmentName = imageMatch[1]
+  1469→                  // Strip [Image: ...] prefix and base64 data from display text, keep any user text
+  1470→                  displayContent = msg.content.replace(/^\[Image: .+?\]\n?/, '').replace(/^data:image\/[^\n]+/, '').trim()
+  1471→                  if (!displayContent) displayContent = ''
+  1472→                }
+  1473→              }
+  1474→
+  1475→              return (
+  1476→                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+  1477→                  <div className={`group ${msg.role === 'user' ? 'max-w-[65%]' : 'w-full'}`}>
+  1478→                    {/* File/Image attachment indicator */}
+  1479→                    {hasFileAttachment && (
+  1480→                      <div className="flex items-center gap-1.5 mb-1.5 justify-end">
+  1481→                        <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-lg px-2.5 py-1 text-[11px] text-muted">
+  1482→                          <IconFile size={10} />
+  1483→                          <span>{attachmentName}</span>
+  1484→                        </div>
+  1485→                      </div>
+  1486→                    )}
+  1487→                    {hasImageAttachment && !msg.userImageData && (
+  1488→                      <div className="flex items-center gap-1.5 mb-1.5 justify-end">
+  1489→                        <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-lg px-2.5 py-1 text-[11px] text-muted">
+  1490→                          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1.5"/><path d="M2 11l3.5-3.5 2.5 2.5 2-2L14 11"/></svg>
+  1491→                          <span>{attachmentName}</span>
+  1492→                        </div>
+  1493→                      </div>
+  1494→                    )}
+  1495→                    {msg.role === 'assistant' && msg.searchUsed && (
+  1496→                      <div className="flex items-center gap-1.5 mb-1.5">
+  1497→                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#525252" strokeWidth="1.25" strokeLinecap="round">
+  1498→                          <circle cx="7" cy="7" r="5"/><path d="M11 11l3 3"/>
+  1499→                        </svg>
+  1500→                        <span className="text-[11px] text-[#525252]">Searched: &quot;{msg.searchQuery}&quot;</span>
+  1501→                      </div>
+  1502→                    )}
+  1503→                    {msg.role === 'assistant' && msg.codeExecuted && (
+  1504→                      <div className="flex items-center gap-1.5 mb-1.5">
+  1505→                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={msg.gpuUsed ? "#a78bfa" : msg.remoteExecUsed ? "#60a5fa" : msg.sandboxUsed ? "#f59e0b" : "#4ade80"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+  1506→                          <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
+  1507→                        </svg>
+  1508→                        <span className={`text-[11px] ${msg.gpuUsed ? 'text-[#a78bfa]/70' : msg.remoteExecUsed ? 'text-[#60a5fa]/70' : msg.sandboxUsed ? 'text-[#f59e0b]/70' : 'text-[#4ade80]/70'}`}>
+  1509→                          {msg.gpuUsed ? `GPU executed (${msg.accelerator || 'T4'})` : msg.remoteExecUsed ? `Remote executed (${msg.execLanguage || 'python'})` : msg.sandboxUsed ? 'Sandbox executed' : 'Code executed'}
+  1510→                        </span>
+  1511→                      </div>
+  1512→                    )}
+  1513→                    {msg.role === 'assistant' && msg.downloadFile && (
+  1514→                      <div className="mb-1.5">
+  1515→                        <button
+  1516→                          onClick={async () => {
+  1517→                            const dl = msg.downloadFile
+  1518→                            if (dl.data_url) {
+  1519→                              // Base64 fallback — client-side download
+  1520→                              const a = document.createElement('a')
+  1521→                              a.href = dl.data_url
+  1522→                              a.download = dl.filename
+  1523→                              a.click()
+  1524→                            } else if (dl.download_url) {
+  1525→                              // Sandbox download URL (requires POST with path in body)
+  1526→                              try {
+  1527→                                const res = await fetch(dl.download_url, {
+  1528→                                  method: 'POST',
+  1529→                                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${dl.api_key || ''}` },
+  1530→                                  body: dl.download_body || JSON.stringify({ path: dl.path || `/workspace/downloads/${dl.filename}` }),
+  1531→                                })
+  1532→                                if (res.ok) {
+  1533→                                  const blob = await res.blob()
+  1534→                                  const url = URL.createObjectURL(blob)
+  1535→                                  const a = document.createElement('a')
+  1536→                                  a.href = url
+  1537→                                  a.download = dl.filename
+  1538→                                  a.click()
+  1539→                                  URL.revokeObjectURL(url)
+  1540→                                } else {
+  1541→                                  // Fallback: try GET
+  1542→                                  const a = document.createElement('a')
+  1543→                                  a.href = dl.download_url
+  1544→                                  a.download = dl.filename
+  1545→                                  a.target = '_blank'
+  1546→                                  a.click()
+  1547→                                }
+  1548→                              } catch {
+  1549→                                const a = document.createElement('a')
+  1550→                                a.href = dl.download_url
+  1551→                                a.download = dl.filename
+  1552→                                a.target = '_blank'
+  1553→                                a.click()
+  1554→                              }
+  1555→                            }
+  1556→                          }}
+  1557→                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 hover:border-emerald-500/40 text-[12px] text-emerald-300 hover:text-emerald-200 transition-colors cursor-pointer"
+  1558→                        >
+  1559→                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+  1560→                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+  1561→                          </svg>
+  1562→                          <span>Download {msg.downloadFile.filename}</span>
+  1563→                          <span className="text-emerald-400/40 text-[10px]">
+  1564→                            {msg.downloadFile.size > 1024 ? `${(msg.downloadFile.size / 1024).toFixed(1)}KB` : `${msg.downloadFile.size}B`}
+  1565→                          </span>
+  1566→                        </button>
+  1567→                      </div>
+  1568→                    )}
+  1569→                    {msg.role === 'assistant' && msg.urlRead && (
+  1570→                      <div className="flex items-center gap-1.5 mb-1.5">
+  1571→                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+  1572→                          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+  1573→                        </svg>
+  1574→                        <span className="text-[11px] text-[#60a5fa]/70">Read URL via {msg.urlReadSource || 'Jina'}</span>
+  1575→                      </div>
+  1576→                    )}
+  1577→                    {msg.role === 'assistant' && msg.artifacts && msg.artifacts.length > 0 && (
+  1578→                      <div className="flex flex-wrap gap-1.5 mb-1.5">
+  1579→                        {msg.artifacts.map((artifact, aIdx) => (
+  1580→                          <button
+  1581→                            key={aIdx}
+  1582→                            onClick={() => { setActiveArtifact(artifact); setArtifactPanelOpen(true) }}
+  1583→                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-red-500/10 to-rose-500/10 border border-red-500/20 hover:border-red-500/40 text-[11px] text-red-300 hover:text-red-200 transition-colors cursor-pointer"
+  1584→                          >
+  1585→                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+  1586→                            <span>View {artifact.type.toUpperCase()} Artifact</span>
+  1587→                            <span className="text-red-400/50">&middot; {artifact.title}</span>
+  1588→                          </button>
+  1589→                        ))}
+  1590→                      </div>
+  1591→                    )}
+  1592→                    {msg.role === 'assistant' && msg.opportunityCards && msg.opportunityCards.length > 0 && (
+  1593→                      <div className="mt-2 space-y-1.5">
+  1594→                        <p className="text-[10px] text-muted2 font-medium uppercase tracking-wider">Related Opportunities</p>
+  1595→                        <div className="grid gap-1.5">
+  1596→                          {msg.opportunityCards.map((opp, oi) => (
+  1597→                            <Link key={oi} href={opp.url}
+  1598→                              className="flex items-center gap-3 bg-[#111] border border-white/[0.05] rounded-lg px-3 py-2.5 hover:bg-[#181818] hover:border-[#333] transition-all group">
+  1599→                              <div className="flex-1 min-w-0">
+  1600→                                <h4 className="text-[13px] font-medium text-[#999] group-hover:text-white transition-colors line-clamp-1">{opp.title}</h4>
+  1601→                                <div className="flex items-center gap-2.5 text-[10px] text-[#555] mt-0.5">
+  1602→                                  <span className="flex items-center gap-0.5"><IconMoney size={9} />${opp.income_min?.toLocaleString()}-${opp.income_max?.toLocaleString()}/{opp.income_period}</span>
+  1603→                                  <span className="flex items-center gap-0.5"><IconLightning size={9} />{opp.start_days}d</span>
+  1604→                                  {opp.monthly_cost > 0 && <span className="flex items-center gap-0.5"><IconTool size={9} />${opp.monthly_cost}/mo</span>}
+  1605→                                </div>
+  1606→                              </div>
+  1607→                              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="text-[#333] group-hover:text-red-400 transition-colors shrink-0">
+  1608→                                <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  1609→                              </svg>
+  1610→                            </Link>
+  1611→                          ))}
+  1612→                        </div>
+  1613→                      </div>
+  1614→                    )}
+  1615→                    {msg.role === 'assistant' ? (
+  1616→                      msg.quotaExceeded ? (
+  1617→                        <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-xl px-4 py-3 max-w-md">
+  1618→                          <div className="flex items-center gap-2 mb-1.5">
+  1619→                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+  1620→                              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+  1621→                            </svg>
+  1622→                            <span className="text-[13px] font-medium text-amber-300">Service temporarily limited</span>
+  1623→                          </div>
+  1624→                          <p className="text-[12px] text-amber-200/70 leading-relaxed">{msg.content}</p>
+  1625→                        </div>
+  1626→                      ) : msg.isImage && msg.imageData ? (
+  1627→                        <div className="space-y-2">
+  1628→                          <div className="rounded-xl overflow-hidden border border-white/[0.06] max-w-md">
+  1629→                            {/* eslint-disable-next-line @next/next/no-img-element */}
+  1630→                            <img src={msg.imageData} alt="AI Generated" className="w-full h-auto" />
+  1631→                          </div>
+  1632→                          {msg.imageUrl && (
+  1633→                            <a
+  1634→                              href={msg.imageUrl}
+  1635→                              target="_blank"
+  1636→                              rel="noopener noreferrer"
+  1637→                              download
+  1638→                              className="inline-flex items-center gap-1 text-[10px] text-red-400 hover:text-red-300 transition-colors"
+  1639→                            >
+  1640→                              <IconDownload size={10} />
+  1641→                              Download Full Resolution
+  1642→                            </a>
+  1643→                          )}
+  1644→                        </div>
+  1645→                      ) : (
+  1646→                        <MarkdownRenderer content={msg.content} />
+  1647→                      )
+  1648→                    ) : (
+  1649→                      <div className="flex flex-col items-end gap-1.5">
+  1650→                        {msg.userImageData && (
+  1651→                          <div className="rounded-xl overflow-hidden border border-white/[0.06] max-w-full">
+  1652→                            {/* eslint-disable-next-line @next/next/no-img-element */}
+  1653→                            <img src={msg.userImageData} alt="Uploaded" className="max-w-full max-h-64 w-auto h-auto object-contain" />
+  1654→                          </div>
+  1655→                        )}
+  1656→                        {displayContent && (
+  1657→                          <div className="rounded-2xl px-3.5 py-2 bg-white/[0.04] text-[#e2e2e2] text-[14px] border border-white/[0.06] rounded-tr-sm leading-[1.5]">
+  1658→                            <span>{displayContent}</span>
+  1659→                          </div>
+  1660→                        )}
+  1661→                      </div>
+  1662→                    )}
+  1663→                    {msg.role === 'assistant' && (
+  1664→                      <div className="opacity-0 group-hover:opacity-100 mt-1.5 flex items-center gap-3 transition-all relative">
+  1665→                        <VoiceOutput text={msg.content} />
+  1666→                        <button
+  1667→                          onClick={() => copy(msg.content, i)}
+  1668→                          className="flex items-center justify-center text-muted hover:text-[#e2e2e2] transition-colors"
+  1669→                          title={copiedIndex === i ? t('common.copied') : t('common.copy')}
+  1670→                        >
+  1671→                          {copiedIndex === i ? <IconCheck size={12} /> : <IconCopy size={12} />}
+  1672→                        </button>
+  1673→                        {/* 3-dot menu */}
+  1674→                        <button
+  1675→                          onClick={() => setMsgMenuOpen(msgMenuOpen === i ? null : i)}
+  1676→                          className="flex items-center justify-center text-muted hover:text-[#e2e2e2] transition-colors"
+  1677→                          title="More actions"
+  1678→                        >
+  1679→                          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>
+  1680→                        </button>
+  1681→                        {/* Dropdown menu */}
+  1682→                        {msgMenuOpen === i && (
+  1683→                          <div ref={msgMenuRef} className="absolute bottom-full left-0 mb-1 w-48 bg-[#242424] border border-[#333] rounded-xl shadow-xl py-1 z-50">
+  1684→                            <button
+  1685→                              onClick={() => { exportChat('md'); setMsgMenuOpen(null) }}
+  1686→                              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] text-[#ccc] hover:bg-white/8 transition-colors"
+  1687→                            >
+  1688→                              <IconDownload size={16} className="text-[#737373]" />
+  1689→                              Export Chat
+  1690→                            </button>
+  1691→                            <button
+  1692→                              onClick={() => { copy(`${window.location.origin}/chat?share=${encodeURIComponent(msg.content.slice(0, 100))}`, i); setMsgMenuOpen(null) }}
+  1693→                              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] text-[#ccc] hover:bg-white/8 transition-colors"
+  1694→                            >
+  1695→                              <IconLink size={16} className="text-[#737373]" />
+  1696→                              Copy Share Link
+  1697→                            </button>
+  1698→                          </div>
+  1699→                        )}
+  1700→                      </div>
+  1701→                    )}
+  1702→                  </div>
+  1703→                </div>
+  1704→              )
+  1705→            })}
+  1706→
+  1707→            {loading && (
+  1708→              <div className="flex justify-start">
+  1709→                <ThinkingState
+  1710→                  stages={STAGE_CONFIGS[thinkingConfig] || STAGE_CONFIGS.chat}
+  1711→                  active={loading}
+  1712→                  compact={focusMode === 'All'}
+  1713→                  orb={focusMode === 'Code'}
+  1714→                  academic={focusMode === 'Academic'}
+  1715→                  writing={focusMode === 'Writing'}
+  1716→                  math={focusMode === 'Math'}
+  1717→                />
+  1718→              </div>
+  1719→            )}
+  1720→            <div ref={bottomRef} />
+  1721→          </div>
+  1722→        </div>
+  1723→
+  1724→        {/* ── Expandable Chat Bar ────────────────────── */}
+  1725→        <div className="shrink-0 px-[min(5vw,48px)] pb-4 pt-2" style={{ overflow: 'visible' }}>
+  1726→          <div className="max-w-[960px] mx-auto" style={{ overflow: 'visible' }}>
+  1727→            {/* Suggestion pills — above chat bar, single scrollable row */}
+  1728→            {messages.length === 0 && (
+  1729→              <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none pb-0.5 animate-fade-up">
+  1730→                {STARTERS.map(({ labelKey, icon: Icon }) => (
+  1731→                  <button
+  1732→                    key={labelKey}
+  1733→                    onClick={() => setInput(t(labelKey))}
+  1734→                    className="flex items-center gap-2 bg-transparent border border-[#1f1f1f] text-[#737373] hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px px-4 py-2 rounded-full text-[13px] font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em] whitespace-nowrap shrink-0"
+  1735→                  >
+  1736→                    <Icon size={13} className="shrink-0" />
+  1737→                    <span>{t(labelKey)}</span>
+  1738→                  </button>
+  1739→                ))}
+  1740→              </div>
+  1741→            )}
+  1742→            {/* Voice toast notification */}
+  1743→            {voiceToast && (
+  1744→              <div className={`mb-2 flex items-center justify-center animate-slide-down`}>
+  1745→                <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium ${
+  1746→                  voiceToast.type === 'error'
+  1747→                    ? 'bg-red-950/60 border border-red-900/40 text-red-400'
+  1748→                    : 'bg-white/[0.04] border border-white/[0.06] text-[#a3a3a3]'
+  1749→                }`}>
+  1750→                  {voiceToast.type === 'info' && isListening ? (
+  1751→                    <span className="relative flex items-center justify-center" style={{ width: 12, height: 12 }}>
+  1752→                      <span className="absolute w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
+  1753→                    </span>
+  1754→                  ) : null}
+  1755→                  {voiceToast.message}
+  1756→                </div>
+  1757→              </div>
+  1758→            )}
+  1759→            {/* File attachment chip */}
+  1760→            {attachedFile && barExpanded && (
+  1761→              <div className="mb-2 flex items-center justify-end">
+  1762→                <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-1.5 text-[12px] text-[#a3a3a3]">
+  1763→                  {attachedIsImage ? (
+  1764→                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1.5"/><path d="M2 11l3.5-3.5 2.5 2.5 2-2L14 11"/></svg>
+  1765→                  ) : (
+  1766→                    <IconFile size={12} />
+  1767→                  )}
+  1768→                  <span className="max-w-[120px] truncate">{attachedFile}</span>
+  1769→                  <button
+  1770→                    onClick={removeAttachment}
+  1771→                    className="ml-0.5 text-[#525252] hover:text-[#e2e2e2] transition-colors"
+  1772→                    aria-label="Remove attachment"
+  1773→                  >
+  1774→                    <IconClose size={10} />
+  1775→                  </button>
+  1776→                </div>
+  1777→              </div>
+  1778→            )}
+  1779→
+  1780→            {/* Hidden file input */}
+  1781→            <input
+  1782→              ref={fileInputRef}
+  1783→              type="file"
+  1784→              accept={[...ALLOWED_TEXT_EXTENSIONS, ...ALLOWED_IMAGE_EXTENSIONS].join(',')}
+  1785→              className="hidden"
+  1786→              onChange={handleFileSelect}
+  1787→            />
+  1788→
+  1789→            {/* ═══ COLLAPSED STATE ═══ */}
+  1790→            {!barExpanded && (
+  1791→              <div className="chat-bar-collapsed">
+  1792→                {/* Paperclip — attach file */}
+  1793→                <button
+  1794→                  className="chat-collapsed-btn-circle"
+  1795→                  onClick={() => fileInputRef.current?.click()}
+  1796→                  aria-label="Attach file"
+  1797→                  title="Attach file"
+  1798→                >
+  1799→                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  1800→                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+  1801→                  </svg>
+  1802→                </button>
+  1803→
+  1804→                {/* Input field — single line in collapsed state */}
+  1805→                <div className="chat-collapsed-input-wrap">
+  1806→                  <input
+  1807→                    ref={collapsedInputRef}
+  1808→                    type="text"
+  1809→                    placeholder={t('chat.placeholder')}
+  1810→                    value={input}
+  1811→                    onChange={e => setInput(e.target.value)}
+  1812→                    onFocus={() => setBarExpanded(true)}
+  1813→                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+  1814→                    className="chat-collapsed-input"
+  1815→                    autoComplete="off"
+  1816→                    spellCheck="false"
+  1817→                  />
+  1818→                </div>
+  1819→
+  1820→                {/* Send button */}
+  1821→                <button
+  1822→                  onClick={send}
+  1823→                  disabled={loading || !hasInput}
+  1824→                  className={`chat-collapsed-send ${hasInput ? 'chat-collapsed-send-active' : ''}`}
+  1825→                  aria-label="Send message"
+  1826→                >
+  1827→                  {loading ? (
+  1828→                    <IconSpinner size={16} />
+  1829→                  ) : hasInput ? (
+  1830→                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  1831→                  ) : (
+  1832→                    <svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="8" y="5" width="2" height="14" rx="1" fill="currentColor"/><rect x="12" y="9" width="2" height="6" rx="1" fill="currentColor"/><rect x="16" y="6" width="2" height="12" rx="1" fill="currentColor"/><rect x="20" y="10" width="2" height="4" rx="1" fill="currentColor"/></svg>
+  1833→                  )}
+  1834→                </button>
+  1835→              </div>
+  1836→            )}
+  1837→
+  1838→            {/* ═══ EXPANDED STATE ═══ */}
+  1839→            {barExpanded && (
+  1840→              <div className="chat-container-expanded" ref={chatBarRef}>
+  1841→                {/* Textarea */}
+  1842→                <textarea
+  1843→                  ref={textareaRef}
+  1844→                  rows={1}
+  1845→                  className="chat-textarea-expanded scrollbar-none"
+  1846→                  placeholder={t('chat.placeholder')}
+  1847→                  value={input}
+  1848→                  onChange={e => { setInput(e.target.value); autoResize(e.target) }}
+  1849→                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+  1850→                  autoFocus
+  1851→                />
+  1852→
+  1853→                {/* Toolbar */}
+  1854→                <div className="chat-toolbar-expanded">
+  1855→                  {/* Left actions */}
+  1856→                  <div className="chat-toolbar-left">
+  1857→                    {/* Focus mode */}
+  1858→                    <div className="relative" ref={focusDropdownRef}>
+  1859→                      <button
+  1860→                        className={`chat-toolbar-btn ${focusMode !== 'All' ? 'chat-toolbar-btn-active' : ''}`}
+  1861→                        onClick={() => { setFocusDropdownOpen(!focusDropdownOpen); setProTypeDropdownOpen(false); setModelChipDropdownOpen(false) }}
+  1862→                        title="Focus mode"
+  1863→                      >
+  1864→                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+  1865→                      </button>
+  1866→
+  1867→                      {focusDropdownOpen && (
+  1868→                        <div className="chat-focus-dropdown">
+  1869→                          {FOCUS_MODES.map(m => (
+  1870→                            <button
+  1871→                              key={m.id}
+  1872→                              onClick={() => { setFocusMode(m.id); setFocusDropdownOpen(false) }}
+  1873→                              className={`chat-focus-option ${m.id === focusMode ? 'chat-focus-option-active' : ''}`}
+  1874→                            >
+  1875→                              <span className="chat-focus-icon"><m.Icon size={14} /></span>
+  1876→                              <div className="chat-focus-text">
+  1877→                                <span className="chat-focus-label">{t(m.labelKey)}</span>
+  1878→                                <span className="chat-focus-desc">{t(m.descKey)}</span>
+  1879→                              </div>
+  1880→                              {m.id === focusMode && <IconCheck size={14} className="text-[#ef4444] shrink-0 ml-auto" />}
+  1881→                            </button>
+  1882→                          ))}
+  1883→                        </div>
+  1884→                      )}
+  1885→                    </div>
+  1886→
+  1887→                    {/* Attach file */}
+  1888→                    <button
+  1889→                      className="chat-toolbar-btn"
+  1890→                      onClick={() => fileInputRef.current?.click()}
+  1891→                      title="Attach file"
+  1892→                    >
+  1893→                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  1894→                        <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+  1895→                      </svg>
+  1896→                    </button>
+  1897→
+  1898→
+  1899→
+  1900→                    {/* Voice Settings */}
+  1901→                    <button
+  1902→                      className={`chat-toolbar-btn ${voiceSettingsOpen ? 'chat-toolbar-btn-active' : ''}`}
+  1903→                      onClick={() => setVoiceSettingsOpen(!voiceSettingsOpen)}
+  1904→                      title="Voice settings"
+  1905→                    >
+  1906→                      <IconSpeaker size={16} />
+  1907→                    </button>
+  1908→
+  1909→                    {/* Model chip — model selector dropdown (logged in only) */}
+  1910→                    {user && (
+  1911→                    <div className="relative" ref={modelChipDropdownRef}>
+  1912→                      <button
+  1913→                        className="chat-model-chip"
+  1914→                        onClick={() => { setModelChipDropdownOpen(!modelChipDropdownOpen); setFocusDropdownOpen(false); setProTypeDropdownOpen(false) }}
+  1915→                        title={`Model: ${currentModel.name}`}
+  1916→                      >
+  1917→                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10A15 15 0 0 1 12 2z"/></svg>
+  1918→                        <span>{currentModel.short}</span>
+  1919→                        <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M3 5l3 3 3-3"/></svg>
+  1920→                      </button>
+  1921→
+  1922→                      {modelChipDropdownOpen && (
+  1923→                        <div className="chat-model-dropdown">
+  1924→                          {MODELS.map(m => (
+  1925→                            <button
+  1926→                              key={m.id}
+  1927→                              onClick={() => { setModel(m.id); setModelChipDropdownOpen(false) }}
+  1928→                              className={`chat-model-option ${m.id === model ? 'chat-model-option-active' : ''}`}
+  1929→                            >
+  1930→                              <div>
+  1931→                                <div className="chat-model-name">{m.name}</div>
+  1932→                                <div className="chat-model-tag">{m.tag}</div>
+  1933→                              </div>
+  1934→                              {m.id === model && <IconCheck size={14} className="text-red-500 shrink-0" />}
+  1935→                            </button>
+  1936→                          ))}
+  1937→                        </div>
+  1938→                      )}
+  1939→                    </div>
+  1940→                    )}
+  1941→                  </div>
+  1942→
+  1943→                  {/* Right actions */}
+  1944→                  <div className="chat-toolbar-right">
+  1945→
+  1946→                    {/* Pro toggle with dropup */}
+  1947→                    <div className="relative" ref={proTypeDropdownRef}>
+  1948→                      <div className="chat-pro-toggle">
+  1949→                        <span className="chat-pro-label">Pro</span>
+  1950→                        <label className="chat-switch">
+  1951→                          <input
+  1952→                            type="checkbox"
+  1953→                            checked={proMode}
+  1954→                            onChange={() => {
+  1955→                              const newPro = !proMode
+  1956→                              setProMode(newPro)
+  1957→                              if (newPro) {
+  1958→                                setProTypeDropdownOpen(true)
+  1959→                                setFocusDropdownOpen(false)
+  1960→                                setModelChipDropdownOpen(false)
+  1961→                              } else {
+  1962→                                setProTypeDropdownOpen(false)
+  1963→                              }
+  1964→                            }}
+  1965→                          />
+  1966→                          <span className="chat-slider round" />
+  1967→                        </label>
+  1968→                      </div>
+  1969→
+  1970→                      {proMode && proTypeDropdownOpen && (
+  1971→                        <div className="chat-pro-dropdown">
+  1972→                          {PRO_MODES.map(m => (
+  1973→                            <button
+  1974→                              key={m.id}
+  1975→                              onClick={() => { setProModeType(m.id); setProTypeDropdownOpen(false) }}
+  1976→                              className={`chat-pro-option ${m.id === proModeType ? 'chat-pro-option-active' : ''}`}
+  1977→                            >
+  1978→                              <div className="chat-pro-text">
+  1979→                                <span className="chat-pro-option-label">{t(m.labelKey)}</span>
+  1980→                                <span className="chat-pro-option-desc">{t(m.descKey)}</span>
+  1981→                              </div>
+  1982→                              {m.id === proModeType && <IconCheck size={14} className="text-[#1d9bf0] shrink-0" />}
+  1983→                            </button>
+  1984→                          ))}
+  1985→                        </div>
+  1986→                      )}
+  1987→                    </div>
+  1988→
+  1989→                    {/* Submit button */}
+  1990→                    <button
+  1991→                      onClick={send}
+  1992→                      disabled={loading || !hasInput}
+  1993→                      className={`chat-submit-btn ${hasInput ? 'chat-submit-btn-active' : ''}`}
+  1994→                      aria-label="Send message"
+  1995→                    >
+  1996→                      {loading ? (
+  1997→                        <IconSpinner size={16} />
+  1998→                      ) : (
+  1999→                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  2000→                      )}
+
+[showing lines 1-2000 of 2816; use offset=2001 with limit to continue reading]
