@@ -130,3 +130,25 @@ Stage Summary:
 - Navigation: GPU Lab link in sidebar with GPU icon
 - Config: Environment variables documented for OAuth setup
 - Architecture: Edge-first, compatible with Cloudflare Pages deployment
+
+---
+Task ID: 2
+Agent: Main
+Task: Fix research page still showing "Application error" after first fix attempt
+
+Work Log:
+- Discovered the file had been reverted/corrupted to an older version with ALL original bugs
+- The import line only had `useState, useEffect, useRef` — missing `useMemo`, `useDeferredValue`, `startTransition`, `memo`
+- Old `renderMarkdown` (JSX) was back instead of `markdownToHtml` (HTML string)
+- Old `streamReport` (setInterval at 16ms) was back — main freeze cause
+- Old `staggerSources` was back — re-render storm cause
+- `userScrolledUp` and `streamTimerRef` used but never declared — crash cause
+- `activeResearch` stored progress/stage internally with spreading — re-render cause
+- Completely rewrote the file with all 11 fixes applied
+- Built and deployed successfully to Cloudflare Pages
+- Verified page loads (HTTP 200) and JS chunk is valid
+
+Stage Summary:
+- Complete rewrite of research/page.jsx (1736 lines)
+- All 11 critical bugs fixed in one comprehensive rewrite
+- Deployed to https://kivora.pages.dev

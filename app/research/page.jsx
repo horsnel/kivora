@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useDeferredValue, startTransition, memo } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/LanguageProvider'
 import { supabasePublic } from '@/lib/supabase'
@@ -72,22 +72,25 @@ function saveHistory(items) {
 // ── Heading patterns that indicate a duplicate Sources/References section ──
 const DUPLICATE_SOURCE_HEADINGS = /^(#\s*)?(sources|references|bibliography|citations|works?\s+cited)\s*$/i
 
-// ── Simple Markdown Renderer ──
-function renderMarkdown(text, { skipDuplicateSources = false } = {}) {
-  if (!text) return null
+// ── Markdown-to-HTML Renderer (returns HTML string, not JSX) ──
+function markdownToHtml(text, { skipDuplicateSources = false } = {}) {
+  if (!text) return ''
   const lines = text.split('\n')
-  const elements = []
+  const html = []
   let inList = false
   let listItems = []
   let inTable = false
   let tableRows = []
   let tableHeaders = []
-  let keyIdx = 0
-  let skipMode = false // When true, we're inside a duplicate Sources section — skip all content
+  let skipMode = false
+
+  function esc(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  }
 
   function flushList() {
     if (listItems.length > 0) {
-      elements.push(<ul key={`ul-${keyIdx++}`} className="space-y-1 mb-3 ml-1">{listItems}</ul>)
+      html.push(`<ul class="space-y-1 mb-3 ml-1">${listItems.join('')}</ul>`)
       listItems = []
     }
     inList = false
@@ -95,24 +98,9 @@ function renderMarkdown(text, { skipDuplicateSources = false } = {}) {
 
   function flushTable() {
     if (tableHeaders.length > 0) {
-      elements.push(
-        <div key={`tbl-wrap-${keyIdx++}`} className="-mx-1 px-1 mb-3">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr>{tableHeaders.map((h, hi) => (
-                <th key={`th-${hi}`}>{h}</th>
-              ))}</tr>
-            </thead>
-            <tbody>
-              {tableRows.map((row, ri) => (
-                <tr key={`tr-${ri}`}>{row.map((cell, ci) => (
-                  <td key={`td-${ri}-${ci}`}>{renderInline(cell)}</td>
-                ))}</tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )
+      const thead = '<tr>' + tableHeaders.map(h => `<th>${renderInline(h)}</th>`).join('') + '</tr>'
+      const tbody = tableRows.map(row => '<tr>' + row.map(cell => `<td>${renderInline(cell)}</td>`).join('') + '</tr>').join('')
+      html.push(`<div class="-mx-1 px-1 mb-3"><table class="w-full border-collapse"><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`)
     }
     tableHeaders = []
     tableRows = []
@@ -120,29 +108,11 @@ function renderMarkdown(text, { skipDuplicateSources = false } = {}) {
   }
 
   function renderInline(str) {
-    const parts = []
-    const regex = /(\*\*|__)(.*?)\1|\[([^\]]+)\]\(([^)]+)\)|\[(\d+)\]/g
-    let lastIndex = 0
-    let match
-    while ((match = regex.exec(str)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push(str.slice(lastIndex, match.index))
-      }
-      if (match[1]) {
-        parts.push(<strong key={`b-${keyIdx++}`} className="text-white font-semibold">{match[2]}</strong>)
-      } else if (match[3] !== undefined && match[4] !== undefined) {
-        parts.push(
-          <a key={`a-${keyIdx++}`} href={match[4]} target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline underline-offset-2">
-            {match[3]}
-          </a>
-        )
-      } else if (match[5] !== undefined) {
-        parts.push(<span key={`cit-${keyIdx++}`} className="citation-number">[{match[5]}]</span>)
-      }
-      lastIndex = match.index + match[0].length
-    }
-    if (lastIndex < str.length) parts.push(str.slice(lastIndex))
-    return parts.length > 0 ? parts : str
+    let s = esc(str)
+    s = s.replace(/(\*\*|__)(.*?)\1/g, '<strong class="text-white font-semibold">$2</strong>')
+    s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-red-400 hover:text-red-300 underline underline-offset-2">$1</a>')
+    s = s.replace(/\[(\d+)\]/g, '<span class="citation-number">[$1]</span>')
+    return s
   }
 
   for (let i = 0; i < lines.length; i++) {
@@ -200,19 +170,19 @@ function renderMarkdown(text, { skipDuplicateSources = false } = {}) {
       flushTable()
     }
 
-    if (line.startsWith('### ')) { flushList(); elements.push(<h3 key={`h3-${keyIdx++}`} className="text-base font-semibold text-white mt-5 mb-2">{renderInline(line.slice(4))}</h3>); continue }
-    if (line.startsWith('## ')) { flushList(); elements.push(<h2 key={`h2-${keyIdx++}`} className="text-lg font-semibold text-white mt-6 mb-2.5">{renderInline(line.slice(3))}</h2>); continue }
-    if (line.startsWith('# ')) { flushList(); elements.push(<h1 key={`h1-${keyIdx++}`} className="text-xl font-bold text-white mt-4 mb-3">{renderInline(line.slice(2))}</h1>); continue }
-    if (/^---+$/.test(line.trim())) { flushList(); elements.push(<hr key={`hr-${keyIdx++}`} className="border-[#1a1a1a] my-4" />); continue }
-    if (/^[-*]\s/.test(line)) { inList = true; listItems.push(<li key={`li-${keyIdx++}`} className="text-sm text-[#a0a0a0] leading-relaxed pl-1">{renderInline(line.replace(/^[-*]\s/, ''))}</li>); continue }
-    if (/^\d+\.\s/.test(line)) { inList = true; listItems.push(<li key={`li-${keyIdx++}`} className="text-sm text-[#a0a0a0] leading-relaxed pl-1 list-decimal ml-4">{renderInline(line.replace(/^\d+\.\s/, ''))}</li>); continue }
+    if (line.startsWith('### ')) { flushList(); html.push(`<h3 class="text-base font-semibold text-white mt-5 mb-2">${renderInline(line.slice(4))}</h3>`); continue }
+    if (line.startsWith('## ')) { flushList(); html.push(`<h2 class="text-lg font-semibold text-white mt-6 mb-2.5">${renderInline(line.slice(3))}</h2>`); continue }
+    if (line.startsWith('# ')) { flushList(); html.push(`<h1 class="text-xl font-bold text-white mt-4 mb-3">${renderInline(line.slice(2))}</h1>`); continue }
+    if (/^---+$/.test(line.trim())) { flushList(); html.push(`<hr class="border-[#1a1a1a] my-4" />`); continue }
+    if (/^[-*]\s/.test(line)) { inList = true; listItems.push(`<li class="text-sm text-[#a0a0a0] leading-relaxed pl-1">${renderInline(line.replace(/^[-*]\s/, ''))}</li>`); continue }
+    if (/^\d+\.\s/.test(line)) { inList = true; listItems.push(`<li class="text-sm text-[#a0a0a0] leading-relaxed pl-1 list-decimal ml-4">${renderInline(line.replace(/^\d+\.\s/, ''))}</li>`); continue }
     if (!line.trim()) { flushList(); continue }
     flushList()
-    elements.push(<p key={`p-${keyIdx++}`} className="text-sm text-[#a0a0a0] leading-relaxed mb-3">{renderInline(line)}</p>)
+    html.push(`<p class="text-sm text-[#a0a0a0] leading-relaxed mb-3">${renderInline(line)}</p>`)
   }
   flushList()
   flushTable()
-  return elements
+  return html.join('')
 }
 
 // ── Filter duplicate Sources/References from HTML content (dangerouslySetInnerHTML path) ──
@@ -223,7 +193,7 @@ function filterDuplicateSources(html) {
 }
 
 // ── Kivora Research Thinking State (CSS-only, no LLM credits) ──
-function KivoraResearchThinking({ stage, sourceCount, mode }) {
+const KivoraResearchThinking = memo(function KivoraResearchThinking({ stage, sourceCount, mode }) {
   const stageLabels = {
     search: 'Searching',
     analyzing: 'Analyzing',
@@ -266,7 +236,7 @@ function KivoraResearchThinking({ stage, sourceCount, mode }) {
       </div>
     </div>
   )
-}
+})
 
 // ── Main Component ──
 export default function ResearchPage() {
@@ -288,12 +258,14 @@ export default function ResearchPage() {
   const [sourcesVisible, setSourcesVisible] = useState(0)
   const [sourcesExpanded, setSourcesExpanded] = useState(false)
   const [history, setHistory] = useState([])
-  const [userScrolledUp, setUserScrolledUp] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [researchStage, setResearchStage] = useState('search')
 
   const textareaRef = useRef(null)
   const collapsedInputRef = useRef(null)
   const reportRef = useRef(null)
-  const streamTimerRef = useRef(null)
+  const progressRef = useRef(null)
+  const stageTimersRef = useRef([])
 
   const chatBarRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -304,10 +276,14 @@ export default function ResearchPage() {
   const hasActiveResearch = activeResearch !== null
   const hasInput = input.trim().length > 0
 
-  // ── Typewriter animation for big text bar ──
+  // ── Typewriter animation for big text bar (paused during research) ──
   useEffect(() => {
     const tw = typewriterRef.current
     function tick() {
+      if (isResearching) {
+        tw.timeout = setTimeout(tick, 500)
+        return
+      }
       const phrase = TYPEWRITER_PHRASES[tw.phraseIdx]
       if (!tw.deleting) {
         tw.charIdx++
@@ -331,12 +307,16 @@ export default function ResearchPage() {
     }
     tick()
     return () => clearTimeout(tw.timeout)
-  }, [])
+  }, [isResearching])
 
-  // ── Typewriter animation for collapsed input ──
+  // ── Typewriter animation for collapsed input (paused during research) ──
   useEffect(() => {
     const tw = collapsedTypewriterRef.current
     function tick() {
+      if (isResearching) {
+        tw.timeout = setTimeout(tick, 500)
+        return
+      }
       const phrase = TYPEWRITER_PHRASES[tw.phraseIdx]
       if (!tw.deleting) {
         tw.charIdx++
@@ -360,7 +340,7 @@ export default function ResearchPage() {
     }
     tick()
     return () => clearTimeout(tw.timeout)
-  }, [])
+  }, [isResearching])
 
   // ── Load history on mount ──
   useEffect(() => {
@@ -381,51 +361,13 @@ export default function ResearchPage() {
     supabasePublic.auth.getUser().then(({ data: { user } }) => setUser(user))
   }, [])
 
-  // ── Cleanup streaming timer ──
+  // ── Cleanup progress interval and stage timers on unmount ──
   useEffect(() => {
-    return () => { if (streamTimerRef.current) clearInterval(streamTimerRef.current) }
-  }, [])
-
-  // ── Auto-scroll report during streaming ──
-  useEffect(() => {
-    const el = reportRef.current;
-    if (!el || !isResearching) return;
-
-    // Only auto-scroll if user hasn't manually scrolled up
-    if (userScrolledUp) return;
-
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    if (distanceFromBottom < 150) {
-      el.scrollTop = el.scrollHeight;
+    return () => {
+      if (progressRef.current) clearInterval(progressRef.current)
+      stageTimersRef.current.forEach(t => clearTimeout(t))
     }
-  }, [reportDisplay, isResearching, userScrolledUp]);
-
-  // ── Detect manual scroll up to pause auto-scroll ──
-  useEffect(() => {
-    const el = reportRef.current;
-    if (!el) return;
-
-    let lastScrollTop = el.scrollTop;
-
-    const handleScroll = () => {
-      const st = el.scrollTop;
-      // User scrolled up if they're moving away from bottom
-      if (st < lastScrollTop) {
-        setUserScrolledUp(true);
-      }
-      // User scrolled back to bottom — re-enable auto-scroll
-      const distanceFromBottom = el.scrollHeight - st - el.clientHeight;
-      if (distanceFromBottom < 50) {
-        setUserScrolledUp(false);
-      }
-      lastScrollTop = st;
-    };
-
-    el.addEventListener('scroll', handleScroll, { passive: true });
-    return () => el.removeEventListener('scroll', handleScroll);
-  }, []);
-
-
+  }, [])
 
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || null
 
@@ -465,8 +407,6 @@ export default function ResearchPage() {
       sources: [],
       report: '',
       data: null,
-      progress: 0,
-      stage: 'search',
       timestamp: Date.now(),
     }
 
@@ -475,25 +415,31 @@ export default function ResearchPage() {
     setError('')
     setReportDisplay('')
     setSourcesVisible(0)
-    setUserScrolledUp(false)
+    setProgress(0)
+    setResearchStage('search')
 
-    // Animate progress
-    const stages = researchMode === 'deep' ? DEEP_STAGES : QUICK_STAGES
+    // Clean up any existing timers
+    stageTimersRef.current.forEach(t => clearTimeout(t))
+    stageTimersRef.current = []
+    if (progressRef.current) clearInterval(progressRef.current)
+
+    // Animate progress — 2000ms interval with smaller increments
     let fakeProgress = 0
-    const progressInterval = setInterval(() => {
-      fakeProgress += Math.random() * 3
+    progressRef.current = setInterval(() => {
+      fakeProgress += Math.random() * 8
       if (fakeProgress > 90) fakeProgress = 90
-      setActiveResearch(prev => prev ? { ...prev, progress: Math.min(fakeProgress, prev.stage === 'done' ? 100 : fakeProgress) } : prev)
-    }, 500)
+      setProgress(Math.min(fakeProgress, 90))
+    }, 2000)
 
     try {
-      setTimeout(() => {
-        setActiveResearch(prev => prev ? { ...prev, stage: researchMode === 'deep' ? 'analyzing' : 'writing' } : prev)
+      const t1 = setTimeout(() => {
+        setResearchStage(researchMode === 'deep' ? 'analyzing' : 'writing')
       }, 2000)
+      stageTimersRef.current.push(t1)
+
       if (researchMode === 'deep') {
-        setTimeout(() => {
-          setActiveResearch(prev => prev ? { ...prev, stage: 'writing' } : prev)
-        }, 5000)
+        const t2 = setTimeout(() => { setResearchStage('writing') }, 5000)
+        stageTimersRef.current.push(t2)
       }
 
       // Call our server-side proxy — it forwards to the Worker with the API key
@@ -543,12 +489,16 @@ export default function ResearchPage() {
         }
       }
 
-      clearInterval(progressInterval)
+      clearInterval(progressRef.current)
+      progressRef.current = null
+      stageTimersRef.current.forEach(t => clearTimeout(t))
+      stageTimersRef.current = []
 
       if (data.error) {
         setError(data.error)
         setIsResearching(false)
-        setActiveResearch(prev => prev ? { ...prev, stage: 'done', progress: 100 } : prev)
+        setResearchStage('done')
+        setProgress(100)
         return
       }
 
@@ -563,8 +513,6 @@ export default function ResearchPage() {
         title: data.title || query.trim(),
         followups: data.followups || [],
         data: data.data || null,
-        progress: 100,
-        stage: 'done',
         timestamp: Date.now(),
         fallback: usedFallback || data.fallback || false,
         fallbackProvider: data.fallback_provider || null,
@@ -580,44 +528,26 @@ export default function ResearchPage() {
 
       setActiveResearch(completed)
       setIsResearching(false)
-
-      if (completed.report) streamReport(completed.report)
-      if (completed.sources.length > 0) staggerSources(completed.sources.length)
+      setResearchStage('done')
+      setProgress(100)
+      setReportDisplay(completed.report)
+      setSourcesVisible(completed.sources.length)
 
       const newHistory = [completed, ...loadHistory()].slice(0, MAX_HISTORY)
       saveHistory(newHistory)
       setHistory(newHistory)
     } catch (err) {
-      clearInterval(progressInterval)
+      clearInterval(progressRef.current)
+      progressRef.current = null
+      stageTimersRef.current.forEach(t => clearTimeout(t))
+      stageTimersRef.current = []
       let msg = err.message || 'Research failed. Please try again.'
       if (err.name === 'AbortError') msg = 'Research timed out. Please try again or use Quick mode.'
       else if (msg === 'Failed to fetch') msg = 'Network error. Please check your connection and try again.'
       setError(msg)
       setIsResearching(false)
-      setActiveResearch(prev => prev ? { ...prev, stage: 'done', progress: 100 } : prev)
-    }
-  }
-
-  function streamReport(fullText) {
-    let idx = 0
-    const speed = 8
-    setReportDisplay('')
-    streamTimerRef.current = setInterval(() => {
-      idx += speed
-      if (idx >= fullText.length) {
-        setReportDisplay(fullText)
-        clearInterval(streamTimerRef.current)
-        streamTimerRef.current = null
-      } else {
-        setReportDisplay(fullText.slice(0, idx))
-      }
-    }, 16)
-  }
-
-  function staggerSources(count) {
-    setSourcesVisible(0)
-    for (let i = 1; i <= count; i++) {
-      setTimeout(() => setSourcesVisible(i), i * 120)
+      setResearchStage('done')
+      setProgress(100)
     }
   }
 
@@ -634,6 +564,8 @@ export default function ResearchPage() {
     setError('')
     setInput('')
     setIsResearching(false)
+    setProgress(0)
+    setResearchStage('search')
   }
 
   function loadResearch(item) {
@@ -642,6 +574,8 @@ export default function ResearchPage() {
     setSourcesVisible(item.sources?.length || 0)
     setError('')
     setIsResearching(false)
+    setResearchStage('done')
+    setProgress(100)
     router.replace(`/research?q=${encodeURIComponent(item.query)}`, { scroll: false })
   }
 
@@ -652,12 +586,13 @@ export default function ResearchPage() {
 
   // ── Computed ──
   const stages = mode === 'deep' ? DEEP_STAGES : QUICK_STAGES
-  const currentStageIdx = activeResearch ? stages.findIndex(s => s.id === activeResearch.stage) : 0
+  const currentStageIdx = stages.findIndex(s => s.id === researchStage)
   const pipelineStages = activeResearch?.mode === 'deep' ? PIPELINE_STAGES_DEEP : PIPELINE_STAGES_QUICK
-  const currentPipelineIdx = activeResearch ? pipelineStages.findIndex(s => s.id === activeResearch.stage) : 0
-  const progressPercent = activeResearch?.progress || 0
+  const currentPipelineIdx = pipelineStages.findIndex(s => s.id === researchStage)
+  const progressPercent = progress
   const sources = activeResearch?.sources || []
   const reportText = reportDisplay || activeResearch?.report || ''
+  const renderedHtml = useMemo(() => markdownToHtml(reportText, { skipDuplicateSources: true }), [reportText])
 
   // ── Render ──
   return (
@@ -791,7 +726,7 @@ export default function ResearchPage() {
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
             {/* Progress pipeline */}
-            {activeResearch.stage !== 'done' && (
+            {researchStage !== 'done' && (
               <div className="px-4 pt-5 pb-3 animate-fade-in">
                 <div className="max-w-3xl mx-auto research-pipeline-card">
                   {/* Header */}
@@ -842,7 +777,7 @@ export default function ResearchPage() {
               <div className="max-w-4xl mx-auto space-y-4">
 
                 {/* Query header */}
-                {activeResearch.stage === 'done' && (
+                {researchStage === 'done' && (
                   <div className="flex items-center gap-3 pt-3 animate-fade-in">
                     <IconMicroscope size={18} className="shrink-0 text-red-400" />
                     <h2 className="text-lg font-semibold text-white truncate flex-1">{activeResearch.query}</h2>
@@ -954,18 +889,16 @@ export default function ResearchPage() {
                 {/* Report — cardless, flows directly on background */}
                 {!reportText && isResearching ? (
                   <KivoraResearchThinking
-                    stage={activeResearch.stage}
+                    stage={researchStage}
                     sourceCount={sourcesVisible}
                     mode={activeResearch.mode}
                   />
                 ) : reportText ? (
-                  <div className="report-body animate-fade-in">
-                    {activeResearch?.content && !isResearching ? (
-                      <div className="prose-kivora" dangerouslySetInnerHTML={{ __html: filterDuplicateSources(activeResearch.content) }} />
-                    ) : (
-                      renderMarkdown(reportText, { skipDuplicateSources: true })
-                    )}
-                  </div>
+                  <div className="report-body animate-fade-in" dangerouslySetInnerHTML={{
+                    __html: activeResearch?.content && !isResearching
+                      ? filterDuplicateSources(activeResearch.content)
+                      : renderedHtml
+                  }} />
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12 animate-fade-in">
                     <p className="text-xs text-[#525252]">No report generated yet</p>
@@ -973,7 +906,7 @@ export default function ResearchPage() {
                 )}
 
                 {/* Follow-up Questions */}
-                {activeResearch.stage === 'done' && (() => {
+                {researchStage === 'done' && (() => {
                   const followups = activeResearch.followups?.length > 0
                     ? activeResearch.followups
                     : generateFallbackFollowups(activeResearch.query)

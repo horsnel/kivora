@@ -1,0 +1,1804 @@
+     1→     1→'use client'
+     2→     2→import { useState, useEffect, useRef } from 'react'
+     3→     3→import { useSearchParams, useRouter } from 'next/navigation'
+     4→     4→import { useTranslation } from '@/components/LanguageProvider'
+     5→     5→import { supabasePublic } from '@/lib/supabase'
+     6→     6→import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, IconRocket, IconHeart, IconMicroscope, IconWarning } from '@/components/Icons'
+     7→     7→
+     8→     8→// ── Constants ──
+     9→     9→const STORAGE_KEY = 'kivora-research-history'
+    10→    10→const MAX_HISTORY = 30
+    11→    11→
+    12→    12→const SUGGESTED_TOPICS = [
+    13→    13→  { Icon: IconDna, label: 'AI & Machine Learning Trends' },
+    14→    14→  { Icon: IconTrending, label: 'Crypto & Market Analysis' },
+    15→    15→  { Icon: IconRocket, label: 'Space Technology' },
+    16→    16→  { Icon: IconHeart, label: 'Health & Biotech' },
+    17→    17→]
+    18→    18→
+    19→    19→const TYPEWRITER_PHRASES = SUGGESTED_TOPICS.map(t => t.label)
+    20→    20→
+    21→    21→const QUICK_STAGES = [
+    22→    22→  { id: 'search', label: 'Searching', Icon: IconSearch },
+    23→    23→  { id: 'writing', label: 'Writing', Icon: IconWrite },
+    24→    24→  { id: 'done', label: 'Done', Icon: IconCheck },
+    25→    25→]
+    26→    26→
+    27→    27→const DEEP_STAGES = [
+    28→    28→  { id: 'search', label: 'Searching', Icon: IconSearch },
+    29→    29→  { id: 'analyzing', label: 'Analyzing', Icon: IconChartBar },
+    30→    30→  { id: 'writing', label: 'Writing', Icon: IconWrite },
+    31→    31→  { id: 'done', label: 'Done', Icon: IconCheck },
+    32→    32→]
+    33→    33→
+    34→    34→const PIPELINE_STAGES_QUICK = [
+    35→    35→  { id: 'search', name: 'Searching the web', detail: 'Finding relevant sources and information' },
+    36→    36→  { id: 'writing', name: 'Generating report', detail: 'Composing comprehensive research report' },
+    37→    37→]
+    38→    38→
+    39→    39→const PIPELINE_STAGES_DEEP = [
+    40→    40→  { id: 'search', name: 'Searching the web', detail: 'Finding relevant sources and information' },
+    41→    41→  { id: 'analyzing', name: 'Analyzing & verifying', detail: 'Evaluating credibility, verifying claims, and extracting key insights' },
+    42→    42→  { id: 'writing', name: 'Compiling wiki page', detail: 'Generating research report and compiling into persistent wiki' },
+    43→    43→]
+    44→    44→
+    45→    45→const APEX_MODELS = [
+    46→    46→  { id: 'apex-free', name: 'Apex 1.7', tag: 'Free', color: 'gray' },
+    47→    47→  { id: 'apex-premium', name: 'Apex 2.3', tag: 'Premium', color: 'red' },
+    48→    48→]
+    49→    49→
+    50→    50→// ── Helpers ──
+    51→    51→function generateId() {
+    52→    52→  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
+    53→    53→}
+    54→    54→
+    55→    55→function getDomain(url) {
+    56→    56→  try { return new URL(url).hostname.replace('www.', '') } catch { return url }
+    57→    57→}
+    58→    58→
+    59→    59→function loadHistory() {
+    60→    60→  try {
+    61→    61→    const raw = localStorage.getItem(STORAGE_KEY)
+    62→    62→    return raw ? JSON.parse(raw) : []
+    63→    63→  } catch { return [] }
+    64→    64→}
+    65→    65→
+    66→    66→function saveHistory(items) {
+    67→    67→  try {
+    68→    68→    localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, MAX_HISTORY)))
+    69→    69→  } catch {}
+    70→    70→}
+    71→    71→
+    72→    72→// ── Heading patterns that indicate a duplicate Sources/References section ──
+    73→    73→const DUPLICATE_SOURCE_HEADINGS = /^(#\s*)?(sources|references|bibliography|citations|works?\s+cited)\s*$/i
+    74→    74→
+    75→    75→// ── Simple Markdown Renderer ──
+    76→    76→function renderMarkdown(text, { skipDuplicateSources = false } = {}) {
+    77→    77→  if (!text) return null
+    78→    78→  const lines = text.split('\n')
+    79→    79→  const elements = []
+    80→    80→  let inList = false
+    81→    81→  let listItems = []
+    82→    82→  let inTable = false
+    83→    83→  let tableRows = []
+    84→    84→  let tableHeaders = []
+    85→    85→  let keyIdx = 0
+    86→    86→  let skipMode = false // When true, we're inside a duplicate Sources section — skip all content
+    87→    87→
+    88→    88→  function flushList() {
+    89→    89→    if (listItems.length > 0) {
+    90→    90→      elements.push(<ul key={`ul-${keyIdx++}`} className="space-y-1 mb-3 ml-1">{listItems}</ul>)
+    91→    91→      listItems = []
+    92→    92→    }
+    93→    93→    inList = false
+    94→    94→  }
+    95→    95→
+    96→    96→  function flushTable() {
+    97→    97→    if (tableHeaders.length > 0) {
+    98→    98→      elements.push(
+    99→    99→        <div key={`tbl-wrap-${keyIdx++}`} className="-mx-1 px-1 mb-3">
+   100→   100→          <table className="w-full border-collapse">
+   101→   101→            <thead>
+   102→   102→              <tr>{tableHeaders.map((h, hi) => (
+   103→   103→                <th key={`th-${hi}`}>{h}</th>
+   104→   104→              ))}</tr>
+   105→   105→            </thead>
+   106→   106→            <tbody>
+   107→   107→              {tableRows.map((row, ri) => (
+   108→   108→                <tr key={`tr-${ri}`}>{row.map((cell, ci) => (
+   109→   109→                  <td key={`td-${ri}-${ci}`}>{renderInline(cell)}</td>
+   110→   110→                ))}</tr>
+   111→   111→              ))}
+   112→   112→            </tbody>
+   113→   113→          </table>
+   114→   114→        </div>
+   115→   115→      )
+   116→   116→    }
+   117→   117→    tableHeaders = []
+   118→   118→    tableRows = []
+   119→   119→    inTable = false
+   120→   120→  }
+   121→   121→
+   122→   122→  function renderInline(str) {
+   123→   123→    const parts = []
+   124→   124→    const regex = /(\*\*|__)(.*?)\1|\[([^\]]+)\]\(([^)]+)\)|\[(\d+)\]/g
+   125→   125→    let lastIndex = 0
+   126→   126→    let match
+   127→   127→    while ((match = regex.exec(str)) !== null) {
+   128→   128→      if (match.index > lastIndex) {
+   129→   129→        parts.push(str.slice(lastIndex, match.index))
+   130→   130→      }
+   131→   131→      if (match[1]) {
+   132→   132→        parts.push(<strong key={`b-${keyIdx++}`} className="text-white font-semibold">{match[2]}</strong>)
+   133→   133→      } else if (match[3] !== undefined && match[4] !== undefined) {
+   134→   134→        parts.push(
+   135→   135→          <a key={`a-${keyIdx++}`} href={match[4]} target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline underline-offset-2">
+   136→   136→            {match[3]}
+   137→   137→          </a>
+   138→   138→        )
+   139→   139→      } else if (match[5] !== undefined) {
+   140→   140→        parts.push(<span key={`cit-${keyIdx++}`} className="citation-number">[{match[5]}]</span>)
+   141→   141→      }
+   142→   142→      lastIndex = match.index + match[0].length
+   143→   143→    }
+   144→   144→    if (lastIndex < str.length) parts.push(str.slice(lastIndex))
+   145→   145→    return parts.length > 0 ? parts : str
+   146→   146→  }
+   147→   147→
+   148→   148→  for (let i = 0; i < lines.length; i++) {
+   149→   149→    const line = lines[i]
+   150→   150→
+   151→   151→    // Detect duplicate Sources/References heading — skip everything until the next heading of same or higher level
+   152→   152→    if (skipDuplicateSources && DUPLICATE_SOURCE_HEADINGS.test(line.trim())) {
+   153→   153→      flushList()
+   154→   154→      flushTable()
+   155→   155→      const headingLevel = line.match(/^(#{1,3})\s/)?.[1]?.length || 0
+   156→   156→      skipMode = headingLevel
+   157→   157→      continue
+   158→   158→    }
+   159→   159→    // Exit skip mode when we hit a new heading at same or higher level
+   160→   160→    if (skipMode) {
+   161→   161→      const newHeadingMatch = line.match(/^(#{1,3})\s/)
+   162→   162→      if (newHeadingMatch) {
+   163→   163→        const newLevel = newHeadingMatch[1].length
+   164→   164→        if (newLevel <= skipMode) {
+   165→   165→          skipMode = false
+   166→   166→          // Don't continue — process this heading normally
+   167→   167→        } else {
+   168→   168→          continue // Still inside the duplicate section (sub-heading)
+   169→   169→        }
+   170→   170→      } else if (/^---+$/.test(line.trim())) {
+   171→   171→        // Horizontal rule might end the section
+   172→   172→        skipMode = false
+   173→   173→        continue
+   174→   174→      } else {
+   175→   175→        continue // Skip content inside duplicate section
+   176→   176→      }
+   177→   177→    }
+   178→   178→
+   179→   179→    // Table row detection: lines containing pipes
+   180→   180→    if (line.includes('|') && line.trim().startsWith('|')) {
+   181→   181→      flushList()
+   182→   182→      const cells = line.split('|').filter(c => c.trim() !== '').map(c => c.trim())
+   183→   183→      // Separator row (|---|---|)
+   184→   184→      if (cells.every(c => /^[-:]+$/.test(c))) {
+   185→   185→        inTable = true
+   186→   186→        continue
+   187→   187→      }
+   188→   188→      if (!inTable && tableHeaders.length === 0) {
+   189→   189→        // First row = header
+   190→   190→        tableHeaders = cells
+   191→   191→        inTable = true
+   192→   192→        continue
+   193→   193→      }
+   194→   194→      if (inTable) {
+   195→   195→        tableRows.push(cells)
+   196→   196→        continue
+   197→   197→      }
+   198→   198→    } else if (inTable) {
+   199→   199→      // End of table
+   200→   200→      flushTable()
+   201→   201→    }
+   202→   202→
+   203→   203→    if (line.startsWith('### ')) { flushList(); elements.push(<h3 key={`h3-${keyIdx++}`} className="text-base font-semibold text-white mt-5 mb-2">{renderInline(line.slice(4))}</h3>); continue }
+   204→   204→    if (line.startsWith('## ')) { flushList(); elements.push(<h2 key={`h2-${keyIdx++}`} className="text-lg font-semibold text-white mt-6 mb-2.5">{renderInline(line.slice(3))}</h2>); continue }
+   205→   205→    if (line.startsWith('# ')) { flushList(); elements.push(<h1 key={`h1-${keyIdx++}`} className="text-xl font-bold text-white mt-4 mb-3">{renderInline(line.slice(2))}</h1>); continue }
+   206→   206→    if (/^---+$/.test(line.trim())) { flushList(); elements.push(<hr key={`hr-${keyIdx++}`} className="border-[#1a1a1a] my-4" />); continue }
+   207→   207→    if (/^[-*]\s/.test(line)) { inList = true; listItems.push(<li key={`li-${keyIdx++}`} className="text-sm text-[#a0a0a0] leading-relaxed pl-1">{renderInline(line.replace(/^[-*]\s/, ''))}</li>); continue }
+   208→   208→    if (/^\d+\.\s/.test(line)) { inList = true; listItems.push(<li key={`li-${keyIdx++}`} className="text-sm text-[#a0a0a0] leading-relaxed pl-1 list-decimal ml-4">{renderInline(line.replace(/^\d+\.\s/, ''))}</li>); continue }
+   209→   209→    if (!line.trim()) { flushList(); continue }
+   210→   210→    flushList()
+   211→   211→    elements.push(<p key={`p-${keyIdx++}`} className="text-sm text-[#a0a0a0] leading-relaxed mb-3">{renderInline(line)}</p>)
+   212→   212→  }
+   213→   213→  flushList()
+   214→   214→  flushTable()
+   215→   215→  return elements
+   216→   216→}
+   217→   217→
+   218→   218→// ── Filter duplicate Sources/References from HTML content (dangerouslySetInnerHTML path) ──
+   219→   219→function filterDuplicateSources(html) {
+   220→   220→  if (!html) return html
+   221→   221→  // Remove sections headed by Sources/References/Bibliography etc.
+   222→   222→  return html.replace(/<h[1-3][^>]*>\s*(Sources|References|Bibliography|Citations|Works?\s+Cited)\s*<\/h[1-3]>[\s\S]*?(?=<h[1-3][^>]*>|$)/gi, '')
+   223→   223→}
+   224→   224→
+   225→   225→// ── Kivora Research Thinking State (CSS-only, no LLM credits) ──
+   226→   226→function KivoraResearchThinking({ stage, sourceCount, mode }) {
+   227→   227→  const stageLabels = {
+   228→   228→    search: 'Searching',
+   229→   229→    analyzing: 'Analyzing',
+   230→   230→    writing: 'Writing',
+   231→   231→  }
+   232→   232→  const label = stageLabels[stage] || 'Researching'
+   233→   233→  const isWriting = stage === 'writing'
+   234→   234→
+   235→   235→  return (
+   236→   236→    <div className="kivora-thinking">
+   237→   237→      {/* Waveform animation */}
+   238→   238→      <div className="kivora-thinking-wave">
+   239→   239→        <span className="kivora-thinking-bar" style={{ animationDelay: '0s' }} />
+   240→   240→        <span className="kivora-thinking-bar" style={{ animationDelay: '0.15s' }} />
+   241→   241→        <span className="kivora-thinking-bar" style={{ animationDelay: '0.3s' }} />
+   242→   242→        <span className="kivora-thinking-bar" style={{ animationDelay: '0.45s' }} />
+   243→   243→        <span className="kivora-thinking-bar" style={{ animationDelay: '0.6s' }} />
+   244→   244→      </div>
+   245→   245→
+   246→   246→      {/* Stage label */}
+   247→   247→      <div className="kivora-thinking-label">
+   248→   248→        {label}
+   249→   249→        <span className="kivora-thinking-cursor" />
+   250→   250→      </div>
+   251→   251→
+   252→   252→      {/* Source count badge */}
+   253→   253→      {sourceCount > 0 && (
+   254→   254→        <div className="kivora-thinking-sources">
+   255→   255→          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+   256→   256→            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+   257→   257→            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+   258→   258→          </svg>
+   259→   259→          {sourceCount} {sourceCount === 1 ? 'source' : 'sources'}
+   260→   260→        </div>
+   261→   261→      )}
+   262→   262→
+   263→   263→      {/* Progress line */}
+   264→   264→      <div className="kivora-thinking-track">
+   265→   265→        <div className={`kivora-thinking-fill ${isWriting ? 'kivora-thinking-fill-writing' : ''}`} />
+   266→   266→      </div>
+   267→   267→    </div>
+   268→   268→  )
+   269→   269→}
+   270→   270→
+   271→   271→// ── Main Component ──
+   272→   272→export default function ResearchPage() {
+   273→   273→  const { t } = useTranslation()
+   274→   274→  const searchParams = useSearchParams()
+   275→   275→  const router = useRouter()
+   276→   276→  const initialQuery = searchParams.get('q') || ''
+   277→   277→  const [user, setUser] = useState(null)
+   278→   278→  const [input, setInput] = useState('')
+   279→   279→  const [focused, setFocused] = useState(false)
+   280→   280→  const [placeholderText, setPlaceholderText] = useState('')
+   281→   281→  const [collapsedPlaceholder, setCollapsedPlaceholder] = useState('')
+   282→   282→  const [mode, setMode] = useState('quick')
+   283→   283→  const [apexModel, setApexModel] = useState('apex-free')
+   284→   284→  const [activeResearch, setActiveResearch] = useState(null)
+   285→   285→  const [isResearching, setIsResearching] = useState(false)
+   286→   286→  const [error, setError] = useState('')
+   287→   287→  const [reportDisplay, setReportDisplay] = useState('')
+   288→   288→  const [sourcesVisible, setSourcesVisible] = useState(0)
+   289→   289→  const [sourcesExpanded, setSourcesExpanded] = useState(false)
+   290→   290→  const [history, setHistory] = useState([])
+   291→   291→  const [userScrolledUp, setUserScrolledUp] = useState(false)
+   292→   292→
+   293→   293→  const textareaRef = useRef(null)
+   294→   294→  const collapsedInputRef = useRef(null)
+   295→   295→  const reportRef = useRef(null)
+   296→   296→  const streamTimerRef = useRef(null)
+   297→   297→
+   298→   298→  const chatBarRef = useRef(null)
+   299→   299→  const fileInputRef = useRef(null)
+   300→   300→  const collapsedFileInputRef = useRef(null)
+   301→   301→  const typewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
+   302→   302→  const collapsedTypewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
+   303→   303→
+   304→   304→  const hasActiveResearch = activeResearch !== null
+   305→   305→  const hasInput = input.trim().length > 0
+   306→   306→
+   307→   307→  // ── Typewriter animation for big text bar ──
+   308→   308→  useEffect(() => {
+   309→   309→    const tw = typewriterRef.current
+   310→   310→    function tick() {
+   311→   311→      const phrase = TYPEWRITER_PHRASES[tw.phraseIdx]
+   312→   312→      if (!tw.deleting) {
+   313→   313→        tw.charIdx++
+   314→   314→        setPlaceholderText(phrase.slice(0, tw.charIdx))
+   315→   315→        if (tw.charIdx >= phrase.length) {
+   316→   316→          tw.timeout = setTimeout(() => { tw.deleting = true; tick() }, 2000)
+   317→   317→          return
+   318→   318→        }
+   319→   319→        tw.timeout = setTimeout(tick, 50 + Math.random() * 40)
+   320→   320→      } else {
+   321→   321→        tw.charIdx--
+   322→   322→        setPlaceholderText(phrase.slice(0, tw.charIdx))
+   323→   323→        if (tw.charIdx <= 0) {
+   324→   324→          tw.deleting = false
+   325→   325→          tw.phraseIdx = (tw.phraseIdx + 1) % TYPEWRITER_PHRASES.length
+   326→   326→          tw.timeout = setTimeout(tick, 400)
+   327→   327→          return
+   328→   328→        }
+   329→   329→        tw.timeout = setTimeout(tick, 25)
+   330→   330→      }
+   331→   331→    }
+   332→   332→    tick()
+   333→   333→    return () => clearTimeout(tw.timeout)
+   334→   334→  }, [])
+   335→   335→
+   336→   336→  // ── Typewriter animation for collapsed input ──
+   337→   337→  useEffect(() => {
+   338→   338→    const tw = collapsedTypewriterRef.current
+   339→   339→    function tick() {
+   340→   340→      const phrase = TYPEWRITER_PHRASES[tw.phraseIdx]
+   341→   341→      if (!tw.deleting) {
+   342→   342→        tw.charIdx++
+   343→   343→        setCollapsedPlaceholder(phrase.slice(0, tw.charIdx))
+   344→   344→        if (tw.charIdx >= phrase.length) {
+   345→   345→          tw.timeout = setTimeout(() => { tw.deleting = true; tick() }, 2000)
+   346→   346→          return
+   347→   347→        }
+   348→   348→        tw.timeout = setTimeout(tick, 50 + Math.random() * 40)
+   349→   349→      } else {
+   350→   350→        tw.charIdx--
+   351→   351→        setCollapsedPlaceholder(phrase.slice(0, tw.charIdx))
+   352→   352→        if (tw.charIdx <= 0) {
+   353→   353→          tw.deleting = false
+   354→   354→          tw.phraseIdx = (tw.phraseIdx + 1) % TYPEWRITER_PHRASES.length
+   355→   355→          tw.timeout = setTimeout(tick, 400)
+   356→   356→          return
+   357→   357→        }
+   358→   358→        tw.timeout = setTimeout(tick, 25)
+   359→   359→      }
+   360→   360→    }
+   361→   361→    tick()
+   362→   362→    return () => clearTimeout(tw.timeout)
+   363→   363→  }, [])
+   364→   364→
+   365→   365→  // ── Load history on mount ──
+   366→   366→  useEffect(() => {
+   367→   367→    setHistory(loadHistory())
+   368→   368→  }, [])
+   369→   369→
+   370→   370→  // ── Auto-start research if query in URL ──
+   371→   371→  useEffect(() => {
+   372→   372→    if (initialQuery && !isResearching && !activeResearch) {
+   373→   373→      setInput(initialQuery)
+   374→   374→      startResearch(initialQuery, mode)
+   375→   375→    }
+   376→   376→  }, [initialQuery]) // eslint-disable-line react-hooks/exhaustive-deps
+   377→   377→
+   378→   378→  // ── Auth ──
+   379→   379→  useEffect(() => {
+   380→   380→    if (!supabasePublic) return
+   381→   381→    supabasePublic.auth.getUser().then(({ data: { user } }) => setUser(user))
+   382→   382→  }, [])
+   383→   383→
+   384→   384→  // ── Cleanup streaming timer ──
+   385→   385→  useEffect(() => {
+   386→   386→    return () => { if (streamTimerRef.current) clearInterval(streamTimerRef.current) }
+   387→   387→  }, [])
+   388→   388→
+   389→   389→  // ── Auto-scroll report during streaming ──
+   390→   390→  useEffect(() => {
+   391→   391→    const el = reportRef.current;
+   392→   392→    if (!el || !isResearching) return;
+   393→   393→
+   394→   394→    // Only auto-scroll if user hasn't manually scrolled up
+   395→   395→    if (userScrolledUp) return;
+   396→   396→
+   397→   397→    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+   398→   398→    if (distanceFromBottom < 150) {
+   399→   399→      el.scrollTop = el.scrollHeight;
+   400→   400→    }
+   401→   401→  }, [reportDisplay, isResearching, userScrolledUp]);
+   402→   402→
+   403→   403→  // ── Detect manual scroll up to pause auto-scroll ──
+   404→   404→  useEffect(() => {
+   405→   405→    const el = reportRef.current;
+   406→   406→    if (!el) return;
+   407→   407→
+   408→   408→    let lastScrollTop = el.scrollTop;
+   409→   409→
+   410→   410→    const handleScroll = () => {
+   411→   411→      const st = el.scrollTop;
+   412→   412→      // User scrolled up if they're moving away from bottom
+   413→   413→      if (st < lastScrollTop) {
+   414→   414→        setUserScrolledUp(true);
+   415→   415→      }
+   416→   416→      // User scrolled back to bottom — re-enable auto-scroll
+   417→   417→      const distanceFromBottom = el.scrollHeight - st - el.clientHeight;
+   418→   418→      if (distanceFromBottom < 50) {
+   419→   419→        setUserScrolledUp(false);
+   420→   420→      }
+   421→   421→      lastScrollTop = st;
+   422→   422→    };
+   423→   423→
+   424→   424→    el.addEventListener('scroll', handleScroll, { passive: true });
+   425→   425→    return () => el.removeEventListener('scroll', handleScroll);
+   426→   426→  }, []);
+   427→   427→
+   428→   428→
+   429→   429→
+   430→   430→  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || null
+   431→   431→
+   432→   432→  function getGreeting() {
+   433→   433→    const h = new Date().getHours()
+   434→   434→    if (h < 12) return t('discover.greeting.morning')
+   435→   435→    if (h < 18) return t('discover.greeting.afternoon')
+   436→   436→    return t('discover.greeting.evening')
+   437→   437→  }
+   438→   438→
+   439→   439→  function autoResize(el) {
+   440→   440→    el.style.height = 'auto'
+   441→   441→    el.style.height = Math.min(el.scrollHeight, 180) + 'px'
+   442→   442→  }
+   443→   443→
+   444→   444→  // Generate fallback follow-up questions when the LLM doesn't provide them
+   445→   445→  function generateFallbackFollowups(query) {
+   446→   446→    const q = query.trim()
+   447→   447→    if (!q) return []
+   448→   448→    return [
+   449→   449→      `What are the latest developments in ${q}?`,
+   450→   450→      `What are the main criticisms or controversies around ${q}?`,
+   451→   451→      `How does ${q} compare to alternative approaches?`,
+   452→   452→    ]
+   453→   453→  }
+   454→   454→
+   455→   455→  // ── Start Research ──
+   456→   456→  async function startResearch(query, researchMode) {
+   457→   457→    if (!query.trim() || isResearching) return
+   458→   458→
+   459→   459→    const id = generateId()
+   460→   460→    const research = {
+   461→   461→      id,
+   462→   462→      query: query.trim(),
+   463→   463→      mode: researchMode,
+   464→   464→      apexModel,
+   465→   465→      sources: [],
+   466→   466→      report: '',
+   467→   467→      data: null,
+   468→   468→      progress: 0,
+   469→   469→      stage: 'search',
+   470→   470→      timestamp: Date.now(),
+   471→   471→    }
+   472→   472→
+   473→   473→    setActiveResearch(research)
+   474→   474→    setIsResearching(true)
+   475→   475→    setError('')
+   476→   476→    setReportDisplay('')
+   477→   477→    setSourcesVisible(0)
+   478→   478→    setUserScrolledUp(false)
+   479→   479→
+   480→   480→    // Animate progress
+   481→   481→    const stages = researchMode === 'deep' ? DEEP_STAGES : QUICK_STAGES
+   482→   482→    let fakeProgress = 0
+   483→   483→    const progressInterval = setInterval(() => {
+   484→   484→      fakeProgress += Math.random() * 3
+   485→   485→      if (fakeProgress > 90) fakeProgress = 90
+   486→   486→      setActiveResearch(prev => prev ? { ...prev, progress: Math.min(fakeProgress, prev.stage === 'done' ? 100 : fakeProgress) } : prev)
+   487→   487→    }, 500)
+   488→   488→
+   489→   489→    try {
+   490→   490→      setTimeout(() => {
+   491→   491→        setActiveResearch(prev => prev ? { ...prev, stage: researchMode === 'deep' ? 'analyzing' : 'writing' } : prev)
+   492→   492→      }, 2000)
+   493→   493→      if (researchMode === 'deep') {
+   494→   494→        setTimeout(() => {
+   495→   495→          setActiveResearch(prev => prev ? { ...prev, stage: 'writing' } : prev)
+   496→   496→        }, 5000)
+   497→   497→      }
+   498→   498→
+   499→   499→      // Call our server-side proxy — it forwards to the Worker with the API key
+   500→   500→      // This avoids CORS issues and keeps the API key secure (never exposed to browser)
+   501→   501→      const controller = new AbortController()
+   502→   502→      const timeout = setTimeout(() => controller.abort(), researchMode === 'deep' ? 180000 : 60000)
+   503→   503→
+   504→   504→      let res
+   505→   505→      let usedFallback = false
+   506→   506→      try {
+   507→   507→        res = await fetch('/api/research', {
+   508→   508→          method: 'POST',
+   509→   509→          headers: { 'Content-Type': 'application/json' },
+   510→   510→          body: JSON.stringify({ query: query.trim(), mode: researchMode, apex_model: apexModel }),
+   511→   511→          signal: controller.signal,
+   512→   512→        })
+   513→   513→      } finally {
+   514→   514→        clearTimeout(timeout)
+   515→   515→      }
+   516→   516→
+   517→   517→      let data = await res.json()
+   518→   518→
+   519→   519→      // ── Fallback: if worker failed, try Mistral/Groq directly ──
+   520→   520→      if (data.error) {
+   521→   521→        console.log('[Research] Worker failed, trying fallback providers...', data.error)
+   522→   522→        try {
+   523→   523→          const fallbackController = new AbortController()
+   524→   524→          const fallbackTimeout = setTimeout(() => fallbackController.abort(), 60000)
+   525→   525→          const fallbackRes = await fetch('/api/research-fallback', {
+   526→   526→            method: 'POST',
+   527→   527→            headers: { 'Content-Type': 'application/json' },
+   528→   528→            body: JSON.stringify({ query: query.trim(), mode: researchMode, apex_model: apexModel }),
+   529→   529→            signal: fallbackController.signal,
+   530→   530→          })
+   531→   531→          clearTimeout(fallbackTimeout)
+   532→   532→          const fallbackData = await fallbackRes.json()
+   533→   533→
+   534→   534→          if (!fallbackData.error) {
+   535→   535→            data = fallbackData
+   536→   536→            usedFallback = true
+   537→   537→            console.log('[Research] Fallback succeeded')
+   538→   538→          } else {
+   539→   539→            console.log('[Research] Fallback also failed:', fallbackData.error)
+   540→   540→          }
+   541→   541→        } catch (fallbackErr) {
+   542→   542→          console.log('[Research] Fallback exception:', fallbackErr.message)
+   543→   543→        }
+   544→   544→      }
+   545→   545→
+   546→   546→      clearInterval(progressInterval)
+   547→   547→
+   548→   548→      if (data.error) {
+   549→   549→        setError(data.error)
+   550→   550→        setIsResearching(false)
+   551→   551→        setActiveResearch(prev => prev ? { ...prev, stage: 'done', progress: 100 } : prev)
+   552→   552→        return
+   553→   553→      }
+   554→   554→
+   555→   555→      const completed = {
+   556→   556→        id,
+   557→   557→        query: query.trim(),
+   558→   558→        mode: researchMode,
+   559→   559→        apexModel,
+   560→   560→        sources: data.sources || [],
+   561→   561→        report: data.report || '',
+   562→   562→        content: data.content || '',
+   563→   563→        title: data.title || query.trim(),
+   564→   564→        followups: data.followups || [],
+   565→   565→        data: data.data || null,
+   566→   566→        progress: 100,
+   567→   567→        stage: 'done',
+   568→   568→        timestamp: Date.now(),
+   569→   569→        fallback: usedFallback || data.fallback || false,
+   570→   570→        fallbackProvider: data.fallback_provider || null,
+   571→   571→        fallbackModel: data.fallback_model || null,
+   572→   572→        // APEX 2.0 Wiki fields
+   573→   573→        wikiPageId: data.wiki_page_id || data.wikiPageId || null,
+   574→   574→        wikiCacheId: data.wiki_cache_id || data.wikiCacheId || null,
+   575→   575→        wikiLifecycle: data.wiki_lifecycle || data.wikiLifecycle || 'draft',
+   576→   576→        wikiSlug: data.wiki_slug || data.wikiSlug || '',
+   577→   577→        wikiVersion: data.wiki_version || data.wikiVersion || 0,
+   578→   578→        fromCache: data.from_cache || data.fromCache || false,
+   579→   579→      }
+   580→   580→
+   581→   581→      setActiveResearch(completed)
+   582→   582→      setIsResearching(false)
+   583→   583→
+   584→   584→      if (completed.report) streamReport(completed.report)
+   585→   585→      if (completed.sources.length > 0) staggerSources(completed.sources.length)
+   586→   586→
+   587→   587→      const newHistory = [completed, ...loadHistory()].slice(0, MAX_HISTORY)
+   588→   588→      saveHistory(newHistory)
+   589→   589→      setHistory(newHistory)
+   590→   590→    } catch (err) {
+   591→   591→      clearInterval(progressInterval)
+   592→   592→      let msg = err.message || 'Research failed. Please try again.'
+   593→   593→      if (err.name === 'AbortError') msg = 'Research timed out. Please try again or use Quick mode.'
+   594→   594→      else if (msg === 'Failed to fetch') msg = 'Network error. Please check your connection and try again.'
+   595→   595→      setError(msg)
+   596→   596→      setIsResearching(false)
+   597→   597→      setActiveResearch(prev => prev ? { ...prev, stage: 'done', progress: 100 } : prev)
+   598→   598→    }
+   599→   599→  }
+   600→   600→
+   601→   601→  function streamReport(fullText) {
+   602→   602→    let idx = 0
+   603→   603→    const speed = 8
+   604→   604→    setReportDisplay('')
+   605→   605→    streamTimerRef.current = setInterval(() => {
+   606→   606→      idx += speed
+   607→   607→      if (idx >= fullText.length) {
+   608→   608→        setReportDisplay(fullText)
+   609→   609→        clearInterval(streamTimerRef.current)
+   610→   610→        streamTimerRef.current = null
+   611→   611→      } else {
+   612→   612→        setReportDisplay(fullText.slice(0, idx))
+   613→   613→      }
+   614→   614→    }, 16)
+   615→   615→  }
+   616→   616→
+   617→   617→  function staggerSources(count) {
+   618→   618→    setSourcesVisible(0)
+   619→   619→    for (let i = 1; i <= count; i++) {
+   620→   620→      setTimeout(() => setSourcesVisible(i), i * 120)
+   621→   621→    }
+   622→   622→  }
+   623→   623→
+   624→   624→  function handleSubmit() {
+   625→   625→    const q = input.trim()
+   626→   626→    if (!q || isResearching) return
+   627→   627→    startResearch(q, mode)
+   628→   628→  }
+   629→   629→
+   630→   630→  function newResearch() {
+   631→   631→    setActiveResearch(null)
+   632→   632→    setReportDisplay('')
+   633→   633→    setSourcesVisible(0)
+   634→   634→    setError('')
+   635→   635→    setInput('')
+   636→   636→    setIsResearching(false)
+   637→   637→  }
+   638→   638→
+   639→   639→  function loadResearch(item) {
+   640→   640→    setActiveResearch(item)
+   641→   641→    setReportDisplay(item.report || '')
+   642→   642→    setSourcesVisible(item.sources?.length || 0)
+   643→   643→    setError('')
+   644→   644→    setIsResearching(false)
+   645→   645→    router.replace(`/research?q=${encodeURIComponent(item.query)}`, { scroll: false })
+   646→   646→  }
+   647→   647→
+   648→   648→  function handleFollowup(question) {
+   649→   649→    setInput(question)
+   650→   650→    startResearch(question, mode)
+   651→   651→  }
+   652→   652→
+   653→   653→  // ── Computed ──
+   654→   654→  const stages = mode === 'deep' ? DEEP_STAGES : QUICK_STAGES
+   655→   655→  const currentStageIdx = activeResearch ? stages.findIndex(s => s.id === activeResearch.stage) : 0
+   656→   656→  const pipelineStages = activeResearch?.mode === 'deep' ? PIPELINE_STAGES_DEEP : PIPELINE_STAGES_QUICK
+   657→   657→  const currentPipelineIdx = activeResearch ? pipelineStages.findIndex(s => s.id === activeResearch.stage) : 0
+   658→   658→  const progressPercent = activeResearch?.progress || 0
+   659→   659→  const sources = activeResearch?.sources || []
+   660→   660→  const reportText = reportDisplay || activeResearch?.report || ''
+   661→   661→
+   662→   662→  // ── Render ──
+   663→   663→  return (
+   664→   664→    <main className="h-full flex flex-col bg-[#0a0a0a] text-white overflow-hidden">
+   665→   665→
+   666→   666→      {/* ═══════════════════════════════════════════
+   667→   667→          STATE 1: No active research → centered greeting + big text bar
+   668→   668→          ═══════════════════════════════════════════ */}
+   669→   669→      {!hasActiveResearch && (
+   670→   670→        <div className="flex-1 flex flex-col items-center justify-center px-4 overflow-y-auto">
+   671→   671→          {/* Good Morning Builder */}
+   672→   672→          <div className="flex flex-col items-center pb-4 animate-fade-up">
+   673→   673→            <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-1">
+   674→   674→              {getGreeting()}, <span className="text-red-500">{displayName || t('discover.builder')}</span>
+   675→   675→            </h1>
+   676→   676→            <p className="text-[#737373] text-sm sm:text-base">
+   677→   677→              {t('discover.greeting.subtitle')}
+   678→   678→            </p>
+   679→   679→          </div>
+   680→   680→
+   681→   681→          <div className="w-full max-w-2xl animate-fade-up">
+   682→   682→            {/* History pills — scrollable row above text bar */}
+   683→   683→            {history.length > 0 && (
+   684→   684→              <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none pb-0.5 px-1">
+   685→   685→                {history.map((item) => (
+   686→   686→                  <button
+   687→   687→                    key={item.id}
+   688→   688→                    onClick={() => loadResearch(item)}
+   689→   689→                    className="flex items-center gap-2 bg-transparent border border-[#1f1f1f] text-[#737373] hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px px-3.5 py-2 rounded-full text-[12px] font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em] whitespace-nowrap shrink-0 max-w-[180px]"
+   690→   690→                  >
+   691→   691→                    <IconMicroscope size={12} className="shrink-0 text-red-400/60" />
+   692→   692→                    <span className="truncate">{item.query}</span>
+   693→   693→                  </button>
+   694→   694→                ))}
+   695→   695→              </div>
+   696→   696→            )}
+   697→   697→
+   698→   698→          {/* Big expanded text bar */}
+   699→   699→            <div className="chat-container-expanded">
+   700→   700→              <textarea
+   701→   701→                ref={textareaRef}
+   702→   702→                rows={1}
+   703→   703→                className={`chat-textarea-expanded scrollbar-none${input.length === 0 && !focused ? ' no-caret' : ''}`}
+   704→   704→                value={input}
+   705→   705→                onChange={e => { setInput(e.target.value); autoResize(e.target) }}
+   706→   706→                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
+   707→   707→                onFocus={() => setFocused(true)}
+   708→   708→                onBlur={() => setFocused(false)}
+   709→   709→                autoFocus
+   710→   710→              />
+   711→   711→              {input.length === 0 && !focused && (
+   712→   712→                <div className="chat-typewriter-placeholder" onClick={() => textareaRef.current?.focus()}>
+   713→   713→                  {placeholderText}
+   714→   714→                </div>
+   715→   715→              )}
+   716→   716→              <div className="chat-toolbar-expanded">
+   717→   717→                <div className="chat-toolbar-left">
+   718→   718→                  {/* File upload button */}
+   719→   719→                  <input
+   720→   720→                    ref={fileInputRef}
+   721→   721→                    type="file"
+   722→   722→                    className="hidden"
+   723→   723→                    multiple
+   724→   724→                    onChange={e => {
+   725→   725→                      const files = Array.from(e.target.files || [])
+   726→   726→                      if (files.length > 0) {
+   727→   727→                        // TODO: process attached files with research query
+   728→   728→                        setInput(prev => prev ? prev + ' ' + files.map(f => f.name).join(', ') : files.map(f => f.name).join(', '))
+   729→   729→                      }
+   730→   730→                      e.target.value = ''
+   731→   731→                    }}
+   732→   732→                  />
+   733→   733→                  <button
+   734→   734→                    className="chat-toolbar-btn"
+   735→   735→                    title="Attach file"
+   736→   736→                    onClick={() => fileInputRef.current?.click()}
+   737→   737→                  >
+   738→   738→                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+   739→   739→                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+   740→   740→                    </svg>
+   741→   741→                  </button>
+   742→   742→                  {/* Apex model selector dropdown */}
+   743→   743→                  <div className="relative" style={{position:'relative'}}>
+   744→   744→                    <button
+   745→   745→                      onClick={() => {
+   746→   746→                        const next = apexModel === 'apex-free' ? 'apex-premium' : 'apex-free'
+   747→   747→                        setApexModel(next)
+   748→   748→                      }}
+   749→   749→                      className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ml-0.5 flex items-center gap-1 ${
+   750→   750→                        apexModel === 'apex-premium'
+   751→   751→                          ? 'bg-[rgba(220,38,38,0.12)] text-[#ef4444] border-[rgba(220,38,38,0.2)]'
+   752→   752→                          : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
+   753→   753→                      }`}
+   754→   754→                    >
+   755→   755→                      {apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}
+   756→   756→                    </button>
+   757→   757→                  </div>
+   758→   758→                  <button
+   759→   759→                    onClick={() => setMode(mode === 'quick' ? 'deep' : 'quick')}
+   760→   760→                    className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ml-0.5 ${
+   761→   761→                      mode === 'deep'
+   762→   762→                        ? 'bg-[rgba(168,85,247,0.12)] text-[#a855f7] border-[rgba(168,85,247,0.2)]'
+   763→   763→                        : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
+   764→   764→                    }`}
+   765→   765→                  >
+   766→   766→                    {mode === 'deep' ? 'Deep' : 'Quick'}
+   767→   767→                  </button>
+   768→   768→                </div>
+   769→   769→                <div className="chat-toolbar-right">
+   770→   770→                  <button
+   771→   771→                    onClick={handleSubmit}
+   772→   772→                    disabled={!hasInput}
+   773→   773→                    className={`chat-submit-btn ${hasInput ? 'chat-submit-btn-active' : ''}`}
+   774→   774→                    aria-label="Start research"
+   775→   775→                  >
+   776→   776→                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+   777→   777→                  </button>
+   778→   778→                </div>
+   779→   779→              </div>
+   780→   780→            </div>
+   781→   781→          </div>
+   782→   782→        </div>
+   783→   783→      )}
+   784→   784→
+   785→   785→      {/* ═══════════════════════════════════════════
+   786→   786→          STATE 2: Active research → output area + collapsed input bar at bottom
+   787→   787→          ═══════════════════════════════════════════ */}
+   788→   788→      {hasActiveResearch && (
+   789→   789→        <>
+   790→   790→          {/* Research output area */}
+   791→   791→          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+   792→   792→
+   793→   793→            {/* Progress pipeline */}
+   794→   794→            {activeResearch.stage !== 'done' && (
+   795→   795→              <div className="px-4 pt-5 pb-3 animate-fade-in">
+   796→   796→                <div className="max-w-3xl mx-auto research-pipeline-card">
+   797→   797→                  {/* Header */}
+   798→   798→                  <div className="research-pipeline-header">
+   799→   799→                    <div className="research-pipeline-pulse" />
+   800→   800→                    <p className="research-pipeline-query">{activeResearch.query}</p>
+   801→   801→                    <span className={`research-pipeline-mode ${
+   802→   802→                      activeResearch.mode === 'deep' ? 'research-pipeline-mode-deep' : 'research-pipeline-mode-quick'
+   803→   803→                    }`}>{activeResearch.mode === 'deep' ? 'Deep' : 'Quick'} · {activeResearch.apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}</span>
+   804→   804→                  </div>
+   805→   805→
+   806→   806→                  {/* Vertical stage pipeline */}
+   807→   807→                  <div className="research-stages">
+   808→   808→                    {pipelineStages.map((stage, idx) => {
+   809→   809→                      const stageState = idx < currentPipelineIdx ? 'done' : idx === currentPipelineIdx ? 'active' : 'pending'
+   810→   810→                      return (
+   811→   811→                        <div key={stage.id} className={`research-stage research-stage-${stageState}`}>
+   812→   812→                          <div className="research-stage-icon">
+   813→   813→                            {stage.id === 'search' && (
+   814→   814→                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+   815→   815→                            )}
+   816→   816→                            {stage.id === 'analyzing' && (
+   817→   817→                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" /></svg>
+   818→   818→                            )}
+   819→   819→                            {stage.id === 'writing' && (
+   820→   820→                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
+   821→   821→                            )}
+   822→   822→                          </div>
+   823→   823→                          <div className="research-stage-body">
+   824→   824→                            <div className="research-stage-name">{stage.name}</div>
+   825→   825→                            <div className="research-stage-detail">{stage.detail}</div>
+   826→   826→                          </div>
+   827→   827→                        </div>
+   828→   828→                      )
+   829→   829→                    })}
+   830→   830→                  </div>
+   831→   831→
+   832→   832→                  {/* Progress bar */}
+   833→   833→                  <div className="research-pipeline-progress">
+   834→   834→                    <div className="research-pipeline-progress-bar" style={{ width: `${progressPercent}%` }} />
+   835→   835→                  </div>
+   836→   836→                </div>
+   837→   837→              </div>
+   838→   838→            )}
+   839→   839→
+   840→   840→            {/* Results area — scrollable */}
+   841→   841→            <div ref={reportRef} className="flex-1 overflow-y-auto overscroll-behavior-contain px-4 pb-4">
+   842→   842→              <div className="max-w-4xl mx-auto space-y-4">
+   843→   843→
+   844→   844→                {/* Query header */}
+   845→   845→                {activeResearch.stage === 'done' && (
+   846→   846→                  <div className="flex items-center gap-3 pt-3 animate-fade-in">
+   847→   847→                    <IconMicroscope size={18} className="shrink-0 text-red-400" />
+   848→   848→                    <h2 className="text-lg font-semibold text-white truncate flex-1">{activeResearch.query}</h2>
+   849→   849→                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+   850→   850→                      activeResearch.mode === 'deep' ? 'bg-red-500 text-white' : 'bg-[#1f1f1f] text-red-400 border border-red-500/30'
+   851→   851→                    }`}>{activeResearch.mode === 'deep' ? 'Deep' : 'Quick'} · {activeResearch.apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}</span>
+   852→   852→                    {activeResearch.fallback && (
+   853→   853→                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
+   854→   854→                        Fallback · {activeResearch.fallbackModel || 'Mistral'}
+   855→   855→                      </span>
+   856→   856→                    )}
+   857→   857→                    {/* APEX 2.0 Wiki & Cache badges */}
+   858→   858→                    {activeResearch.fromCache && (
+   859→   859→                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-blue-500/10 text-blue-400 border border-blue-500/30">
+   860→   860→                        Cached
+   861→   861→                      </span>
+   862→   862→                    )}
+   863→   863→                    {activeResearch.wikiLifecycle && activeResearch.wikiLifecycle !== 'draft' && (
+   864→   864→                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+   865→   865→                        activeResearch.wikiLifecycle === 'active' ? 'bg-green-500/10 text-green-400 border border-green-500/30' :
+   866→   866→                        activeResearch.wikiLifecycle === 'stale' ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/30' :
+   867→   867→                        activeResearch.wikiLifecycle === 'contradicted' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30' :
+   868→   868→                        'bg-gray-500/10 text-gray-400 border border-gray-500/30'
+   869→   869→                      }`}>
+   870→   870→                        Wiki · {activeResearch.wikiLifecycle}{activeResearch.wikiVersion > 0 ? ` v${activeResearch.wikiVersion}` : ''}
+   871→   871→                      </span>
+   872→   872→                    )}
+   873→   873→                    {reportText && !isResearching && (
+   874→   874→                      <button
+   875→   875→                        onClick={() => navigator.clipboard.writeText(activeResearch?.report || '')}
+   876→   876→                        className="text-[10px] text-[#525252] hover:text-white transition-colors flex items-center gap-1 shrink-0"
+   877→   877→                      >
+   878→   878→                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+   879→   879→                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+   880→   880→                        </svg>
+   881→   881→                        Copy
+   882→   882→                      </button>
+   883→   883→                    )}
+   884→   884→                  </div>
+   885→   885→                )}
+   886→   886→
+   887→   887→                {/* Sources — collapsible card */}
+   888→   888→                {sources.length > 0 && (
+   889→   889→                  <div className="bg-[#111111] border border-[#1a1a1a] rounded-xl overflow-hidden animate-fade-in">
+   890→   890→                    <button
+   891→   891→                      onClick={() => setSourcesExpanded(!sourcesExpanded)}
+   892→   892→                      className="w-full px-4 py-3 shrink-0 flex items-center justify-between cursor-pointer hover:bg-[#141414] transition-colors duration-200"
+   893→   893→                    >
+   894→   894→                      <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+   895→   895→                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500/70"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>
+   896→   896→                        Sources <span className="text-[#525252] font-normal">({sources.length})</span>
+   897→   897→                      </h3>
+   898→   898→                      <svg
+   899→   899→                        width="16" height="16" viewBox="0 0 16 16"
+   900→   900→                        className={`shrink-0 text-[#525252] transition-transform duration-300 ${sourcesExpanded ? 'rotate-180' : ''}`}
+   901→   901→                      >
+   902→   902→                        <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+   903→   903→                      </svg>
+   904→   904→                    </button>
+   905→   905→                    <div
+   906→   906→                      className={`transition-all duration-300 ease-in-out overflow-hidden ${sourcesExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}
+   907→   907→                    >
+   908→   908→                      <div className="max-h-48 overflow-y-auto custom-scrollbar divide-y divide-[#1a1a1a]">
+   909→   909→                        {sources.map((source, idx) => (
+   910→   910→                          <a
+   911→   911→                            key={source.id ?? idx}
+   912→   912→                            href={source.url}
+   913→   913→                            target="_blank"
+   914→   914→                            rel="noopener noreferrer"
+   915→   915→                            className={`flex items-start gap-3 px-4 py-2.5 hover:bg-[#141414] transition-all duration-200 ${
+   916→   916→                              idx < sourcesVisible ? 'source-visible' : 'source-hidden'
+   917→   917→                            }`}
+   918→   918→                          >
+   919→   919→                            <div className="mt-1.5 shrink-0">
+   920→   920→                              <div className={`w-2 h-2 rounded-full ${
+   921→   921→                                source.tier === 'P1' ? 'bg-emerald-400' :
+   922→   922→                                source.tier === 'P2' ? 'bg-blue-400' :
+   923→   923→                                source.tier === 'P3' ? 'bg-yellow-400/70' :
+   924→   924→                                'bg-gray-500/50'
+   925→   925→                              }`} />
+   926→   926→                            </div>
+   927→   927→                            <div className="flex-1 min-w-0">
+   928→   928→                              <div className="flex items-center gap-2 mb-0.5">
+   929→   929→                                {source.favicon && <img src={source.favicon} alt="" className="w-3.5 h-3.5 rounded" />}
+   930→   930→                                <span className="text-[10px] text-[#525252] truncate">{getDomain(source.url)}</span>
+   931→   931→                                {source.tier && (
+   932→   932→                                  <span className={`text-[8px] px-1 py-0 rounded font-medium ${
+   933→   933→                                    source.tier === 'P1' ? 'bg-emerald-500/10 text-emerald-400' :
+   934→   934→                                    source.tier === 'P2' ? 'bg-blue-500/10 text-blue-400' :
+   935→   935→                                    source.tier === 'P3' ? 'bg-yellow-500/10 text-yellow-400' :
+   936→   936→                                    'bg-gray-500/10 text-gray-500'
+   937→   937→                                  }`}>{source.tier}</span>
+   938→   938→                                )}
+   939→   939→                              </div>
+   940→   940→                              <p className="text-xs text-[#c0c0c0] font-medium leading-snug line-clamp-1">
+   941→   941→                                {source.title}
+   942→   942→                              </p>
+   943→   943→                            </div>
+   944→   944→                            <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0 text-[#333] mt-1">
+   945→   945→                              <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+   946→   946→                            </svg>
+   947→   947→                          </a>
+   948→   948→                        ))}
+   949→   949→                      </div>
+   950→   950→                    </div>
+   951→   951→                  </div>
+   952→   952→                )}
+   953→   953→
+   954→   954→                {/* Report — cardless, flows directly on background */}
+   955→   955→                {!reportText && isResearching ? (
+   956→   956→                  <KivoraResearchThinking
+   957→   957→                    stage={activeResearch.stage}
+   958→   958→                    sourceCount={sourcesVisible}
+   959→   959→                    mode={activeResearch.mode}
+   960→   960→                  />
+   961→   961→                ) : reportText ? (
+   962→   962→                  <div className="report-body animate-fade-in">
+   963→   963→                    {activeResearch?.content && !isResearching ? (
+   964→   964→                      <div className="prose-kivora" dangerouslySetInnerHTML={{ __html: filterDuplicateSources(activeResearch.content) }} />
+   965→   965→                    ) : (
+   966→   966→                      renderMarkdown(reportText, { skipDuplicateSources: true })
+   967→   967→                    )}
+   968→   968→                  </div>
+   969→   969→                ) : (
+   970→   970→                  <div className="flex flex-col items-center justify-center py-12 animate-fade-in">
+   971→   971→                    <p className="text-xs text-[#525252]">No report generated yet</p>
+   972→   972→                  </div>
+   973→   973→                )}
+   974→   974→
+   975→   975→                {/* Follow-up Questions */}
+   976→   976→                {activeResearch.stage === 'done' && (() => {
+   977→   977→                  const followups = activeResearch.followups?.length > 0
+   978→   978→                    ? activeResearch.followups
+   979→   979→                    : generateFallbackFollowups(activeResearch.query)
+   980→   980→                  return followups.length > 0 ? (
+   981→   981→                    <div className="animate-fade-in">
+   982→   982→                      <h3 className="text-sm font-semibold text-white mb-2">Follow-up Questions</h3>
+   983→   983→                      <div className="flex flex-wrap gap-2">
+   984→   984→                        {followups.map((q, i) => (
+   985→   985→                          <button
+   986→   986→                            key={i}
+   987→   987→                            onClick={() => handleFollowup(q)}
+   988→   988→                            className="text-xs px-3 py-2 rounded-full bg-transparent border border-[#1f1f1f] text-[#a0a0a0] hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white transition-all duration-200 cursor-pointer text-left"
+   989→   989→                          >
+   990→   990→                            {q}
+   991→   991→                          </button>
+   992→   992→                        ))}
+   993→   993→                      </div>
+   994→   994→                    </div>
+   995→   995→                  ) : null
+   996→   996→                })()}
+   997→   997→
+   998→   998→              </div>
+   999→   999→            </div>
+  1000→  1000→          </div>
+  1001→  1001→
+  1002→  1002→          {/* Collapsed input bar at bottom */}
+  1003→  1003→          <div className="shrink-0 border-t border-[#1a1a1a] bg-[#0a0a0a]">
+  1004→  1004→            <div className="max-w-3xl mx-auto px-4 py-3.5">
+  1005→  1005→              {/* History pills above collapsed bar — always visible except during active research */}
+  1006→  1006→              {!isResearching && history.length > 0 && (
+  1007→  1007→                <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none pb-1">
+  1008→  1008→                  {history.map((item) => (
+  1009→  1009→                    <button
+  1010→  1010→                      key={item.id}
+  1011→  1011→                      onClick={() => loadResearch(item)}
+  1012→  1012→                      className={`flex items-center gap-1.5 bg-transparent border text-[11px] font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em] whitespace-nowrap shrink-0 max-w-[160px] px-3 py-1.5 rounded-full hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px ${
+  1013→  1013→                        activeResearch?.id === item.id ? 'border-red-500/40 text-red-400' : 'border-[#1f1f1f] text-[#525252]'
+  1014→  1014→                      }`}
+  1015→  1015→                    >
+  1016→  1016→                      <IconMicroscope size={10} className="shrink-0 text-red-400/60" />
+  1017→  1017→                      <span className="truncate">{item.query}</span>
+  1018→  1018→                    </button>
+  1019→  1019→                  ))}
+  1020→  1020→                </div>
+  1021→  1021→              )}
+  1022→  1022→              <div className="research-bar-collapsed">
+  1023→  1023→                {/* File upload button */}
+  1024→  1024→                <button
+  1025→  1025→                  className="research-collapsed-btn-circle"
+  1026→  1026→                  onClick={() => collapsedFileInputRef.current?.click()}
+  1027→  1027→                  aria-label="Attach file"
+  1028→  1028→                  title="Attach file"
+  1029→  1029→                >
+  1030→  1030→                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  1031→  1031→                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+  1032→  1032→                  </svg>
+  1033→  1033→                </button>
+  1034→  1034→                {/* Hidden file input for collapsed bar */}
+  1035→  1035→                <input
+  1036→  1036→                  ref={collapsedFileInputRef}
+  1037→  1037→                  type="file"
+  1038→  1038→                  className="hidden"
+  1039→  1039→                  multiple
+  1040→  1040→                  onChange={e => {
+  1041→  1041→                    const files = Array.from(e.target.files || [])
+  1042→  1042→                    if (files.length > 0) {
+  1043→  1043→                      setInput(prev => prev ? prev + ' ' + files.map(f => f.name).join(', ') : files.map(f => f.name).join(', '))
+  1044→  1044→                    }
+  1045→  1045→                    e.target.value = ''
+  1046→  1046→                  }}
+  1047→  1047→                />
+  1048→  1048→
+  1049→  1049→                {/* Input */}
+  1050→  1050→                <div className="research-collapsed-input-wrap">
+  1051→  1051→                  <input
+  1052→  1052→                    ref={collapsedInputRef}
+  1053→  1053→                    type="text"
+  1054→  1054→                    placeholder={collapsedPlaceholder || 'Research anything...'}
+  1055→  1055→                    value={input}
+  1056→  1056→                    onChange={e => setInput(e.target.value)}
+  1057→  1057→                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
+  1058→  1058→                    className="research-collapsed-input"
+  1059→  1059→                    autoComplete="off"
+  1060→  1060→                    spellCheck="false"
+  1061→  1061→                    disabled={isResearching}
+  1062→  1062→                  />
+  1063→  1063→                </div>
+  1064→  1064→
+  1065→  1065→                {/* Apex model chip */}
+  1066→  1066→                <button
+  1067→  1067→                  onClick={() => {
+  1068→  1068→                    const next = apexModel === 'apex-free' ? 'apex-premium' : 'apex-free'
+  1069→  1069→                    setApexModel(next)
+  1070→  1070→                  }}
+  1071→  1071→                  className={`text-[10px] px-2 py-1 rounded-full transition-all duration-200 border shrink-0 ${
+  1072→  1072→                    apexModel === 'apex-premium'
+  1073→  1073→                      ? 'bg-[rgba(220,38,38,0.12)] text-[#ef4444] border-[rgba(220,38,38,0.2)]'
+  1074→  1074→                      : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
+  1075→  1075→                  }`}
+  1076→  1076→                >
+  1077→  1077→                  {apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}
+  1078→  1078→                </button>
+  1079→  1079→                {/* Mode chip */}
+  1080→  1080→                <button
+  1081→  1081→                  onClick={() => setMode(mode === 'quick' ? 'deep' : 'quick')}
+  1082→  1082→                  className={`text-[10px] px-2 py-1 rounded-full transition-all duration-200 border shrink-0 ${
+  1083→  1083→                    mode === 'deep'
+  1084→  1084→                      ? 'bg-[rgba(168,85,247,0.12)] text-[#a855f7] border-[rgba(168,85,247,0.2)]'
+  1085→  1085→                      : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
+  1086→  1086→                  }`}
+  1087→  1087→                >
+  1088→  1088→                  {mode === 'deep' ? 'Deep' : 'Quick'}
+  1089→  1089→                </button>
+  1090→  1090→
+  1091→  1091→                {/* Send button */}
+  1092→  1092→                <button
+  1093→  1093→                  onClick={handleSubmit}
+  1094→  1094→                  disabled={!hasInput || isResearching}
+  1095→  1095→                  className={`research-collapsed-send ${hasInput && !isResearching ? 'research-collapsed-send-active' : ''}`}
+  1096→  1096→                  aria-label="Start research"
+  1097→  1097→                >
+  1098→  1098→                  {isResearching ? (
+  1099→  1099→                    <div className="w-4 h-4 border-2 border-[#525252] border-t-red-400 rounded-full animate-spin" />
+  1100→  1100→                  ) : hasInput ? (
+  1101→  1101→                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  1102→  1102→                  ) : (
+  1103→  1103→                    <svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="8" y="5" width="2" height="14" rx="1" fill="currentColor"/><rect x="12" y="9" width="2" height="6" rx="1" fill="currentColor"/><rect x="16" y="6" width="2" height="12" rx="1" fill="currentColor"/><rect x="20" y="10" width="2" height="4" rx="1" fill="currentColor"/></svg>
+  1104→  1104→                  )}
+  1105→  1105→                </button>
+  1106→  1106→              </div>
+  1107→  1107→            </div>
+  1108→  1108→          </div>
+  1109→  1109→        </>
+  1110→  1110→      )}
+  1111→  1111→
+  1112→  1112→      {/* Error toast */}
+  1113→  1113→      {error && (
+  1114→  1114→        <div className="fixed top-4 right-4 z-[100] bg-red-950/90 border border-red-800/50 rounded-xl px-4 py-3 max-w-sm animate-slide-in-right backdrop-blur-sm">
+  1115→  1115→          <div className="flex items-start gap-2.5">
+  1116→  1116→            <IconWarning size={14} className="text-red-400 mt-0.5 shrink-0" />
+  1117→  1117→            <div className="flex-1">
+  1118→  1118→              <p className="text-xs text-red-300 font-medium mb-0.5">Research Error</p>
+  1119→  1119→              <p className="text-[11px] text-red-400/80">{error}</p>
+  1120→  1120→            </div>
+  1121→  1121→            <button onClick={() => setError('')} className="text-red-500/50 hover:text-red-400 transition-colors">
+  1122→  1122→              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+  1123→  1123→            </button>
+  1124→  1124→          </div>
+  1125→  1125→        </div>
+  1126→  1126→      )}
+  1127→  1127→
+  1128→  1128→      {/* ── CSS ── */}
+  1129→  1129→      <style jsx>{`
+  1130→  1130→        /* ─── Big expanded text bar (initial state) ─── */
+  1131→  1131→        .chat-container-expanded {
+  1132→  1132→          width: 100%;
+  1133→  1133→          position: relative;
+  1134→  1134→          isolation: isolate;
+  1135→  1135→          background-color: transparent;
+  1136→  1136→          border: 1px solid rgba(255,255,255,0.06);
+  1137→  1137→          border-radius: 20px;
+  1138→  1138→          padding: 16px 16px 10px 16px;
+  1139→  1139→          display: flex;
+  1140→  1140→          flex-direction: column;
+  1141→  1141→          transition: border-color 0.3s ease;
+  1142→  1142→          overflow: visible;
+  1143→  1143→        }
+  1144→  1144→        .chat-container-expanded:focus-within {
+  1145→  1145→          border-color: transparent;
+  1146→  1146→        }
+  1147→  1147→        .chat-container-expanded:focus-within::before {
+  1148→  1148→          content: '';
+  1149→  1149→          position: absolute;
+  1150→  1150→          inset: 0;
+  1151→  1151→          border-radius: 20px;
+  1152→  1152→          padding: 1.5px;
+  1153→  1153→          background: linear-gradient(90deg, #a855f7, #ef4444);
+  1154→  1154→          -webkit-mask:
+  1155→  1155→            linear-gradient(#fff 0 0) content-box,
+  1156→  1156→            linear-gradient(#fff 0 0);
+  1157→  1157→          -webkit-mask-composite: xor;
+  1158→  1158→          mask-composite: exclude;
+  1159→  1159→          pointer-events: none;
+  1160→  1160→        }
+  1161→  1161→
+  1162→  1162→        .chat-textarea-expanded {
+  1163→  1163→          width: 100%;
+  1164→  1164→          background: transparent;
+  1165→  1165→          border: none !important;
+  1166→  1166→          outline: none !important;
+  1167→  1167→          box-shadow: none !important;
+  1168→  1168→          color: #e2e2e2;
+  1169→  1169→          font-size: 16px;
+  1170→  1170→          line-height: 1.6;
+  1171→  1171→          resize: none;
+  1172→  1172→          max-height: 240px;
+  1173→  1173→          min-height: 56px;
+  1174→  1174→          font-family: inherit;
+  1175→  1175→          padding: 4px 2px;
+  1176→  1176→          margin-bottom: 12px;
+  1177→  1177→          caret-color: #e2e2e2;
+  1178→  1178→        }
+  1179→  1179→        .chat-textarea-expanded.no-caret { caret-color: transparent; }
+  1180→  1180→        .chat-textarea-expanded:focus {
+  1181→  1181→          border: none !important;
+  1182→  1182→          outline: none !important;
+  1183→  1183→          box-shadow: none !important;
+  1184→  1184→          border-color: transparent !important;
+  1185→  1185→        }
+  1186→  1186→
+  1187→  1187→        .chat-toolbar-expanded {
+  1188→  1188→          display: flex;
+  1189→  1189→          justify-content: space-between;
+  1190→  1190→          align-items: center;
+  1191→  1191→          gap: 6px;
+  1192→  1192→          min-height: 38px;
+  1193→  1193→        }
+  1194→  1194→        .chat-toolbar-left, .chat-toolbar-right {
+  1195→  1195→          display: flex;
+  1196→  1196→          align-items: center;
+  1197→  1197→          gap: 4px;
+  1198→  1198→          flex-shrink: 0;
+  1199→  1199→        }
+  1200→  1200→        .chat-toolbar-btn {
+  1201→  1201→          background: transparent;
+  1202→  1202→          border: none;
+  1203→  1203→          outline: none;
+  1204→  1204→          color: #525252;
+  1205→  1205→          display: flex;
+  1206→  1206→          align-items: center;
+  1207→  1207→          justify-content: center;
+  1208→  1208→          gap: 5px;
+  1209→  1209→          padding: 6px;
+  1210→  1210→          border-radius: 50%;
+  1211→  1211→          cursor: pointer;
+  1212→  1212→          font-size: 13px;
+  1213→  1213→          font-weight: 500;
+  1214→  1214→          transition: background 0.2s, color 0.2s;
+  1215→  1215→          white-space: nowrap;
+  1216→  1216→          flex-shrink: 0;
+  1217→  1217→          width: 32px;
+  1218→  1218→          height: 32px;
+  1219→  1219→        }
+  1220→  1220→        .chat-toolbar-btn:hover {
+  1221→  1221→          background-color: rgba(255,255,255,0.06);
+  1222→  1222→          color: #e2e2e2;
+  1223→  1223→        }
+  1224→  1224→        .chat-toolbar-btn-active {
+  1225→  1225→          background-color: rgba(220, 38, 38, 0.12) !important;
+  1226→  1226→          color: #ef4444 !important;
+  1227→  1227→        }
+  1228→  1228→        .chat-toolbar-btn-active:hover {
+  1229→  1229→          background-color: rgba(220, 38, 38, 0.18) !important;
+  1230→  1230→          color: #f87171 !important;
+  1231→  1231→        }
+  1232→  1232→
+  1233→  1233→        .chat-submit-btn {
+  1234→  1234→          width: 38px;
+  1235→  1235→          height: 38px;
+  1236→  1236→          border-radius: 50%;
+  1237→  1237→          border: none;
+  1238→  1238→          background: rgba(255,255,255,0.06);
+  1239→  1239→          color: #737373;
+  1240→  1240→          cursor: pointer;
+  1241→  1241→          display: flex;
+  1242→  1242→          align-items: center;
+  1243→  1243→          justify-content: center;
+  1244→  1244→          flex-shrink: 0;
+  1245→  1245→          transition: background 0.15s, transform 0.1s ease, color 0.15s;
+  1246→  1246→          padding: 0;
+  1247→  1247→        }
+  1248→  1248→        .chat-submit-btn:disabled { cursor: not-allowed; opacity: 0.5; }
+  1249→  1249→        .chat-submit-btn-active { background: #e2e2e2; color: #0a0a0a; }
+  1250→  1250→        .chat-submit-btn-active:hover { background: #ffffff; transform: scale(1.05); }
+  1251→  1251→
+  1252→  1252→        .chat-typewriter-placeholder {
+  1253→  1253→          position: absolute;
+  1254→  1254→          top: 20px;
+  1255→  1255→          left: 18px;
+  1256→  1256→          right: 18px;
+  1257→  1257→          color: #525252;
+  1258→  1258→          font-size: 16px;
+  1259→  1259→          line-height: 1.6;
+  1260→  1260→          pointer-events: auto;
+  1261→  1261→          cursor: text;
+  1262→  1262→        }
+  1263→  1263→
+  1264→  1264→        /* ─── Collapsed pill bar (research active state) ─── */
+  1265→  1265→        .research-bar-collapsed {
+  1266→  1266→          display: flex;
+  1267→  1267→          align-items: center;
+  1268→  1268→          background: rgba(255,255,255,0.04);
+  1269→  1269→          border-radius: 28px;
+  1270→  1270→          padding: 8px 12px;
+  1271→  1271→          gap: 8px;
+  1272→  1272→          border: 1px solid rgba(255,255,255,0.06);
+  1273→  1273→          min-height: 56px;
+  1274→  1274→          transition: border-color 0.3s ease;
+  1275→  1275→          position: relative;
+  1276→  1276→        }
+  1277→  1277→        .research-bar-collapsed:focus-within { border-color: transparent; }
+  1278→  1278→        .research-bar-collapsed:focus-within::before {
+  1279→  1279→          content: '';
+  1280→  1280→          position: absolute;
+  1281→  1281→          inset: 0;
+  1282→  1282→          border-radius: 28px;
+  1283→  1283→          padding: 1.5px;
+  1284→  1284→          background: linear-gradient(90deg, #a855f7, #ef4444);
+  1285→  1285→          -webkit-mask:
+  1286→  1286→            linear-gradient(#fff 0 0) content-box,
+  1287→  1287→            linear-gradient(#fff 0 0);
+  1288→  1288→          -webkit-mask-composite: xor;
+  1289→  1289→          mask-composite: exclude;
+  1290→  1290→          pointer-events: none;
+  1291→  1291→        }
+  1292→  1292→        .research-collapsed-btn-circle {
+  1293→  1293→          width: 36px;
+  1294→  1294→          height: 36px;
+  1295→  1295→          border-radius: 50%;
+  1296→  1296→          border: none;
+  1297→  1297→          background: rgba(255,255,255,0.04);
+  1298→  1298→          color: #525252;
+  1299→  1299→          cursor: pointer;
+  1300→  1300→          display: flex;
+  1301→  1301→          align-items: center;
+  1302→  1302→          justify-content: center;
+  1303→  1303→          flex-shrink: 0;
+  1304→  1304→          transition: background 0.15s ease, color 0.15s ease;
+  1305→  1305→          padding: 0;
+  1306→  1306→        }
+  1307→  1307→        .research-collapsed-btn-circle:hover {
+  1308→  1308→          background: rgba(255,255,255,0.08);
+  1309→  1309→          color: #e2e2e2;
+  1310→  1310→        }
+  1311→  1311→        .research-collapsed-input-wrap {
+  1312→  1312→          flex: 1;
+  1313→  1313→          min-width: 0;
+  1314→  1314→          display: flex;
+  1315→  1315→          align-items: center;
+  1316→  1316→        }
+  1317→  1317→        .research-collapsed-input {
+  1318→  1318→          width: 100%;
+  1319→  1319→          height: 36px;
+  1320→  1320→          border: none !important;
+  1321→  1321→          outline: none !important;
+  1322→  1322→          box-shadow: none !important;
+  1323→  1323→          background: transparent;
+  1324→  1324→          font-size: 16px;
+  1325→  1325→          color: #e2e2e2;
+  1326→  1326→          padding: 0 4px;
+  1327→  1327→          font-family: inherit;
+  1328→  1328→        }
+  1329→  1329→        .research-collapsed-input::placeholder { color: #525252; opacity: 1; }
+  1330→  1330→        .research-collapsed-input:disabled { opacity: 0.6; }
+  1331→  1331→        .research-collapsed-send {
+  1332→  1332→          width: 40px;
+  1333→  1333→          height: 40px;
+  1334→  1334→          border-radius: 50%;
+  1335→  1335→          border: none;
+  1336→  1336→          background: rgba(255,255,255,0.06);
+  1337→  1337→          color: #737373;
+  1338→  1338→          cursor: pointer;
+  1339→  1339→          display: flex;
+  1340→  1340→          align-items: center;
+  1341→  1341→          justify-content: center;
+  1342→  1342→          flex-shrink: 0;
+  1343→  1343→          transition: background 0.15s ease, transform 0.1s ease, opacity 0.15s ease, color 0.15s ease;
+  1344→  1344→          padding: 0;
+  1345→  1345→        }
+  1346→  1346→        .research-collapsed-send:disabled { cursor: not-allowed; opacity: 0.5; }
+  1347→  1347→        .research-collapsed-send-active { background: #e2e2e2; color: #0a0a0a; }
+  1348→  1348→        .research-collapsed-send-active:hover { background: #ffffff; transform: scale(1.05); }
+  1349→  1349→
+  1350→  1350→        /* ─── Shared ─── */
+  1351→  1351→        .scrollbar-none::-webkit-scrollbar { display: none; }
+  1352→  1352→        .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+  1353→  1353→
+  1354→  1354→        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+  1355→  1355→        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  1356→  1356→        .custom-scrollbar::-webkit-scrollbar-thumb { background: #262626; border-radius: 4px; }
+  1357→  1357→        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #333; }
+  1358→  1358→
+  1359→  1359→        .citation-number {
+  1360→  1360→          color: #f87171;
+  1361→  1361→          font-size: 11px;
+  1362→  1362→          font-weight: 600;
+  1363→  1363→          cursor: pointer;
+  1364→  1364→          padding: 0 1px;
+  1365→  1365→          transition: color 0.15s;
+  1366→  1366→        }
+  1367→  1367→        .citation-number:hover { color: #fca5a5; }
+  1368→  1368→
+  1369→  1369→        .report-content h1 { font-size: 1.25rem; font-weight: 700; color: #fff; margin-top: 1rem; margin-bottom: 0.75rem; }
+  1370→  1370→        .report-content h2 { font-size: 1.1rem; font-weight: 600; color: #fff; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+  1371→  1371→        .report-content h3 { font-size: 1rem; font-weight: 600; color: #fff; margin-top: 1rem; margin-bottom: 0.5rem; }
+  1372→  1372→        .report-content p { font-size: 0.875rem; color: #a0a0a0; line-height: 1.7; margin-bottom: 0.75rem; }
+  1373→  1373→        .report-content ul { margin-bottom: 0.75rem; padding-left: 0.25rem; }
+  1374→  1374→        .report-content li { font-size: 0.875rem; color: #a0a0a0; line-height: 1.7; padding-left: 0.25rem; }
+  1375→  1375→        .report-content strong { color: #fff; font-weight: 600; }
+  1376→  1376→        .report-content a { color: #f87171; text-decoration: underline; text-underline-offset: 2px; }
+  1377→  1377→        .report-content hr { border-color: #1a1a1a; margin: 1rem 0; }
+  1378→  1378→
+  1379→  1379→        /* ─── Report body (cardless, Claude-style) ─── */
+  1380→  1380→        .report-body {
+  1381→  1381→          padding: 0;
+  1382→  1382→          line-height: 1.7;
+  1383→  1383→        }
+  1384→  1384→        .report-body h1 { font-size: 1.25rem; font-weight: 700; color: #fff; margin-top: 1.5rem; margin-bottom: 0.75rem; }
+  1385→  1385→        .report-body h2 { font-size: 1.1rem; font-weight: 600; color: #fff; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+  1386→  1386→        .report-body h3 { font-size: 1rem; font-weight: 600; color: #fff; margin-top: 1rem; margin-bottom: 0.5rem; }
+  1387→  1387→        .report-body p { font-size: 0.875rem; color: #a0a0a0; line-height: 1.7; margin-bottom: 0.75rem; }
+  1388→  1388→        .report-body ul { margin-bottom: 0.75rem; padding-left: 0.25rem; }
+  1389→  1389→        .report-body ol { margin-bottom: 0.75rem; padding-left: 1rem; }
+  1390→  1390→        .report-body li { font-size: 0.875rem; color: #a0a0a0; line-height: 1.7; padding-left: 0.25rem; }
+  1391→  1391→        .report-body strong { color: #fff; font-weight: 600; }
+  1392→  1392→        .report-body a { color: #f87171; text-decoration: underline; text-underline-offset: 2px; }
+  1393→  1393→        .report-body a:hover { color: #fca5a5; }
+  1394→  1394→
+  1395→  1395→        /* Clean unified table styling for both Streaming and Completed states */
+  1396→  1396→        .report-body table,
+  1397→  1397→        .prose-kivora table {
+  1398→  1398→          width: 100%;
+  1399→  1399→          table-layout: fixed;
+  1400→  1400→          border-collapse: separate;
+  1401→  1401→          border-spacing: 0;
+  1402→  1402→          border-radius: 8px;
+  1403→  1403→          overflow: hidden;
+  1404→  1404→          border: 1px solid #1a1a1a;
+  1405→  1405→          margin-bottom: 0.75rem;
+  1406→  1406→        }
+  1407→  1407→        .report-body thead th,
+  1408→  1408→        .prose-kivora table th {
+  1409→  1409→          background: #111;
+  1410→  1410→          font-size: 9px;
+  1411→  1411→          font-weight: 600;
+  1412→  1412→          color: #737373;
+  1413→  1413→          text-transform: uppercase;
+  1414→  1414→          letter-spacing: 0.05em;
+  1415→  1415→          padding: 0.375rem 0.5rem;
+  1416→  1416→          text-align: left;
+  1417→  1417→          white-space: nowrap;
+  1418→  1418→          overflow: hidden;
+  1419→  1419→          text-overflow: ellipsis;
+  1420→  1420→        }
+  1421→  1421→        .report-body tbody td,
+  1422→  1422→        .prose-kivora table td {
+  1423→  1423→          font-size: 11px;
+  1424→  1424→          color: #a0a0a0;
+  1425→  1425→          padding: 0.375rem 0.5rem;
+  1426→  1426→          line-height: 1.5;
+  1427→  1427→          border-top: 1px solid #1a1a1a;
+  1428→  1428→          word-break: break-word;
+  1429→  1429→          overflow-wrap: break-word;
+  1430→  1430→        }
+  1431→  1431→        /* Zebra striping for readability */
+  1432→  1432→        .report-body tbody tr:nth-child(even),
+  1433→  1433→        .prose-kivora table tbody tr:nth-child(even) {
+  1434→  1434→          background-color: rgba(255, 255, 255, 0.02);
+  1435→  1435→        }
+  1436→  1436→
+  1437→  1437→        /* ─── Kivora Research Thinking State ─── */
+  1438→  1438→        .kivora-thinking {
+  1439→  1439→          position: relative;
+  1440→  1440→          display: flex;
+  1441→  1441→          align-items: center;
+  1442→  1442→          gap: 14px;
+  1443→  1443→          padding: 16px 20px;
+  1444→  1444→          border-radius: 16px;
+  1445→  1445→          background: rgba(255,255,255,0.02);
+  1446→  1446→          overflow: hidden;
+  1447→  1447→        }
+  1448→  1448→        .kivora-thinking::before {
+  1449→  1449→          content: '';
+  1450→  1450→          position: absolute;
+  1451→  1451→          inset: 0;
+  1452→  1452→          border-radius: 16px;
+  1453→  1453→          padding: 1px;
+  1454→  1454→          background: linear-gradient(135deg, rgba(168,85,247,0.25), rgba(239,68,68,0.25));
+  1455→  1455→          -webkit-mask:
+  1456→  1456→            linear-gradient(#fff 0 0) content-box,
+  1457→  1457→            linear-gradient(#fff 0 0);
+  1458→  1458→          -webkit-mask-composite: xor;
+  1459→  1459→          mask-composite: exclude;
+  1460→  1460→          pointer-events: none;
+  1461→  1461→        }
+  1462→  1462→        .kivora-thinking::after {
+  1463→  1463→          content: '';
+  1464→  1464→          position: absolute;
+  1465→  1465→          bottom: 0;
+  1466→  1466→          left: 0;
+  1467→  1467→          right: 0;
+  1468→  1468→          height: 2px;
+  1469→  1469→          background: #1a1a1a;
+  1470→  1470→        }
+  1471→  1471→
+  1472→  1472→        .kivora-thinking-wave {
+  1473→  1473→          display: flex;
+  1474→  1474→          align-items: center;
+  1475→  1475→          gap: 3px;
+  1476→  1476→          height: 20px;
+  1477→  1477→        }
+  1478→  1478→        .kivora-thinking-bar {
+  1479→  1479→          display: block;
+  1480→  1480→          width: 3px;
+  1481→  1481→          border-radius: 2px;
+  1482→  1482→          background: linear-gradient(180deg, #a855f7, #ef4444);
+  1483→  1483→          animation: kivora-wave 1.2s ease-in-out infinite;
+  1484→  1484→        }
+  1485→  1485→        .kivora-thinking-bar:nth-child(1) { height: 8px; animation-delay: 0s; }
+  1486→  1486→        .kivora-thinking-bar:nth-child(2) { height: 14px; animation-delay: 0.15s; }
+  1487→  1487→        .kivora-thinking-bar:nth-child(3) { height: 20px; animation-delay: 0.3s; }
+  1488→  1488→        .kivora-thinking-bar:nth-child(4) { height: 14px; animation-delay: 0.45s; }
+  1489→  1489→        .kivora-thinking-bar:nth-child(5) { height: 8px; animation-delay: 0.6s; }
+  1490→  1490→
+  1491→  1491→        @keyframes kivora-wave {
+  1492→  1492→          0%, 100% { transform: scaleY(0.4); opacity: 0.5; }
+  1493→  1493→          50% { transform: scaleY(1); opacity: 1; }
+  1494→  1494→        }
+  1495→  1495→
+  1496→  1496→        .kivora-thinking-label {
+  1497→  1497→          font-size: 14px;
+  1498→  1498→          font-weight: 600;
+  1499→  1499→          background: linear-gradient(90deg, #a855f7, #ef4444);
+  1500→  1500→          -webkit-background-clip: text;
+  1501→  1501→          -webkit-text-fill-color: transparent;
+  1502→  1502→          background-clip: text;
+  1503→  1503→          display: flex;
+  1504→  1504→          align-items: center;
+  1505→  1505→          gap: 4px;
+  1506→  1506→        }
+  1507→  1507→        .kivora-thinking-cursor {
+  1508→  1508→          display: inline-block;
+  1509→  1509→          width: 2px;
+  1510→  1510→          height: 16px;
+  1511→  1511→          background: linear-gradient(180deg, #a855f7, #ef4444);
+  1512→  1512→          border-radius: 1px;
+  1513→  1513→          animation: kivora-cursor-blink 1s steps(1) infinite;
+  1514→  1514→        }
+  1515→  1515→        @keyframes kivora-cursor-blink {
+  1516→  1516→          0%, 100% { opacity: 1; }
+  1517→  1517→          50% { opacity: 0; }
+  1518→  1518→        }
+  1519→  1519→
+  1520→  1520→        .kivora-thinking-sources {
+  1521→  1521→          display: flex;
+  1522→  1522→          align-items: center;
+  1523→  1523→          gap: 5px;
+  1524→  1524→          font-size: 11px;
+  1525→  1525→          color: #737373;
+  1526→  1526→          background: rgba(255,255,255,0.04);
+  1527→  1527→          border: 1px solid rgba(255,255,255,0.06);
+  1528→  1528→          padding: 3px 10px;
+  1529→  1529→          border-radius: 100px;
+  1530→  1530→          font-weight: 500;
+  1531→  1531→          margin-left: auto;
+  1532→  1532→        }
+  1533→  1533→
+  1534→  1534→        .kivora-thinking-track {
+  1535→  1535→          position: absolute;
+  1536→  1536→          bottom: 0;
+  1537→  1537→          left: 0;
+  1538→  1538→          right: 0;
+  1539→  1539→          height: 2px;
+  1540→  1540→          background: #1a1a1a;
+  1541→  1541→          overflow: hidden;
+  1542→  1542→        }
+  1543→  1543→        .kivora-thinking-fill {
+  1544→  1544→          position: absolute;
+  1545→  1545→          inset: 0;
+  1546→  1546→          background: linear-gradient(90deg, #a855f7, #ef4444);
+  1547→  1547→          animation: kivora-shimmer 2s ease-in-out infinite;
+  1548→  1548→          transform-origin: left;
+  1549→  1549→        }
+  1550→  1550→        .kivora-thinking-fill-writing {
+  1551→  1551→          animation: kivora-shimmer-writing 1.5s ease-in-out infinite;
+  1552→  1552→        }
+  1553→  1553→        @keyframes kivora-shimmer {
+  1554→  1554→          0% { transform: scaleX(0); transform-origin: left; }
+  1555→  1555→          50% { transform: scaleX(0.6); transform-origin: left; }
+  1556→  1556→          100% { transform: scaleX(0); transform-origin: right; }
+  1557→  1557→        }
+  1558→  1558→        @keyframes kivora-shimmer-writing {
+  1559→  1559→          0% { transform: scaleX(0.3); transform-origin: left; }
+  1560→  1560→          50% { transform: scaleX(0.9); transform-origin: left; }
+  1561→  1561→          100% { transform: scaleX(0.3); transform-origin: left; }
+  1562→  1562→        }
+  1563→  1563→
+  1564→  1564→        .source-visible { animation: source-slide-up 0.3s ease-out forwards; }
+  1565→  1565→        .source-hidden { opacity: 0; }
+  1566→  1566→
+  1567→  1567→        @keyframes fade-up {
+  1568→  1568→          from { opacity: 0; transform: translateY(10px); }
+  1569→  1569→          to { opacity: 1; transform: translateY(0); }
+  1570→  1570→        }
+  1571→  1571→        .animate-fade-up { animation: fade-up 0.5s ease-out forwards; }
+  1572→  1572→
+  1573→  1573→        @keyframes fade-in {
+  1574→  1574→          from { opacity: 0; transform: translateY(8px); }
+  1575→  1575→          to { opacity: 1; transform: translateY(0); }
+  1576→  1576→        }
+  1577→  1577→        .animate-fade-in { animation: fade-in 0.4s ease-out forwards; }
+  1578→  1578→
+  1579→  1579→        @keyframes slide-in-right {
+  1580→  1580→          from { opacity: 0; transform: translateX(20px); }
+  1581→  1581→          to { opacity: 1; transform: translateX(0); }
+  1582→  1582→        }
+  1583→  1583→        .animate-slide-in-right { animation: slide-in-right 0.3s ease-out forwards; }
+  1584→  1584→
+  1585→  1585→        @keyframes source-slide-up {
+  1586→  1586→          from { opacity: 0; transform: translateY(6px); }
+  1587→  1587→          to { opacity: 1; transform: translateY(0); }
+  1588→  1588→        }
+  1589→  1589→
+  1590→  1590→        /* ─── Vertical Stage Pipeline ─── */
+  1591→  1591→        .research-pipeline-card {
+  1592→  1592→          background: #111111;
+  1593→  1593→          border: 1px solid #1f1f1f;
+  1594→  1594→          border-radius: 12px;
+  1595→  1595→          padding: 20px;
+  1596→  1596→          position: relative;
+  1597→  1597→          overflow: hidden;
+  1598→  1598→        }
+  1599→  1599→
+  1600→  1600→        .research-pipeline-header {
+  1601→  1601→          display: flex;
+  1602→  1602→          align-items: center;
+  1603→  1603→          gap: 10px;
+  1604→  1604→          margin-bottom: 20px;
+  1605→  1605→        }
+  1606→  1606→
+  1607→  1607→        .research-pipeline-pulse {
+  1608→  1608→          width: 10px;
+  1609→  1609→          height: 10px;
+  1610→  1610→          background: #ececec;
+  1611→  1611→          border-radius: 50%;
+  1612→  1612→          position: relative;
+  1613→  1613→          flex-shrink: 0;
+  1614→  1614→        }
+  1615→  1615→        .research-pipeline-pulse::after {
+  1616→  1616→          content: '';
+  1617→  1617→          position: absolute;
+  1618→  1618→          top: -4px;
+  1619→  1619→          left: -4px;
+  1620→  1620→          width: 18px;
+  1621→  1621→          height: 18px;
+  1622→  1622→          border: 1.5px solid #ececec;
+  1623→  1623→          border-radius: 50%;
+  1624→  1624→          animation: pipeline-ripple 1.8s ease-out infinite;
+  1625→  1625→          opacity: 0;
+  1626→  1626→        }
+  1627→  1627→        @keyframes pipeline-ripple {
+  1628→  1628→          0% { transform: scale(0.5); opacity: 0.6; }
+  1629→  1629→          100% { transform: scale(2.5); opacity: 0; }
+  1630→  1630→        }
+  1631→  1631→
+  1632→  1632→        .research-pipeline-query {
+  1633→  1633→          font-size: 13px;
+  1634→  1634→          font-weight: 500;
+  1635→  1635→          color: #a3a3a3;
+  1636→  1636→          letter-spacing: 0.02em;
+  1637→  1637→          flex: 1;
+  1638→  1638→          min-width: 0;
+  1639→  1639→          white-space: nowrap;
+  1640→  1640→          overflow: hidden;
+  1641→  1641→          text-overflow: ellipsis;
+  1642→  1642→        }
+  1643→  1643→
+  1644→  1644→        .research-pipeline-mode {
+  1645→  1645→          font-size: 10px;
+  1646→  1646→          padding: 2px 8px;
+  1647→  1647→          border-radius: 100px;
+  1648→  1648→          font-weight: 500;
+  1649→  1649→          flex-shrink: 0;
+  1650→  1650→        }
+  1651→  1651→        .research-pipeline-mode-deep {
+  1652→  1652→          background: #ef4444;
+  1653→  1653→          color: #fff;
+  1654→  1654→        }
+  1655→  1655→        .research-pipeline-mode-quick {
+  1656→  1656→          background: #1f1f1f;
+  1657→  1657→          color: #a3a3a3;
+  1658→  1658→          border: 1px solid rgba(239, 68, 68, 0.3);
+  1659→  1659→        }
+  1660→  1660→
+  1661→  1661→        .research-stages {
+  1662→  1662→          display: flex;
+  1663→  1663→          flex-direction: column;
+  1664→  1664→          gap: 0;
+  1665→  1665→        }
+  1666→  1666→
+  1667→  1667→        .research-stage {
+  1668→  1668→          display: flex;
+  1669→  1669→          align-items: flex-start;
+  1670→  1670→          gap: 14px;
+  1671→  1671→          padding: 10px 0;
+  1672→  1672→          position: relative;
+  1673→  1673→          opacity: 0.35;
+  1674→  1674→          transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  1675→  1675→        }
+  1676→  1676→        .research-stage-active {
+  1677→  1677→          opacity: 1;
+  1678→  1678→        }
+  1679→  1679→        .research-stage-done {
+  1680→  1680→          opacity: 0.6;
+  1681→  1681→        }
+  1682→  1682→
+  1683→  1683→        /* Vertical connector line */
+  1684→  1684→        .research-stage:not(:last-child)::before {
+  1685→  1685→          content: '';
+  1686→  1686→          position: absolute;
+  1687→  1687→          left: 11px;
+  1688→  1688→          top: 34px;
+  1689→  1689→          width: 1.5px;
+  1690→  1690→          height: calc(100% - 14px);
+  1691→  1691→          background: #333333;
+  1692→  1692→          transition: background 0.4s;
+  1693→  1693→        }
+  1694→  1694→        .research-stage-done:not(:last-child)::before {
+  1695→  1695→          background: #22c55e;
+  1696→  1696→        }
+  1697→  1697→
+  1698→  1698→        .research-stage-icon {
+  1699→  1699→          width: 24px;
+  1700→  1700→          height: 24px;
+  1701→  1701→          border-radius: 50%;
+  1702→  1702→          display: flex;
+  1703→  1703→          align-items: center;
+  1704→  1704→          justify-content: center;
+  1705→  1705→          flex-shrink: 0;
+  1706→  1706→          position: relative;
+  1707→  1707→          z-index: 2;
+  1708→  1708→          transition: all 0.4s;
+  1709→  1709→        }
+  1710→  1710→        .research-stage-pending .research-stage-icon {
+  1711→  1711→          background: #333333;
+  1712→  1712→          border: 1.5px solid #2a2a2a;
+  1713→  1713→        }
+  1714→  1714→        .research-stage-active .research-stage-icon {
+  1715→  1715→          background: #161616;
+  1716→  1716→          border: 1.5px solid #ececec;
+  1717→  1717→          box-shadow: 0 0 12px rgba(236, 236, 236, 0.08);
+  1718→  1718→        }
+  1719→  1719→        .research-stage-done .research-stage-icon {
+  1720→  1720→          background: rgba(34, 197, 94, 0.1);
+  1721→  1721→          border: 1.5px solid #22c55e;
+  1722→  1722→        }
+  1723→  1723→
+  1724→  1724→        .research-stage-icon svg {
+  1725→  1725→          width: 12px;
+  1726→  1726→          height: 12px;
+  1727→  1727→          transition: all 0.3s;
+  1728→  1728→        }
+  1729→  1729→        .research-stage-pending .research-stage-icon svg {
+  1730→  1730→          color: #525252;
+  1731→  1731→        }
+  1732→  1732→        .research-stage-active .research-stage-icon svg {
+  1733→  1733→          color: #ececec;
+  1734→  1734→        }
+  1735→  1735→        .research-stage-done .research-stage-icon svg {
+  1736→  1736→          color: #22c55e;
+  1737→  1737→        }
+  1738→  1738→
+  1739→  1739→        /* Spinner for active stage */
+  1740→  1740→        .research-stage-active .research-stage-icon::after {
+  1741→  1741→          content: '';
+  1742→  1742→          position: absolute;
+  1743→  1743→          inset: -3px;
+  1744→  1744→          border-radius: 50%;
+  1745→  1745→          border: 1.5px solid transparent;
+  1746→  1746→          border-top-color: #ececec;
+  1747→  1747→          animation: pipeline-spin 1s linear infinite;
+  1748→  1748→        }
+  1749→  1749→        @keyframes pipeline-spin {
+  1750→  1750→          to { transform: rotate(360deg); }
+  1751→  1751→        }
+  1752→  1752→
+  1753→  1753→        .research-stage-body {
+  1754→  1754→          display: flex;
+  1755→  1755→          flex-direction: column;
+  1756→  1756→          gap: 4px;
+  1757→  1757→          padding-top: 2px;
+  1758→  1758→        }
+  1759→  1759→        .research-stage-name {
+  1760→  1760→          font-size: 13px;
+  1761→  1761→          font-weight: 500;
+  1762→  1762→          color: #a3a3a3;
+  1763→  1763→          transition: color 0.3s;
+  1764→  1764→        }
+  1765→  1765→        .research-stage-active .research-stage-name {
+  1766→  1766→          color: #ececec;
+  1767→  1767→        }
+  1768→  1768→        .research-stage-done .research-stage-name {
+  1769→  1769→          color: #a3a3a3;
+  1770→  1770→        }
+  1771→  1771→
+  1772→  1772→        .research-stage-detail {
+  1773→  1773→          font-size: 12px;
+  1774→  1774→          color: #525252;
+  1775→  1775→          line-height: 1.5;
+  1776→  1776→          max-height: 0;
+  1777→  1777→          overflow: hidden;
+  1778→  1778→          opacity: 0;
+  1779→  1779→          transition: all 0.4s ease;
+  1780→  1780→        }
+  1781→  1781→        .research-stage-active .research-stage-detail,
+  1782→  1782→        .research-stage-done .research-stage-detail {
+  1783→  1783→          max-height: 60px;
+  1784→  1784→          opacity: 1;
+  1785→  1785→        }
+  1786→  1786→
+  1787→  1787→        .research-pipeline-progress {
+  1788→  1788→          margin-top: 16px;
+  1789→  1789→          height: 2px;
+  1790→  1790→          background: #1f1f1f;
+  1791→  1791→          border-radius: 1px;
+  1792→  1792→          overflow: hidden;
+  1793→  1793→        }
+  1794→  1794→        .research-pipeline-progress-bar {
+  1795→  1795→          height: 100%;
+  1796→  1796→          background: linear-gradient(90deg, #ececec, #22c55e);
+  1797→  1797→          border-radius: 1px;
+  1798→  1798→          transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  1799→  1799→        }
+  1800→  1800→      `}</style>
+  1801→  1801→    </main>
+  1802→  1802→  )
+  1803→  1803→}
+  1804→  1804→
