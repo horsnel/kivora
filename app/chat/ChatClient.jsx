@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings, IconCopy as IconClipboard, IconWrite, IconFilter, IconRobot, IconTarget, IconDatabase, IconStack, IconSpeaker, IconArrowLeft, IconArrowRight, IconCube } from '@/components/Icons'
+import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings, IconCopy as IconClipboard, IconWrite, IconFilter, IconRobot, IconTarget, IconDatabase, IconStack, IconSpeaker, IconArrowLeft, IconArrowRight, IconCube, IconLink } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
@@ -180,6 +180,8 @@ export default function ChatClient() {
   const [settingsExportFormat, setSettingsExportFormat] = useState('md')
   const [settingsPromptSaved, setSettingsPromptSaved] = useState(false)
   const [settingsExported, setSettingsExported] = useState(false)
+  const [msgMenuOpen, setMsgMenuOpen] = useState(null) // index of message with open 3-dot menu
+  const msgMenuRef = useRef(null)
 
   // Settings navigation helpers with slide direction
   const settingsPush = useCallback((page) => {
@@ -212,6 +214,18 @@ export default function ChatClient() {
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [settingsOpen, settingsStack, settingsPop, settingsReset])
+
+  // Close 3-dot message menu on outside click
+  useEffect(() => {
+    if (msgMenuOpen === null) return
+    function handleClick(e) {
+      if (msgMenuRef.current && !msgMenuRef.current.contains(e.target)) {
+        setMsgMenuOpen(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [msgMenuOpen])
 
   // ── Artifacts (Claude-style side panel) ──
   const [activeArtifact, setActiveArtifact] = useState(null) // { type, title, code }
@@ -1040,10 +1054,6 @@ export default function ChatClient() {
                 {settingsCurrentPage === 'more-models' && 'More models'}
                 {settingsCurrentPage === 'voice' && 'Voice'}
                 {settingsCurrentPage === 'prompt' && (t('chat.custom_prompt') || 'System Prompt')}
-                {settingsCurrentPage === 'export' && (t('chat.export.title') || 'Export Chat')}
-                {settingsCurrentPage === 'sandbox' && 'Sandbox'}
-                {settingsCurrentPage === 'sandbox-provider' && 'Provider'}
-                {settingsCurrentPage === 'sandbox-runtime' && 'Runtime'}
               </span>
             </div>
 
@@ -1113,43 +1123,11 @@ export default function ChatClient() {
                       <span className="text-[20px] text-[#888]">›</span>
                     </button>
 
-                    {/* Export Chat */}
-                    <button
-                      onClick={() => settingsPush('export')}
-                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
-                    >
-                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(115,115,115,0.1)] flex items-center justify-center shrink-0">
-                        <IconDownload size={18} className="text-[#737373]" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[16px] font-medium text-white">Export Chat</div>
-                        <div className="text-[13px] text-[#888] truncate">
-                          {messages.length === 0 ? 'No conversation yet' : `${messages.length} messages`}
-                        </div>
-                      </div>
-                      <span className="text-[20px] text-[#888]">›</span>
-                    </button>
-
-                    {/* Sandbox */}
-                    <button
-                      onClick={() => settingsPush('sandbox')}
-                      className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
-                    >
-                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(115,115,115,0.1)] flex items-center justify-center shrink-0">
-                        <IconCube size={18} className="text-[#737373]" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[16px] font-medium text-white">Sandbox</div>
-                        <div className="text-[13px] text-[#888] truncate">Daytona · Docker · E2B</div>
-                      </div>
-                      <span className="text-[20px] text-[#888]">›</span>
-                    </button>
-
                     {/* Full Voice Settings shortcut */}
                     <div className="pt-4">
                       <button
                         onClick={() => { setSettingsOpen(false); settingsReset(); setVoiceSettingsOpen(true) }}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[rgba(138,90,180,0.12)] text-[#b88fd8] active:bg-[rgba(138,90,180,0.2)] transition-colors"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[rgba(115,115,115,0.1)] text-[#737373] active:bg-[rgba(115,115,115,0.18)] transition-colors"
                       >
                         <IconSpeaker size={16} /> Full Voice Settings Panel
                       </button>
@@ -1407,152 +1385,7 @@ export default function ChatClient() {
                   </div>
                 )}
 
-                {/* ══════ EXPORT CHAT ══════ */}
-                {settingsCurrentPage === 'export' && (
-                  <div>
-                    {messages.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-10 text-center">
-                        <div className="text-[48px] mb-4">📭</div>
-                        <div className="text-[16px] text-[#888]">No conversation to export yet</div>
-                      </div>
-                    ) : (
-                      <div>
-                        <div className="text-[13px] text-[#888] mb-3">
-                          Export {messages.length} messages from this conversation.
-                        </div>
-                        <div className="divide-y divide-[#2a2a2a]">
-                          {[
-                            { id: 'pdf', label: 'PDF', desc: 'Formatted document', Icon: IconFile },
-                            { id: 'docx', label: 'DOCX', desc: 'Word document', Icon: IconWrite },
-                            { id: 'html', label: 'HTML', desc: 'Web page', Icon: IconGlobe },
-                            { id: 'md', label: 'Markdown', desc: 'Plain text markup', Icon: IconClipboard },
-                            { id: 'txt', label: 'TXT', desc: 'Plain text', Icon: IconFile },
-                          ].map(fmt => (
-                            <button
-                              key={fmt.id}
-                              onClick={() => setSettingsExportFormat(fmt.id)}
-                              className={`w-full flex items-center gap-3.5 py-3.5 text-left transition-colors ${
-                                settingsExportFormat === fmt.id ? 'opacity-100' : 'opacity-70'
-                              }`}
-                            >
-                              <fmt.Icon size={16} className={settingsExportFormat === fmt.id ? 'text-[#c45c4a]' : 'text-[#555]'} />
-                              <div className="flex-1">
-                                <div className={`text-[16px] font-medium ${settingsExportFormat === fmt.id ? 'text-[#c45c4a]' : 'text-white'}`}>{fmt.label}</div>
-                                <div className="text-[13px] text-[#888]">{fmt.desc}</div>
-                              </div>
-                              {settingsExportFormat === fmt.id && (
-                                <span className="text-[#c45c4a] text-[16px]">✓</span>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                        <button
-                          onClick={async () => { await exportChat(settingsExportFormat); setSettingsExported(true); setTimeout(() => setSettingsExported(false), 2000) }}
-                          className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-[14px] text-[15px] font-semibold mt-3 transition-colors ${
-                            settingsExported
-                              ? 'bg-emerald-600 text-white'
-                              : 'bg-[#c45c4a] hover:bg-[#d97a6a] text-white'
-                          }`}
-                        >
-                          {settingsExported ? (
-                            <><IconCheck size={16} /> Exported</>
-                          ) : (
-                            <><IconDownload size={16} /> Export as {settingsExportFormat.toUpperCase()}</>
-                          )}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
 
-                {/* ══════ SANDBOX ══════ */}
-                {settingsCurrentPage === 'sandbox' && (
-                  <div className="divide-y divide-[#2a2a2a]">
-                    {/* Provider row */}
-                    <button
-                      onClick={() => settingsPush('sandbox-provider')}
-                      className="w-full flex items-center py-3.5 text-left active:opacity-60 transition-opacity"
-                    >
-                      <div className="flex-1">
-                        <div className="text-[16px] font-medium text-white">Provider</div>
-                        <div className="text-[13px] text-[#888]">Daytona</div>
-                      </div>
-                      <span className="text-[20px] text-[#888]">›</span>
-                    </button>
-
-                    {/* Runtime row */}
-                    <button
-                      onClick={() => settingsPush('sandbox-runtime')}
-                      className="w-full flex items-center py-3.5 text-left active:opacity-60 transition-opacity"
-                    >
-                      <div className="flex-1">
-                        <div className="text-[16px] font-medium text-white">Runtime</div>
-                        <div className="text-[13px] text-[#888]">Docker</div>
-                      </div>
-                      <span className="text-[20px] text-[#888]">›</span>
-                    </button>
-
-                    {/* Fallback chain */}
-                    <div className="py-3.5">
-                      <div className="text-[10px] font-medium text-[#666] uppercase tracking-wider mb-2">Auto-fallback chain</div>
-                      <div className="flex items-center flex-wrap gap-1">
-                        {['Daytona', 'Docker', 'E2B', 'Kaggle', 'Colab', 'Codespaces'].map((name, i) => (
-                          <span key={name} className="flex items-center">
-                            <span className={`text-[11px] px-2 py-1 rounded-lg ${i === 0 ? 'bg-[rgba(76,175,80,0.12)] text-[#4caf50]' : 'bg-[#242424] text-[#888]'}`}>
-                              {name}
-                            </span>
-                            {i < 5 && <span className="text-[10px] text-[#333] mx-1">→</span>}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* ══════ SANDBOX PROVIDER ══════ */}
-                {settingsCurrentPage === 'sandbox-provider' && (
-                  <div className="divide-y divide-[#2a2a2a]">
-                    {[
-                      { id: 'daytona', name: 'Daytona', desc: 'Cloud sandbox · GPU · <90ms cold start', primary: true },
-                      { id: 'docker', name: 'Docker Engine', desc: 'Self-hosted containers · Any language', primary: false },
-                      { id: 'e2b', name: 'E2B', desc: 'Cloud microVMs · Secure · Fast', primary: false },
-                      { id: 'kaggle', name: 'Kaggle', desc: 'Free notebooks · GPU · Python/R', primary: false },
-                      { id: 'colab', name: 'Colab', desc: 'Google notebooks · Free GPU', primary: false },
-                      { id: 'codespaces', name: 'Codespaces', desc: 'Full VS Code · GitHub integration', primary: false },
-                    ].map(p => (
-                      <div key={p.id} className="flex items-center gap-3 py-3.5">
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${p.primary ? 'bg-[rgba(76,175,80,0.15)]' : 'bg-[#1a1a1a]'}`}>
-                          <IconCube size={14} className={p.primary ? 'text-[#4caf50]' : 'text-[#555]'} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className={`text-[16px] font-medium ${p.primary ? 'text-[#4caf50]' : 'text-[#aaa]'}`}>{p.name}</span>
-                            {p.primary && (
-                              <span className="text-[9px] font-bold tracking-[0.5px] px-2 py-0.5 rounded bg-[rgba(76,175,80,0.12)] text-[#4caf50] uppercase">Primary</span>
-                            )}
-                          </div>
-                          <div className="text-[13px] text-[#555] truncate">{p.desc}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* ══════ SANDBOX RUNTIME ══════ */}
-                {settingsCurrentPage === 'sandbox-runtime' && (
-                  <div className="divide-y divide-[#2a2a2a]">
-                    {[
-                      { id: 'docker', name: 'Docker', desc: 'Container-based isolation' },
-                      { id: 'microvm', name: 'MicroVM', desc: 'Lightweight VM sandbox' },
-                      { id: 'notebook', name: 'Notebook', desc: 'Jupyter-style execution' },
-                    ].map(r => (
-                      <div key={r.id} className="py-3.5">
-                        <div className="text-[16px] font-medium text-[#aaa]">{r.name}</div>
-                        <div className="text-[13px] text-[#555]">{r.desc}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
 
                 </motion.div>
               </AnimatePresence>
@@ -1594,7 +1427,7 @@ export default function ChatClient() {
 
         {/* Messages area */}
         <div className="flex-1 overflow-y-auto overscroll-behavior-contain">
-          <div className="max-w-[720px] mx-auto px-[min(5vw,48px)] py-6 space-y-4">
+          <div className="max-w-[960px] mx-auto px-[min(5vw,48px)] py-6 space-y-4">
             {messages.length === 0 && (
               <div className="flex flex-col items-center min-h-[65vh]">
                 {/* Morphing brand mark — the chat page's nav icon, ghosted and alive in the upper void */}
@@ -1828,7 +1661,7 @@ export default function ChatClient() {
                       </div>
                     )}
                     {msg.role === 'assistant' && (
-                      <div className="opacity-0 group-hover:opacity-100 mt-1.5 flex items-center gap-3 transition-all">
+                      <div className="opacity-0 group-hover:opacity-100 mt-1.5 flex items-center gap-3 transition-all relative">
                         <VoiceOutput text={msg.content} />
                         <button
                           onClick={() => copy(msg.content, i)}
@@ -1837,6 +1670,33 @@ export default function ChatClient() {
                         >
                           {copiedIndex === i ? <IconCheck size={12} /> : <IconCopy size={12} />}
                         </button>
+                        {/* 3-dot menu */}
+                        <button
+                          onClick={() => setMsgMenuOpen(msgMenuOpen === i ? null : i)}
+                          className="flex items-center justify-center text-muted hover:text-[#e2e2e2] transition-colors"
+                          title="More actions"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>
+                        </button>
+                        {/* Dropdown menu */}
+                        {msgMenuOpen === i && (
+                          <div ref={msgMenuRef} className="absolute bottom-full left-0 mb-1 w-48 bg-[#242424] border border-[#333] rounded-xl shadow-xl py-1 z-50">
+                            <button
+                              onClick={() => { exportChat('md'); setMsgMenuOpen(null) }}
+                              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] text-[#ccc] hover:bg-white/8 transition-colors"
+                            >
+                              <IconDownload size={16} className="text-[#737373]" />
+                              Export Chat
+                            </button>
+                            <button
+                              onClick={() => { copy(`${window.location.origin}/chat?share=${encodeURIComponent(msg.content.slice(0, 100))}`, i); setMsgMenuOpen(null) }}
+                              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] text-[#ccc] hover:bg-white/8 transition-colors"
+                            >
+                              <IconLink size={16} className="text-[#737373]" />
+                              Copy Share Link
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1863,7 +1723,7 @@ export default function ChatClient() {
 
         {/* ── Expandable Chat Bar ────────────────────── */}
         <div className="shrink-0 px-[min(5vw,48px)] pb-4 pt-2" style={{ overflow: 'visible' }}>
-          <div className="max-w-[720px] mx-auto" style={{ overflow: 'visible' }}>
+          <div className="max-w-[960px] mx-auto" style={{ overflow: 'visible' }}>
             {/* Suggestion pills — above chat bar, single scrollable row */}
             {messages.length === 0 && (
               <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none pb-0.5 animate-fade-up">
