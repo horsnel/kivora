@@ -964,57 +964,99 @@ export default function ChatClient() {
           ) : null}
         </div>
 
-        {/* ── Settings full-page modal (Claude AI stacked navigation) ── */}
-        {settingsOpen && (
-          <div
-            className="fixed inset-0 z-50 bg-[#1a1a1a] animate-fade-in"
-            onClick={() => { setSettingsOpen(false); settingsReset() }}
+        {/* ── Settings toggle + Profile avatar — pinned to bottom ── */}
+        <div className="p-2.5 border-t border-[#181818] shrink-0 space-y-0.5">
+          <button
+            onClick={() => { setSettingsOpen(!settingsOpen); if (!settingsOpen) settingsReset() }}
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors font-medium ${
+              settingsOpen
+                ? 'bg-[#1a1a1a] text-white'
+                : 'text-muted hover:text-white hover:bg-[#141414]'
+            }`}
           >
-            <div
-              className="w-full h-full flex flex-col overflow-hidden"
-              onClick={e => e.stopPropagation()}
-            >
-              {/* Header */}
-              <div className="flex items-center justify-center px-4 py-3 relative min-h-[52px] shrink-0 border-b border-[#2a2a2a]">
-                {settingsCurrentPage !== 'root' ? (
-                  <button
-                    onClick={settingsPop}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
-                  >
-                    <IconArrowLeft size={18} className="text-[#ccc]" />
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => { setSettingsOpen(false); settingsReset() }}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
-                  >
-                    <IconClose size={18} className="text-[#ccc]" />
-                  </button>
-                )}
-                <span className="text-[17px] font-semibold tracking-tight text-white">
-                  {settingsCurrentPage === 'root' && (t('chat.settings') || 'Settings')}
-                  {settingsCurrentPage === 'model' && 'Select model'}
-                  {settingsCurrentPage === 'effort' && 'Effort'}
-                  {settingsCurrentPage === 'more-models' && 'More models'}
-                  {settingsCurrentPage === 'voice' && 'Voice'}
-                  {settingsCurrentPage === 'prompt' && (t('chat.custom_prompt') || 'System Prompt')}
-                  {settingsCurrentPage === 'export' && (t('chat.export.title') || 'Export Chat')}
-                  {settingsCurrentPage === 'sandbox' && 'Sandbox'}
-                  {settingsCurrentPage === 'sandbox-provider' && 'Provider'}
-                  {settingsCurrentPage === 'sandbox-runtime' && 'Runtime'}
-                </span>
-              </div>
+            <IconSettings size={14} className="shrink-0" />
+            {t('chat.settings') || 'Settings'}
+          </button>
 
-              {/* Screens container - now fills remaining height */}
-              <div className="flex-1 overflow-y-auto px-5 py-4" style={{ scrollbarWidth: 'none' }}>
-                <AnimatePresence mode="popLayout" initial={false}>
-                  <motion.div
-                    key={settingsCurrentPage}
-                    initial={{ x: settingsSlideDir === 'push' ? 300 : -100, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    exit={{ x: settingsSlideDir === 'push' ? -100 : 300, opacity: 0 }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                  >
+          {user ? (
+            <Link
+              href="/profile"
+              className="flex items-center justify-center transition-colors rounded-lg hover:bg-[#141414] py-1.5"
+              onClick={() => setHistoryOpen(false)}
+            >
+              <div className="w-7 h-7 bg-[#dc2626] rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                {(user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || '').slice(0, 2).toUpperCase()}
+              </div>
+            </Link>
+          ) : (
+            <Link
+              href="/auth"
+              className="flex items-center justify-center gap-1.5 bg-[#dc2626] hover:bg-red-700 text-white text-sm py-2 rounded-lg transition-colors font-semibold"
+              onClick={() => setHistoryOpen(false)}
+            >
+              <IconUser size={12} />
+              {t('nav.signin') || 'Sign in'}
+            </Link>
+          )}
+        </div>
+      </aside>
+
+      {/* ── Settings bottom sheet (Claude AI style) — at root level so it's not constrained by sidebar ── */}
+      {settingsOpen && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/60"
+          onClick={() => { setSettingsOpen(false); settingsReset() }}
+        >
+          <div
+            className="absolute bottom-0 left-0 right-0 h-[92vh] bg-[#1a1a1a] rounded-t-[24px] flex flex-col overflow-hidden animate-slide-up"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Handle bar */}
+            <div className="flex justify-center pt-2.5 pb-1 shrink-0">
+              <div className="w-10 h-1 rounded-full bg-[#444]" />
+            </div>
+
+            {/* Header */}
+            <div className="flex items-center justify-center px-4 py-2 relative min-h-[44px] shrink-0">
+              {settingsCurrentPage !== 'root' ? (
+                <button
+                  onClick={settingsPop}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
+                >
+                  <IconArrowLeft size={16} className="text-[#ccc]" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => { setSettingsOpen(false); settingsReset() }}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
+                >
+                  <IconClose size={16} className="text-[#ccc]" />
+                </button>
+              )}
+              <span className="text-[17px] font-semibold tracking-tight text-white">
+                {settingsCurrentPage === 'root' && (t('chat.settings') || 'Settings')}
+                {settingsCurrentPage === 'model' && 'Select model'}
+                {settingsCurrentPage === 'effort' && 'Effort'}
+                {settingsCurrentPage === 'more-models' && 'More models'}
+                {settingsCurrentPage === 'voice' && 'Voice'}
+                {settingsCurrentPage === 'prompt' && (t('chat.custom_prompt') || 'System Prompt')}
+                {settingsCurrentPage === 'export' && (t('chat.export.title') || 'Export Chat')}
+                {settingsCurrentPage === 'sandbox' && 'Sandbox'}
+                {settingsCurrentPage === 'sandbox-provider' && 'Provider'}
+                {settingsCurrentPage === 'sandbox-runtime' && 'Runtime'}
+              </span>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto px-4 py-3" style={{ scrollbarWidth: 'none' }}>
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.div
+                  key={settingsCurrentPage}
+                  initial={{ x: settingsSlideDir === 'push' ? 300 : -100, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  exit={{ x: settingsSlideDir === 'push' ? -100 : 300, opacity: 0 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                >
 
                 {/* ══════ ROOT: Settings categories ══════ */}
                 {settingsCurrentPage === 'root' && (
@@ -1182,7 +1224,6 @@ export default function ChatClient() {
                       <button
                         key={opt.level}
                         onClick={() => {
-                          // Update effort label on model page
                           const el = document.getElementById('currentEffortLabel')
                           if (el) el.textContent = opt.level
                         }}
@@ -1512,49 +1553,13 @@ export default function ChatClient() {
                     ))}
                   </div>
                 )}
-                  </motion.div>
-                </AnimatePresence>
-              </div>
+
+                </motion.div>
+              </AnimatePresence>
             </div>
           </div>
-        )}
-
-        {/* ── Settings toggle + Profile avatar — pinned to bottom ── */}
-        <div className="p-2.5 border-t border-[#181818] shrink-0 space-y-0.5">
-          <button
-            onClick={() => { setSettingsOpen(!settingsOpen); if (!settingsOpen) settingsReset() }}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors font-medium ${
-              settingsOpen
-                ? 'bg-[#1a1a1a] text-white'
-                : 'text-muted hover:text-white hover:bg-[#141414]'
-            }`}
-          >
-            <IconSettings size={14} className="shrink-0" />
-            {t('chat.settings') || 'Settings'}
-          </button>
-
-          {user ? (
-            <Link
-              href="/profile"
-              className="flex items-center justify-center transition-colors rounded-lg hover:bg-[#141414] py-1.5"
-              onClick={() => setHistoryOpen(false)}
-            >
-              <div className="w-7 h-7 bg-[#dc2626] rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0">
-                {(user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || '').slice(0, 2).toUpperCase()}
-              </div>
-            </Link>
-          ) : (
-            <Link
-              href="/auth"
-              className="flex items-center justify-center gap-1.5 bg-[#dc2626] hover:bg-red-700 text-white text-sm py-2 rounded-lg transition-colors font-semibold"
-              onClick={() => setHistoryOpen(false)}
-            >
-              <IconUser size={12} />
-              {t('nav.signin') || 'Sign in'}
-            </Link>
-          )}
         </div>
-      </aside>
+      )}
 
       {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0">

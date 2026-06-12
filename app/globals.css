@@ -198,6 +198,13 @@ input, textarea, select {
 }
 .animate-slide-up-sheet { animation: slideUpSheet 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
 
+/* Settings bottom sheet slide up animation */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.animate-slide-up { animation: slideUp 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
+
 /* Settings sheet scrollable content - hide scrollbar */
 .settings-sheet-content::-webkit-scrollbar { display: none; }
 .settings-sheet-content { -ms-overflow-style: none; scrollbar-width: none; }
