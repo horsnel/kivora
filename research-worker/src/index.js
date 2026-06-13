@@ -26,7 +26,7 @@ function jsonRes(data, status = 200) {
 
 // ── API Keys ──
 function getTavilyKey(env) {
-  return env.TAVILY_API_KEY || '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';
+  return env.TAVILY_API_KEY || '';
 }
 function getOpenRouterKey(env) {
   return env.OPENROUTER_API_KEY || '';
@@ -38,7 +38,7 @@ function getBraveKey(env) {
   return env.BRAVE_SEARCH_API_KEY || '';
 }
 function getFirecrawlKey(env) {
-  return env.FIRECRAWL_API_KEY || 'fc-9afd24762f1348c68c0c05e88130e890';
+  return env.FIRECRAWL_API_KEY || '';
 }
 
 // ── Source Tier Enforcement ──
@@ -51,6 +51,7 @@ const SOURCE_TIER_DOMAINS = {
     'wiley.com', 'plos.org', 'nejm.org', 'lancet.com', 'cell.com',
     'pnas.org', 'bmj.com', 'eur-lex.europa.eu', 'gov.uk',
     'cambridge.org', 'oxfordacademic.com', 'chemrxiv.org',
+    'sciencedirect.com', 'jstor.org', 'core.ac.uk',
   ],
   P2: [
     'reuters.com', 'bloomberg.com', 'economist.com', 'ft.com',
@@ -59,12 +60,18 @@ const SOURCE_TIER_DOMAINS = {
     'semanticscholar.org', 'openalex.org', 'clinicaltrials.gov',
     'cochrane.org', 'ourworldindata.org', 'pewresearch.org',
     'nber.org', 'ssrn.com', 'hbr.org', 'mckinsey.com',
+    'react.dev', 'vuejs.org', 'angular.io', 'nextjs.org',
+    'typescriptlang.org', 'developer.mozilla.org', 'docs.python.org',
+    'rust-lang.org', 'go.dev', 'kubernetes.io', 'docker.com',
+    'aws.amazon.com', 'cloud.google.com', 'azure.microsoft.com',
   ],
   P3: [
     'medium.com', 'towardsdatascience.com', 'wikipedia.org',
     'wikidata.org', 'stackoverflow.com', 'github.com', 'reddit.com',
     'hackernews.com', 'youtube.com', 'substack.com', 'quora.com',
     'researchgate.net', 'academia.edu',
+    'w3schools.com', 'geeksforgeeks.org', 'freecodecamp.org',
+    'codepen.io', 'dev.to', 'hashnode.dev', 'hackernoon.com',
   ],
 };
 
@@ -1242,6 +1249,14 @@ function extractFollowups(text) {
 // MAIN RESEARCH PIPELINE — SPEED OPTIMIZED
 // ══════════════════════════════════════════════════════════════════
 
+// ── Consistent Response Shape ──
+// Use this helper for all research responses to ensure consistent schema.
+// No 'content' field (frontend renders markdown via ReactMarkdown).
+// No wiki_* fields (handled by apex layer if present).
+function makeResponse({ sources, report, title, followups, mode, classification }) {
+  return { sources, report, title, followups, mode, classification };
+}
+
 async function quickResearch(query, env, apexModel = 'apex-free') {
   const t0 = Date.now();
   
@@ -1283,9 +1298,8 @@ async function quickResearch(query, env, apexModel = 'apex-free') {
 
   console.log(`[Quick] Report generated in ${Date.now() - t0}ms`);
 
-  // Step 4: Process report
+  // Step 4: Process report — return raw markdown (frontend renders via ReactMarkdown)
   const { report, followups } = extractFollowups(rawReport);
-  const content = markdownToHtml(report);
 
   const titleMatch = report.match(/^##\s+(.+)$/m) || report.match(/^#\s+(.+)$/m);
   const title = titleMatch ? titleMatch[1].replace(/[*_]/g, '') : query;
@@ -1317,7 +1331,7 @@ async function quickResearch(query, env, apexModel = 'apex-free') {
     return sourceObj;
   });
 
-  return { sources, report, content, title, followups, mode: 'quick', classification };
+  return makeResponse({ sources, report, title, followups, mode: 'quick', classification });
 }
 
 async function deepResearch(query, env, apexModel = 'apex-free') {
@@ -1478,14 +1492,13 @@ FOLLOWUPS:
 
   console.log(`[Deep] Complete in ${Date.now() - t0}ms, total report: ${rawReport.length} chars`);
 
-  // Process report
+  // Process report — return raw markdown (frontend renders via ReactMarkdown)
   const { report, followups } = extractFollowups(rawReport);
-  const content = markdownToHtml(report);
 
   const titleMatch = report.match(/^##\s+(.+)$/m) || report.match(/^#\s+(.+)$/m);
   const title = titleMatch ? titleMatch[1].replace(/[*_]/g, '') : query;
 
-  return { sources, report, content, title, followups, mode: 'deep', classification };
+  return makeResponse({ sources, report, title, followups, mode: 'deep', classification });
 }
 
 // ══════════════════════════════════════════════════════════════════

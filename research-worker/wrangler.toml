@@ -11,7 +11,15 @@ binding = "AI"
 # OPENROUTER_API_KEY — for OpenRouter LLM calls
 # TAVILY_API_KEY — for Tavily web search
 # BRAVE_SEARCH_API_KEY — (optional) for Brave Search
-# FIRECRAWL_API_KEY — for Firecrawl search & scraping (has hardcoded fallback)
+# FIRECRAWL_API_KEY — for Firecrawl search & scraping
+# GEMINI_API_KEY — for Google Gemini LLM calls
+
+# Secret bindings (set via wrangler secret put):
+# OPENROUTER_API_KEY
+# TAVILY_API_KEY
+# GEMINI_API_KEY
+# BRAVE_SEARCH_API_KEY
+# FIRECRAWL_API_KEY
 
 [vars]
 ENVIRONMENT = "production"
