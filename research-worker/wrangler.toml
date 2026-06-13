@@ -7,11 +7,12 @@ compatibility_flags = ["nodejs_compat"]
 [ai]
 binding = "AI"
 
-# Environment variables (secrets set via `wrangler secret put`)
+# Secret bindings (set via `wrangler secret put`):
 # OPENROUTER_API_KEY — for OpenRouter LLM calls
 # TAVILY_API_KEY — for Tavily web search
-# BRAVE_SEARCH_API_KEY — (optional) for Brave Search
-# FIRECRAWL_API_KEY — for Firecrawl search & scraping (has hardcoded fallback)
+# GEMINI_API_KEY — for Gemini LLM calls
+# BRAVE_SEARCH_API_KEY — for Brave Search (deep mode)
+# FIRECRAWL_API_KEY — for Firecrawl search & scraping
 
 [vars]
 ENVIRONMENT = "production"

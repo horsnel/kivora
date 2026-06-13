@@ -2,12 +2,14 @@
 import { useState, useEffect, useRef, useMemo, Suspense, memo } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/LanguageProvider'
+import dynamic from 'next/dynamic'
+const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false })
 import { supabasePublic } from '@/lib/supabase'
 import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, IconRocket, IconHeart, IconMicroscope, IconWarning } from '@/components/Icons'
 
 // ── Constants ──
 const STORAGE_KEY = 'kivora-research-history'
-const MAX_HISTORY = 30
+const MAX_HISTORY = 20 // Fix #9: reduced from 30
 
 const SUGGESTED_TOPICS = [
   { Icon: IconDna, label: 'AI & Machine Learning Trends' },
@@ -284,14 +286,16 @@ function ResearchPageContent() {
   const hasActiveResearch = activeResearch !== null
   const hasInput = input.trim().length > 0
 
-  // ── Typewriter animation for big text bar (paused during research) ──
+  // ── Typewriter animation for big text bar (Fix #10: fully canceled during research) ──
   useEffect(() => {
     const tw = typewriterRef.current
+    // Fix #10: When researching, clear timers and placeholder — restart when done
+    if (isResearching) {
+      clearTimeout(tw.timeout)
+      setPlaceholderText('')
+      return
+    }
     function tick() {
-      if (isResearching) {
-        tw.timeout = setTimeout(tick, 500)
-        return
-      }
       const phrase = TYPEWRITER_PHRASES[tw.phraseIdx]
       if (!tw.deleting) {
         tw.charIdx++
@@ -317,14 +321,16 @@ function ResearchPageContent() {
     return () => clearTimeout(tw.timeout)
   }, [isResearching])
 
-  // ── Typewriter animation for collapsed input (paused during research) ──
+  // ── Typewriter animation for collapsed input (Fix #10: fully canceled during research) ──
   useEffect(() => {
     const tw = collapsedTypewriterRef.current
+    // Fix #10: When researching, clear timers and placeholder
+    if (isResearching) {
+      clearTimeout(tw.timeout)
+      setCollapsedPlaceholder('')
+      return
+    }
     function tick() {
-      if (isResearching) {
-        tw.timeout = setTimeout(tick, 500)
-        return
-      }
       const phrase = TYPEWRITER_PHRASES[tw.phraseIdx]
       if (!tw.deleting) {
         tw.charIdx++
@@ -431,12 +437,20 @@ function ResearchPageContent() {
     stageTimersRef.current = []
     if (progressRef.current) clearInterval(progressRef.current)
 
-    // Animate progress — fast interval for snappy feel
+    // Animate progress — Fix #6: creep to 95%, hit 100% only on completion
     let fakeProgress = 0
     progressRef.current = setInterval(() => {
-      fakeProgress += Math.random() * 6
-      if (fakeProgress > 85) fakeProgress = 85
-      setProgress(Math.min(fakeProgress, 85))
+      if (fakeProgress < 30) {
+        fakeProgress += 2 + Math.random() * 3
+      } else if (fakeProgress < 60) {
+        fakeProgress += 1 + Math.random() * 2
+      } else if (fakeProgress < 85) {
+        fakeProgress += 0.5 + Math.random() * 1
+      } else {
+        // After 85%, very slow creep — cap at 95%
+        fakeProgress = Math.min(fakeProgress + 0.5 * Math.random(), 95)
+      }
+      setProgress(Math.min(fakeProgress, 95))
     }, 800)
 
     try {
@@ -475,7 +489,7 @@ function ResearchPageContent() {
         console.log('[Research] Worker failed, trying fallback providers...', data.error)
         try {
           const fallbackController = new AbortController()
-          const fallbackTimeout = setTimeout(() => fallbackController.abort(), 30000)
+          const fallbackTimeout = setTimeout(() => fallbackController.abort(), 60000) // Fix #5: 60s instead of 30s
           const fallbackRes = await fetch('/api/research-fallback', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -541,7 +555,9 @@ function ResearchPageContent() {
       setReportDisplay(completed.report)
       setSourcesVisible(completed.sources.length)
 
-      const newHistory = [completed, ...loadHistory()].slice(0, MAX_HISTORY)
+      // Fix #9: Only store minimal fields in history, not full reports
+      const minimalCompleted = { id: completed.id, query: completed.query, mode: completed.mode, apexModel: completed.apexModel, title: completed.title, timestamp: completed.timestamp }
+      const newHistory = [minimalCompleted, ...loadHistory()].slice(0, MAX_HISTORY)
       saveHistory(newHistory)
       setHistory(newHistory)
     } catch (err) {
@@ -596,9 +612,9 @@ function ResearchPageContent() {
     setResearchStage('done')
     setProgress(100)
     try {
-      router.replace(`/research?q=${encodeURIComponent(safeItem.query)}`, { scroll: false })
+      router.push(`/research?q=${encodeURIComponent(safeItem.query)}`, { scroll: false })
     } catch (e) {
-      // router.replace may throw in certain Next.js contexts; safe to ignore
+      // Fix #11: router.push instead of router.replace for back-button; router.replace may throw in certain Next.js contexts; safe to ignore
     }
   }
 
@@ -615,7 +631,7 @@ function ResearchPageContent() {
   const progressPercent = progress
   const sources = activeResearch?.sources || []
   const reportText = reportDisplay || activeResearch?.report || ''
-  const renderedHtml = useMemo(() => markdownToHtml(reportText, { skipDuplicateSources: true }), [reportText])
+  // Fix #12: No more client-side markdownToHtml — ReactMarkdown handles rendering
 
   // ── Render ──
   return (
@@ -689,10 +705,12 @@ function ResearchPageContent() {
                       e.target.value = ''
                     }}
                   />
+                  {/* Fix #4: File attachment disabled — coming soon */}
                   <button
                     className="chat-toolbar-btn"
-                    title="Attach file"
-                    onClick={() => fileInputRef.current?.click()}
+                    title="File attachments coming soon"
+                    disabled
+                    style={{ opacity: 0.4, cursor: 'not-allowed' }}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
@@ -919,11 +937,9 @@ function ResearchPageContent() {
                     mode={activeResearch.mode}
                   />
                 ) : reportText ? (
-                  <div className="report-body animate-fade-in" dangerouslySetInnerHTML={{
-                    __html: activeResearch?.content && !isResearching
-                      ? filterDuplicateSources(activeResearch.content)
-                      : renderedHtml
-                  }} />
+                  <div className="report-body animate-fade-in prose-invert max-w-none">
+                    <ReactMarkdown>{reportText}</ReactMarkdown>
+                  </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12 animate-fade-in">
                     <p className="text-xs text-[#525252]">No report generated yet</p>
@@ -979,11 +995,13 @@ function ResearchPageContent() {
               )}
               <div className="research-bar-collapsed">
                 {/* File upload button */}
+                {/* Fix #4: File attachment disabled — coming soon */}
                 <button
                   className="research-collapsed-btn-circle"
-                  onClick={() => collapsedFileInputRef.current?.click()}
-                  aria-label="Attach file"
-                  title="Attach file"
+                  aria-label="File attachments coming soon"
+                  title="File attachments coming soon"
+                  disabled
+                  style={{ opacity: 0.4, cursor: 'not-allowed' }}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />

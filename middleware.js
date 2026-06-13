@@ -93,6 +93,13 @@ export async function middleware(request) {
       }
     }
 
+    // Fix #16: Protect /admin route — redirect unauthenticated users
+    if (pathname.startsWith('/admin') && !session) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/'
+      return withCookies(NextResponse.redirect(url))
+    }
+
     // Normal request — pass through with refreshed cookies
     return withCookies(NextResponse.next({ request }))
   } catch (_) {
@@ -102,5 +109,5 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/onboarding/:path*', '/auth/:path*'],
+  matcher: ['/dashboard/:path*', '/onboarding/:path*', '/admin/:path*', '/auth/:path*'],
 }

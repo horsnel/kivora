@@ -57,16 +57,18 @@ export function CurrencyProvider({ children }) {
       })
       .catch(() => {})
 
-    // Auto-detect country (only if no saved preference)
+    // Fix #15: Use cf-ipcountry header from Cloudflare instead of external ipapi.co
     if (!saved) {
-      fetch('https://ipapi.co/json/')
-        .then(r => r.json())
-        .then(d => {
-          const map = { NG:'NGN', GH:'GHS', KE:'KES', ZA:'ZAR', GB:'GBP', DE:'EUR', FR:'EUR', IN:'INR', CA:'CAD', AU:'AUD', BR:'BRL' }
-          const code = map[d.country_code]
-          if (code && code !== 'USD') {
-            const found = CURRENCIES.find(c => c.code === code)
-            if (found) { setSuggested(found); setShowBanner(true) }
+      fetch(window.location.origin, { method: 'HEAD' })
+        .then(r => {
+          const country = r.headers.get('cf-ipcountry')
+          if (country) {
+            const map = { NG:'NGN', GH:'GHS', KE:'KES', ZA:'ZAR', GB:'GBP', DE:'EUR', FR:'EUR', IN:'INR', CA:'CAD', AU:'AUD', BR:'BRL' }
+            const code = map[country]
+            if (code && code !== 'USD') {
+              const found = CURRENCIES.find(c => c.code === code)
+              if (found) { setSuggested(found); setShowBanner(true) }
+            }
           }
         }).catch(() => {})
     }
