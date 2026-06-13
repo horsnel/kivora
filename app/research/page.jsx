@@ -4,12 +4,10 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/LanguageProvider'
 import { supabasePublic } from '@/lib/supabase'
 import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, IconRocket, IconHeart, IconMicroscope, IconWarning } from '@/components/Icons'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 
 // ── Constants ──
 const STORAGE_KEY = 'kivora-research-history'
-const MAX_HISTORY = 20
+const MAX_HISTORY = 30
 
 const SUGGESTED_TOPICS = [
   { Icon: IconDna, label: 'AI & Machine Learning Trends' },
@@ -67,16 +65,7 @@ function loadHistory() {
 
 function saveHistory(items) {
   try {
-    // Only store minimal fields — never full reports or sources in localStorage
-    const minimal = items.slice(0, MAX_HISTORY).map(item => ({
-      id: item.id,
-      query: item.query,
-      mode: item.mode,
-      apexModel: item.apexModel,
-      title: item.title,
-      timestamp: item.timestamp,
-    }))
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(minimal))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, MAX_HISTORY)))
   } catch {}
 }
 
@@ -298,15 +287,11 @@ function ResearchPageContent() {
   // ── Typewriter animation for big text bar (paused during research) ──
   useEffect(() => {
     const tw = typewriterRef.current
-
-    // When research starts, cancel typewriter and clear placeholder
-    if (isResearching) {
-      clearTimeout(tw.timeout)
-      setPlaceholderText('')
-      return
-    }
-
     function tick() {
+      if (isResearching) {
+        tw.timeout = setTimeout(tick, 500)
+        return
+      }
       const phrase = TYPEWRITER_PHRASES[tw.phraseIdx]
       if (!tw.deleting) {
         tw.charIdx++
@@ -446,16 +431,12 @@ function ResearchPageContent() {
     stageTimersRef.current = []
     if (progressRef.current) clearInterval(progressRef.current)
 
-    // Animate progress — fast to 85%, then slow creep to 95%, 100% on completion
+    // Animate progress — fast interval for snappy feel
     let fakeProgress = 0
     progressRef.current = setInterval(() => {
-      if (fakeProgress < 85) {
-        fakeProgress += Math.random() * 6
-        if (fakeProgress > 85) fakeProgress = 85
-      } else {
-        fakeProgress = Math.min(fakeProgress + 0.5 * Math.random(), 95)
-      }
-      setProgress(fakeProgress)
+      fakeProgress += Math.random() * 6
+      if (fakeProgress > 85) fakeProgress = 85
+      setProgress(Math.min(fakeProgress, 85))
     }, 800)
 
     try {
@@ -494,7 +475,7 @@ function ResearchPageContent() {
         console.log('[Research] Worker failed, trying fallback providers...', data.error)
         try {
           const fallbackController = new AbortController()
-          const fallbackTimeout = setTimeout(() => fallbackController.abort(), 60000)
+          const fallbackTimeout = setTimeout(() => fallbackController.abort(), 30000)
           const fallbackRes = await fetch('/api/research-fallback', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -536,6 +517,7 @@ function ResearchPageContent() {
         apexModel,
         sources: data.sources || [],
         report: data.report || '',
+        content: data.content || '',
         title: data.title || query.trim(),
         followups: data.followups || [],
         data: data.data || null,
@@ -543,7 +525,6 @@ function ResearchPageContent() {
         fallback: usedFallback || data.fallback || false,
         fallbackProvider: data.fallback_provider || null,
         fallbackModel: data.fallback_model || null,
-        classification: data.classification || 'general',
         // APEX 2.0 Wiki fields
         wikiPageId: data.wiki_page_id || data.wikiPageId || null,
         wikiCacheId: data.wiki_cache_id || data.wikiCacheId || null,
@@ -604,6 +585,7 @@ function ResearchPageContent() {
       sources: Array.isArray(item.sources) ? item.sources : [],
       followups: Array.isArray(item.followups) ? item.followups : [],
       report: item.report || '',
+      content: item.content || '',
       title: item.title || item.query || '',
     }
     setActiveResearch(safeItem)
@@ -614,9 +596,9 @@ function ResearchPageContent() {
     setResearchStage('done')
     setProgress(100)
     try {
-      router.push(`/research?q=${encodeURIComponent(safeItem.query)}`, { scroll: false })
+      router.replace(`/research?q=${encodeURIComponent(safeItem.query)}`, { scroll: false })
     } catch (e) {
-      // router.push may throw in certain Next.js contexts; safe to ignore
+      // router.replace may throw in certain Next.js contexts; safe to ignore
     }
   }
 
@@ -633,6 +615,7 @@ function ResearchPageContent() {
   const progressPercent = progress
   const sources = activeResearch?.sources || []
   const reportText = reportDisplay || activeResearch?.report || ''
+  const renderedHtml = useMemo(() => markdownToHtml(reportText, { skipDuplicateSources: true }), [reportText])
 
   // ── Render ──
   return (
@@ -691,12 +674,25 @@ function ResearchPageContent() {
               )}
               <div className="chat-toolbar-expanded">
                 <div className="chat-toolbar-left">
-                  {/* File upload button — coming soon */}
+                  {/* File upload button */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    multiple
+                    onChange={e => {
+                      const files = Array.from(e.target.files || [])
+                      if (files.length > 0) {
+                        // TODO: process attached files with research query
+                        setInput(prev => prev ? prev + ' ' + files.map(f => f.name).join(', ') : files.map(f => f.name).join(', '))
+                      }
+                      e.target.value = ''
+                    }}
+                  />
                   <button
                     className="chat-toolbar-btn"
-                    title="Attach file — coming soon"
-                    disabled
-                    style={{ opacity: 0.4, cursor: 'not-allowed' }}
+                    title="Attach file"
+                    onClick={() => fileInputRef.current?.click()}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
@@ -923,9 +919,11 @@ function ResearchPageContent() {
                     mode={activeResearch.mode}
                   />
                 ) : reportText ? (
-                  <div className="report-body animate-fade-in">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{reportText}</ReactMarkdown>
-                  </div>
+                  <div className="report-body animate-fade-in" dangerouslySetInnerHTML={{
+                    __html: activeResearch?.content && !isResearching
+                      ? filterDuplicateSources(activeResearch.content)
+                      : renderedHtml
+                  }} />
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12 animate-fade-in">
                     <p className="text-xs text-[#525252]">No report generated yet</p>
@@ -980,18 +978,31 @@ function ResearchPageContent() {
                 </div>
               )}
               <div className="research-bar-collapsed">
-                {/* File upload button — coming soon */}
+                {/* File upload button */}
                 <button
                   className="research-collapsed-btn-circle"
-                  aria-label="Attach file — coming soon"
-                  title="Attach file — coming soon"
-                  disabled
-                  style={{ opacity: 0.4, cursor: 'not-allowed' }}
+                  onClick={() => collapsedFileInputRef.current?.click()}
+                  aria-label="Attach file"
+                  title="Attach file"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
                   </svg>
                 </button>
+                {/* Hidden file input for collapsed bar */}
+                <input
+                  ref={collapsedFileInputRef}
+                  type="file"
+                  className="hidden"
+                  multiple
+                  onChange={e => {
+                    const files = Array.from(e.target.files || [])
+                    if (files.length > 0) {
+                      setInput(prev => prev ? prev + ' ' + files.map(f => f.name).join(', ') : files.map(f => f.name).join(', '))
+                    }
+                    e.target.value = ''
+                  }}
+                />
 
                 {/* Input */}
                 <div className="research-collapsed-input-wrap">

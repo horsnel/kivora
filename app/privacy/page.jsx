@@ -49,7 +49,7 @@ export default function PrivacyPage() {
               <li><strong className="text-white">Supabase</strong>: database and authentication provider</li>
               <li><strong className="text-white">Groq</strong>: AI inference provider that processes your queries</li>
               <li><strong className="text-white">Cloudflare</strong>: hosting, CDN, and DDoS protection</li>
-              <li><strong className="text-white">Cloudflare cf-ipcountry</strong>: IP-based country detection (via request header, no external call)</li>
+              <li><strong className="text-white">ipapi.co</strong>: IP-based country detection (no stored data)</li>
               <li><strong className="text-white">ExchangeRate-API</strong>: currency conversion rates</li>
             </ul>
             <p>Each of these services has their own privacy policies. We encourage you to review them. We use only the data necessary to operate the platform and do not share excess data with providers.</p>

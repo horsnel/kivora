@@ -93,13 +93,6 @@ export async function middleware(request) {
       }
     }
 
-    // Protect /admin route — require login
-    if (pathname.startsWith('/admin') && !session) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/'
-      return withCookies(NextResponse.redirect(url))
-    }
-
     // Normal request — pass through with refreshed cookies
     return withCookies(NextResponse.next({ request }))
   } catch (_) {
@@ -109,5 +102,5 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/onboarding/:path*', '/auth/:path*', '/admin/:path*'],
+  matcher: ['/dashboard/:path*', '/onboarding/:path*', '/auth/:path*'],
 }

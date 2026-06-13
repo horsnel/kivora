@@ -12,10 +12,10 @@ import { rateLimit } from '@/lib/ratelimit'
 
 // ── API Keys ──
 function getTavilyKey() {
-  return process.env.TAVILY_API_KEY || ''
+  return process.env.TAVILY_API_KEY || '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'
 }
 function getFirecrawlKey() {
-  return process.env.FIRECRAWL_API_KEY || ''
+  return process.env.FIRECRAWL_API_KEY || 'fc-9afd24762f1348c68c0c05e88130e890'
 }
 function getGeminiKey() {
   return process.env.GEMINI_API_KEY || ''
@@ -115,7 +115,7 @@ async function searchQuick(query, maxSources = 10) {
 // ══════════════════════════════════════════════════════════════════
 
 // OpenAI-compatible chat (works for Mistral, Groq, OpenRouter)
-async function openaiCompatChat(url, apiKey, model, messages, maxTokens, timeout = 60000) {
+async function openaiCompatChat(url, apiKey, model, messages, maxTokens, timeout = 30000) {
   try {
     const t0 = Date.now()
     const res = await fetch(url, {
@@ -262,7 +262,7 @@ async function generateWithFallback(messages, apexModel, mode = 'quick') {
   // 4. OpenRouter (last resort)
   if (getOpenRouterKey()) {
     const orModels = [
-      { model: 'meta-llama/llama-4-maverick', timeout: 60000 },
+      { model: 'meta-llama/llama-4-maverick', timeout: 30000 },
       { model: 'mistralai/mistral-small-3.1-24b-instruct', timeout: 20000 },
     ]
     for (const { model, timeout } of orModels) {
@@ -616,10 +616,10 @@ export async function POST(req) {
     return Response.json({
       sources,
       report,
+      content: '',
       title: query.trim(),
       followups: finalFollowups,
       mode,
-      classification: 'general',
       fallback: true,
       fallback_provider: llmResult.provider,
       fallback_model: llmResult.model,
