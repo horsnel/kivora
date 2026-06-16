@@ -128,11 +128,26 @@ export async function POST(req) {
 
     const useTools = !hasImage
 
-    const chat = await groqChat({
-      model,
-      messages: apiMessages,
-      ...(useTools ? { tools: toolDefs, tool_choice: 'auto' } : {})
-    })
+    let chat
+    try {
+      chat = await groqChat({
+        model,
+        messages: apiMessages,
+        ...(useTools ? { tools: toolDefs, tool_choice: 'auto' } : {})
+      })
+    } catch (chatErr) {
+      // If fallback fails, try WITHOUT tools as a last resort
+      console.error('[chat] groqChat with tools failed:', chatErr.message, chatErr.code)
+      if (chatErr.code === 'GROQ_QUOTA_EXCEEDED') {
+        console.warn('[chat] Retrying without tools...')
+        chat = await groqChat({
+          model,
+          messages: apiMessages
+        })
+      } else {
+        throw chatErr
+      }
+    }
 
     const message = chat.choices[0].message
 
