@@ -26,7 +26,7 @@ export default function Template({ children }) {
   return (
     <div
       style={{ viewTransitionName: 'page-content' }}
-      className="min-h-0 h-full flex-1 flex flex-col overflow-hidden"
+      className="min-h-full flex-1 flex flex-col"
     >
       {children}
     </div>
