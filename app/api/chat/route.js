@@ -198,11 +198,29 @@ export async function POST(req) {
 
     const useTools = !hasImage
 
-    const chat = await groqChat({
-      model,
-      messages: apiMessages,
-      ...(useTools ? { tools: toolDefs, tool_choice: 'auto' } : {})
-    })
+    // First LLM call — may trigger tool calls
+    let chat
+    try {
+      chat = await groqChat({
+        model,
+        messages: apiMessages,
+        ...(useTools ? { tools: toolDefs, tool_choice: 'auto' } : {})
+      })
+    } catch (firstErr) {
+      // If the first call hit a quota/rate-limit error, wait 15s and retry
+      // once — SambaNova's free tier is 10 RPM, so a brief wait often clears it.
+      if (firstErr instanceof GroqError && firstErr.code === 'GROQ_QUOTA_EXCEEDED') {
+        console.warn('[chat] first call quota-exceeded, waiting 15s and retrying once')
+        await new Promise(r => setTimeout(r, 15000))
+        chat = await groqChat({
+          model,
+          messages: apiMessages,
+          ...(useTools ? { tools: toolDefs, tool_choice: 'auto' } : {})
+        })
+      } else {
+        throw firstErr
+      }
+    }
 
     const message = chat.choices[0].message
 
@@ -456,9 +474,32 @@ export async function POST(req) {
     return Response.json(response)
   } catch (err) {
     console.error('[chat]', err)
+    const reqUrl = new URL(req.url)
+    const debug = reqUrl.searchParams.get('debug') === '1'
     if (err instanceof GroqError && err.code === 'GROQ_QUOTA_EXCEEDED') {
-      return Response.json({ error: 'Too many requests, try again later.', quotaExceeded: true }, { status: 429 })
+      return Response.json({
+        error: 'Too many requests, try again later.',
+        quotaExceeded: true,
+        ...(debug ? {
+          debug: {
+            code: err.code,
+            underlying: err.originalError?.message?.slice(0, 500),
+            underlying_status: err.originalError?.status,
+            provider_outcomes: err.providerOutcomes,
+          }
+        } : {})
+      }, { status: 429 })
     }
-    return Response.json({ error: err.message || 'Server error' }, { status: 500 })
+    return Response.json({
+      error: err.message || 'Server error',
+      ...(debug ? {
+        debug: {
+          name: err.name,
+          code: err.code,
+          stack: err.stack?.slice(0, 800),
+          provider_outcomes: err.providerOutcomes,
+        }
+      } : {})
+    }, { status: 500 })
   }
 }
