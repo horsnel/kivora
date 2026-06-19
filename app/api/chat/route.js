@@ -196,18 +196,27 @@ export async function POST(req) {
       ]
     }
 
+    // Tools are sent on every non-image message so the model can decide
+    // whether to call them. The 28-tool array is ~4.4K tokens — large but
+    // fits within Groq 70B's 12K TPM and SambaNova's 10K TPM.
+    // For simple conversational turns ("hi", "thanks", "what's 2+2"), the
+    // model rarely needs tools — but sending them still costs tokens. To
+    // keep the chain healthy under rate-limit pressure, we strip tools when
+    // the user message is a trivial conversational turn that won't need them.
     const useTools = !hasImage
+    const lastContent = (lastUserMsg?.content || '').trim()
+    const isTrivialTurn = /^(hi|hey|hello|yo|sup|thanks|thank you|thx|ok|okay|cool|nice|great|bye|goodbye|yes|no|sure|lol|haha|😊|👍)\b/i.test(lastContent)
+      || /^(what is|whats|what's) (your name|2\+2|1\+1|the time)/i.test(lastContent)
+      || lastContent.length < 12
 
-    // First LLM call — may trigger tool calls
-    // Cap max_tokens at 4096 — without this, OpenRouter defaults to 65536
-    // which exceeds the user's credit balance and returns HTTP 402.
-    // 4096 is plenty for any Kivora response (system prompt + tools already
-    // consume the bulk of the input context).
     const llmParams = {
       model,
       messages: apiMessages,
       max_tokens: 4096,
-      ...(useTools ? { tools: toolDefs, tool_choice: 'auto' } : {})
+      // Skip sending the 28-tool array on trivial turns to save ~4K tokens
+      // of input — this keeps requests under SambaNova/Groq-fast TPM limits
+      // and reduces token spend on providers with TPD limits.
+      ...(useTools && !isTrivialTurn ? { tools: toolDefs, tool_choice: 'auto' } : {})
     }
 
     let chat
@@ -436,6 +445,11 @@ export async function POST(req) {
               response.siteDeployed = true
               response.deployUrl = deployResult.url
               response.deployProject = deployResult.project_name
+              // Pass file contents so the new CodePreviewCard can render
+              // HTML / CSS / JS tabs alongside the live preview iframe.
+              if (deployResult.html) response.deployHtml = deployResult.html
+              if (deployResult.css)  response.deployCss  = deployResult.css
+              if (deployResult.js)   response.deployJs   = deployResult.js
             }
           } catch {}
         }
@@ -484,8 +498,12 @@ export async function POST(req) {
         quotaExceeded: true,
       }, { status: 429 })
     }
+    // Generic friendly error — never expose the underlying provider's HTML
+    // error page (e.g. Cerebras's Cloudflare WAF 403 challenge page) or
+    // provider-specific status codes. The detailed providerOutcomes are
+    // logged server-side but not surfaced to the client.
     return Response.json({
-      error: err.message || 'Server error',
-    }, { status: 500 })
+      error: 'I hit a snag reaching the AI service. Please try again in a moment.',
+    }, { status: 503 })
   }
 }

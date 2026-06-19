@@ -8,7 +8,7 @@ import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
 import ArtifactViewer from '@/components/ArtifactViewer'
-import DeployPreviewCard from '@/components/DeployPreviewCard'
+import CodePreviewCard from '@/components/CodePreviewCard'
 import VoiceOutput from '@/components/VoiceOutput'
 import VoiceSettings from '@/components/VoiceSettings'
 import { useVoiceTTS } from '@/hooks/useVoiceTTS'
@@ -638,7 +638,9 @@ export default function ChatClient() {
       })
       const data = await res.json()
       const assistantMsg = { role: 'assistant', content: data.reply || data.error || t('chat.error.general') }
-      if (data.quotaExceeded) {
+      // Treat both 429 (quota) and 503 (all providers failed) as a "service
+      // temporarily limited" state — shows the friendly amber error card.
+      if (data.quotaExceeded || res.status === 503) {
         assistantMsg.quotaExceeded = true
       }
       if (data.searchUsed) {
@@ -683,6 +685,9 @@ export default function ChatClient() {
         assistantMsg.siteDeployed = true
         assistantMsg.deployUrl = data.deployUrl
         assistantMsg.deployProject = data.deployProject || ''
+        assistantMsg.deployHtml = data.deployHtml || ''
+        assistantMsg.deployCss = data.deployCss || ''
+        assistantMsg.deployJs = data.deployJs || ''
       }
       setMessages(prev => [...prev, assistantMsg])
     } catch {
@@ -1388,8 +1393,8 @@ export default function ChatClient() {
         </div>
       )}
 
-      {/* Main chat area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* Main chat area — h-full + min-h-0 to prevent scroll collapse (research page pattern, commit 40cd66c) */}
+      <div className="flex-1 min-h-0 flex flex-col min-w-0">
         {/* Top bar */}
         <div className="shrink-0 flex items-center justify-between px-[min(5vw,48px)] py-3">
           {/* Left: hamburger (mobile) / spacer (desktop) */}
@@ -1419,8 +1424,8 @@ export default function ChatClient() {
           </button>
         </div>
 
-        {/* Messages area */}
-        <div className="flex-1 overflow-y-auto overscroll-behavior-contain">
+        {/* Messages area — flex-1 + min-h-0 + overflow-y-auto for stable scrolling (research page pattern) */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-behavior-contain">
           <div className="max-w-[960px] mx-auto px-[min(5vw,48px)] py-6 space-y-4">
             {messages.length === 0 && (
               <div className="flex flex-col items-center min-h-[65vh]">
@@ -1585,9 +1590,12 @@ export default function ChatClient() {
                     )}
                     {/* Premium preview card for deployed sites (Replit/Claude/Kimi-style) */}
                     {msg.role === 'assistant' && msg.siteDeployed && msg.deployUrl && (
-                      <DeployPreviewCard
+                      <CodePreviewCard
                         url={msg.deployUrl}
                         projectName={msg.deployProject}
+                        html={msg.deployHtml}
+                        css={msg.deployCss}
+                        js={msg.deployJs}
                       />
                     )}
                     {msg.role === 'assistant' && msg.opportunityCards && msg.opportunityCards.length > 0 && (
