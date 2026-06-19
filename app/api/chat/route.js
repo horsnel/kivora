@@ -478,32 +478,14 @@ export async function POST(req) {
     return Response.json(response)
   } catch (err) {
     console.error('[chat]', err)
-    const reqUrl = new URL(req.url)
-    const debug = reqUrl.searchParams.get('debug') === '1'
     if (err instanceof GroqError && err.code === 'GROQ_QUOTA_EXCEEDED') {
       return Response.json({
         error: 'Too many requests, try again later.',
         quotaExceeded: true,
-        ...(debug ? {
-          debug: {
-            code: err.code,
-            underlying: err.originalError?.message?.slice(0, 500),
-            underlying_status: err.originalError?.status,
-            provider_outcomes: err.providerOutcomes,
-          }
-        } : {})
       }, { status: 429 })
     }
     return Response.json({
       error: err.message || 'Server error',
-      ...(debug ? {
-        debug: {
-          name: err.name,
-          code: err.code,
-          stack: err.stack?.slice(0, 800),
-          provider_outcomes: err.providerOutcomes,
-        }
-      } : {})
     }, { status: 500 })
   }
 }
