@@ -132,7 +132,7 @@ export async function POST(req) {
       model,
       messages: apiMessages,
       ...(useTools ? { tools: toolDefs, tool_choice: 'auto' } : {})
-    }, { useProxy: true })
+    })
 
     const message = chat.choices[0].message
 
@@ -235,7 +235,7 @@ export async function POST(req) {
         messages: [...apiMessages, ...toolMessages],
         tools: toolDefs,
         tool_choice: 'none'
-      }, { useProxy: true })
+      })
 
       const reply = finalChat.choices[0].message.content
       const artifacts = extractArtifacts(reply)
