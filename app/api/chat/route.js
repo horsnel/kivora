@@ -97,6 +97,58 @@ export async function POST(req) {
       }
     }
 
+    // ── Greeting shortcut ──
+    // Short-circuit common greetings ("hi", "hello", "hey", "yo", "sup",
+    // "good morning", etc.) with a warm canned reply. This guarantees no
+    // tool flow ever triggers for greetings, regardless of model behavior.
+    // Multi-turn check: only fire if this is the first user message OR the
+    // previous assistant message is also a greeting reply.
+    if (!hasImage && lastUserMsg?.role === 'user' && typeof lastUserMsg.content === 'string') {
+      const trimmed = lastUserMsg.content.trim().toLowerCase()
+      // Greeting patterns: bare greeting, or greeting + 1-2 short follow-up words
+      const greetingPatterns = [
+        /^(hi|hello|hey|yo|sup|hiya|heya|howdy|greetings|good\s+(morning|afternoon|evening)|ello|hay)\b/,
+        /^h+e+l+l+o+$/,
+        /^h+i+\b/,
+      ]
+      const isGreeting = greetingPatterns.some(re => re.test(trimmed)) && trimmed.length < 50
+      // Don't fire if the user's message has a question mark (likely a real question)
+      const hasQuestion = /[?]/.test(trimmed)
+
+      if (isGreeting && !hasQuestion) {
+        // Pick a varied greeting — use sessionId hash for deterministic-but-varied pick
+        const greetings = [
+          "Hey! What can I help you build, research, or figure out today?",
+          "Hi there! I'm Kivora. I can search the web, run code, build websites, generate images, and more. What are you working on?",
+          "Hello! Ready when you are — ask me anything, or describe what you want to create.",
+          "Hey! Good to see you. What's on your mind today?",
+          "Hi! Whether it's a quick fact-check, a chunk of code, or a full website — I've got you. What's the task?",
+        ]
+        const idx = sessionId
+          ? Math.abs([...sessionId].reduce((a, c) => a + c.charCodeAt(0), 0)) % greetings.length
+          : Math.floor(Math.random() * greetings.length)
+        const reply = greetings[idx]
+
+        // Save session so the greeting shows up in history
+        if (userId && sessionId) {
+          try {
+            const { data: session } = await admin
+              .from('chat_sessions')
+              .select('messages')
+              .eq('id', sessionId)
+              .eq('user_id', userId)
+              .single()
+            await admin.from('chat_sessions').upsert({
+              id: sessionId, user_id: userId,
+              messages: [...(session?.messages || []), lastUserMsg, { role: 'assistant', content: reply }],
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'id' })
+          } catch (_) {}
+        }
+        return Response.json({ reply, model: 'kivora-greeting', searchUsed: false })
+      }
+    }
+
     // Query wiki for context
     const lastMsg = messages[messages.length - 1]?.content || ''
     let wikiContext = ''
@@ -156,7 +208,17 @@ export async function POST(req) {
 
     // Handle tool calls
     if (useTools && message.tool_calls && message.tool_calls.length > 0) {
-      const toolContext = { supabaseAdmin: admin, userId: userId || null }
+      // Pass CF credentials to tools that need them (deploy_site).
+      // On CF Pages, secret_text vars are only accessible via getEnvVar(),
+      // not via process.env — so we must look them up here and pass them down.
+      const cfApiToken = await getEnvVar('CF_API_TOKEN')
+      const cfAccountId = await getEnvVar('CF_ACCOUNT_ID')
+      const toolContext = {
+        supabaseAdmin: admin,
+        userId: userId || null,
+        cfApiToken,
+        cfAccountId,
+      }
 
       // Set Colab access token from server-side env if available (for run_on_gpu tool)
       const colabToken = await getEnvVar('GOOGLE_COLAB_ACCESS_TOKEN')

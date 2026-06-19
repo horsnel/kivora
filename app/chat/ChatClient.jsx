@@ -8,6 +8,7 @@ import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
 import ArtifactViewer from '@/components/ArtifactViewer'
+import DeployPreviewCard from '@/components/DeployPreviewCard'
 import ThinkingState, { STAGE_CONFIGS } from '@/components/ThinkingState'
 import VoiceOutput from '@/components/VoiceOutput'
 import VoiceSettings from '@/components/VoiceSettings'
@@ -695,6 +696,11 @@ export default function ChatClient() {
       }
       if (data.opportunityCards && data.opportunityCards.length > 0) {
         assistantMsg.opportunityCards = data.opportunityCards
+      }
+      if (data.siteDeployed && data.deployUrl) {
+        assistantMsg.siteDeployed = true
+        assistantMsg.deployUrl = data.deployUrl
+        assistantMsg.deployProject = data.deployProject || ''
       }
       setMessages(prev => [...prev, assistantMsg])
     } catch {
@@ -1594,6 +1600,13 @@ export default function ChatClient() {
                           </button>
                         ))}
                       </div>
+                    )}
+                    {/* Premium preview card for deployed sites (Replit/Claude/Kimi-style) */}
+                    {msg.role === 'assistant' && msg.siteDeployed && msg.deployUrl && (
+                      <DeployPreviewCard
+                        url={msg.deployUrl}
+                        projectName={msg.deployProject}
+                      />
                     )}
                     {msg.role === 'assistant' && msg.opportunityCards && msg.opportunityCards.length > 0 && (
                       <div className="mt-2 space-y-1.5">

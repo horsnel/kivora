@@ -350,7 +350,12 @@ export default function ThinkingState({
             )}
           </div>
           <span className="thinking-compact-label">
-            {allDone ? 'Done' : stages[activeIdx]?.label || 'Thinking'}
+            {!allDone && (
+              <span className="thinking-compact-prefix">thinking</span>
+            )}
+            <span className="thinking-compact-stage-text">
+              {allDone ? 'Done' : stages[activeIdx]?.label || 'Thinking'}
+            </span>
           </span>
           <span className="thinking-compact-time">{formatTime(elapsedMs)}</span>
         </div>
