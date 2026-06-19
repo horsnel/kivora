@@ -3,7 +3,7 @@ import { groq, MODEL, VISION_MODEL, groqChat, GroqError, ALLOWED_MODELS, getPrim
 import { createClient } from '@supabase/supabase-js'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit } from '@/lib/ratelimit'
-import { toolDefs, toolHandlers, TOOL_INSTRUCTIONS } from '@/lib/toolRegistry'
+import { toolDefs, toolHandlers, TOOL_INSTRUCTIONS, filterToolsByQuery } from '@/lib/toolRegistry'
 import { buildSystemPrompt } from '@/lib/systemPrompt'
 
 const ALLOWED_MODEL_IDS = ALLOWED_MODELS.map(m => m.id)
@@ -196,27 +196,19 @@ export async function POST(req) {
       ]
     }
 
-    // Tools are sent on every non-image message so the model can decide
-    // whether to call them. The 28-tool array is ~4.4K tokens — large but
-    // fits within Groq 70B's 12K TPM and SambaNova's 10K TPM.
-    // For simple conversational turns ("hi", "thanks", "what's 2+2"), the
-    // model rarely needs tools — but sending them still costs tokens. To
-    // keep the chain healthy under rate-limit pressure, we strip tools when
-    // the user message is a trivial conversational turn that won't need them.
+    // Filter tools by query relevance. Sending all 28 tools adds ~4.4K tokens
+    // to every request, which blows past Groq 8B's 6K TPM and most free-tier
+    // limits. By sending only the 1-8 tools relevant to the user's query, we
+    // drop input context to ~1-2K tokens — fits every provider's free tier.
     const useTools = !hasImage
     const lastContent = (lastUserMsg?.content || '').trim()
-    const isTrivialTurn = /^(hi|hey|hello|yo|sup|thanks|thank you|thx|ok|okay|cool|nice|great|bye|goodbye|yes|no|sure|lol|haha|😊|👍)\b/i.test(lastContent)
-      || /^(what is|whats|what's) (your name|2\+2|1\+1|the time)/i.test(lastContent)
-      || lastContent.length < 12
+    const relevantTools = useTools ? filterToolsByQuery(lastContent) : []
 
     const llmParams = {
       model,
       messages: apiMessages,
       max_tokens: 4096,
-      // Skip sending the 28-tool array on trivial turns to save ~4K tokens
-      // of input — this keeps requests under SambaNova/Groq-fast TPM limits
-      // and reduces token spend on providers with TPD limits.
-      ...(useTools && !isTrivialTurn ? { tools: toolDefs, tool_choice: 'auto' } : {})
+      ...(relevantTools.length > 0 ? { tools: relevantTools, tool_choice: 'auto' } : {})
     }
 
     let chat
@@ -339,12 +331,13 @@ export async function POST(req) {
         })
       }
 
-      // Second call with tool results
+      // Second call with tool results — use the same filtered tools set so
+      // the input stays small enough for free-tier providers.
       const finalChat = await groqChat({
         model,
         messages: [...apiMessages, ...toolMessages],
         max_tokens: 4096,
-        tools: toolDefs,
+        tools: relevantTools,
         tool_choice: 'none'
       })
 
