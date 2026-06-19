@@ -199,24 +199,27 @@ export async function POST(req) {
     const useTools = !hasImage
 
     // First LLM call — may trigger tool calls
+    // Cap max_tokens at 4096 — without this, OpenRouter defaults to 65536
+    // which exceeds the user's credit balance and returns HTTP 402.
+    // 4096 is plenty for any Kivora response (system prompt + tools already
+    // consume the bulk of the input context).
+    const llmParams = {
+      model,
+      messages: apiMessages,
+      max_tokens: 4096,
+      ...(useTools ? { tools: toolDefs, tool_choice: 'auto' } : {})
+    }
+
     let chat
     try {
-      chat = await groqChat({
-        model,
-        messages: apiMessages,
-        ...(useTools ? { tools: toolDefs, tool_choice: 'auto' } : {})
-      })
+      chat = await groqChat(llmParams)
     } catch (firstErr) {
       // If the first call hit a quota/rate-limit error, wait 15s and retry
       // once — SambaNova's free tier is 10 RPM, so a brief wait often clears it.
       if (firstErr instanceof GroqError && firstErr.code === 'GROQ_QUOTA_EXCEEDED') {
         console.warn('[chat] first call quota-exceeded, waiting 15s and retrying once')
         await new Promise(r => setTimeout(r, 15000))
-        chat = await groqChat({
-          model,
-          messages: apiMessages,
-          ...(useTools ? { tools: toolDefs, tool_choice: 'auto' } : {})
-        })
+        chat = await groqChat(llmParams)
       } else {
         throw firstErr
       }
@@ -331,6 +334,7 @@ export async function POST(req) {
       const finalChat = await groqChat({
         model,
         messages: [...apiMessages, ...toolMessages],
+        max_tokens: 4096,
         tools: toolDefs,
         tool_choice: 'none'
       })
