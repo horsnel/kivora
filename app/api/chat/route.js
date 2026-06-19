@@ -1,5 +1,5 @@
 export const runtime = 'edge'
-import { groq, MODEL, VISION_MODEL, groqChat, GroqError, ALLOWED_MODELS, getPrimaryClientAsync, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
+import { groq, MODEL, VISION_MODEL, groqChat, GroqError, ALLOWED_MODELS, getPrimaryClientAsync, getFallbackClientAsync, setCerebrasApiKey, setSambanovaApiKey, setSiliconflowApiKey, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
 import { createClient } from '@supabase/supabase-js'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit } from '@/lib/ratelimit'
@@ -45,16 +45,34 @@ export async function POST(req) {
   try {
     // Access Cloudflare Workers secrets via getEnvVar (process.env has empty values for secrets)
     const groqKey = await getEnvVar('GROQ_API_KEY')
+    const groqFallbackKey = await getEnvVar('GROQ_API_KEY_FALLBACK')
+    const cerebrasKey = await getEnvVar('CEREBRAS_API_KEY')
+    const sambanovaKey = await getEnvVar('SAMBANOVA_API_KEY')
+    const siliconflowKey = await getEnvVar('SILICONFLOW_API_KEY')
     const geminiKey = await getEnvVar('GEMINI_API_KEY')
+    const openrouterKey = await getEnvVar('OPENROUTER_API_KEY')
     const supaUrl = await getEnvVar('NEXT_PUBLIC_SUPABASE_URL')
     const supaKey = await getEnvVar('SUPABASE_SERVICE_ROLE_KEY')
+
+    // Wire all provider keys into the multi-provider chain.
+    // Order is: Cerebras → SambaNova → SiliconFlow → Groq(primary) → Groq(fallback) → Gemini → OpenRouter
+    setCerebrasApiKey(cerebrasKey)
+    setSambanovaApiKey(sambanovaKey)
+    setSiliconflowApiKey(siliconflowKey)
     setGeminiApiKey(geminiKey)
-    const openrouterKey = await getEnvVar('OPENROUTER_API_KEY')
     setOpenrouterApiKey(openrouterKey)
     const groqClient = await getPrimaryClientAsync(groqKey)
+    if (groqFallbackKey) await getFallbackClientAsync(groqFallbackKey)
+
     const admin = supaUrl && supaKey ? createClient(supaUrl, supaKey) : null
-    if (!groqClient || !admin) {
+    // Groq client is no longer strictly required — direct providers (Cerebras/SambaNova/SiliconFlow)
+    // can serve requests without it. But Supabase is still mandatory for session storage.
+    if (!admin) {
       return Response.json({ error: 'Service not configured' }, { status: 503 })
+    }
+    // If no LLM provider is configured at all, fail fast with a clear error.
+    if (!groqClient && !cerebrasKey && !sambanovaKey && !siliconflowKey && !geminiKey && !openrouterKey) {
+      return Response.json({ error: 'No LLM providers configured' }, { status: 503 })
     }
     const { messages, sessionId, userId, model: requestedModel, systemPrompt, focusMode, proMode, proModeType } = await req.json()
     if (!messages?.length) {
