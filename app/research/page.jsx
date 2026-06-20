@@ -467,50 +467,68 @@ function ResearchPageContent() {
 
       // Call our server-side proxy — it forwards to the Worker with the API key
       // This avoids CORS issues and keeps the API key secure (never exposed to browser)
-      // Quick mode: 30s to match /api/research worker timeout (gives fallback headroom).
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), researchMode === 'deep' ? 120000 : 30000)
+      //
+      // RACE STRATEGY (fixes slow quick-mode):
+      // Previously: fetch /api/research → wait up to 30s → if it errors, fetch
+      // /api/research-fallback → wait another ~11s. Total worst case ~41s.
+      // Now: race BOTH endpoints in parallel via Promise.any. The first one to
+      // return a non-error response wins. Worker wins when it's reachable
+      // (~20-30s, with cache hits + wiki metadata); fallback wins when worker
+      // is unreachable or slow (~11s). Either way, user sees results in ~11s.
+      //
+      // Each fetch is wrapped so it rejects on HTTP error / error field / abort,
+      // so Promise.any only resolves with the first VALID result.
 
-      let res
-      let usedFallback = false
-      try {
-        res = await fetch('/api/research', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: query.trim(), mode: researchMode, apex_model: apexModel }),
-          signal: controller.signal,
-        })
-      } finally {
-        clearTimeout(timeout)
-      }
+      const primaryController = new AbortController()
+      const fallbackController = new AbortController()
+      const primaryTimeout = setTimeout(() => primaryController.abort(), researchMode === 'deep' ? 120000 : 30000)
+      const fallbackTimeout = setTimeout(() => fallbackController.abort(), researchMode === 'deep' ? 90000 : 30000)
 
-      let data = await res.json()
+      const body = JSON.stringify({ query: query.trim(), mode: researchMode, apex_model: apexModel })
 
-      // ── Fallback: if worker failed, try Mistral/Groq directly ──
-      if (data.error) {
-        console.log('[Research] Worker failed, trying fallback providers...', data.error)
-        try {
-          const fallbackController = new AbortController()
-          const fallbackTimeout = setTimeout(() => fallbackController.abort(), 60000) // Fix #5: 60s instead of 30s
-          const fallbackRes = await fetch('/api/research-fallback', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: query.trim(), mode: researchMode, apex_model: apexModel }),
-            signal: fallbackController.signal,
-          })
-          clearTimeout(fallbackTimeout)
-          const fallbackData = await fallbackRes.json()
-
-          if (!fallbackData.error) {
-            data = fallbackData
-            usedFallback = true
-            console.log('[Research] Fallback succeeded')
-          } else {
-            console.log('[Research] Fallback also failed:', fallbackData.error)
-          }
-        } catch (fallbackErr) {
-          console.log('[Research] Fallback exception:', fallbackErr.message)
+      const primaryPromise = fetch('/api/research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        signal: primaryController.signal,
+      }).then(async r => {
+        const data = await r.json()
+        if (!r.ok || data.error) {
+          throw new Error(data.error || `worker_${r.status}`)
         }
+        return { data, usedFallback: false }
+      }).finally(() => clearTimeout(primaryTimeout))
+
+      const fallbackPromise = fetch('/api/research-fallback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        signal: fallbackController.signal,
+      }).then(async r => {
+        const data = await r.json()
+        if (!r.ok || data.error) {
+          throw new Error(data.error || `fallback_${r.status}`)
+        }
+        return { data, usedFallback: true }
+      }).finally(() => clearTimeout(fallbackTimeout))
+
+      let data
+      let usedFallback = false
+
+      try {
+        const winner = await Promise.any([primaryPromise, fallbackPromise])
+        data = winner.data
+        usedFallback = winner.usedFallback
+        // Cancel the loser
+        if (usedFallback) primaryController.abort()
+        else fallbackController.abort()
+      } catch (aggregateErr) {
+        // Both failed — fall through to error handling below
+        const tried = aggregateErr?.errors?.map(e => e.message).filter(Boolean).join(' | ') || 'all providers failed'
+        data = { error: tried }
+        // Make sure both timeouts are cleared
+        clearTimeout(primaryTimeout)
+        clearTimeout(fallbackTimeout)
       }
 
       clearInterval(progressRef.current)
