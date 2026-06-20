@@ -199,8 +199,11 @@ export async function POST(req) {
     const openrouterKey = await getEnvVar('OPENROUTER_API_KEY')
     const workerStartTime = Date.now()
 
-    // Deep mode with 16K token output can take up to 2 minutes
-    const workerTimeout = mode === 'deep' ? 120000 : 45000
+    // Deep mode with 16K token output can take up to 2 minutes.
+    // Quick mode gets 30s so the fallback chain (which now races in parallel
+    // and finishes in ~15-25s) has plenty of headroom under the frontend's
+    // overall 60s fallback timeout.
+    const workerTimeout = mode === 'deep' ? 120000 : 30000
     const workerRes = await fetch(RESEARCH_WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

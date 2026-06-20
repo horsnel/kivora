@@ -205,78 +205,112 @@ function validateOutput(text, mode = 'quick') {
   return true
 }
 
-// ── LLM Fallback Chain: Mistral → Groq → Gemini → OpenRouter ──
+// ── LLM Fallback Chain: parallel race for first valid output ──
+// Previously sequential (Mistral 60s → Groq 45s → Gemini → OpenRouter), which could
+// take up to ~195s and exceed the frontend 60s fallback timeout before any provider
+// after Mistral got a chance. Now we race all providers in parallel with
+// Promise.any — first one to produce validated output wins. Total time = slowest
+// single-provider timeout (≈25s for quick mode), not the sum.
 async function generateWithFallback(messages, apexModel, mode = 'quick') {
-  const errors = []
+  const isDeep = mode === 'deep'
   const maxTokens = apexModel === 'apex-premium' ? 8192 : 4096
+  const errors = []
 
-  // 1. Mistral (primary)
+  // Tighter per-provider timeouts for quick mode (deep mode keeps generous timeouts)
+  const t = isDeep
+    ? { mistral: 60000, groq: 45000, gemini: 25000, openrouter: 35000 }
+    : { mistral: 25000, groq: 15000, gemini: 15000, openrouter: 20000 }
+
+  // Build the list of provider call descriptors
+  const calls = []
+
+  // 1. Mistral
   const mistralKey = getMistralKey()
   if (mistralKey) {
     const mistralModels = apexModel === 'apex-premium'
-      ? ['mistral-large-latest', 'mistral-medium-latest']
+      ? ['mistral-large-latest', 'mistral-small-latest']
       : ['mistral-small-latest', 'ministral-8b-latest']
     for (const model of mistralModels) {
-      const result = await openaiCompatChat(
-        'https://api.mistral.ai/v1/chat/completions', mistralKey, model, messages, maxTokens, 60000
-      )
-      if (result && validateOutput(result, mode)) return { report: result, provider: 'mistral', model }
-      errors.push(`Mistral/${model}:${result ? 'bad-output' : 'null'}`)
+      calls.push({
+        label: `Mistral/${model}`,
+        run: () => openaiCompatChat(
+          'https://api.mistral.ai/v1/chat/completions', mistralKey, model, messages, maxTokens, t.mistral
+        ),
+      })
     }
   } else {
     errors.push('Mistral: no key')
   }
 
-  // 2. Groq (secondary)
+  // 2. Groq
   const groqKey = getGroqKey()
   if (groqKey) {
     const groqModels = apexModel === 'apex-premium'
       ? ['llama-3.3-70b-versatile']
       : ['llama-3.1-8b-instant']
     for (const model of groqModels) {
-      const result = await openaiCompatChat(
-        'https://api.groq.com/openai/v1/chat/completions', groqKey, model, messages, maxTokens, 45000
-      )
-      if (result && validateOutput(result, mode)) return { report: result, provider: 'groq', model }
-      errors.push(`Groq/${model}:${result ? 'bad-output' : 'null'}`)
+      calls.push({
+        label: `Groq/${model}`,
+        run: () => openaiCompatChat(
+          'https://api.groq.com/openai/v1/chat/completions', groqKey, model, messages, maxTokens, t.groq
+        ),
+      })
     }
   } else {
     errors.push('Groq: no key')
   }
 
-  // 3. Google Gemini (tertiary)
+  // 3. Gemini
   if (getGeminiKey()) {
-    const geminiModels = [
-      { model: 'gemini-2.0-flash', timeout: 20000 },
-      { model: 'gemini-1.5-flash', timeout: 20000 },
-    ]
-    for (const { model, timeout } of geminiModels) {
-      const result = await geminiChat(messages, model, maxTokens, timeout)
-      if (result && validateOutput(result, mode)) return { report: result, provider: 'gemini', model }
-      errors.push(`Gemini/${model}:${result ? 'bad-output' : 'null'}`)
+    for (const model of ['gemini-2.0-flash', 'gemini-1.5-flash']) {
+      calls.push({
+        label: `Gemini/${model}`,
+        run: () => geminiChat(messages, model, maxTokens, t.gemini),
+      })
     }
   } else {
     errors.push('Gemini: no key')
   }
 
-  // 4. OpenRouter (last resort)
+  // 4. OpenRouter
   if (getOpenRouterKey()) {
-    const orModels = [
-      { model: 'meta-llama/llama-4-maverick', timeout: 30000 },
-      { model: 'mistralai/mistral-small-3.1-24b-instruct', timeout: 20000 },
-    ]
-    for (const { model, timeout } of orModels) {
-      const result = await openaiCompatChat(
-        'https://openrouter.ai/api/v1/chat/completions', getOpenRouterKey(), model, messages, maxTokens, timeout
-      )
-      if (result && validateOutput(result, mode)) return { report: result, provider: 'openrouter', model }
-      errors.push(`OpenRouter/${model}:${result ? 'bad-output' : 'null'}`)
+    for (const model of ['mistralai/mistral-small-3.1-24b-instruct', 'meta-llama/llama-4-maverick']) {
+      calls.push({
+        label: `OpenRouter/${model}`,
+        run: () => openaiCompatChat(
+          'https://openrouter.ai/api/v1/chat/completions', getOpenRouterKey(), model, messages, maxTokens, t.openrouter
+        ),
+      })
     }
   } else {
     errors.push('OpenRouter: no key')
   }
 
-  throw new Error(`All fallback LLM providers failed. Tried: ${errors.join(', ')}`)
+  if (calls.length === 0) {
+    throw new Error('No fallback LLM providers configured. Tried: ' + errors.join(', '))
+  }
+
+  // Race them all in parallel — first valid output wins.
+  // Each call's promise rejects if its output fails validation, so Promise.any
+  // only resolves when at least one provider returned a usable report.
+  const racingPromises = calls.map(({ label, run }) =>
+    run().then(result => {
+      if (!result || !validateOutput(result, mode)) {
+        throw new Error(`${label}:${result ? 'bad-output' : 'null'}`)
+      }
+      const [provider, model] = label.split('/')
+      return { report: result, provider: provider.toLowerCase(), model }
+    })
+  )
+
+  try {
+    const winner = await Promise.any(racingPromises)
+    console.log(`[fallback-llm] Winner: ${winner.provider}/${winner.model}`)
+    return winner
+  } catch (aggregateError) {
+    const tried = aggregateError.errors?.map(e => e.message).join(', ') || 'unknown'
+    throw new Error(`All fallback LLM providers failed. Tried: ${tried}`)
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════

@@ -3,6 +3,12 @@
 import { useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 
+// Full-viewport pages that manage their own scrolling — need h-full + overflow-hidden
+// on the wrapper so child <main className="h-full"> is locked to the viewport height
+// and the inner flex-1 min-h-0 overflow-y-auto can scroll properly.
+// Pattern from research scroll fix commit 40cd66c.
+const FULL_VIEWPORT = ['/chat', '/research']
+
 /**
  * App template — re-renders on every route change (unlike layout).
  * Triggers the View Transitions API for smooth cross-page animations.
@@ -11,6 +17,7 @@ import { usePathname } from 'next/navigation'
 export default function Template({ children }) {
   const pathname = usePathname()
   const prevPathname = useRef(pathname)
+  const isFullViewport = FULL_VIEWPORT.some(p => pathname === p || pathname.startsWith(p + '/'))
 
   useEffect(() => {
     // Only trigger transition on actual route changes, not initial load
@@ -26,7 +33,10 @@ export default function Template({ children }) {
   return (
     <div
       style={{ viewTransitionName: 'page-content' }}
-      className="min-h-full flex-1 flex flex-col"
+      className={isFullViewport
+        ? 'min-h-0 h-full flex-1 flex flex-col overflow-hidden'
+        : 'min-h-full flex-1 flex flex-col'
+      }
     >
       {children}
     </div>

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useMemo, Suspense, memo } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/LanguageProvider'
 import dynamic from 'next/dynamic'
+import remarkGfm from 'remark-gfm'
 const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false })
 import { supabasePublic } from '@/lib/supabase'
 import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, IconRocket, IconHeart, IconMicroscope, IconWarning } from '@/components/Icons'
@@ -466,8 +467,9 @@ function ResearchPageContent() {
 
       // Call our server-side proxy — it forwards to the Worker with the API key
       // This avoids CORS issues and keeps the API key secure (never exposed to browser)
+      // Quick mode: 30s to match /api/research worker timeout (gives fallback headroom).
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), researchMode === 'deep' ? 120000 : 45000)
+      const timeout = setTimeout(() => controller.abort(), researchMode === 'deep' ? 120000 : 30000)
 
       let res
       let usedFallback = false
@@ -938,7 +940,7 @@ function ResearchPageContent() {
                   />
                 ) : reportText ? (
                   <div className="report-body animate-fade-in prose-invert max-w-none">
-                    <ReactMarkdown>{reportText}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{reportText}</ReactMarkdown>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12 animate-fade-in">
