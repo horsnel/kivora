@@ -1395,6 +1395,11 @@ function ResearchPageContent() {
           line-height: 1.3;
           letter-spacing: -0.015em;
         }
+        /* When an h2 follows a --- divider, the hr already provides
+           vertical breathing room — don't double up. */
+        .report-body hr + h1,
+        .report-body hr + h2,
+        .report-body hr + h3 { margin-top: 0; }
         .report-body h3 {
           font-size: 1.075rem;
           font-weight: 600;
@@ -1415,7 +1420,12 @@ function ResearchPageContent() {
         .report-body strong { color: #fff; font-weight: 600; }
         .report-body a { color: #f87171; text-decoration: underline; text-underline-offset: 2px; }
         .report-body a:hover { color: #fca5a5; }
-        .report-body hr { border-color: #1a1a1a; margin: 1.25rem 0; }
+        .report-body hr {
+          border: none;
+          border-top: 1px solid #262626;
+          margin: 2.25rem 0;
+          height: 0;
+        }
 
         /* Clean unified table styling for both Streaming and Completed states */
         .report-body table,
