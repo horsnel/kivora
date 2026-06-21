@@ -1286,6 +1286,10 @@ function stripSourcesSection(report) {
   if (/^[ \t]*Sources?\s*:?\s*\n/i.test(stripped)) {
     stripped = stripped.replace(/^[ \t]*Sources?\s*:?\s*\n[\s\S]*?$/im, '');
   }
+  // Collapse multiple consecutive --- horizontal rules into one. This
+  // happens at the part1/part2 boundary when the model appends a trailing
+  // --- despite instructions and the join adds another --- between parts.
+  stripped = stripped.replace(/(\n\s*---\s*\n[\s]*){2,}/g, '\n\n---\n\n');
   return stripped.trim();
 }
 

@@ -636,6 +636,10 @@ function stripSourcesSection(report) {
   if (/^[ \t]*Sources?\s*:?\s*\n/i.test(stripped)) {
     stripped = stripped.replace(/^[ \t]*Sources?\s*:?\s*\n[\s\S]*?$/im, '')
   }
+  // Collapse multiple consecutive --- horizontal rules into one. The
+  // model sometimes adds a trailing --- despite instructions, which
+  // stacks with --- dividers we insert and produces doubled hr tags.
+  stripped = stripped.replace(/(\n\s*---\s*\n[\s]*){2,}/g, '\n\n---\n\n')
   return stripped.trim()
 }
 
