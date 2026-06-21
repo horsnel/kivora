@@ -1295,6 +1295,18 @@ function stripSourcesSection(report) {
   // h3 sub-themes — these section names MUST be h2 to get the red accent
   // border + 1.3rem size from .report-body h2 CSS.
   stripped = stripped.replace(/^###\s+(Comparative Analysis|Risk & Opportunity Assessment|Practical Recommendations|Future Outlook|Confidence Assessment)\s*$/gm, '## $1');
+  // Ensure every h2 section is preceded by a --- divider (except the first).
+  // The part2 model often skips --- between its sections despite explicit
+  // instructions. We split by h2 headings, strip any trailing --- from each
+  // section (to avoid doubles), and re-join with --- between every pair.
+  const h2Sections = stripped.split(/(?=^## [A-Z])/m);
+  if (h2Sections.length > 1) {
+    const preamble = h2Sections[0].trim();
+    const bodySections = h2Sections.slice(1).map(s =>
+      s.trim().replace(/\n+---\s*$/, '').trim()
+    );
+    stripped = preamble + '\n\n' + bodySections.join('\n\n---\n\n') + '\n';
+  }
   return stripped.trim();
 }
 
