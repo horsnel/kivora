@@ -1410,11 +1410,11 @@ function ResearchPageContent() {
         .report-body h3:first-child {
           margin-top: 0;
         }
-        .report-body p { font-size: 0.9rem; color: #b8b8b8; line-height: 1.75; margin-bottom: 0.85rem; }
-        .report-body ul { margin-bottom: 0.85rem; padding-left: 0.25rem; }
-        .report-body ol { margin-bottom: 0.85rem; padding-left: 1rem; }
-        .report-body li { font-size: 0.9rem; color: #b8b8b8; line-height: 1.75; padding-left: 0.25rem; margin-bottom: 0.2rem; }
-        .report-body strong { color: #fff; font-weight: 600; }
+        .report-body p { font-size: 0.95rem; color: #c8c8c8; line-height: 1.75; margin-bottom: 1rem; }
+        .report-body ul { margin-bottom: 1rem; padding-left: 0.5rem; }
+        .report-body ol { margin-bottom: 1rem; padding-left: 1.25rem; }
+        .report-body li { font-size: 0.95rem; color: #c8c8c8; line-height: 1.7; padding-left: 0.25rem; margin-bottom: 0.4rem; }
+        .report-body strong { color: #e8e8e8; font-weight: 600; }
         .report-body a { color: #f87171; text-decoration: underline; text-underline-offset: 2px; }
         .report-body a:hover { color: #fca5a5; }
         /* Dashed separator — subtle dash line between sections. */
@@ -1440,12 +1440,12 @@ function ResearchPageContent() {
         .report-body thead th,
         .prose-kivora table th {
           background: #111;
-          font-size: 9px;
+          font-size: 11px;
           font-weight: 600;
-          color: #737373;
+          color: #d0d0d0;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          padding: 0.375rem 0.5rem;
+          padding: 0.625rem 0.875rem;
           text-align: left;
           white-space: nowrap;
           overflow: hidden;
@@ -1453,9 +1453,9 @@ function ResearchPageContent() {
         }
         .report-body tbody td,
         .prose-kivora table td {
-          font-size: 11px;
-          color: #a0a0a0;
-          padding: 0.375rem 0.5rem;
+          font-size: 13px;
+          color: #c0c0c0;
+          padding: 0.625rem 0.875rem;
           line-height: 1.5;
           border-top: 1px solid #1a1a1a;
           word-break: break-word;

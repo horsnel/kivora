@@ -1101,121 +1101,12 @@ const GAP_ANALYSIS_PROMPT = `Identify 2 knowledge gaps in these sources for the 
 [{"gap": "description", "search_query": "specific search query"}]`;
 
 // ══════════════════════════════════════════════════════════════════
-// MARKDOWN → HTML CONVERTER
+// MARKDOWN → HTML CONVERTER (DEPRECATED — Fix #22)
 // ══════════════════════════════════════════════════════════════════
-
-function markdownToHtml(md) {
-  if (!md) return '';
-  const lines = md.split('\n');
-  let html = '';
-  let inTable = false;
-  let tableRows = [];
-  let inList = false;
-  let listType = '';
-  let listItems = [];
-
-  function flushList() {
-    if (listItems.length > 0) {
-      const tag = listType === 'ol' ? 'ol' : 'ul';
-      html += `<${tag} class="ml-4 mb-3 ${listType === 'ol' ? 'list-decimal' : 'list-disc'}">`;
-      for (const item of listItems) {
-        html += `<li class="text-sm text-[#a0a0a0] leading-relaxed mb-1">${renderInline(item)}</li>`;
-      }
-      html += `</${tag}>`;
-    }
-    listItems = [];
-    inList = false;
-    listType = '';
-  }
-
-  function flushTable() {
-    if (tableRows.length === 0) return;
-    
-    // Wrap in a clean div matching the streaming container layout
-    html += '<div class="-mx-1 px-1 mb-3"><table class="w-full border-collapse">';
-    
-    for (let i = 0; i < tableRows.length; i++) {
-      const cells = tableRows[i];
-      
-      // Open structure groups
-      if (i === 0) {
-        html += '<thead><tr>';
-      } else if (i === 1) {
-        html += '<tbody><tr>';
-      } else {
-        html += '<tr>';
-      }
-
-      const tag = i === 0 ? 'th' : 'td';
-      
-      for (const cell of cells) {
-        // Let the CSS handle sizing, layout, and overflow. 
-        // No inline widths or borders here.
-        html += `<${tag}>${renderInline(cell.trim())}</${tag}>`;
-      }
-      
-      html += '</tr>';
-      if (i === 0) html += '</thead>';
-    }
-    
-    if (tableRows.length > 1) html += '</tbody>';
-    html += '</table></div>';
-    
-    tableRows = [];
-    inTable = false;
-  }
-
-  function renderInline(str) {
-    if (!str) return '';
-    return str
-      .replace(/\*\*(.+?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
-      .replace(/__(.+?)__/g, '<strong class="text-white font-semibold">$1</strong>')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-red-400 hover:text-red-300 underline underline-offset-2">$1</a>')
-      .replace(/\[(\d+)\]/g, '<sup class="text-red-400 font-mono text-[10px]">[$1]</sup>');
-  }
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
-      flushList();
-      if (/^\|[\s\-:]+\|/.test(line.trim())) continue;
-      const cells = line.split('|').slice(1, -1);
-      tableRows.push(cells);
-      inTable = true;
-      continue;
-    } else if (inTable) {
-      flushTable();
-    }
-
-    if (line.startsWith('### ')) { flushList(); html += `<h3 class="text-base font-semibold text-white mt-5 mb-2">${renderInline(line.slice(4))}</h3>`; continue; }
-    if (line.startsWith('## ')) { flushList(); html += `<h2 class="text-lg font-semibold text-white mt-6 mb-2.5">${renderInline(line.slice(3))}</h2>`; continue; }
-    if (line.startsWith('# ')) { flushList(); html += `<h1 class="text-xl font-bold text-white mt-4 mb-3">${renderInline(line.slice(2))}</h1>`; continue; }
-
-    if (/^---+$/.test(line.trim())) { flushList(); html += '<hr class="border-[#1a1a1a] my-4" />'; continue; }
-
-    if (/^[-*]\s/.test(line)) {
-      if (inList && listType !== 'ul') flushList();
-      inList = true; listType = 'ul';
-      listItems.push(line.replace(/^[-*]\s/, ''));
-      continue;
-    }
-    if (/^\d+\.\s/.test(line)) {
-      if (inList && listType !== 'ol') flushList();
-      inList = true; listType = 'ol';
-      listItems.push(line.replace(/^\d+\.\s/, ''));
-      continue;
-    }
-    if (!line.trim()) { flushList(); continue; }
-
-    flushList();
-    html += `<p class="text-sm text-[#a0a0a0] leading-relaxed mb-3">${renderInline(line)}</p>`;
-  }
-
-  flushList();
-  flushTable();
-  return html;
-}
+// This function is no longer called. The frontend renders the raw
+// markdown string via react-markdown + remark-gfm, styled by the
+// .report-body CSS block in app/research/page.jsx. Kept here only as
+// a reference for the previous HTML-output pipeline. Safe to delete.
 
 // ══════════════════════════════════════════════════════════════════
 // EXTRACT FOLLOWUPS
