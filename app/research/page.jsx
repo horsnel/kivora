@@ -1372,40 +1372,37 @@ function ResearchPageContent() {
           padding: 0;
           line-height: 1.7;
         }
-        /* Headings — clearly distinguished, scannable hierarchy */
+        /* Headings — plain bold text, no borders, no accent color.
+           Generous top margin gives the section break; the dashed hr
+           above provides a subtle dash separator. */
         .report-body h1 {
-          font-size: 1.6rem;
+          font-size: 1.4rem;
           font-weight: 700;
           color: #ffffff;
-          margin-top: 2rem;
-          margin-bottom: 1rem;
-          padding-bottom: 0.5rem;
-          border-bottom: 1px solid #262626;
+          margin-top: 2.75rem;
+          margin-bottom: 1.1rem;
+          padding-bottom: 0;
+          border-bottom: none;
           letter-spacing: -0.02em;
           line-height: 1.25;
         }
         .report-body h2 {
-          font-size: 1.3rem;
+          font-size: 1.15rem;
           font-weight: 700;
           color: #ffffff;
-          margin-top: 1.75rem;
-          margin-bottom: 0.75rem;
-          padding-left: 0.625rem;
-          border-left: 3px solid #ef4444;
+          margin-top: 2.5rem;
+          margin-bottom: 1rem;
+          padding-left: 0;
+          border-left: none;
           line-height: 1.3;
           letter-spacing: -0.015em;
         }
-        /* When an h2 follows a --- divider, the hr already provides
-           vertical breathing room — don't double up. */
-        .report-body hr + h1,
-        .report-body hr + h2,
-        .report-body hr + h3 { margin-top: 0; }
         .report-body h3 {
-          font-size: 1.075rem;
+          font-size: 1.05rem;
           font-weight: 600;
           color: #e5e5e5;
-          margin-top: 1.25rem;
-          margin-bottom: 0.5rem;
+          margin-top: 1.75rem;
+          margin-bottom: 0.75rem;
           letter-spacing: -0.01em;
         }
         .report-body h1:first-child,
@@ -1420,10 +1417,11 @@ function ResearchPageContent() {
         .report-body strong { color: #fff; font-weight: 600; }
         .report-body a { color: #f87171; text-decoration: underline; text-underline-offset: 2px; }
         .report-body a:hover { color: #fca5a5; }
+        /* Dashed separator — subtle dash line between sections. */
         .report-body hr {
           border: none;
-          border-top: 1px solid #262626;
-          margin: 2.25rem 0;
+          border-top: 1px dashed #3a3a3a;
+          margin: 1.25rem 0;
           height: 0;
         }
 

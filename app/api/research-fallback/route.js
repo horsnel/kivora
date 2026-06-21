@@ -382,7 +382,7 @@ OUTPUT BUDGET: ~2,500-3,500 words. You have a hard token limit, so DO NOT aim fo
 
 STYLE RULES:
 1. Plain prose for analysis. Reserve **bold** for genuinely critical terms (max 1-2 per paragraph). Do NOT bold entire sentences.
-2. Use markdown tables only where comparison data genuinely helps (1-2 tables max). Do NOT add tables just to "look thorough."
+2. Use 4-5 markdown tables distributed across sections (Context, Analysis, Comparison, Implications) to organize comparative data. Do NOT add tables just to "look thorough" — each table must carry information that bullets cannot.
 3. Cite claims with [N] matching source numbers. Only cite a source you actually read.
 4. Confidence language: "established" (2+ sources), "likely" (one source + reasoning), "uncertain" (speculative).
 5. Do NOT invent statistics. If a number isn't in the sources, either omit it or phrase it qualitatively ("growing", "significant", "limited").
@@ -417,12 +417,12 @@ Then 2-3 short paragraphs of cross-source analysis — what multiple sources agr
 ---
 
 ## Context
-3-4 short paragraphs. Background the reader needs: history, key stakeholders, current state. Cite sources where possible.
+3-4 short paragraphs. Background the reader needs: history, key stakeholders, current state. Cite sources where possible. Include 1 table summarizing key background data (timeline, stakeholder matrix, or market data depending on topic).
 
 ---
 
 ## Analysis
-3-5 thematic subsections. Use **bold subheading** for each theme, followed by 2-3 short paragraphs. Challenge weak claims. Note contradictions between sources.
+3-5 thematic subsections. Use **bold subheading** for each theme, followed by 2-3 short paragraphs. Challenge weak claims. Note contradictions between sources. Include 1-2 tables within the analysis to organize comparative data by theme.
 
 ---
 
@@ -432,7 +432,7 @@ One table comparing 2-4 relevant options/frameworks/approaches (whatever the top
 ---
 
 ## Implications
-2-3 short paragraphs. Who is affected, what they should do, what to watch for.
+2-3 short paragraphs. Who is affected, what they should do, what to watch for. Include 1 table summarizing action items by stakeholder or priority.
 
 ---
 
@@ -508,7 +508,7 @@ OUTPUT BUDGET: ~2,500-3,500 words. You have a hard token limit. DO NOT aim for m
 
 STYLE RULES:
 1. Plain prose for analysis. Reserve **bold** for genuinely critical terms (max 1-2 per paragraph). Do NOT bold entire sentences.
-2. Use markdown tables only where comparison data genuinely helps (1-2 tables max).
+2. Use 4-5 markdown tables distributed across sections (Context, Analysis, Comparison, Implications) to organize comparative data. Do NOT add tables just to "look thorough" — each table must carry information that bullets cannot.
 3. Mark knowledge boundaries inline: [ESTABLISHED], [LIKELY], [UNCERTAIN], [UNKNOWN].
 4. Do NOT invent statistics, citations, or URLs. If you don't have a number, write qualitatively ("growing", "significant", "limited").
 5. No filler like "In today's rapidly evolving landscape" — get to the point.
@@ -542,12 +542,12 @@ Then 2-3 short paragraphs of analysis — patterns, divergences, gaps.
 ---
 
 ## Context
-3-4 short paragraphs. Background the reader needs: history, key stakeholders, current state.
+3-4 short paragraphs. Background the reader needs: history, key stakeholders, current state. Include 1 table summarizing key background data (timeline, stakeholder matrix, or market data depending on topic).
 
 ---
 
 ## Analysis
-3-5 thematic subsections. Use **bold subheading** for each theme, followed by 2-3 short paragraphs. Flag uncertainties explicitly.
+3-5 thematic subsections. Use **bold subheading** for each theme, followed by 2-3 short paragraphs. Flag uncertainties explicitly. Include 1-2 tables within the analysis to organize comparative data by theme.
 
 ---
 
@@ -557,7 +557,7 @@ One table comparing 2-4 relevant options/frameworks/approaches. 4-6 rows. Follow
 ---
 
 ## Implications
-2-3 short paragraphs. Who is affected, what they should do, what to watch for.
+2-3 short paragraphs. Who is affected, what they should do, what to watch for. Include 1 table summarizing action items by stakeholder or priority.
 
 ---
 

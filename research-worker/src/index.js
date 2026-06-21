@@ -1011,7 +1011,7 @@ OUTPUT BUDGET: ~2,500-3,500 words. You have a hard token limit. DO NOT aim for 1
 
 CRITICAL RULES:
 1. LENGTH: Stay within 2,500-3,500 words. Do NOT exceed — truncation is the worst failure mode. Finish every section cleanly.
-2. TABLES: Use 1-2 markdown tables only where comparison data genuinely helps. Do NOT add tables just to "look thorough."
+2. TABLES: Use 4-5 markdown tables distributed across sections (Context, Detailed Analysis, Comparative Analysis, Risk & Opportunity, Future Outlook). Each table must carry information that bullets cannot.
 3. CITATIONS: Cite every claim with [N] notation matching source numbers. Only cite a source you actually read.
 4. CONFIDENCE: "established" (2+ sources), "likely" (one source + reasoning), "uncertain" (speculative).
 5. NO FILLER: Start directly with information. No "Based on the search results," no "In today's rapidly evolving landscape."
@@ -1047,12 +1047,12 @@ Then 2-3 short paragraphs of cross-source analysis — what multiple sources agr
 ---
 
 ## Context
-3-4 short paragraphs. Background the reader needs: history, key stakeholders, current state. Cite sources where possible.
+3-4 short paragraphs. Background the reader needs: history, key stakeholders, current state. Cite sources where possible. Include 1 table summarizing key background data (timeline, stakeholder matrix, or market data depending on topic).
 
 ---
 
 ## Detailed Analysis
-3-5 thematic subsections. Use **bold subheading** for each theme, followed by 2-3 short paragraphs. Cover patterns, contradictions, and gaps in the evidence. Include specific examples and case studies where the sources support them.
+3-5 thematic subsections. Use **bold subheading** for each theme, followed by 2-3 short paragraphs. Cover patterns, contradictions, and gaps in the evidence. Include 1-2 tables within the analysis to organize comparative data by theme. Include specific examples and case studies where the sources support them.
 
 ---
 
@@ -1067,7 +1067,7 @@ One table comparing 2-4 relevant options/frameworks/approaches (whatever the top
 - **Opportunity 1** — description [N]
 - **Opportunity 2** — description [N]
 
-Then 2-3 short paragraphs framing the risk/opportunity landscape.
+Then 2-3 short paragraphs framing the risk/opportunity landscape. Include 1 table organizing risks and opportunities by probability/impact.
 
 ---
 
@@ -1081,7 +1081,7 @@ Then 2-3 short paragraphs framing the risk/opportunity landscape.
 ---
 
 ## Future Outlook
-2-3 short paragraphs covering near-term (1-2 years), medium-term (3-5 years), and key signals to watch.
+2-3 short paragraphs covering near-term (1-2 years), medium-term (3-5 years), and key signals to watch. Include 1 scenario table (optimistic / moderate / pessimistic).
 
 ---
 
@@ -1487,6 +1487,7 @@ CRITICAL RULES:
 4. Do NOT invent statistics. If a number isn't in the sources, omit or phrase qualitatively.
 5. No filler like "Based on the search results" — start with the finding.
 6. Third person, neutral analytical tone — like a senior analyst's memo.
+7. Use 2-3 markdown tables in this half (1 in Context, 1-2 in Detailed Analysis). Each table must carry information that bullets cannot.
 
 FORMATTING (CRITICAL for readability — models often ignore this, so follow exactly):
 - Put a ---  horizontal rule between every major section. This creates visual breathing room.
@@ -1516,12 +1517,12 @@ Then 2-3 short paragraphs of cross-source analysis — what multiple sources agr
 ---
 
 ## Context
-3-4 short paragraphs. Background the reader needs: history, key stakeholders, current state. Cite sources where possible.
+3-4 short paragraphs. Background the reader needs: history, key stakeholders, current state. Cite sources where possible. Include 1 table summarizing key background data (timeline, stakeholder matrix, or market data depending on topic).
 
 ---
 
 ## Detailed Analysis
-3-5 thematic subsections. Use **bold subheading** for each theme, followed by 2-3 short paragraphs. Cover patterns, contradictions, and gaps in the evidence. Include specific examples and case studies where the sources support them.
+3-5 thematic subsections. Use **bold subheading** for each theme, followed by 2-3 short paragraphs. Cover patterns, contradictions, and gaps in the evidence. Include 1-2 tables within the analysis to organize comparative data by theme. Include specific examples and case studies where the sources support them.
 
 Do NOT end with a ---  divider (the system adds one between parts). Do NOT include a Sources section. Do NOT write a Confidence Assessment (that comes in part 2).`,
     },
@@ -1537,6 +1538,7 @@ CRITICAL RULES:
 3. Reserve **bold** for genuinely critical terms (max 1-2 per paragraph). Do NOT bold entire sentences.
 4. Do NOT invent statistics. If a number isn't in the sources, omit or phrase qualitatively.
 5. No filler. Third person, neutral analytical tone.
+6. Use 2-3 markdown tables in this half (1 in Comparative Analysis, 1 in Risk & Opportunity, 1 in Future Outlook). Each table must carry information that bullets cannot.
 
 FORMATTING (CRITICAL for readability — models often ignore this, so follow exactly):
 - Put a ---  horizontal rule between every major section. This creates visual breathing room.
@@ -1559,7 +1561,7 @@ One table comparing 2-4 relevant options/frameworks/approaches (whatever the top
 - **Opportunity 1** — description [N]
 - **Opportunity 2** — description [N]
 
-Then 2-3 short paragraphs framing the risk/opportunity landscape.
+Then 2-3 short paragraphs framing the risk/opportunity landscape. Include 1 table organizing risks and opportunities by probability/impact.
 
 ---
 
@@ -1573,7 +1575,7 @@ Then 2-3 short paragraphs framing the risk/opportunity landscape.
 ---
 
 ## Future Outlook
-2-3 short paragraphs covering near-term (1-2 years), medium-term (3-5 years), and key signals to watch.
+2-3 short paragraphs covering near-term (1-2 years), medium-term (3-5 years), and key signals to watch. Include 1 scenario table (optimistic / moderate / pessimistic).
 
 ---
 
