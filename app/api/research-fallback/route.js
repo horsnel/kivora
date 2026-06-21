@@ -346,8 +346,10 @@ Follow with 1-2 paragraphs of analysis — what sources agree on, where they div
 ## Implications
 1-2 paragraphs. Who is affected, what they should do.
 
-## Sources
-List every source you cited, numbered to match [N] references. Format: "[N] Title — domain". One per line.
+## Confidence Assessment
+1 short paragraph. Overall confidence (High/Moderate/Low) + the single biggest uncertainty.
+
+Do NOT include a Sources section — the sources list is shown separately in the UI. Keep [N] citations inline only.
 
 FOLLOWUPS:
 1. Specific, answerable follow-up question?
@@ -356,7 +358,7 @@ FOLLOWUPS:
 
 const DEEP_WITH_SOURCES_PROMPT = `You are APEX RESEARCH DEEP, a research analyst. Write a thorough, well-structured research report based on the provided sources.
 
-OUTPUT BUDGET: ~2,500-3,500 words. You have a hard token limit, so DO NOT aim for 10,000 words — finish every section cleanly and write a Sources section at the end. Truncation is the worst failure mode.
+OUTPUT BUDGET: ~2,500-3,500 words. You have a hard token limit, so DO NOT aim for 10,000 words — finish every section cleanly. Truncation is the worst failure mode.
 
 STYLE RULES:
 1. Use plain prose for analysis. Reserve **bold** for genuinely critical terms (max 1-2 per paragraph). Do NOT bold entire sentences.
@@ -391,8 +393,7 @@ One table comparing 2-4 relevant options/frameworks/approaches (whatever the top
 ## Confidence Assessment
 1 short paragraph. Overall confidence (High/Moderate/Low) + the single biggest uncertainty.
 
-## Sources
-List every source you cited, numbered to match the [N] references above. Format: "[N] Title — domain". One per line.
+Do NOT include a Sources section — the sources list is shown separately in the UI. Keep [N] citations inline only.
 
 FOLLOWUPS:
 1. Specific, answerable follow-up question?

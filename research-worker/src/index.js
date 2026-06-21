@@ -975,8 +975,7 @@ At least 4 rows + brief analysis.
 ## Confidence Assessment
 Rate: [High/Moderate/Low]. Justify in 2-3 sentences.
 
-## Sources
-Numbered list with URLs.
+Do NOT include a Sources section — the sources list is shown separately in the UI. Keep [N] citations inline only.
 
 FOLLOWUPS:
 1. Question one?
@@ -1064,8 +1063,7 @@ Then 5-6 paragraphs of detailed risk analysis and opportunity framing.
 ## Confidence Assessment
 Overall confidence + by section. Key uncertainties. What further research would improve confidence. Methodology notes.
 
-## Sources
-Numbered list with full URLs.
+Do NOT include a Sources section — the sources list is shown separately in the UI. Keep [N] citations inline only.
 
 FOLLOWUPS:
 1-5. Specific, actionable follow-up research questions?`;

@@ -847,11 +847,6 @@ function ResearchPageContent() {
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                       activeResearch.mode === 'deep' ? 'bg-red-500 text-white' : 'bg-[#1f1f1f] text-red-400 border border-red-500/30'
                     }`}>{activeResearch.mode === 'deep' ? 'Deep' : 'Quick'} · {activeResearch.apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}</span>
-                    {activeResearch.fallback && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                        Fallback · {activeResearch.fallbackModel || 'Mistral'}
-                      </span>
-                    )}
                     {/* APEX 2.0 Wiki & Cache badges */}
                     {activeResearch.fromCache && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-blue-500/10 text-blue-400 border border-blue-500/30">
@@ -1377,16 +1372,50 @@ function ResearchPageContent() {
           padding: 0;
           line-height: 1.7;
         }
-        .report-body h1 { font-size: 1.25rem; font-weight: 700; color: #fff; margin-top: 1.5rem; margin-bottom: 0.75rem; }
-        .report-body h2 { font-size: 1.1rem; font-weight: 600; color: #fff; margin-top: 1.25rem; margin-bottom: 0.5rem; }
-        .report-body h3 { font-size: 1rem; font-weight: 600; color: #fff; margin-top: 1rem; margin-bottom: 0.5rem; }
-        .report-body p { font-size: 0.875rem; color: #a0a0a0; line-height: 1.7; margin-bottom: 0.75rem; }
-        .report-body ul { margin-bottom: 0.75rem; padding-left: 0.25rem; }
-        .report-body ol { margin-bottom: 0.75rem; padding-left: 1rem; }
-        .report-body li { font-size: 0.875rem; color: #a0a0a0; line-height: 1.7; padding-left: 0.25rem; }
+        /* Headings — clearly distinguished, scannable hierarchy */
+        .report-body h1 {
+          font-size: 1.6rem;
+          font-weight: 700;
+          color: #ffffff;
+          margin-top: 2rem;
+          margin-bottom: 1rem;
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid #262626;
+          letter-spacing: -0.02em;
+          line-height: 1.25;
+        }
+        .report-body h2 {
+          font-size: 1.3rem;
+          font-weight: 700;
+          color: #ffffff;
+          margin-top: 1.75rem;
+          margin-bottom: 0.75rem;
+          padding-left: 0.625rem;
+          border-left: 3px solid #ef4444;
+          line-height: 1.3;
+          letter-spacing: -0.015em;
+        }
+        .report-body h3 {
+          font-size: 1.075rem;
+          font-weight: 600;
+          color: #e5e5e5;
+          margin-top: 1.25rem;
+          margin-bottom: 0.5rem;
+          letter-spacing: -0.01em;
+        }
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+          margin-top: 0;
+        }
+        .report-body p { font-size: 0.9rem; color: #b8b8b8; line-height: 1.75; margin-bottom: 0.85rem; }
+        .report-body ul { margin-bottom: 0.85rem; padding-left: 0.25rem; }
+        .report-body ol { margin-bottom: 0.85rem; padding-left: 1rem; }
+        .report-body li { font-size: 0.9rem; color: #b8b8b8; line-height: 1.75; padding-left: 0.25rem; margin-bottom: 0.2rem; }
         .report-body strong { color: #fff; font-weight: 600; }
         .report-body a { color: #f87171; text-decoration: underline; text-underline-offset: 2px; }
         .report-body a:hover { color: #fca5a5; }
+        .report-body hr { border-color: #1a1a1a; margin: 1.25rem 0; }
 
         /* Clean unified table styling for both Streaming and Completed states */
         .report-body table,
