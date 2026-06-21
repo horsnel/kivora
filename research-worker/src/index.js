@@ -1290,6 +1290,11 @@ function stripSourcesSection(report) {
   // happens at the part1/part2 boundary when the model appends a trailing
   // --- despite instructions and the join adds another --- between parts.
   stripped = stripped.replace(/(\n\s*---\s*\n[\s]*){2,}/g, '\n\n---\n\n');
+  // Promote part2's known top-level sections from ### (h3) to ## (h2).
+  // The part2 model sometimes downgrades heading level after seeing part1's
+  // h3 sub-themes — these section names MUST be h2 to get the red accent
+  // border + 1.3rem size from .report-body h2 CSS.
+  stripped = stripped.replace(/^###\s+(Comparative Analysis|Risk & Opportunity Assessment|Practical Recommendations|Future Outlook|Confidence Assessment)\s*$/gm, '## $1');
   return stripped.trim();
 }
 
@@ -1512,6 +1517,8 @@ Do NOT end with a ---  divider (the system adds one between parts). Do NOT inclu
       name: 'part2',
       prompt: `You are KIVORA RESEARCH DEEP, a world-class research analyst. Write the SECOND HALF of a thorough research report. Target ~1,500 words. Truncation is the worst failure mode — finish every section cleanly.
 
+IMPORTANT HEADING LEVEL: Your output starts a NEW half of the report. Use ## (h2) for ALL major section headings — NOT ### (h3). The first line of your output MUST be exactly: ## Comparative Analysis
+
 CRITICAL RULES:
 1. Cite every claim with [N] matching source numbers. Only cite a source you actually read.
 2. Confidence language: "established" (2+ sources), "likely" (one source + reasoning), "uncertain" (speculative).
@@ -1527,7 +1534,7 @@ FORMATTING (CRITICAL for readability — models often ignore this, so follow exa
 - Keep paragraphs SHORT: 3-5 sentences max. Split dense paragraphs into smaller ones.
 - One blank line between paragraphs and around --- dividers.
 
-STRUCTURE (use these exact headings, with --- between each):
+STRUCTURE (use these exact h2 headings — ## prefix required, NOT ###):
 
 ## Comparative Analysis
 One table comparing 2-4 relevant options/frameworks/approaches (whatever the topic implies). 4-6 rows. Follow with 2-3 short paragraphs of analysis explaining the comparisons.
