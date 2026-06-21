@@ -1301,11 +1301,16 @@ function stripSourcesSection(report) {
   // section (to avoid doubles), and re-join with --- between every pair.
   const h2Sections = stripped.split(/(?=^## [A-Z])/m);
   if (h2Sections.length > 1) {
-    const preamble = h2Sections[0].trim();
-    const bodySections = h2Sections.slice(1).map(s =>
+    // If the first element is just whitespace (report starts with ##),
+    // drop it so we don't get a leading blank section.
+    const hasPreamble = h2Sections[0].trim().length > 0;
+    const sections = hasPreamble
+      ? h2Sections
+      : h2Sections.slice(1);
+    const cleaned = sections.map(s =>
       s.trim().replace(/\n+---\s*$/, '').trim()
     );
-    stripped = preamble + '\n\n' + bodySections.join('\n\n---\n\n') + '\n';
+    stripped = cleaned.join('\n\n---\n\n') + '\n';
   }
   return stripped.trim();
 }
