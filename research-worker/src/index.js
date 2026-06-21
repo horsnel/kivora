@@ -1244,6 +1244,25 @@ function extractFollowups(text) {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// STRIP SOURCES SECTION — models often append a "## Sources" or
+// "Sources:" block at the end of the report despite instructions
+// not to. The Sources tab in the UI already shows the source list,
+// so we strip any trailing Sources block from the report body here.
+// ══════════════════════════════════════════════════════════════════
+
+function stripSourcesSection(report) {
+  if (!report) return report;
+  // Strip "## Sources" markdown heading + everything after (until end of
+  // string or until a "FOLLOWUPS:" block, which we already extracted)
+  let stripped = report.replace(/^[ \t]*(?:#{1,6}\s*)?Sources?\s*:?\s*\n[\s\S]*?$/im, '');
+  // Also strip a trailing bare "Sources:" plain-text line + numbered list
+  if (/^[ \t]*Sources?\s*:?\s*\n/i.test(stripped)) {
+    stripped = stripped.replace(/^[ \t]*Sources?\s*:?\s*\n[\s\S]*?$/im, '');
+  }
+  return stripped.trim();
+}
+
+// ══════════════════════════════════════════════════════════════════
 // MAIN RESEARCH PIPELINE — SPEED OPTIMIZED
 // ══════════════════════════════════════════════════════════════════
 
@@ -1294,7 +1313,9 @@ async function quickResearch(query, env, apexModel = 'apex-free') {
   console.log(`[Quick] Report generated in ${Date.now() - t0}ms`);
 
   // Step 4: Process report
-  const { report, followups } = extractFollowups(rawReport);
+  const { report: rawReport2, followups } = extractFollowups(rawReport);
+  // Strip trailing "Sources:" section model may have appended despite instructions
+  const report = stripSourcesSection(rawReport2);
   // Fix #22: No markdownToHtml — frontend handles rendering
   const titleMatch = report.match(/^##\s+(.+)$/m) || report.match(/^#\s+(.+)$/m);
   const title = titleMatch ? titleMatch[1].replace(/[*_]/g, '') : query;
@@ -1489,7 +1510,9 @@ FOLLOWUPS:
   console.log(`[Deep] Complete in ${Date.now() - t0}ms, total report: ${rawReport.length} chars`);
 
   // Process report
-  const { report, followups } = extractFollowups(rawReport);
+  const { report: rawReport2, followups } = extractFollowups(rawReport);
+  // Strip trailing "Sources:" section model may have appended despite instructions
+  const report = stripSourcesSection(rawReport2);
   // Fix #22/#23: No markdownToHtml, no content field
   const titleMatch = report.match(/^##\s+(.+)$/m) || report.match(/^#\s+(.+)$/m);
   const title = titleMatch ? titleMatch[1].replace(/[*_]/g, '') : query;
