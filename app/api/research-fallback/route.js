@@ -324,7 +324,7 @@ OUTPUT BUDGET: ~600-1,000 words. Truncation is the worst failure mode — finish
 
 STYLE RULES:
 1. Plain prose. Reserve **bold** for genuinely critical terms (max 1-2 per paragraph). Do NOT bold entire sentences.
-2. Use ONE markdown table only if comparison data genuinely helps. Do NOT add a table just to have one.
+2. Use exactly 2 markdown tables: one in Key Findings (summary table with one row per finding) and one in Comparison (options/approaches matrix). Do NOT add more.
 3. Cite claims with [N] matching source numbers. Only cite a source you actually read.
 4. Confidence language: "established" (2+ sources), "likely" (one source + reasoning), "uncertain" (speculative).
 5. Do NOT invent statistics. If a number isn't in the sources, omit or phrase qualitatively.
@@ -352,12 +352,19 @@ STRUCTURE (use these exact headings, with --- between each):
 - **Finding 3** — short description [N]
 - **Finding 4** — short description [N]
 
-Then 1-2 short paragraphs of analysis — what sources agree on, where they diverge.
+Then 1 short paragraph of analysis — what sources agree on, where they diverge.
+
+Then 1 summary table with columns: Finding | Confidence | Key Insight. One row per finding (4 rows).
 
 ---
 
 ## Analysis
 2-3 short paragraphs. Themes, contradictions, gaps in the evidence.
+
+---
+
+## Comparison
+One table comparing 2-4 relevant options/frameworks/approaches (whatever the topic implies). 4-6 rows. Follow with 1 short paragraph of analysis.
 
 ---
 
@@ -453,7 +460,7 @@ OUTPUT BUDGET: ~600-1,000 words. Finish cleanly. Truncation is the worst failure
 
 STYLE RULES:
 1. Plain prose. Reserve **bold** for genuinely critical terms (max 1-2 per paragraph). Do NOT bold entire sentences.
-2. Use ONE markdown table only if comparison data genuinely helps.
+2. Use exactly 2 markdown tables: one in Key Findings (summary table with one row per finding) and one in Comparison (options/approaches matrix). Do NOT add more.
 3. Mark knowledge boundaries inline: [ESTABLISHED], [LIKELY], [UNCERTAIN], [UNKNOWN].
 4. Do NOT invent statistics, citations, or URLs. If you don't have a number, write qualitatively.
 5. No filler like "As of my training data" — start with the finding.
@@ -480,12 +487,19 @@ STRUCTURE (use these exact headings, with --- between each):
 - **Finding 3** — short description [UNCERTAIN]
 - **Finding 4** — short description [LIKELY]
 
-Then 1-2 short paragraphs of analysis.
+Then 1 short paragraph of analysis.
+
+Then 1 summary table with columns: Finding | Confidence | Key Insight. One row per finding (4 rows).
 
 ---
 
 ## Analysis
 2-3 short paragraphs. Themes, debates, gaps. Flag uncertainties explicitly.
+
+---
+
+## Comparison
+One table comparing 2-4 relevant options/frameworks/approaches (whatever the topic implies). 4-6 rows. Follow with 1 short paragraph of analysis.
 
 ---
 

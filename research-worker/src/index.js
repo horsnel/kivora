@@ -953,7 +953,7 @@ RULES:
 4. Do NOT invent statistics. If a number isn't in the sources, omit or phrase qualitatively.
 5. No filler like "Based on the search results" — start with the finding.
 6. Third person, neutral analytical tone.
-7. Use ONE markdown table only if comparison data genuinely helps.
+7. Use exactly 2 markdown tables: one in Key Findings (summary table with one row per finding) and one in Comparison Table (options/approaches matrix). Do NOT add more.
 
 FORMATTING (CRITICAL for readability — models often ignore this, so follow exactly):
 - Put a ---  horizontal rule between every major section. This creates visual breathing room.
@@ -976,7 +976,9 @@ STRUCTURE (use these exact headings, with --- between each):
 - **Finding 3** — short description [N]
 - **Finding 4** — short description [N]
 
-Then 1-2 short paragraphs of analysis — what sources agree on, where they diverge.
+Then 1 short paragraph of analysis — what sources agree on, where they diverge.
+
+Then 1 summary table with columns: Finding | Confidence | Key Insight. One row per finding (4 rows).
 
 ---
 
