@@ -1117,7 +1117,7 @@ function ResearchPageContent() {
       )}
 
       {/* ── CSS ── */}
-      <style jsx>{`
+      <style jsx global>{`
         /* ─── Big expanded text bar (initial state) ─── */
         .chat-container-expanded {
           width: 100%;
