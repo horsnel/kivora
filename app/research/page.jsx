@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef, useMemo, Suspense, memo } from 'react'
+import { useState, useEffect, useRef, useMemo, Suspense, memo, Fragment, Children } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/LanguageProvider'
 import dynamic from 'next/dynamic'
@@ -7,6 +7,70 @@ import remarkGfm from 'remark-gfm'
 const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false })
 import { supabasePublic } from '@/lib/supabase'
 import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, IconRocket, IconHeart, IconMicroscope, IconWarning } from '@/components/Icons'
+
+// ── Strip inline markdown from follow-up questions ──
+// The worker should already do this, but as a safety net we strip again here
+// so `**bold**` / `__italic__` / `*italic*` / `code` markers never appear as
+// literal characters in the UI follow-up buttons.
+function stripInlineMarkdown(text) {
+  if (!text || typeof text !== 'string') return text
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/_(.+?)_/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .trim()
+}
+
+// ── Replace [N] / [N,M] / [N-M] citation markers in a string with styled <sup> elements ──
+// ReactMarkdown renders [N] as plain text because it isn't a real markdown link.
+// We split the string on the citation pattern and wrap matches in a <sup> with
+// the .citation-number class so they appear as small superscript references
+// instead of inline bracketed text.
+const CITATION_RE = /(\[\d+(?:\s*[-,]\s*\d+)*\])/g
+function renderTextWithCitations(text, keyPrefix = '') {
+  if (typeof text !== 'string') return text
+  const parts = text.split(CITATION_RE)
+  return parts.map((part, i) => {
+    if (/^\[\d+(?:\s*[-,]\s*\d+)*\]$/.test(part)) {
+      return (
+        <sup key={`${keyPrefix}-cite-${i}`} className="citation-number">
+          {part}
+        </sup>
+      )
+    }
+    return part ? <Fragment key={`${keyPrefix}-txt-${i}`}>{part}</Fragment> : null
+  })
+}
+
+// Walk React children and apply citation rendering to any string child.
+// Non-string children (e.g. <strong>, <a>) are preserved as-is. Their own
+// string children will be processed when ReactMarkdown recurses into them
+// via the corresponding component override (strong, a, etc.).
+function processChildrenWithCitations(children, keyPrefix = '') {
+  return Children.map(children, (child) => {
+    if (typeof child === 'string') {
+      return renderTextWithCitations(child, keyPrefix)
+    }
+    return child
+  })
+}
+
+// Custom ReactMarkdown component overrides — wrap text in <sup class="citation-number">
+// for [N] patterns so citations render as small red superscripts.
+const markdownComponents = {
+  p: ({ children }) => <p>{processChildrenWithCitations(children, 'p')}</p>,
+  li: ({ children }) => <li>{processChildrenWithCitations(children, 'li')}</li>,
+  td: ({ children }) => <td>{processChildrenWithCitations(children, 'td')}</td>,
+  th: ({ children }) => <th>{processChildrenWithCitations(children, 'th')}</th>,
+  h1: ({ children }) => <h1>{processChildrenWithCitations(children, 'h1')}</h1>,
+  h2: ({ children }) => <h2>{processChildrenWithCitations(children, 'h2')}</h2>,
+  h3: ({ children }) => <h3>{processChildrenWithCitations(children, 'h3')}</h3>,
+  strong: ({ children }) => <strong>{processChildrenWithCitations(children, 'strong')}</strong>,
+  em: ({ children }) => <em>{processChildrenWithCitations(children, 'em')}</em>,
+}
+
 
 // ── Constants ──
 const STORAGE_KEY = 'kivora-research-history'
@@ -919,6 +983,10 @@ function ResearchPageContent() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-0.5">
+                                {/* Source number badge — matches the [N] citation markers in the report body */}
+                                <span className="text-[9px] font-mono font-semibold text-red-400/80 bg-red-500/5 border border-red-500/10 rounded px-1 py-0 shrink-0">
+                                  [{idx + 1}]
+                                </span>
                                 {source.favicon && <img src={source.favicon} alt="" className="w-3.5 h-3.5 rounded" />}
                                 <span className="text-[10px] text-[#525252] truncate">{getDomain(source.url)}</span>
                                 {source.tier && (
@@ -953,7 +1021,7 @@ function ResearchPageContent() {
                   />
                 ) : reportText ? (
                   <div className="report-body animate-fade-in prose-invert max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{reportText}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{reportText}</ReactMarkdown>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12 animate-fade-in">
@@ -976,7 +1044,7 @@ function ResearchPageContent() {
                             onClick={() => handleFollowup(q)}
                             className="text-xs px-3 py-2 rounded-full bg-transparent border border-[#1f1f1f] text-[#a0a0a0] hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white transition-all duration-200 cursor-pointer text-left"
                           >
-                            {q}
+                            {stripInlineMarkdown(q)}
                           </button>
                         ))}
                       </div>
@@ -1347,15 +1415,24 @@ function ResearchPageContent() {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #262626; border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #333; }
 
-        .citation-number {
+        /* Citation markers — [N] rendered as small superscript references
+           that point to source N in the Sources panel above. The <sup> wrapper
+           handles vertical alignment; this style just sets the color/size so
+           the citations read as quiet red references instead of loud inline
+           brackets. Hover brightens them so users know they're interactive. */
+        .citation-number,
+        .report-body sup.citation-number {
           color: #f87171;
-          font-size: 11px;
+          font-size: 0.72em;
           font-weight: 600;
           cursor: pointer;
           padding: 0 1px;
+          margin-left: 1px;
           transition: color 0.15s;
+          white-space: nowrap;
         }
-        .citation-number:hover { color: #fca5a5; }
+        .citation-number:hover,
+        .report-body sup.citation-number:hover { color: #fca5a5; }
 
         .report-content h1 { font-size: 1.25rem; font-weight: 700; color: #fff; margin-top: 1rem; margin-bottom: 0.75rem; }
         .report-content h2 { font-size: 1.1rem; font-weight: 600; color: #fff; margin-top: 1.25rem; margin-bottom: 0.5rem; }

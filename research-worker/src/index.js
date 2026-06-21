@@ -1013,7 +1013,7 @@ OUTPUT BUDGET: ~2,500-3,500 words. You have a hard token limit. DO NOT aim for 1
 
 CRITICAL RULES:
 1. LENGTH: Stay within 2,500-3,500 words. Do NOT exceed — truncation is the worst failure mode. Finish every section cleanly.
-2. TABLES: Use exactly 5 markdown tables distributed across sections: 1 in Context (key data), 1 in Detailed Analysis (CONSOLIDATED comparison — do NOT add one per sub-theme), 1 in Comparative Analysis (options matrix), 1 in Risk & Opportunity (probability/impact matrix), 1 in Future Outlook (scenario table). Each table must carry information that bullets cannot.
+2. TABLES: Use 3-5 markdown tables distributed across sections (1 in Context, 1 in Detailed Analysis, 1 in Comparative Analysis, 1 in Risk & Opportunity or Future Outlook). Each table MUST use proper markdown syntax with a separator row of | --- | between the header and body. Tables must carry information that bullets cannot.
 3. CITATIONS: Cite every claim with [N] notation matching source numbers. Only cite a source you actually read.
 4. CONFIDENCE: "established" (2+ sources), "likely" (one source + reasoning), "uncertain" (speculative).
 5. NO FILLER: Start directly with information. No "Based on the search results," no "In today's rapidly evolving landscape."
@@ -1028,6 +1028,7 @@ FORMATTING (CRITICAL for readability — models often ignore this, so follow exa
 - For sub-points, use  - **Label**: value  (e.g.  - **Mechanism**: ...,  - **Evidence**: ...,  - **Limitation**: ...)
 - Keep paragraphs SHORT: 3-5 sentences max. Split dense paragraphs into smaller ones.
 - One blank line between paragraphs and around --- dividers.
+- For markdown tables, ALWAYS include the separator row of | --- | between the header row and body rows.
 
 STRUCTURE (use these exact headings, with --- between each):
 
@@ -1069,7 +1070,7 @@ One table comparing 2-4 relevant options/frameworks/approaches (whatever the top
 - **Opportunity 1** — description [N]
 - **Opportunity 2** — description [N]
 
-Then 2-3 short paragraphs framing the risk/opportunity landscape. Include 1 table organizing risks and opportunities by probability/impact.
+Then 2-3 short paragraphs framing the risk/opportunity landscape.
 
 ---
 
@@ -1083,7 +1084,7 @@ Then 2-3 short paragraphs framing the risk/opportunity landscape. Include 1 tabl
 ---
 
 ## Future Outlook
-2-3 short paragraphs covering near-term (1-2 years), medium-term (3-5 years), and key signals to watch. Include 1 scenario table (optimistic / moderate / pessimistic).
+2-3 short paragraphs covering near-term (1-2 years), medium-term (3-5 years), and key signals to watch.
 
 ---
 
@@ -1112,52 +1113,105 @@ const GAP_ANALYSIS_PROMPT = `Identify 2 knowledge gaps in these sources for the 
 // EXTRACT FOLLOWUPS
 // ══════════════════════════════════════════════════════════════════
 
+// Strip inline markdown formatting from a single follow-up question.
+// We strip **bold**, __italic__, *italic*, _italic_, and `code` markers
+// because the UI renders follow-ups as plain text (not via ReactMarkdown).
+// We also strip leading bullet/number prefixes that the model sometimes
+// leaves attached to the question text.
+function cleanFollowupQuestion(q) {
+  return q
+    .replace(/\*\*(.+?)\*\*/g, '$1')   // **bold**
+    .replace(/__(.+?)__/g, '$1')        // __bold__
+    .replace(/\*(.+?)\*/g, '$1')        // *italic*
+    .replace(/_(.+?)_/g, '$1')          // _italic_
+    .replace(/`([^`]+)`/g, '$1')        // `code`
+    .replace(/^\s*[-*]\s+/, '')         // leading bullet
+    .replace(/^\s*\d+[.)]\s+/, '')      // leading number
+    .trim();
+}
+
+// Regex for any heading-style follow-ups section. Matches:
+//   "## Follow-ups", "## Follow-ups:", "## Follow Up Questions",
+//   "## Followups", "### Follow-up Questions", "## Related Questions"
+//   "Follow-ups:" (without #), etc.
+// Case-insensitive. Supports 0-3 leading '#' and optional trailing colon.
+const FOLLOWUP_HEADING_RE = /^([ \t]*#{0,3}\s*)(Follow[-\s]?[Uu]ps?|Follow[-\s]?[Uu]p\s+Questions?|Related\s+Questions?)\s*:?\s*$/m;
+
 function extractFollowups(text) {
   if (!text) return { report: '', followups: [] };
 
-  // Try "FOLLOWUPS:" section first
-  const match = text.match(/FOLLOWUPS:\s*\n([\s\S]*?)$/i);
-  if (match) {
-    const followups = match[1]
+  // Helper: extract question lines from a block of text
+  function extractQuestionsFromBlock(block) {
+    return block
       .split('\n')
-      .map(line => line.replace(/^\d+\.\s*/, '').trim())
-      .filter(q => q.length > 0 && q.endsWith('?'));
-    const report = text.replace(/FOLLOWUPS:\s*\n[\s\S]*$/i, '').trim();
-    return { report, followups };
+      .map(line => cleanFollowupQuestion(line))
+      .filter(q => q.length > 10 && q.endsWith('?'));
   }
 
-  // Fallback: look for any "Follow-up" or "Follow up" heading with question lines after it
-  const followupHeading = text.match(/^#{0,3}\s*(?:Follow[- ]?[Uu]p\s*[Qq]uestions?|Related\s*[Qq]uestions?)\s*$/m);
-  if (followupHeading) {
-    const afterHeading = text.slice(followupHeading.index + followupHeading[0].length);
-    const questions = afterHeading
-      .split('\n')
-      .map(line => line.replace(/^[-*]\s*/, '').replace(/^\d+\.\s*/, '').trim())
-      .filter(q => q.length > 0 && q.endsWith('?'));
-    if (questions.length > 0) {
-      const report = text.slice(0, followupHeading.index).trim();
-      return { report, followups: questions };
+  // ── Pattern 1: explicit "FOLLOWUPS:" keyword ──
+  // The model is instructed to end the report with this keyword. Most common case.
+  const kwMatch = text.match(/FOLLOWUPS:\s*\n([\s\S]*?)$/i);
+  if (kwMatch) {
+    const followups = extractQuestionsFromBlock(kwMatch[1]);
+    if (followups.length > 0) {
+      // Strip from "FOLLOWUPS:" to end of text. Also strip any "## Follow-ups"
+      // heading that may precede the keyword (the model sometimes emits both).
+      let report = text.replace(/FOLLOWUPS:\s*\n[\s\S]*$/i, '');
+      // If a follow-ups heading immediately precedes the keyword, remove it too.
+      report = report.replace(/([ \t]*#{0,3}\s*(?:Follow[-\s]?[Uu]ps?|Follow[-\s]?[Uu]p\s+Questions?|Related\s+Questions?)\s*:?\s*\n+)$/im, '');
+      return { report: report.trim(), followups };
     }
   }
 
-  // Final fallback: scan last 20 lines for any numbered/bulleted questions
+  // ── Pattern 2: ## Follow-ups / ## Followups / ## Follow Up Questions heading ──
+  // The model sometimes outputs the section as a markdown heading instead of
+  // using the FOLLOWUPS: keyword. This is the case that was leaking through
+  // to the report body in production (see "## Followups" bug).
+  const headingMatch = text.match(FOLLOWUP_HEADING_RE);
+  if (headingMatch) {
+    const headingStart = headingMatch.index;
+    const headingEnd = headingStart + headingMatch[0].length;
+    const afterHeading = text.slice(headingEnd);
+    const questions = extractQuestionsFromBlock(afterHeading);
+    if (questions.length > 0) {
+      // Remove the heading AND everything after it (the questions).
+      // This guarantees no follow-up content leaks into the report body.
+      const report = text.slice(0, headingStart);
+      return { report: report.trim(), followups: questions };
+    }
+  }
+
+  // ── Pattern 3 (last-resort fallback): scan last 25 lines for question lines ──
+  // Used when the model didn't use either the keyword or a heading.
   const lines = text.split('\n');
-  const tail = lines.slice(-20);
+  const tailStart = Math.max(0, lines.length - 25);
+  const tail = lines.slice(tailStart);
   const questions = [];
-  for (const line of tail) {
-    const cleaned = line.replace(/^[-*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
+  const questionLineIndices = [];
+  for (let i = 0; i < tail.length; i++) {
+    const cleaned = cleanFollowupQuestion(tail[i]);
     if (cleaned.length > 10 && cleaned.endsWith('?')) {
       questions.push(cleaned);
+      questionLineIndices.push(tailStart + i);
     }
   }
   if (questions.length > 0) {
-    // Remove those question lines from the report
-    let report = text;
-    for (const q of questions) {
-      const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      report = report.replace(new RegExp(`^.*${escaped}.*$`, 'm'), '');
+    // Remove the question lines from the report body.
+    const reportLines = lines.slice();
+    questionLineIndices.sort((a, b) => b - a);  // descending so splice doesn't shift
+    for (const idx of questionLineIndices) {
+      reportLines.splice(idx, 1);
     }
-    return { report: report.trim(), followups: questions };
+    // If a "## Follow-ups" style heading immediately preceded the first question,
+    // remove that line too so we don't leave a dangling empty heading.
+    const firstIdx = Math.min(...questionLineIndices);
+    if (firstIdx > 0) {
+      const prevLine = reportLines[firstIdx - 1] || '';
+      if (FOLLOWUP_HEADING_RE.test(prevLine)) {
+        reportLines.splice(firstIdx - 1, 1);
+      }
+    }
+    return { report: reportLines.join('\n').trim(), followups: questions };
   }
 
   return { report: text, followups: [] };
@@ -1179,6 +1233,19 @@ function stripSourcesSection(report) {
   if (/^[ \t]*Sources?\s*:?\s*\n/i.test(stripped)) {
     stripped = stripped.replace(/^[ \t]*Sources?\s*:?\s*\n[\s\S]*?$/im, '');
   }
+  // Belt-and-suspenders: strip any "## Follow-ups" / "## Followups" /
+  // "## Follow Up Questions" / "## Related Questions" heading + everything
+  // after it. extractFollowups() should have already removed this content,
+  // but if the model used a slightly different heading format (e.g. extra
+  // whitespace, or no question mark at the end of questions), some content
+  // could leak through. This guarantees the report body never contains a
+  // duplicate Follow-ups section that overlaps with the UI's section.
+  stripped = stripped.replace(/^[ \t]*#{0,3}\s*(?:Follow[-\s]?[Uu]ps?|Follow[-\s]?[Uu]p\s+Questions?|Related\s+Questions?)\s*:?\s*\n[\s\S]*$/im, '');
+  // Also strip a bare "FOLLOWUPS:" keyword + everything after it (defensive
+  // — extractFollowups should have caught this, but if it returned an empty
+  // followups array because questions didn't end in '?', the keyword could
+  // still be in the report body).
+  stripped = stripped.replace(/^[ \t]*FOLLOWUPS:\s*\n[\s\S]*$/im, '');
   // Collapse multiple consecutive --- horizontal rules into one. This
   // happens at the part1/part2 boundary when the model appends a trailing
   // --- despite instructions and the join adds another --- between parts.
@@ -1205,6 +1272,8 @@ function stripSourcesSection(report) {
     );
     stripped = cleaned.join('\n\n---\n\n') + '\n';
   }
+  // Trim trailing --- / whitespace that the section-rejoin above may have left.
+  stripped = stripped.replace(/(\n\s*---\s*)+$/g, '').trim();
   return stripped.trim();
 }
 
@@ -1385,7 +1454,7 @@ CRITICAL RULES:
 4. Do NOT invent statistics. If a number isn't in the sources, omit or phrase qualitatively.
 5. No filler like "Based on the search results" — start with the finding.
 6. Third person, neutral analytical tone — like a senior analyst's memo.
-7. Use exactly 2 tables in this half: 1 in Context (key background data) and 1 in Detailed Analysis (a CONSOLIDATED comparison table covering all themes — do NOT add one table per sub-theme). Each table must carry information that bullets cannot.
+7. Use 1-2 tables in this half (1 in Context for key background data, 1 in Detailed Analysis for a CONSOLIDATED comparison). Each table MUST use proper markdown syntax with a separator row of | --- | between the header and body. Tables must carry information that bullets cannot.
 
 FORMATTING (CRITICAL for readability — models often ignore this, so follow exactly):
 - Put a ---  horizontal rule between every major section. This creates visual breathing room.
@@ -1394,6 +1463,7 @@ FORMATTING (CRITICAL for readability — models often ignore this, so follow exa
 - For sub-points, use  - **Label**: value  (e.g.  - **Mechanism**: ...,  - **Evidence**: ...,  - **Limitation**: ...)
 - Keep paragraphs SHORT: 3-5 sentences max. Split dense paragraphs into smaller ones.
 - One blank line between paragraphs and around --- dividers.
+- For markdown tables, ALWAYS include the separator row of | --- | between the header row and body rows.
 
 STRUCTURE (use these exact headings, with --- between each):
 
@@ -1436,7 +1506,7 @@ CRITICAL RULES:
 3. Reserve **bold** for genuinely critical terms (max 1-2 per paragraph). Do NOT bold entire sentences.
 4. Do NOT invent statistics. If a number isn't in the sources, omit or phrase qualitatively.
 5. No filler. Third person, neutral analytical tone.
-6. Use exactly 3 tables in this half: 1 in Comparative Analysis (options matrix), 1 in Risk & Opportunity (probability/impact matrix), 1 in Future Outlook (scenario table). Each table must carry information that bullets cannot.
+6. Use 1-3 tables in this half (1 in Comparative Analysis for the options matrix, optionally 1 in Risk & Opportunity for probability/impact, optionally 1 in Future Outlook for scenarios). Each table MUST use proper markdown syntax with a separator row of | --- | between the header and body.
 
 FORMATTING (CRITICAL for readability — models often ignore this, so follow exactly):
 - Put a ---  horizontal rule between every major section. This creates visual breathing room.
@@ -1445,6 +1515,7 @@ FORMATTING (CRITICAL for readability — models often ignore this, so follow exa
 - For sub-points, use  - **Label**: value  (e.g.  - **Mechanism**: ...,  - **Evidence**: ...,  - **Limitation**: ...)
 - Keep paragraphs SHORT: 3-5 sentences max. Split dense paragraphs into smaller ones.
 - One blank line between paragraphs and around --- dividers.
+- For markdown tables, ALWAYS include the separator row of | --- | between the header row and body rows.
 
 STRUCTURE (use these exact h2 headings — ## prefix required, NOT ###):
 
