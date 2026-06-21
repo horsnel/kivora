@@ -1453,69 +1453,116 @@ async function deepResearch(query, env, apexModel = 'apex-free') {
   const effectiveMaxTokens = apexModel === 'apex-premium' ? 8192 : 6000;
 
   // Section prompts — 2 parallel LLM calls for credit efficiency
+  // Each part targets ~1,500 words; concatenated report lands at 2,500-3,500.
   const sections = [
     {
       name: 'part1',
-      prompt: `You are KIVORA RESEARCH DEEP. Write the FIRST HALF of a comprehensive research report including Executive Summary, Key Findings, Foundational Context, and Detailed Analysis. Write as MUCH as possible — aim for 3000+ words. Be exhaustive and detailed.
+      prompt: `You are KIVORA RESEARCH DEEP, a world-class research analyst. Write the FIRST HALF of a thorough research report. Target ~1,500 words. Truncation is the worst failure mode — finish every section cleanly.
 
-RULES: Cite every claim with [N] matching source numbers. Use confidence language: "Established", "Likely", "Possible", "Uncertain". No filler. Write LONG paragraphs (5-8 sentences each). Include specific data, numbers, and examples.
+CRITICAL RULES:
+1. Cite every claim with [N] matching source numbers. Only cite a source you actually read.
+2. Confidence language: "established" (2+ sources), "likely" (one source + reasoning), "uncertain" (speculative).
+3. Reserve **bold** for genuinely critical terms (max 1-2 per paragraph). Do NOT bold entire sentences.
+4. Do NOT invent statistics. If a number isn't in the sources, omit or phrase qualitatively.
+5. No filler like "Based on the search results" — start with the finding.
+6. Third person, neutral analytical tone — like a senior analyst's memo.
+
+FORMATTING (CRITICAL for readability — models often ignore this, so follow exactly):
+- Put a ---  horizontal rule between every major section. This creates visual breathing room.
+- Use bullet points with **bold lead-in** for findings:  - **Finding** — short explanation [N]
+- For ranked items, use numbered list with bold + em-dash + descriptor:  1. **Item** — Best for X
+- For sub-points, use  - **Label**: value  (e.g.  - **Mechanism**: ...,  - **Evidence**: ...,  - **Limitation**: ...)
+- Keep paragraphs SHORT: 3-5 sentences max. Split dense paragraphs into smaller ones.
+- One blank line between paragraphs and around --- dividers.
+
+STRUCTURE (use these exact headings, with --- between each):
 
 ## Executive Summary
-8-12 detailed sentences. What was found, why it matters, key numbers, critical implications. Include overall confidence rating.
+4-6 sentences. The finding, why it matters, key uncertainties.
+
+---
 
 ## Key Findings
-LARGE TABLE with 8-12 rows (REQUIRED):
-| # | Finding | Evidence | Confidence | Sources | Impact | Timeline |
-|---|---------|----------|------------|---------|--------|----------|
-Then 5-8 paragraphs of detailed cross-source analysis.
+- **Finding 1** — short description [N]
+- **Finding 2** — short description [N]
+- **Finding 3** — short description [N]
+- **Finding 4** — short description [N]
+- **Finding 5** — short description [N]
+- **Finding 6** — short description [N]
 
-## Foundational Context
-Write 8-12 detailed paragraphs covering:
-- Historical evolution and key milestones
-- Current state with data and numbers
-- Key stakeholders and organizations
-- Market size, growth rates, economic data
-- Regulatory landscape
-- Technological infrastructure
+Then 2-3 short paragraphs of cross-source analysis — what multiple sources agree on, where they diverge.
+
+---
+
+## Context
+3-4 short paragraphs. Background the reader needs: history, key stakeholders, current state. Cite sources where possible.
+
+---
 
 ## Detailed Analysis
-Write 10-15 paragraphs organized by themes. Each theme gets 2-3 paragraphs of in-depth analysis with examples and citations.
+3-5 thematic subsections. Use **bold subheading** for each theme, followed by 2-3 short paragraphs. Cover patterns, contradictions, and gaps in the evidence. Include specific examples and case studies where the sources support them.
 
-## Comparative Analysis
-AT LEAST 2 comparison tables (5+ rows each). Each table followed by 3-4 paragraphs of analysis.`,
+Do NOT end with a ---  divider (the system adds one between parts). Do NOT include a Sources section. Do NOT write a Confidence Assessment (that comes in part 2).`,
     },
     {
       name: 'part2',
-      prompt: `You are KIVORA RESEARCH DEEP. Write the SECOND HALF of a comprehensive research report including Risk Assessment, Recommendations, Future Outlook, and Confidence Assessment. Write as MUCH as possible — aim for 2000+ words.
+      prompt: `You are KIVORA RESEARCH DEEP, a world-class research analyst. Write the SECOND HALF of a thorough research report. Target ~1,500 words. Truncation is the worst failure mode — finish every section cleanly.
 
-RULES: Cite every claim with [N] matching source numbers. No filler. Write LONG paragraphs (5-8 sentences). Include tables.
+CRITICAL RULES:
+1. Cite every claim with [N] matching source numbers. Only cite a source you actually read.
+2. Confidence language: "established" (2+ sources), "likely" (one source + reasoning), "uncertain" (speculative).
+3. Reserve **bold** for genuinely critical terms (max 1-2 per paragraph). Do NOT bold entire sentences.
+4. Do NOT invent statistics. If a number isn't in the sources, omit or phrase qualitatively.
+5. No filler. Third person, neutral analytical tone.
 
-## Active Debates & Conflicting Evidence
-TABLE with 4+ rows:
-| Debate | Position A | Position B | Evidence A | Evidence B | Consensus |
-Then 2-3 paragraphs per debate.
+FORMATTING (CRITICAL for readability — models often ignore this, so follow exactly):
+- Put a ---  horizontal rule between every major section. This creates visual breathing room.
+- Use bullet points with **bold lead-in** for findings:  - **Finding** — short explanation [N]
+- For ranked items, use numbered list with bold + em-dash + descriptor:  1. **Item** — Best for X
+- For sub-points, use  - **Label**: value  (e.g.  - **Mechanism**: ...,  - **Evidence**: ...,  - **Limitation**: ...)
+- Keep paragraphs SHORT: 3-5 sentences max. Split dense paragraphs into smaller ones.
+- One blank line between paragraphs and around --- dividers.
 
-## Statistical Data & Metrics
-TABLE with 6+ rows:
-| Metric | Value | Source | Trend | Implication |
-Then 4-6 paragraphs analyzing trends.
+STRUCTURE (use these exact headings, with --- between each):
+
+## Comparative Analysis
+One table comparing 2-4 relevant options/frameworks/approaches (whatever the topic implies). 4-6 rows. Follow with 2-3 short paragraphs of analysis explaining the comparisons.
+
+---
 
 ## Risk & Opportunity Assessment
-TABLE with 6+ rows (3 risks + 3 opportunities):
-| Category | Item | Probability | Impact | Evidence | Mitigation/Leverage |
-Then 4-6 paragraphs of analysis.
+- **Risk 1** — description [N]
+- **Risk 2** — description [N]
+- **Opportunity 1** — description [N]
+- **Opportunity 2** — description [N]
+
+Then 2-3 short paragraphs framing the risk/opportunity landscape.
+
+---
 
 ## Practical Recommendations
-Write 6-8 actionable recommendations, each with specific action steps, timeline, and evidence.
+1. **Recommendation 1** — Specific action + expected outcome [N]
+2. **Recommendation 2** — Specific action + expected outcome [N]
+3. **Recommendation 3** — Specific action + expected outcome [N]
+4. **Recommendation 4** — Specific action + expected outcome [N]
+5. **Recommendation 5** — Specific action + expected outcome [N]
+
+---
 
 ## Future Outlook
-Write 6-8 paragraphs covering near-term (1-2 years), medium-term (3-5), and long-term (5-10) scenarios.
+2-3 short paragraphs covering near-term (1-2 years), medium-term (3-5 years), and key signals to watch.
+
+---
 
 ## Confidence Assessment
-Overall confidence + by section. Key uncertainties. Methodology notes.
+Overall: High / Moderate / Low. Biggest uncertainty: ...
+
+Do NOT include a Sources section — the sources list is shown separately in the UI. Keep [N] citations inline only.
 
 FOLLOWUPS:
-1-5. Specific follow-up research questions?`,
+1. Specific, answerable follow-up question?
+2. Specific, answerable follow-up question?
+3. Specific, answerable follow-up question?`,
     },
   ];
 
@@ -1531,8 +1578,9 @@ FOLLOWUPS:
   });
   const sectionResults = await Promise.all(sectionPromises);
 
-  // Combine all sections into one report
-  const rawReport = sectionResults.map(s => s.content).join('\n\n');
+  // Combine all sections into one report — insert --- divider between parts
+  // so the boundary between part1 and part2 reads as a normal section break.
+  const rawReport = sectionResults.map(s => s.content).join('\n\n---\n\n');
 
   console.log(`[Deep] Complete in ${Date.now() - t0}ms, total report: ${rawReport.length} chars`);
 
