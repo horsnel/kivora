@@ -181,3 +181,112 @@ create policy "service only page_views"
 -- Index for analytics queries
 create index if not exists page_views_path_idx on page_views (path);
 create index if not exists page_views_created_idx on page_views (created_at);
+
+-- ─── Research Reports (per-user saved reports) ────────────────
+-- Stores full research reports for logged-in users (Supabase-backed).
+-- localStorage is used as a quick cache for the most recent 20 reports
+-- (anonymously); this table is the authoritative store for logged-in users.
+
+create table if not exists research_reports (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles(id) on delete cascade,
+  query text not null,
+  mode text default 'quick',
+  apex_model text default 'apex-free',
+  title text,
+  report text,
+  sources jsonb default '[]',
+  followups jsonb default '[]',
+  wiki_page_id uuid,
+  wiki_lifecycle text default 'draft',
+  wiki_slug text,
+  wiki_version int default 0,
+  created_at timestamptz default now()
+);
+
+alter table research_reports enable row level security;
+
+create policy "users own research_reports"
+  on research_reports for all using (auth.uid() = user_id);
+create policy "service full research_reports"
+  on research_reports for all using (auth.role() = 'service_role');
+
+create index if not exists research_reports_user_idx
+  on research_reports (user_id, created_at desc);
+
+-- ─── APEX Research Cache (cross-user cache, service-only) ─────
+-- Used by /api/research to deduplicate identical queries across users.
+
+create table if not exists apex_research_cache (
+  id uuid primary key default gen_random_uuid(),
+  query_text text not null,
+  normalized_query text not null,
+  query_hash text not null,
+  report text,
+  sources text,
+  followups text,
+  verification_summary text,
+  mode text,
+  apex_tier text,
+  original_latency_ms int,
+  cache_hit_count int default 0,
+  is_hot boolean default false,
+  expires_at timestamptz,
+  last_accessed_at timestamptz default now(),
+  wiki_page_id uuid,
+  created_at timestamptz default now()
+);
+
+alter table apex_research_cache enable row level security;
+create policy "service only apex_research_cache"
+  on apex_research_cache for all using (auth.role() = 'service_role');
+
+create unique index if not exists apex_research_cache_hash_mode_tier_idx
+  on apex_research_cache (query_hash, mode, apex_tier);
+create index if not exists apex_research_cache_expires_idx
+  on apex_research_cache (expires_at);
+
+-- ─── APEX Wiki Pages (richer wiki with lifecycle) ─────────────
+-- Used by the research worker to track wiki page lifecycle states.
+
+create table if not exists apex_wiki_pages (
+  id uuid primary key default gen_random_uuid(),
+  slug text unique not null,
+  title text not null,
+  content text,
+  lifecycle text default 'draft',  -- draft | active | stale | contradicted | archived
+  version int default 0,
+  sources jsonb default '[]',
+  last_verified_at timestamptz,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table apex_wiki_pages enable row level security;
+create policy "service only apex_wiki_pages"
+  on apex_wiki_pages for all using (auth.role() = 'service_role');
+
+create index if not exists apex_wiki_pages_content_search
+  on apex_wiki_pages using gin(to_tsvector('english', title || ' ' || coalesce(content, '')));
+
+-- ─── Study Sessions ───────────────────────────────────────────
+-- Tracks study tool usage sessions (homework, essay, etc.)
+
+create table if not exists study_sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles(id) on delete set null,
+  tool_type text not null,
+  subject text,
+  query text,
+  created_at timestamptz default now(),
+  follow_up_count int default 0
+);
+
+alter table study_sessions enable row level security;
+create policy "users own study_sessions"
+  on study_sessions for all using (auth.uid() = user_id);
+create policy "service full study_sessions"
+  on study_sessions for all using (auth.role() = 'service_role');
+
+create index if not exists study_sessions_user_idx
+  on study_sessions (user_id, created_at desc);

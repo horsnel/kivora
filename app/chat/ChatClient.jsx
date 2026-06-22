@@ -974,7 +974,19 @@ export default function ChatClient() {
             </div>
           ) : user ? (
             <p className="text-caption text-[#2e2e2e] px-1 pt-2">{convSearch.trim() ? (t('chat.no_results') || 'No conversations found') : (t('chat.history.empty') || 'No conversations yet')}</p>
-          ) : null}
+          ) : (
+            <div className="px-2 pt-4 text-center">
+              <p className="text-caption text-[#525252] mb-3 leading-relaxed">Sign in to save your conversations and access them across devices.</p>
+              <Link
+                href="/auth"
+                className="inline-flex items-center gap-1.5 bg-[#dc2626] hover:bg-red-700 text-white text-caption font-semibold px-3 py-2 rounded-lg transition-colors"
+                onClick={() => setHistoryOpen(false)}
+              >
+                <IconUser size={14} />
+                Sign in
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* ── Settings toggle + Profile avatar — pinned to bottom ── */}

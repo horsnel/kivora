@@ -36,6 +36,48 @@ function extractArtifacts(text) {
   return artifacts
 }
 
+// ── Wiki Ingest (non-blocking) ──────────────────────────────────
+// After a substantive assistant reply, fire a background wiki ingest
+// so future queries can use the knowledge. We extract entities and
+// upsert into wiki_pages. This never blocks the response — failures
+// are silently swallowed (logged only).
+function slugifyText(text) {
+  return (text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim()
+    .slice(0, 80)
+}
+
+async function ingestToWiki(admin, { userMessage, assistantReply, userId }) {
+  if (!admin || !userMessage || !assistantReply) return
+  // Only ingest substantive replies (>150 chars) — skip greetings, errors, short answers
+  if (assistantReply.length < 150) return
+  // Skip if it's mostly an error message
+  if (/^(sorry|error|failed|unable|i can't)/i.test(assistantReply.trim())) return
+
+  try {
+    const title = userMessage.slice(0, 80).trim() || 'Untitled conversation'
+    const slug = `chat-${slugifyText(title)}-${Date.now().toString(36)}`
+    const content = `User asked: ${userMessage.slice(0, 500)}\n\nKivora answered:\n${assistantReply.slice(0, 2500)}`
+
+    await admin
+      .from('wiki_pages')
+      .upsert({
+        slug,
+        title: `Chat: ${title}`,
+        content,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'slug' })
+
+    console.log('[chat] Wiki ingest OK:', slug)
+  } catch (err) {
+    console.warn('[chat] Wiki ingest failed:', err?.message || err)
+  }
+}
+
 export async function POST(req) {
   const ip = req.headers.get('x-forwarded-for') || 'unknown'
   if (!rateLimit(ip).ok) {
@@ -448,6 +490,8 @@ export async function POST(req) {
         }
       }
       if (artifacts.length > 0) response.artifacts = artifacts
+      // Background wiki ingest (non-blocking — fire and forget)
+      ingestToWiki(admin, { userMessage: lastUserMsg.content, assistantReply: reply, userId })
       return Response.json(response)
     }
 
@@ -482,6 +526,8 @@ export async function POST(req) {
 
     const response = { reply, model, searchUsed: false }
     if (artifacts.length > 0) response.artifacts = artifacts
+    // Background wiki ingest (non-blocking — fire and forget)
+    ingestToWiki(admin, { userMessage: lastUserMsg.content, assistantReply: reply, userId })
     return Response.json(response)
   } catch (err) {
     console.error('[chat]', err)

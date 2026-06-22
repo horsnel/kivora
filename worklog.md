@@ -152,3 +152,18 @@ Stage Summary:
 - Complete rewrite of research/page.jsx (1736 lines)
 - All 11 critical bugs fixed in one comprehensive rewrite
 - Deployed to https://kivora.pages.dev
+
+---
+Task ID: 404-fix-2
+Agent: main
+Task: Fix 404 on /research?q=... URLs
+
+Work Log:
+- Diagnosed: every /research?q=<value> URL returned HTTP 404 fresh, while cached URLs (e.g. ?q=test) returned 200 with stale HTML pointing to deleted JS chunks
+- Root cause: my previous deploys uploaded .next/ directly (Next.js server build output) which is NOT compatible with CF Pages for App Router. Without _worker.js + _routes.json, CF Pages treats /research?q=hello as a static file lookup and returns 404
+- Fix: ran `npx @cloudflare/next-on-pages` to generate .vercel/output/static/ (CF Pages-compatible output with _worker.js + _routes.json)
+- Deployed from .vercel/output/static/ instead of .next/ using `wrangler pages deploy .vercel/output/static --project-name=kivora --branch=main`
+- Verified all 5 test URLs return 200: /research, /research?q=hello, /research?q=, /research?q=What+are+the+main+criticisms..., /research?q=test
+
+Stage Summary:
+- 404 fixed. The package.json already had the correct scripts: `npm run pages:deploy` (which uses next-on-pages). Going forward, deploys MUST use `npm run pages:deploy` or the equivalent `npx @cloudflare/next-on-pages && npx wrangler pages deploy .vercel/output/static --project-name=kivora --branch=main`. Deploying .next/ directly breaks routing for any URL with query strings.

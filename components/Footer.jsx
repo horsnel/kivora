@@ -1,6 +1,7 @@
 'use client'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/LanguageProvider'
 
 // Pages that manage their own layout — no shared footer
@@ -23,8 +24,28 @@ const FOOTER_LINKS = [
 
 export default function Footer() {
   const pathname = usePathname()
+  const router = useRouter()
   const { t } = useTranslation()
+  const [clickCount, setClickCount] = useState(0)
+  const clickTimer = useRef(null)
+
   if (pathname === '/' || ['/chat', '/auth', '/onboarding', '/research'].some(p => pathname.startsWith(p))) return null
+
+  // Double-click handler for hidden admin access
+  function handleOlhmesClick() {
+    if (clickTimer.current) clearTimeout(clickTimer.current)
+    const newCount = clickCount + 1
+    setClickCount(newCount)
+    if (newCount >= 2) {
+      setClickCount(0)
+      router.push('/admin')
+    } else {
+      clickTimer.current = setTimeout(() => setClickCount(0), 400)
+    }
+  }
+
+  // Cleanup timer on unmount
+  useEffect(() => () => clickTimer.current && clearTimeout(clickTimer.current), [])
 
   return (
     <footer className="border-t border-[#141414] mt-12 sm:mt-16 py-6 sm:py-8">
@@ -48,10 +69,34 @@ export default function Footer() {
               {label || t(labelKey)}
             </Link>
           ))}
+          {/* X (Twitter) profile link */}
+          <a
+            href="https://x.com/menshlyglobal"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-white transition-colors inline-flex items-center gap-1"
+            aria-label="Follow us on X"
+            title="Follow us on X"
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="inline-block">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+            </svg>
+            X
+          </a>
         </div>
 
-        <p className="text-caption text-[#2e2e2e] whitespace-nowrap">
-          © {new Date().getFullYear()} Kivora · product of <Link href="/admin" className="font-black text-[#404040] hover:text-[#737373] transition-colors">O.L.H.M.E.S</Link>
+        <p className="text-caption text-[#2e2e2e] whitespace-nowrap select-none">
+          © {new Date().getFullYear()} Kivora · product of{' '}
+          <span
+            onClick={handleOlhmesClick}
+            className="font-black text-[#2e2e2e] hover:text-[#525252] transition-colors cursor-default select-none"
+            title=""
+            role="button"
+            tabIndex={-1}
+            aria-hidden="true"
+          >
+            O.L.H.M.E.S
+          </span>
         </p>
       </div>
     </footer>

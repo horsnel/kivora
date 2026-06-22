@@ -715,6 +715,30 @@ function ResearchPageContent() {
       const newHistory = [minimalCompleted, ...loadHistory()].slice(0, MAX_HISTORY)
       saveHistory(newHistory)
       setHistory(newHistory)
+
+      // ── Save full report to Supabase for logged-in users (in addition to localStorage) ──
+      // This is non-blocking — if it fails, the user still has localStorage.
+      if (user?.id && supabasePublic) {
+        supabasePublic
+          .from('research_reports')
+          .insert({
+            user_id: user.id,
+            query: completed.query,
+            mode: completed.mode,
+            apex_model: completed.apexModel,
+            title: completed.title,
+            report: completed.report,
+            sources: completed.sources,
+            followups: completed.followups,
+            wiki_page_id: completed.wikiPageId,
+            wiki_lifecycle: completed.wikiLifecycle,
+            wiki_slug: completed.wikiSlug,
+            wiki_version: completed.wikiVersion,
+          })
+          .then(({ error }) => {
+            if (error) console.warn('[research] Failed to save report to Supabase:', error.message)
+          })
+      }
     } catch (err) {
       clearInterval(progressRef.current)
       progressRef.current = null
@@ -1070,12 +1094,7 @@ function ResearchPageContent() {
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                       activeResearch.mode === 'deep' ? 'bg-red-500 text-white' : 'bg-[#1f1f1f] text-red-400 border border-red-500/30'
                     }`}>{activeResearch.mode === 'deep' ? 'Deep' : 'Quick'} · {activeResearch.apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}</span>
-                    {/* APEX 2.0 Wiki & Cache badges */}
-                    {activeResearch.fromCache && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-blue-500/10 text-blue-400 border border-blue-500/30">
-                        Cached
-                      </span>
-                    )}
+                    {/* APEX 2.0 Wiki badge only — no "Cached" badge (cached reports look identical to fresh ones) */}
                     {activeResearch.wikiLifecycle && activeResearch.wikiLifecycle !== 'draft' && (
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                         activeResearch.wikiLifecycle === 'active' ? 'bg-green-500/10 text-green-400 border border-green-500/30' :
