@@ -1270,23 +1270,26 @@ function cleanFollowupQuestion(q) {
 //   "## Follow-ups:"           — with trailing colon
 //   "## Follow-ups for Further Research"  — with descriptive suffix
 //   "## **Follow-ups**"        — markdown bold wrapping the word
+//   "## **Follow-ups:**"       — bold with colon INSIDE the markers
 //   "## Suggested Follow-ups (5 questions)" — prefix + suffix
 //   "## Follow-Ups"            — capital U in middle
 //   "Follow-ups:"              — bare, no #
 //   "## Follow Up Questions"   — variant phrasing
 //   "## Related Questions"     — alternative heading
 //   "### Follow-up Questions"  — different heading level
+//   "Specific follow-up questions:" — lowercase + custom prefix
 // Allows 0-3 leading '#', optional markdown bold (**...**), optional prefix
-// word (Suggested, Potential, Recommended, Possible, Additional, Further),
-// optional trailing descriptor in parentheses or after a colon, and is
-// case-insensitive.
-const FOLLOWUP_HEADING_RE = /^[ \t]*#{0,3}\s*(?:\*{1,2}\s*)?(?:(?:Suggested|Potential|Recommended|Possible|Additional|Further)\s+)?(?:Follow[-\s]?[Uu]ps?|Follow[-\s]?[Uu]p\s+Questions?|Related\s+Questions?)(?:\s*\*{1,2})?(?:\s*[:：]|\s*\([^)]*\)|\s+for\s+[^\n]+)?\s*$/m;
+// word, optional trailing descriptor in parentheses or after a colon, and is
+// CASE-INSENSITIVE so "follow-up", "Follow-up", "FOLLOW-UP" all match.
+// The trailing portion allows any combination of bold markers, colons, and
+// whitespace so "Follow-ups:**" and "**Follow-ups:**" both match.
+const FOLLOWUP_HEADING_RE = /^[ \t]*#{0,3}\s*(?:\*{1,2}\s*)?(?:(?:suggested|potential|recommended|possible|additional|further|specific|other|relevant)\s+)?(?:follow[-\s]?[Uu]?ps?|follow[-\s]?[Uu]?p\s+questions?|related\s+questions?)[\s*:：\*]*(?:\([^)]*\)[\s*:：\*]*)?(?:\s+for\s+[^\n]+)?\s*$/im;
 
 // Looser variant used for defensive line-by-line scan inside stripSourcesSection.
 // Matches any line whose stripped form starts with a follow-ups-style word,
 // regardless of trailing punctuation or descriptor text. Used as a last-resort
 // catch for heading formats the main regex might miss.
-const FOLLOWUP_HEADING_LOOSE_RE = /^[ \t]*#{0,3}\s*(?:\*{1,2}\s*)?(?:Suggested|Potential|Recommended|Possible|Additional|Further\s+)?(?:Follow[-\s]?[Uu]ps?|Follow[-\s]?[Uu]p\s+Questions?|Related\s+Questions?)/m;
+const FOLLOWUP_HEADING_LOOSE_RE = /^[ \t]*#{0,3}\s*(?:\*{1,2}\s*)?(?:suggested|potential|recommended|possible|additional|further|specific|other|relevant\s+)?(?:follow[-\s]?[Uu]?ps?|follow[-\s]?[Uu]?p\s+questions?|related\s+questions?)/im;
 
 function extractFollowups(text) {
   if (!text) return { report: '', followups: [] };
@@ -1407,10 +1410,11 @@ function stripSourcesSection(report) {
   // whitespace, or no question mark at the end of questions), some content
   // could leak through. This guarantees the report body never contains a
   // duplicate Follow-ups section that overlaps with the UI's section.
-  // Uses the bulletproof FOLLOWUP_HEADING_LOOSE_RE so it catches every
-  // variant: ## Follow-ups, ## **Follow-ups**, ## Suggested Follow-ups (5),
-  // ## Follow-ups for Further Research, bare Follow-ups:, etc.
-  stripped = stripped.replace(/^[ \t]*#{0,3}\s*(?:\*{1,2}\s*)?(?:(?:Suggested|Potential|Recommended|Possible|Additional|Further)\s+)?(?:Follow[-\s]?[Uu]ps?|Follow[-\s]?[Uu]p\s+Questions?|Related\s+Questions?)(?:\s*\*{1,2})?(?:\s*[:：]|\s*\([^)]*\)|\s+for\s+[^\n]+)?\s*\n[\s\S]*$/im, '');
+  // Uses the bulletproof pattern that catches every variant:
+  // ## Follow-ups, ## **Follow-ups**, ## **Follow-ups:** (colon inside bold),
+  // ## Suggested Follow-ups (5), ## Follow-ups for Further Research, bare
+  // Follow-ups:, etc.
+  stripped = stripped.replace(/^[ \t]*#{0,3}\s*(?:\*{1,2}\s*)?(?:(?:suggested|potential|recommended|possible|additional|further|specific|other|relevant)\s+)?(?:follow[-\s]?[Uu]?ps?|follow[-\s]?[Uu]?p\s+questions?|related\s+questions?)[\s*:：\*]*(?:\([^)]*\)[\s*:：\*]*)?(?:\s+for\s+[^\n]+)?\s*\n[\s\S]*$/im, '');
   // Also strip a bare "FOLLOWUPS:" keyword + everything after it (defensive
   // — extractFollowups should have caught this, but if it returned an empty
   // followups array because questions didn't end in '?', the keyword could
@@ -1420,8 +1424,9 @@ function stripSourcesSection(report) {
   // follow-ups heading (using the loose regex), drop that line and any
   // subsequent question-style lines (ending in '?'). This is the last
   // line of defense against heading formats that slipped through the
-  // regex-based strip above. We only strip from the FIRST match to the
-  // end of the report — anything before that line is preserved.
+  // regex-based strip above. We also strip the heading line itself even
+  // if no questions follow (a bare "**Follow-ups:**" at the end of the
+  // report with no questions after it should still be removed).
   const lines = stripped.split('\n');
   let firstFollowupIdx = -1;
   for (let i = 0; i < lines.length; i++) {
@@ -1431,12 +1436,20 @@ function stripSourcesSection(report) {
     }
   }
   if (firstFollowupIdx !== -1) {
-    // Only strip if the lines after the heading look like questions
-    // (to avoid nuking legitimate content that happens to start with "Follow").
+    // Check if the lines after the heading look like questions (end in '?')
     const tail = lines.slice(firstFollowupIdx + 1).join('\n');
     const questionCount = (tail.match(/\?\s*$/gm) || []).length;
     if (questionCount >= 1) {
+      // Questions follow — strip heading + all subsequent lines
       lines.splice(firstFollowupIdx);
+      stripped = lines.join('\n').trim();
+    } else {
+      // No questions after — just strip the bare heading line itself.
+      // This handles the case where the model output "**Follow-ups:**" as
+      // a trailing line with no actual questions (the questions may have
+      // been extracted earlier by Pattern 1 via the FOLLOWUPS: keyword,
+      // but the heading line was left behind).
+      lines.splice(firstFollowupIdx, 1);
       stripped = lines.join('\n').trim();
     }
   }
