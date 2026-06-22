@@ -5,6 +5,7 @@ import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit } from '@/lib/ratelimit'
 import { toolDefs, toolHandlers, TOOL_INSTRUCTIONS, filterToolsByQuery } from '@/lib/toolRegistry'
 import { buildSystemPrompt } from '@/lib/systemPrompt'
+import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
 
 const ALLOWED_MODEL_IDS = ALLOWED_MODELS.map(m => m.id)
 
@@ -84,6 +85,10 @@ export async function POST(req) {
     return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
   }
 
+  // Hoisted so the catch block can refund on failure
+  let chatUser = null
+  let chatAction = 'chat'
+
   try {
     // Access Cloudflare Workers secrets via getEnvVar (process.env has empty values for secrets)
     const groqKey = await getEnvVar('GROQ_API_KEY')
@@ -119,6 +124,40 @@ export async function POST(req) {
     const { messages, sessionId, userId, model: requestedModel, systemPrompt, focusMode, proMode, proModeType } = await req.json()
     if (!messages?.length) {
       return Response.json({ error: 'messages required' }, { status: 400 })
+    }
+
+    // ── Charge credits (1 for standard chat, 3 for reasoning model) ──
+    // We trust the userId from the body for now (it's authenticated by the
+    // Supabase RLS layer when reading sessions). Anonymous users skip charging.
+    const authHeader = req.headers.get('authorization') || ''
+    const accessToken = authHeader.replace(/^Bearer\s+/i, '')
+    const supaAnon = await getEnvVar('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+    if (accessToken && supaUrl && supaAnon) {
+      try {
+        const userClient = createClient(supaUrl, supaAnon, {
+          global: { headers: { Authorization: `Bearer ${accessToken}` } },
+        })
+        const { data: { user: u } } = await userClient.auth.getUser()
+        chatUser = u
+      } catch { /* anonymous */ }
+    }
+
+    // Determine action: reasoning model costs more
+    const isReasoning = proMode || proModeType === 'reasoning' || (requestedModel && /reason|think|o1|o3/i.test(requestedModel))
+    chatAction = isReasoning ? 'chat_reasoning' : 'chat'
+
+    if (admin && chatUser?.id) {
+      const creditCheck = await requireCredits(req, admin, chatUser, chatAction, {
+        cost: CREDIT_COSTS[chatAction],
+        description: `Chat: ${messages[messages.length - 1]?.content?.slice(0, 80) || ''}`,
+        metadata: {
+          session_id: sessionId,
+          model: requestedModel || MODEL,
+          pro_mode: !!proMode,
+          message_count: messages.length,
+        },
+      })
+      if (!creditCheck.ok) return creditCheck.response
     }
 
     let model = MODEL
@@ -531,6 +570,17 @@ export async function POST(req) {
     return Response.json(response)
   } catch (err) {
     console.error('[chat]', err)
+
+    // Refund credits on failure — the chat didn't complete
+    if (admin && chatUser?.id) {
+      try {
+        await refundCredits(admin, chatUser.id, CREDIT_COSTS[chatAction], chatAction,
+          err instanceof GroqError ? err.code : (err.name || 'unknown'))
+      } catch (refundErr) {
+        console.error('[chat] refund failed:', refundErr)
+      }
+    }
+
     if (err instanceof GroqError && err.code === 'GROQ_QUOTA_EXCEEDED') {
       return Response.json({
         error: 'Too many requests, try again later.',

@@ -7,6 +7,13 @@ compatibility_flags = ["nodejs_compat"]
 [ai]
 binding = "AI"
 
+# ── Cron triggers for credit resets ──
+# Daily reset at 00:00 UTC; monthly reset on the 1st at 00:05 UTC.
+# Both call Supabase RPC functions (reset_daily_credits, reset_monthly_credits)
+# that live in credits-migration.sql.
+[triggers]
+crons = ["0 0 * * *", "5 0 1 * *"]
+
 # Secret bindings (set via `wrangler secret put`):
 # OPENROUTER_API_KEY — for OpenRouter LLM calls
 # TAVILY_API_KEY — for Tavily web search
@@ -14,6 +21,9 @@ binding = "AI"
 # MISTRAL_API_KEY — for Mistral Pixtral vision (image descriptions)
 # BRAVE_SEARCH_API_KEY — for Brave Search (deep mode)
 # FIRECRAWL_API_KEY — for Firecrawl search & scraping
+# SUPABASE_URL — same as NEXT_PUBLIC_SUPABASE_URL (https://asfzdbpfakwpiawhhrby.supabase.co)
+# SUPABASE_SERVICE_ROLE_KEY — service role key for RPC calls (reset_daily_credits, etc.)
+# CRON_SECRET — optional shared secret to protect /cron/daily-reset and /cron/monthly-reset HTTP endpoints
 
 [vars]
 ENVIRONMENT = "production"

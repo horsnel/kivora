@@ -15,6 +15,7 @@ const FOOTER_LINKS = [
   { labelKey: 'footer.devtools',      href: '/devtools' },
   { labelKey: 'footer.opportunities', href: '/opportunities' },
   { label: 'Tools & Features',        href: '/tools' },
+  { label: 'Pricing',                 href: '/pricing' },
   { labelKey: 'footer.about',         href: '/about' },
   { labelKey: 'footer.blog',          href: '/blog' },
   { labelKey: 'footer.contact',       href: '/contact' },

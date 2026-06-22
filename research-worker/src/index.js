@@ -2513,7 +2513,118 @@ export default {
       }
     }
 
+    // ── Daily credit reset trigger ──
+    // Manually triggerable via GET /cron/daily-reset?key=<CRON_SECRET>
+    // (the cron trigger also fires this via the scheduled() handler below)
+    if (url.pathname === '/cron/daily-reset') {
+      const cronKey = env.CRON_SECRET || '';
+      const providedKey = url.searchParams.get('key') || '';
+      if (cronKey && providedKey !== cronKey) {
+        return jsonRes({ error: 'unauthorized' }, 401);
+      }
+      try {
+        const result = await runDailyReset(env);
+        return jsonRes(result);
+      } catch (err) {
+        console.error('[cron] daily-reset error:', err);
+        return jsonRes({ error: err.message }, 500);
+      }
+    }
+
+    // ── Monthly credit reset trigger (1st of each month) ──
+    if (url.pathname === '/cron/monthly-reset') {
+      const cronKey = env.CRON_SECRET || '';
+      const providedKey = url.searchParams.get('key') || '';
+      if (cronKey && providedKey !== cronKey) {
+        return jsonRes({ error: 'unauthorized' }, 401);
+      }
+      try {
+        const result = await runMonthlyReset(env);
+        return jsonRes(result);
+      } catch (err) {
+        console.error('[cron] monthly-reset error:', err);
+        return jsonRes({ error: err.message }, 500);
+      }
+    }
+
     // 404
     return jsonRes({ error: 'Not found. Use POST /research with { query, mode }' }, 404);
   },
+
+  // ── Scheduled handler ──
+  // Cron triggers from wrangler.toml fire this. We use it to run the daily
+  // and monthly credit resets at 00:00 UTC daily and 00:05 UTC on the 1st.
+  async scheduled(event, env, ctx) {
+    const cron = event.cron || '';
+    console.log(`[cron] scheduled trigger: ${cron} at ${new Date().toISOString()}`);
+
+    if (cron === '0 0 * * *') {
+      // Daily reset at 00:00 UTC
+      ctx.waitUntil(runDailyReset(env).catch(err => {
+        console.error('[cron] daily reset failed:', err);
+      }));
+    } else if (cron === '5 0 1 * *') {
+      // Monthly reset on the 1st at 00:05 UTC
+      ctx.waitUntil(runMonthlyReset(env).catch(err => {
+        console.error('[cron] monthly reset failed:', err);
+      }));
+    }
+  },
 };
+
+// ── Daily reset ──
+// Calls the Supabase `reset_daily_credits()` RPC function.
+async function runDailyReset(env) {
+  const supaUrl = env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL;
+  const supaKey = env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supaUrl || !supaKey) {
+    return { ok: false, error: 'SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set in worker env' };
+  }
+
+  const res = await fetch(`${supaUrl}/rest/v1/rpc/reset_daily_credits`, {
+    method: 'POST',
+    headers: {
+      'apikey': supaKey,
+      'Authorization': `Bearer ${supaKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: '{}',
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error('[cron] reset_daily_credits RPC failed:', res.status, text);
+    return { ok: false, error: `RPC ${res.status}`, detail: text };
+  }
+  const data = await res.json();
+  console.log('[cron] daily reset OK:', data);
+  return data;
+}
+
+// ── Monthly reset ──
+async function runMonthlyReset(env) {
+  const supaUrl = env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL;
+  const supaKey = env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supaUrl || !supaKey) {
+    return { ok: false, error: 'SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set in worker env' };
+  }
+
+  const res = await fetch(`${supaUrl}/rest/v1/rpc/reset_monthly_credits`, {
+    method: 'POST',
+    headers: {
+      'apikey': supaKey,
+      'Authorization': `Bearer ${supaKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: '{}',
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error('[cron] reset_monthly_credits RPC failed:', res.status, text);
+    return { ok: false, error: `RPC ${res.status}`, detail: text };
+  }
+  const data = await res.json();
+  console.log('[cron] monthly reset OK:', data);
+  return data;
+}

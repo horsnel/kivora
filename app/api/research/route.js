@@ -3,6 +3,8 @@ export const runtime = 'edge'
 import { rateLimit } from '@/lib/ratelimit'
 import { getEnvVar } from '@/lib/cfEnv'
 import { getSupabaseAdmin } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
+import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
 
 // Kivora Research Worker endpoint (Cloudflare Worker)
 const RESEARCH_WORKER_URL = 'https://kivora-research.odehebuka48.workers.dev/research'
@@ -144,6 +146,11 @@ export async function POST(req) {
     return Response.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
   }
 
+  // Hoisted so the catch block can access them for refunds
+  let user = null
+  let adminCharger = null
+  let action = 'research_quick'
+
   try {
     const body = await req.json()
     const { query, mode = 'quick', apex_model = 'apex-free', attachedFile, attachedFiles } = body
@@ -173,6 +180,39 @@ export async function POST(req) {
     //       text-only queries with the same normalized text.
     const skipCache = hasAnyFile
 
+    // ── Resolve user for credit charging ────────────────────────
+    const supaUrl = await getEnvVar('NEXT_PUBLIC_SUPABASE_URL')
+    const supaAnon = await getEnvVar('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+    const serviceKey = await getEnvVar('SUPABASE_SERVICE_ROLE_KEY')
+    const authHeader = req.headers.get('authorization') || ''
+    const accessToken = authHeader.replace(/^Bearer\s+/i, '')
+    if (accessToken && supaUrl && supaAnon) {
+      try {
+        const userClient = createClient(supaUrl, supaAnon, {
+          global: { headers: { Authorization: `Bearer ${accessToken}` } },
+        })
+        const { data: { user: u } } = await userClient.auth.getUser()
+        user = u
+      } catch { /* anonymous */ }
+    }
+
+    // ── Charge credits BEFORE doing the work ─────────────────────
+    // Deep mode requires Pro+ plan (feature gate). Image Intelligence (deep+image)
+    // requires Max+ plan.
+    action = mode === 'deep' ? 'research_deep' : 'research_quick'
+    const featureGate = mode === 'deep' ? 'deepResearch' : null
+    adminCharger = (supaUrl && serviceKey) ? createClient(supaUrl, serviceKey) : null
+
+    if (adminCharger && user?.id) {
+      const creditCheck = await requireCredits(req, adminCharger, user, action, {
+        cost: CREDIT_COSTS[action],
+        feature: featureGate,
+        description: `Research (${mode}): ${trimmedQuery.slice(0, 80)}`,
+        metadata: { mode, apex_model, has_file: hasAnyFile },
+      })
+      if (!creditCheck.ok) return creditCheck.response
+    }
+
     // ── APEX 2.0 Cache: check before calling Worker ──────────────
     const admin = getSupabaseAdmin()
     let queryHash = null
@@ -185,6 +225,14 @@ export async function POST(req) {
         if (cached) {
           // Cache HIT — update stats in background
           recordCacheHit(admin, cached.id, cached.cache_hit_count).catch(() => {})
+
+          // Refund most credits (cache hits are cheap — user effectively pays 1 credit)
+          if (adminCharger && user?.id) {
+            const refundAmount = CREDIT_COSTS[action] - 1
+            if (refundAmount > 0) {
+              await refundCredits(adminCharger, user.id, refundAmount, action, 'cache hit')
+            }
+          }
 
           // Fetch wiki metadata if linked
           const wikiMeta = await getWikiMeta(admin, cached.wiki_page_id)
@@ -251,6 +299,12 @@ export async function POST(req) {
     if (!workerRes.ok) {
       const errText = await workerRes.text().catch(() => '')
       console.error(`[research] Worker error ${workerRes.status}:`, errText.slice(0, 300))
+
+      // Refund credits — the worker failed, user shouldn't be charged
+      if (adminCharger && user?.id) {
+        await refundCredits(adminCharger, user.id, CREDIT_COSTS[action], action, `worker ${workerRes.status}`)
+      }
+
       return Response.json(
         { error: `Research service error (${workerRes.status}). Please try again.` },
         { status: workerRes.status }
@@ -260,6 +314,10 @@ export async function POST(req) {
     const data = await workerRes.json()
 
     if (data.error) {
+      // Refund credits — worker returned an error
+      if (adminCharger && user?.id) {
+        await refundCredits(adminCharger, user.id, CREDIT_COSTS[action], action, 'worker error response')
+      }
       return Response.json({ error: data.error }, { status: 500 })
     }
 
@@ -302,6 +360,11 @@ export async function POST(req) {
     })
   } catch (error) {
     console.error('[research] API error:', error)
+
+    // Refund on timeout / unexpected failure
+    if (adminCharger && user?.id) {
+      await refundCredits(adminCharger, user.id, CREDIT_COSTS[action], action, `exception: ${error.name || 'unknown'}`)
+    }
 
     if (error.name === 'TimeoutError' || error.message?.includes('abort')) {
       return Response.json(

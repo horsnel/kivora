@@ -2,6 +2,8 @@ export const runtime = 'edge'
 import { groq, MODEL, groqChat, GroqError, getPrimaryClientAsync, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit } from '@/lib/ratelimit'
+import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
+import { resolveUserAndAdmin } from '@/lib/authUser'
 
 const PROMPTS = {
   homework: ({ subject, question }) =>
@@ -224,6 +226,16 @@ export async function POST(req) {
       return Response.json({ error: 'Invalid type' }, { status: 400 })
     }
 
+    // ── Charge 2 credits for Study Desk ──
+    const { user: studyUser, admin: chargerAdmin } = await resolveUserAndAdmin(req)
+    if (chargerAdmin && studyUser?.id) {
+      const creditCheck = await requireCredits(req, chargerAdmin, studyUser, 'study', {
+        description: `Study: ${type}`,
+        metadata: { type },
+      })
+      if (!creditCheck.ok) return creditCheck.response
+    }
+
     const chat = await groqChat({
       model: MODEL,
       messages: [
@@ -241,6 +253,13 @@ export async function POST(req) {
     return Response.json({ result: chat.choices[0].message.content })
   } catch (err) {
     console.error('[study]', err)
+    // Refund on failure
+    try {
+      const { user, admin } = await resolveUserAndAdmin(req)
+      if (admin && user?.id) {
+        await refundCredits(admin, user.id, CREDIT_COSTS.study, 'study', err.name || 'unknown')
+      }
+    } catch {}
     if (err instanceof GroqError && err.code === 'GROQ_QUOTA_EXCEEDED') {
       return Response.json({ error: 'Too many requests, try again later.', quotaExceeded: true }, { status: 429 })
     }

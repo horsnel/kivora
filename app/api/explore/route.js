@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { groq, MODEL, groqChat, GroqError, getPrimaryClientAsync, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit } from '@/lib/ratelimit'
+import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
+import { resolveUserAndAdmin } from '@/lib/authUser'
 
 function slugify(text) {
   return text.toLowerCase()
@@ -51,7 +53,18 @@ export async function POST(req) {
         .from('explore_cache')
         .update({ views: (cached.views || 0) + 1 })
         .eq('slug', slug)
+      // Cache hit — free (no credit charge)
       return Response.json({ slug, result: cached.result, cached: true })
+    }
+
+    // ── Cache miss — charge 2 credits ──
+    const { user: exploreUser, admin: chargerAdmin } = await resolveUserAndAdmin(req)
+    if (chargerAdmin && exploreUser?.id) {
+      const creditCheck = await requireCredits(req, chargerAdmin, exploreUser, 'explore', {
+        description: `Explore: ${query.slice(0, 80)}`,
+        metadata: { slug, category },
+      })
+      if (!creditCheck.ok) return creditCheck.response
     }
 
     // Query wiki for existing context

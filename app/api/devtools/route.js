@@ -2,6 +2,8 @@ export const runtime = 'edge'
 import { groq, MODEL, groqChat, GroqError, getPrimaryClientAsync, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit } from '@/lib/ratelimit'
+import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
+import { resolveUserAndAdmin } from '@/lib/authUser'
 
 const PROMPTS = {
 
@@ -579,6 +581,16 @@ export async function POST(req) {
       return Response.json({ error: `Unknown tool: ${tool}` }, { status: 400 })
     }
 
+    // ── Charge 3 credits for DevTools ──
+    const { user: devUser, admin: chargerAdmin } = await resolveUserAndAdmin(req)
+    if (chargerAdmin && devUser?.id) {
+      const creditCheck = await requireCredits(req, chargerAdmin, devUser, 'devtools', {
+        description: `DevTools: ${tool}`,
+        metadata: { tool },
+      })
+      if (!creditCheck.ok) return creditCheck.response
+    }
+
     const chat = await groqChat({
       model: MODEL,
       messages: [
@@ -596,6 +608,15 @@ export async function POST(req) {
     return Response.json({ result: chat.choices[0].message.content })
   } catch (err) {
     console.error('[devtools]', err)
+
+    // Refund on failure
+    try {
+      const { user, admin } = await resolveUserAndAdmin(req)
+      if (admin && user?.id) {
+        await refundCredits(admin, user.id, CREDIT_COSTS.devtools, 'devtools', err.name || 'unknown')
+      }
+    } catch {}
+
     if (err instanceof GroqError && err.code === 'GROQ_QUOTA_EXCEEDED') {
       return Response.json({ error: 'Too many requests, try again later.', quotaExceeded: true }, { status: 429 })
     }
