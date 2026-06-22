@@ -11,7 +11,7 @@ const FIXED_NAV = ['/onboarding']
 const FULL_VIEWPORT = ['/chat', '/research']
 
 export default function PageContent({ children }) {
-  const pathname = usePathname()
+  const pathname = usePathname() ?? ''
   const hasSidebar = !NO_SIDEBAR.some(p => pathname === p || pathname.startsWith(p + '/'))
   const hasFixedNav = FIXED_NAV.some(p => pathname.startsWith(p))
   const isFullViewport = FULL_VIEWPORT.some(p => pathname === p || pathname.startsWith(p + '/'))

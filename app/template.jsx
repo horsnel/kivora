@@ -15,7 +15,7 @@ const FULL_VIEWPORT = ['/chat', '/research']
  * Falls back gracefully on browsers that don't support it.
  */
 export default function Template({ children }) {
-  const pathname = usePathname()
+  const pathname = usePathname() ?? ''
   const prevPathname = useRef(pathname)
   const isFullViewport = FULL_VIEWPORT.some(p => pathname === p || pathname.startsWith(p + '/'))
 

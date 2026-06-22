@@ -1,0 +1,71 @@
+# .github/workflows/credit-cron.yml
+# External cron for Kivora's credit-system resets.
+#
+# Why external? Cloudflare Workers free plan limits each account to 5 cron
+# triggers total, and this account is already at the limit. So we trigger
+# the worker's HTTP /cron/* endpoints via GitHub Actions instead.
+#
+# Schedules (UTC):
+#   - Daily reset:    every day at 00:00 UTC  -> /cron/daily-reset
+#   - Monthly reset:  1st of each month at 00:05 UTC -> /cron/monthly-reset
+#
+# CRON_SECRET is stored as a GitHub Actions secret on the horsnel/kivora repo.
+# To set it: repo Settings → Secrets and variables → Actions → New repository secret
+#   Name:  CRON_SECRET
+#   Value: <the same value set on the worker via `wrangler secret put CRON_SECRET`>
+
+name: credit-cron
+
+on:
+  schedule:
+    # ── Daily reset — every day at 00:00 UTC ──
+    - cron: '0 0 * * *'
+    # ── Monthly reset — 1st of each month at 00:05 UTC ──
+    - cron: '5 0 1 * *'
+  # Allow manual triggering from the Actions tab
+  workflow_dispatch:
+    inputs:
+      which:
+        description: 'Which reset to run (daily | monthly | both)'
+        required: false
+        default: 'both'
+        type: choice
+        options:
+          - daily
+          - monthly
+          - both
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Daily reset
+        if: ${{ (github.event_name == 'schedule' && github.event.schedule == '0 0 * * *') || (github.event_name == 'workflow_dispatch' && (github.event.inputs.which == 'daily' || github.event.inputs.which == 'both')) }}
+        run: |
+          echo "Calling /cron/daily-reset ..."
+          code=$(curl -sS -o /tmp/daily.json -w "%{http_code}" \
+            -H "User-Agent: kivora-github-actions-cron" \
+            "${{ secrets.CRON_BASE_URL }}/cron/daily-reset?key=${{ secrets.CRON_SECRET }}")
+          echo "HTTP $code"
+          cat /tmp/daily.json
+          echo
+          if [ "$code" != "200" ]; then
+            echo "::error::daily-reset returned HTTP $code"
+            exit 1
+          fi
+
+      - name: Monthly reset
+        if: ${{ (github.event_name == 'schedule' && github.event.schedule == '5 0 1 * *') || (github.event_name == 'workflow_dispatch' && (github.event.inputs.which == 'monthly' || github.event.inputs.which == 'both')) }}
+        run: |
+          echo "Calling /cron/monthly-reset ..."
+          code=$(curl -sS -o /tmp/monthly.json -w "%{http_code}" \
+            -H "User-Agent: kivora-github-actions-cron" \
+            "${{ secrets.CRON_BASE_URL }}/cron/monthly-reset?key=${{ secrets.CRON_SECRET }}")
+          echo "HTTP $code"
+          cat /tmp/monthly.json
+          echo
+          if [ "$code" != "200" ]; then
+            echo "::error::monthly-reset returned HTTP $code"
+            exit 1
+          fi

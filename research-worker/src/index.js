@@ -2556,15 +2556,17 @@ export default {
   // and monthly credit resets at 00:00 UTC daily and 00:05 UTC on the 1st.
   async scheduled(event, env, ctx) {
     const cron = event.cron || '';
-    console.log(`[cron] scheduled trigger: ${cron} at ${new Date().toISOString()}`);
+    const now = new Date();
+    console.log(`[cron] scheduled trigger: ${cron} at ${now.toISOString()}`);
 
-    if (cron === '0 0 * * *') {
-      // Daily reset at 00:00 UTC
-      ctx.waitUntil(runDailyReset(env).catch(err => {
-        console.error('[cron] daily reset failed:', err);
-      }));
-    } else if (cron === '5 0 1 * *') {
-      // Monthly reset on the 1st at 00:05 UTC
+    // Single daily cron at 00:00 UTC — runs daily reset every day,
+    // and ALSO runs monthly reset on the 1st of each month.
+    // (Consolidated to fit within the 5-cron-trigger free-plan limit.)
+    ctx.waitUntil(runDailyReset(env).catch(err => {
+      console.error('[cron] daily reset failed:', err);
+    }));
+
+    if (now.getUTCDate() === 1) {
       ctx.waitUntil(runMonthlyReset(env).catch(err => {
         console.error('[cron] monthly reset failed:', err);
       }));

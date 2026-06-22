@@ -32,7 +32,7 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [user, setUser] = useState(null)
   const [currencyOpen, setCurrencyOpen] = useState(false)
-  const pathname = usePathname()
+  const pathname = usePathname() ?? ''
   const currencyDropdownRef = useRef(null)
   const sidebarRef = useRef(null)
 

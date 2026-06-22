@@ -24,7 +24,7 @@ const FOOTER_LINKS = [
 ]
 
 export default function Footer() {
-  const pathname = usePathname()
+  const pathname = usePathname() ?? ''
   const router = useRouter()
   const { t } = useTranslation()
   const [clickCount, setClickCount] = useState(0)

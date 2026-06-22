@@ -7,12 +7,21 @@ compatibility_flags = ["nodejs_compat"]
 [ai]
 binding = "AI"
 
-# ── Cron triggers for credit resets ──
-# Daily reset at 00:00 UTC; monthly reset on the 1st at 00:05 UTC.
-# Both call Supabase RPC functions (reset_daily_credits, reset_monthly_credits)
-# that live in credits-migration.sql.
-[triggers]
-crons = ["0 0 * * *", "5 0 1 * *"]
+# ── Cron trigger for credit resets ──
+# Cloudflare's free plan limits accounts to 5 cron triggers total, and this
+# account is already at 5 (musicpulse-api × 2, sigma-pipeline × 2,
+# vaultdrop-worker × 1). To stay under the limit, the daily/monthly credit
+# resets are invoked via the HTTP endpoints:
+#   GET https://kivora-research.odehebuka48.workers.dev/cron/daily-reset?key=<CRON_SECRET>
+#   GET https://kivora-research.odehebuka48.workers.dev/cron/monthly-reset?key=<CRON_SECRET>
+# Configure an external scheduler (e.g. cron-job.org, EasyCron, GitHub Actions)
+# to hit the daily-reset URL every day at 00:00 UTC and the monthly-reset URL
+# on the 1st of each month at 00:05 UTC.
+# To re-enable the native CF cron later, uncomment the [triggers] block below
+# after deleting a cron trigger from another worker in this account.
+#
+# [triggers]
+# crons = ["0 0 * * *"]
 
 # Secret bindings (set via `wrangler secret put`):
 # OPENROUTER_API_KEY — for OpenRouter LLM calls

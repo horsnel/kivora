@@ -16,7 +16,7 @@ import { IconLightning, IconChevronDown } from '@/components/Icons'
  * the Navbar's hideSidebar logic).
  */
 export default function CreditPill({ compact = false }) {
-  const pathname = usePathname()
+  const pathname = usePathname() ?? ''
   const [balance, setBalance] = useState(null)
   const [plan, setPlan] = useState(null)
   const [loading, setLoading] = useState(true)

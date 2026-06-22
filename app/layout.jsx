@@ -1,4 +1,5 @@
 import './globals.css'
+import Script from 'next/script'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import PageContent from '@/components/PageContent'
@@ -38,11 +39,17 @@ export const metadata = {
   manifest: '/manifest.webmanifest',
 }
 
+// Viewport / theme-color — moved here from manual <head> to avoid SSR/hydration
+// mismatches under Next.js 15 + React 19 (manual <head> + metadata export is
+// an anti-pattern that throws hydration errors in React 19).
+export const viewport = {
+  themeColor: '#dc2626',
+}
+
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content="#dc2626" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
@@ -59,13 +66,15 @@ export default function RootLayout({ children }) {
             </div>
           </CurrencyProvider>
         </LanguageProvider>
-        <script dangerouslySetInnerHTML={{ __html: `
+        {/* Service worker registration — using next/script (strategy=afterInteractive)
+            to avoid inline dangerouslySetInnerHTML hydration mismatches under React 19. */}
+        <Script id="sw-register" strategy="afterInteractive">{`
           if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
               navigator.serviceWorker.register('/sw.js').catch(function() {});
             });
           }
-        `}} />
+        `}</Script>
       </body>
     </html>
   )
