@@ -349,6 +349,9 @@ function ResearchPageContent() {
   const [error, setError] = useState('')
   const [reportDisplay, setReportDisplay] = useState('')
   const [sourcesVisible, setSourcesVisible] = useState(0)
+  // When research is active, the bottom bar starts collapsed (single-line).
+  // barExpanded toggles it to a multi-line textarea — mirroring chat page UX.
+  const [barExpanded, setBarExpanded] = useState(false)
   const [sourcesExpanded, setSourcesExpanded] = useState(false)
   const [history, setHistory] = useState([])
   const [progress, setProgress] = useState(0)
@@ -363,13 +366,13 @@ function ResearchPageContent() {
   const chatBarRef = useRef(null)
   const fileInputRef = useRef(null)
   const collapsedFileInputRef = useRef(null)
-  const [attachedFile, setAttachedFile] = useState(null) // { name, type, size, content }
+  const [attachedFiles, setAttachedFiles] = useState([]) // [{ name, type, size, content }]
   const [fileError, setFileError] = useState('')
   const typewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
   const collapsedTypewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
 
   const hasActiveResearch = activeResearch !== null
-  const hasInput = input.trim().length > 0 || !!attachedFile
+  const hasInput = input.trim().length > 0 || attachedFiles.length > 0
 
   // ── Typewriter animation for big text bar (Fix #10: fully canceled during research) ──
   useEffect(() => {
@@ -468,6 +471,28 @@ function ResearchPageContent() {
     }
   }, [])
 
+  // ── Auto-collapse expanded bottom bar on click outside ──
+  // Mirrors the chat page UX: when the user clicks anywhere outside the
+  // expanded bar AND the input is empty AND no files are attached, collapse
+  // back to the single-line state. If there's content, keep it expanded.
+  useEffect(() => {
+    if (!barExpanded) return
+    function handleClick(e) {
+      if (chatBarRef.current && !chatBarRef.current.contains(e.target)) {
+        if (input.trim().length === 0 && attachedFiles.length === 0) {
+          setBarExpanded(false)
+        }
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [barExpanded, input, attachedFiles])
+
+  // ── Reset barExpanded when starting a new research session ──
+  useEffect(() => {
+    if (isResearching) setBarExpanded(false)
+  }, [isResearching])
+
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || null
 
   function getGreeting() {
@@ -495,15 +520,15 @@ function ResearchPageContent() {
 
   // ── Start Research ──
   async function startResearch(query, researchMode) {
-    if ((!query.trim() && !attachedFile) || isResearching) return
+    if ((!query.trim() && attachedFiles.length === 0) || isResearching) return
 
-    // Capture the attached file (if any) before clearing state
-    const fileAttachment = attachedFile
+    // Capture the attached files (if any) before clearing state
+    const fileAttachments = attachedFiles
 
     const id = generateId()
     const research = {
       id,
-      query: query.trim() || `(Analyze: ${fileAttachment?.name || 'file'})`,
+      query: query.trim() || `(Analyze: ${fileAttachments.length > 0 ? fileAttachments.map(f => f.name).join(', ') : 'file'})`,
       mode: researchMode,
       apexModel,
       sources: [],
@@ -568,9 +593,9 @@ function ResearchPageContent() {
 
       const primaryController = new AbortController()
       const fallbackController = new AbortController()
-      const isImage = fileAttachment && (
-        fileAttachment.type?.startsWith('image/') ||
-        IMAGE_EXTENSIONS.includes((fileAttachment.name.split('.').pop() || '').toLowerCase())
+      const isImage = fileAttachments.length > 0 && fileAttachments.some(f =>
+        f.type?.startsWith('image/') ||
+        IMAGE_EXTENSIONS.includes((f.name.split('.').pop() || '').toLowerCase())
       )
       // Base timeouts — deep mode gets 2 minutes, quick gets 30s.
       // When an image is attached, the vision model needs extra time (up to
@@ -580,10 +605,10 @@ function ResearchPageContent() {
       const primaryTimeout = setTimeout(() => primaryController.abort(), isImage ? basePrimary + 30000 : basePrimary)
       const fallbackTimeout = setTimeout(() => fallbackController.abort(), isImage ? baseFallback + 30000 : baseFallback)
 
-      // Build request body — include attachedFile if present
+      // Build request body — include attachedFiles (array) if present
       const reqBody = { query: query.trim(), mode: researchMode, apex_model: apexModel }
-      if (fileAttachment) {
-        reqBody.attachedFile = fileAttachment
+      if (fileAttachments.length > 0) {
+        reqBody.attachedFiles = fileAttachments
       }
       const body = JSON.stringify(reqBody)
 
@@ -603,7 +628,7 @@ function ResearchPageContent() {
       // Skip fallback when a file is attached — the fallback endpoint doesn't
       // support vision/file analysis. Use a never-resolving promise so
       // Promise.any only races the primary.
-      const fallbackPromise = fileAttachment
+      const fallbackPromise = fileAttachments.length > 0
         ? new Promise(() => {}) // never resolves
         : fetch('/api/research-fallback', {
             method: 'POST',
@@ -637,8 +662,8 @@ function ResearchPageContent() {
         clearTimeout(fallbackTimeout)
       }
 
-      // Clear the attachment after the request is sent
-      setAttachedFile(null)
+      // Clear the attachments after the request is sent
+      setAttachedFiles([])
       setFileError('')
 
       clearInterval(progressRef.current)
@@ -707,48 +732,66 @@ function ResearchPageContent() {
 
   function handleSubmit() {
     const q = input.trim()
-    if ((!q && !attachedFile) || isResearching) return
+    if ((!q && attachedFiles.length === 0) || isResearching) return
     startResearch(q, mode)
   }
 
   // ── File Attachment Handlers ──
+  // Supports multiple file selection. All files are read in parallel and
+  // appended to the attachedFiles array. Each file gets its own chip with
+  // an individual remove button.
   function handleFileSelect(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const fileList = Array.from(e.target.files || [])
+    if (fileList.length === 0) return
     setFileError('')
 
-    if (file.size > MAX_FILE_SIZE) {
-      setFileError(`File too large (max ${MAX_FILE_SIZE / 1024 / 1024}MB)`)
+    // Cap at 5 files total to keep requests reasonable
+    const MAX_FILES = 5
+    const remainingSlots = MAX_FILES - attachedFiles.length
+    if (remainingSlots <= 0) {
+      setFileError(`Maximum ${MAX_FILES} files reached`)
+      e.target.value = ''
+      return
+    }
+    const filesToAdd = fileList.slice(0, remainingSlots)
+    if (fileList.length > remainingSlots) {
+      setFileError(`Only ${remainingSlots} more file(s) can be added (max ${MAX_FILES})`)
+    }
+
+    const oversized = filesToAdd.find(f => f.size > MAX_FILE_SIZE)
+    if (oversized) {
+      setFileError(`File too large (max ${MAX_FILE_SIZE / 1024 / 1024}MB): ${oversized.name}`)
       e.target.value = ''
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = () => {
-      setAttachedFile({
+    // Read each file in parallel; only commit those that succeed
+    Promise.all(filesToAdd.map(file => new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve({
         name: file.name,
         type: file.type || guessTypeFromName(file.name),
         size: file.size,
         content: reader.result, // data URL for images, raw text content for text files
       })
-    }
-    reader.onerror = () => {
-      setFileError('Failed to read file')
-    }
-
-    // Read as data URL for images, as text for text files
-    const ext = (file.name.split('.').pop() || '').toLowerCase()
-    if (IMAGE_EXTENSIONS.includes(ext) || file.type?.startsWith('image/')) {
-      reader.readAsDataURL(file)
-    } else {
-      reader.readAsText(file)
-    }
+      reader.onerror = () => reject(new Error(`Failed to read ${file.name}`))
+      const ext = (file.name.split('.').pop() || '').toLowerCase()
+      if (IMAGE_EXTENSIONS.includes(ext) || file.type?.startsWith('image/')) {
+        reader.readAsDataURL(file)
+      } else {
+        reader.readAsText(file)
+      }
+    }))).then(newFiles => {
+      setAttachedFiles(prev => [...prev, ...newFiles])
+    }).catch(err => {
+      setFileError(err.message || 'Failed to read file(s)')
+    })
 
     e.target.value = ''
   }
 
-  function removeAttachment() {
-    setAttachedFile(null)
+  function removeAttachment(idx) {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== idx))
     setFileError('')
   }
 
@@ -843,29 +886,33 @@ function ResearchPageContent() {
 
           {/* Big expanded text bar */}
             <div className="chat-container-expanded">
-              {/* Attachment chip (if any) */}
-              {attachedFile && (
-                <div className="flex items-center gap-2 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1.5 mb-2 max-w-full animate-fade-in attachment-chip">
-                  {attachedFile.type?.startsWith('image/') ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
-                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                    </svg>
-                  ) : (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
-                    </svg>
-                  )}
-                  <span className="text-xs text-[#a0a0a0] truncate flex-1 min-w-0">{attachedFile.name}</span>
-                  <span className="text-[10px] text-[#525252] shrink-0">{(attachedFile.size / 1024).toFixed(1)}KB</span>
-                  <button
-                    onClick={removeAttachment}
-                    className="shrink-0 text-[#525252] hover:text-red-400 transition-colors p-0.5"
-                    aria-label="Remove attachment"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-                    </svg>
-                  </button>
+              {/* Attachment chips (one per file) */}
+              {attachedFiles.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2 max-w-full animate-fade-in">
+                  {attachedFiles.map((f, idx) => (
+                    <div key={idx} className="flex items-center gap-2 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1.5 max-w-full attachment-chip">
+                      {f.type?.startsWith('image/') ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
+                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                        </svg>
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                        </svg>
+                      )}
+                      <span className="text-xs text-[#a0a0a0] truncate flex-1 min-w-0 max-w-[180px]">{f.name}</span>
+                      <span className="text-[10px] text-[#525252] shrink-0">{(f.size / 1024).toFixed(1)}KB</span>
+                      <button
+                        onClick={() => removeAttachment(idx)}
+                        className="shrink-0 text-[#525252] hover:text-red-400 transition-colors p-0.5"
+                        aria-label="Remove attachment"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
               {fileError && (
@@ -874,7 +921,7 @@ function ResearchPageContent() {
               <textarea
                 ref={textareaRef}
                 rows={1}
-                className={`chat-textarea-expanded scrollbar-none${input.length === 0 && !focused ? ' no-caret' : ''}`}
+                className={`chat-textarea-expanded scrollbar-none${input.length === 0 && !focused && attachedFiles.length === 0 ? ' no-caret' : ''}`}
                 value={input}
                 onChange={e => { setInput(e.target.value); autoResize(e.target) }}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
@@ -882,19 +929,21 @@ function ResearchPageContent() {
                 onBlur={() => setFocused(false)}
                 autoFocus
               />
-              {input.length === 0 && !focused && (
+              {/* Placeholder hides immediately when any file is attached or input has content */}
+              {input.length === 0 && !focused && attachedFiles.length === 0 && (
                 <div className="chat-typewriter-placeholder" onClick={() => textareaRef.current?.focus()}>
                   {placeholderText}
                 </div>
               )}
               <div className="chat-toolbar-expanded">
                 <div className="chat-toolbar-left">
-                  {/* File upload button — now active */}
+                  {/* File upload button — supports multiple files */}
                   <input
                     ref={fileInputRef}
                     type="file"
                     className="hidden"
                     accept={ACCEPTED_FILE_TYPES}
+                    multiple
                     onChange={handleFileSelect}
                   />
                   <button
@@ -1186,30 +1235,34 @@ function ResearchPageContent() {
                   ))}
                 </div>
               )}
-              {(attachedFile || fileError) && (
+              {(attachedFiles.length > 0 || fileError) && (
                 <div className="max-w-full mb-2">
-                  {attachedFile && (
-                    <div className="flex items-center gap-2 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1.5 max-w-full animate-fade-in attachment-chip">
-                      {attachedFile.type?.startsWith('image/') ? (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
-                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                        </svg>
-                      ) : (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
-                        </svg>
-                      )}
-                      <span className="text-xs text-[#a0a0a0] truncate flex-1 min-w-0">{attachedFile.name}</span>
-                      <span className="text-[10px] text-[#525252] shrink-0">{(attachedFile.size / 1024).toFixed(1)}KB</span>
-                      <button
-                        onClick={removeAttachment}
-                        className="shrink-0 text-[#525252] hover:text-red-400 transition-colors p-0.5"
-                        aria-label="Remove attachment"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-                        </svg>
-                      </button>
+                  {attachedFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 max-w-full">
+                      {attachedFiles.map((f, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1.5 max-w-full animate-fade-in attachment-chip">
+                          {f.type?.startsWith('image/') ? (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
+                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                            </svg>
+                          ) : (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                            </svg>
+                          )}
+                          <span className="text-xs text-[#a0a0a0] truncate flex-1 min-w-0 max-w-[180px]">{f.name}</span>
+                          <span className="text-[10px] text-[#525252] shrink-0">{(f.size / 1024).toFixed(1)}KB</span>
+                          <button
+                            onClick={() => removeAttachment(idx)}
+                            className="shrink-0 text-[#525252] hover:text-red-400 transition-colors p-0.5"
+                            aria-label="Remove attachment"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   )}
                   {fileError && (
@@ -1217,88 +1270,211 @@ function ResearchPageContent() {
                   )}
                 </div>
               )}
-              <div className="research-bar-collapsed">
-                {/* File upload button — now active */}
-                <button
-                  onClick={() => collapsedFileInputRef.current?.click()}
-                  className="research-collapsed-btn-circle"
-                  aria-label="Attach file"
-                  title="Attach file (image, text, document)"
-                  disabled={isResearching}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
-                  </svg>
-                </button>
-                {/* Hidden file input for collapsed bar */}
-                <input
-                  ref={collapsedFileInputRef}
-                  type="file"
-                  className="hidden"
-                  accept={ACCEPTED_FILE_TYPES}
-                  onChange={handleFileSelect}
-                />
 
-                {/* Input */}
-                <div className="research-collapsed-input-wrap">
+              {/* ═══ COLLAPSED STATE (single-line) ═══ */}
+              {/* When the bottom bar is not expanded, show a compact single-line
+                  input. Focusing it (or attaching a file, or having text) expands
+                  to the multi-line textarea below — mirroring the chat page UX. */}
+              {!barExpanded && (
+                <div className="research-bar-collapsed">
+                  {/* File upload button */}
+                  <button
+                    onClick={() => collapsedFileInputRef.current?.click()}
+                    className="research-collapsed-btn-circle"
+                    aria-label="Attach file"
+                    title="Attach file (image, text, document)"
+                    disabled={isResearching}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+                    </svg>
+                  </button>
+                  {/* Hidden file input for collapsed bar */}
                   <input
-                    ref={collapsedInputRef}
-                    type="text"
+                    ref={collapsedFileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept={ACCEPTED_FILE_TYPES}
+                    multiple
+                    onChange={handleFileSelect}
+                  />
+
+                  {/* Input */}
+                  <div className="research-collapsed-input-wrap">
+                    <input
+                      ref={collapsedInputRef}
+                      type="text"
+                      placeholder={collapsedPlaceholder || 'Research anything...'}
+                      value={input}
+                      onChange={e => setInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
+                      onFocus={() => setBarExpanded(true)}
+                      className="research-collapsed-input"
+                      autoComplete="off"
+                      spellCheck="false"
+                      disabled={isResearching}
+                    />
+                  </div>
+
+                  {/* Apex model chip */}
+                  <button
+                    onClick={() => {
+                      const next = apexModel === 'apex-free' ? 'apex-premium' : 'apex-free'
+                      setApexModel(next)
+                    }}
+                    className={`text-[10px] px-2 py-1 rounded-full transition-all duration-200 border min-w-0 shrink ${
+                      apexModel === 'apex-premium'
+                        ? 'bg-[rgba(220,38,38,0.12)] text-[#ef4444] border-[rgba(220,38,38,0.2)]'
+                        : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
+                    }`}
+                  >
+                    <span className="apex-label-full">{apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}</span>
+                    <span className="apex-label-short">{apexModel === 'apex-premium' ? '2.3' : '1.7'}</span>
+                  </button>
+                  {/* Mode chip */}
+                  <button
+                    onClick={() => setMode(mode === 'quick' ? 'deep' : 'quick')}
+                    className={`text-[10px] px-2 py-1 rounded-full transition-all duration-200 border min-w-0 shrink ${
+                      mode === 'deep'
+                        ? 'bg-[rgba(168,85,247,0.12)] text-[#a855f7] border-[rgba(168,85,247,0.2)]'
+                        : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
+                    }`}
+                  >
+                    <span className="mode-label-full">{mode === 'deep' ? 'Deep' : 'Quick'}</span>
+                    <span className="mode-label-short">{mode === 'deep' ? 'D' : 'Q'}</span>
+                  </button>
+
+                  {/* Send button */}
+                  <button
+                    onClick={handleSubmit}
+                    disabled={!hasInput || isResearching}
+                    className={`research-collapsed-send ${hasInput && !isResearching ? 'research-collapsed-send-active' : ''}`}
+                    aria-label="Start research"
+                  >
+                    {isResearching ? (
+                      <div className="w-4 h-4 border-2 border-[#525252] border-t-red-400 rounded-full animate-spin" />
+                    ) : hasInput ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    ) : (
+                      <svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="8" y="5" width="2" height="14" rx="1" fill="currentColor"/><rect x="12" y="9" width="2" height="6" rx="1" fill="currentColor"/><rect x="16" y="6" width="2" height="12" rx="1" fill="currentColor"/><rect x="20" y="10" width="2" height="4" rx="1" fill="currentColor"/></svg>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* ═══ EXPANDED STATE (multi-line textarea) ═══ */}
+              {/* Mirrors the chat page: when focused or has content/attachment,
+                  the bar grows into a full textarea with the toolbar below it. */}
+              {barExpanded && (
+                <div className="chat-container-expanded" ref={chatBarRef}>
+                  {/* Attachment chips (one per file) */}
+                  {attachedFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2 max-w-full animate-fade-in">
+                      {attachedFiles.map((f, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1.5 max-w-full attachment-chip">
+                          {f.type?.startsWith('image/') ? (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
+                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                            </svg>
+                          ) : (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                            </svg>
+                          )}
+                          <span className="text-xs text-[#a0a0a0] truncate flex-1 min-w-0 max-w-[180px]">{f.name}</span>
+                          <span className="text-[10px] text-[#525252] shrink-0">{(f.size / 1024).toFixed(1)}KB</span>
+                          <button
+                            onClick={() => removeAttachment(idx)}
+                            className="shrink-0 text-[#525252] hover:text-red-400 transition-colors p-0.5"
+                            aria-label="Remove attachment"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {fileError && (
+                    <div className="text-xs text-red-400 mb-2 px-2">{fileError}</div>
+                  )}
+                  <textarea
+                    ref={textareaRef}
+                    rows={1}
+                    className="chat-textarea-expanded scrollbar-none"
                     placeholder={collapsedPlaceholder || 'Research anything...'}
                     value={input}
-                    onChange={e => setInput(e.target.value)}
+                    onChange={e => { setInput(e.target.value); autoResize(e.target) }}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
-                    className="research-collapsed-input"
-                    autoComplete="off"
-                    spellCheck="false"
-                    disabled={isResearching}
+                    autoFocus
                   />
+                  <div className="chat-toolbar-expanded">
+                    <div className="chat-toolbar-left">
+                      <input
+                        ref={collapsedFileInputRef}
+                        type="file"
+                        className="hidden"
+                        accept={ACCEPTED_FILE_TYPES}
+                        multiple
+                        onChange={handleFileSelect}
+                      />
+                      <button
+                        onClick={() => collapsedFileInputRef.current?.click()}
+                        className="chat-toolbar-btn"
+                        title="Attach file (image, text, document)"
+                        aria-label="Attach file"
+                        disabled={isResearching}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+                        </svg>
+                      </button>
+                      <div className="relative min-w-0" style={{position:'relative'}}>
+                        <button
+                          onClick={() => {
+                            const next = apexModel === 'apex-free' ? 'apex-premium' : 'apex-free'
+                            setApexModel(next)
+                          }}
+                          className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ml-0.5 flex items-center gap-1 min-w-0 shrink ${
+                            apexModel === 'apex-premium'
+                              ? 'bg-[rgba(220,38,38,0.12)] text-[#ef4444] border-[rgba(220,38,38,0.2)]'
+                              : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
+                          }`}
+                        >
+                          <span className="apex-label-full">{apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}</span>
+                          <span className="apex-label-short">{apexModel === 'apex-premium' ? '2.3' : '1.7'}</span>
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => setMode(mode === 'quick' ? 'deep' : 'quick')}
+                        className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ml-0.5 min-w-0 shrink ${
+                          mode === 'deep'
+                            ? 'bg-[rgba(168,85,247,0.12)] text-[#a855f7] border-[rgba(168,85,247,0.2)]'
+                            : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
+                        }`}
+                      >
+                        <span className="mode-label-full">{mode === 'deep' ? 'Deep' : 'Quick'}</span>
+                        <span className="mode-label-short">{mode === 'deep' ? 'D' : 'Q'}</span>
+                      </button>
+                    </div>
+                    <div className="chat-toolbar-right">
+                      <button
+                        onClick={handleSubmit}
+                        disabled={!hasInput || isResearching}
+                        className={`chat-send-btn-expanded ${hasInput && !isResearching ? 'chat-send-btn-expanded-active' : ''}`}
+                        aria-label="Start research"
+                      >
+                        {isResearching ? (
+                          <div className="w-4 h-4 border-2 border-[#525252] border-t-red-400 rounded-full animate-spin" />
+                        ) : (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-
-                {/* Apex model chip */}
-                <button
-                  onClick={() => {
-                    const next = apexModel === 'apex-free' ? 'apex-premium' : 'apex-free'
-                    setApexModel(next)
-                  }}
-                  className={`text-[10px] px-2 py-1 rounded-full transition-all duration-200 border min-w-0 shrink ${
-                    apexModel === 'apex-premium'
-                      ? 'bg-[rgba(220,38,38,0.12)] text-[#ef4444] border-[rgba(220,38,38,0.2)]'
-                      : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
-                  }`}
-                >
-                  <span className="apex-label-full">{apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}</span>
-                  <span className="apex-label-short">{apexModel === 'apex-premium' ? '2.3' : '1.7'}</span>
-                </button>
-                {/* Mode chip */}
-                <button
-                  onClick={() => setMode(mode === 'quick' ? 'deep' : 'quick')}
-                  className={`text-[10px] px-2 py-1 rounded-full transition-all duration-200 border min-w-0 shrink ${
-                    mode === 'deep'
-                      ? 'bg-[rgba(168,85,247,0.12)] text-[#a855f7] border-[rgba(168,85,247,0.2)]'
-                      : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
-                  }`}
-                >
-                  <span className="mode-label-full">{mode === 'deep' ? 'Deep' : 'Quick'}</span>
-                  <span className="mode-label-short">{mode === 'deep' ? 'D' : 'Q'}</span>
-                </button>
-
-                {/* Send button */}
-                <button
-                  onClick={handleSubmit}
-                  disabled={!hasInput || isResearching}
-                  className={`research-collapsed-send ${hasInput && !isResearching ? 'research-collapsed-send-active' : ''}`}
-                  aria-label="Start research"
-                >
-                  {isResearching ? (
-                    <div className="w-4 h-4 border-2 border-[#525252] border-t-red-400 rounded-full animate-spin" />
-                  ) : hasInput ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                  ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="8" y="5" width="2" height="14" rx="1" fill="currentColor"/><rect x="12" y="9" width="2" height="6" rx="1" fill="currentColor"/><rect x="16" y="6" width="2" height="12" rx="1" fill="currentColor"/><rect x="20" y="10" width="2" height="4" rx="1" fill="currentColor"/></svg>
-                  )}
-                </button>
-              </div>
+              )}
             </div>
           </div>
         </>
@@ -1554,15 +1730,13 @@ function ResearchPageContent() {
         .research-collapsed-send-active { background: #e2e2e2; color: #0a0a0a; }
         .research-collapsed-send-active:hover { background: #ffffff; transform: scale(1.05); }
 
-        /* ─── Responsive chip labels ─── */
-        /* On narrow screens (< 480px), show short labels (e.g. "2.3" instead
-           of "Apex 2.3", "D" instead of "Deep") to prevent the toolbar from
-           overflowing on mobile. On wider screens, show the full label. */
-        .apex-label-short, .mode-label-short { display: none; }
-        .apex-label-full, .mode-label-full { display: inline; }
+        /* ─── Chip labels ─── */
+        /* Always show full "Deep" / "Quick" / "Apex 2.3" labels on all screen
+           sizes. The short "D"/"Q" labels are hidden — kept in DOM for future
+           use but never displayed. */
+        .apex-label-short, .mode-label-short { display: none !important; }
+        .apex-label-full, .mode-label-full { display: inline !important; }
         @media (max-width: 480px) {
-          .apex-label-short, .mode-label-short { display: inline; }
-          .apex-label-full, .mode-label-full { display: none; }
           .attachment-chip {
             padding: 6px 8px !important;
             gap: 6px !important;

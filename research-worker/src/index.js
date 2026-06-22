@@ -1759,13 +1759,17 @@ Be specific. Quote source numbers like [1], [3] when citing. If findings don't m
 
 // Full image intelligence pipeline — used when an image is attached.
 // Replaces the standard quickResearch/deepResearch for image uploads.
+//
+// PERFORMANCE: 3-phase pipeline (vision + search + report-with-cross-ref).
+// The cross-reference step is merged INTO the final report LLM call to
+// avoid an extra 5-10s round-trip. Total wall time: 20-35s.
 async function imageIntelligenceResearch({
   userQuery, env, apexModel, imageDescription, fileName,
   entities, mode = 'quick'
 }) {
   const t0 = Date.now();
 
-  // Phase 3: Targeted multi-query web search
+  // Phase 2: Targeted multi-query web search (uses entities from Phase 1)
   const searchQueries = entities?.search_queries?.length
     ? entities.search_queries.slice(0, 3)
     : [userQuery || 'image analysis'];
@@ -1784,10 +1788,9 @@ async function imageIntelligenceResearch({
 
   console.log(`[ImgIntel] ${mode} mode — ${searchResults.length} sources, generating report...`);
 
-  // Phase 4: Cross-reference (always — even in quick mode this adds value)
-  const crossRef = await crossReferenceImage(env, imageDescription, entities, searchResults, userQuery);
-
-  // Phase 5: Final intelligence report
+  // Phase 3: Final intelligence report (with INLINE cross-reference)
+  // The LLM gets the image description, entities, and web sources, and is
+  // instructed to cross-reference and verify as part of the report itself.
   const sourcesContext = searchResults.map((s, i) =>
     `[${i + 1}] ${s.title}\n${s.url}\n${s.snippet || ''}`
   ).join('\n\n');
@@ -1796,15 +1799,17 @@ async function imageIntelligenceResearch({
   const systemPrompt = isDeep
     ? `You are a senior intelligence analyst producing a comprehensive OSINT report based on an image submission and corroborating web sources.
 
+You MUST cross-reference the image's claims against the web sources and cite specific source numbers like [1], [3] throughout your report. If sources contradict the image, say so explicitly. If sources don't mention the image's content, say so.
+
 Structure your report as:
 ## Executive Summary
 (2-3 paragraph overview of what the image shows, what was verified, and key findings)
 
 ## Image Content Analysis
-(Detailed breakdown of visual elements, text, and context — using the image description)
+(Detailed breakdown of visual elements, text, and context — using the image description and extracted entities)
 
 ## Verification & Cross-Reference
-(Integrate the cross-reference analysis. Cite sources by number like [1], [3].)
+(Cross-reference the image's claims against the web sources. Cite sources by number like [1], [3]. State what was confirmed, contradicted, or unverifiable.)
 
 ## Key Findings
 - **Finding 1** — detail with source citation
@@ -1812,26 +1817,28 @@ Structure your report as:
 - **Finding 3** — detail with source citation
 
 ## Risk Assessment
-(Is this a scam/legitimate/educational? Confidence level with reasoning.)
+(Is this a scam/legitimate/educational? State confidence level: HIGH/MEDIUM/LOW with reasoning.)
 
 ## Methodology
 (Brief note on what was searched and how findings were corroborated.)
 
-Use markdown. Be specific and cite sources by number. Do NOT include a "Sources" or "Follow-ups" section — those are handled separately.`
+Use markdown. Be specific. Do NOT include a "Sources" or "Follow-ups" section — those are handled separately.`
     : `You are an intelligence analyst producing a concise OSINT brief based on an image and corroborating web sources.
+
+You MUST cross-reference the image's claims against the web sources and cite specific source numbers like [1], [3]. If sources contradict the image, say so explicitly.
 
 Structure:
 ## Image Analysis
-(1 paragraph: what the image shows)
+(1 paragraph: what the image shows, using the description and entities)
 
 ## Verification
-(1-2 paragraphs: what was confirmed/contradicted by web sources, with [1] citations)
+(1-2 paragraphs: what was confirmed/contradicted by web sources, with [1] citations. Be explicit about what was verified vs. unverifiable.)
 
 ## Key Findings
 - 3-4 bullets with source citations
 
 ## Assessment
-(1 paragraph: authenticity verdict and confidence)
+(1 paragraph: authenticity verdict — scam/legitimate/educational — and confidence level: HIGH/MEDIUM/LOW)
 
 Use markdown. Cite sources by number. Do NOT include "Sources" or "Follow-ups" sections.`;
 
@@ -1850,13 +1857,10 @@ EXTRACTED ENTITIES:
 - Apparent context: ${entities.context || 'unknown'}
 - Topic category: ${entities.topic_category || 'other'}
 
-CROSS-REFERENCE ANALYSIS (preliminary):
-${crossRef || '(cross-reference unavailable)'}
-
-WEB SOURCES:
+WEB SOURCES (cite these by number in your report):
 ${sourcesContext}
 
-Produce the intelligence report now.`;
+Produce the intelligence report now. Cross-reference the image content against the web sources, cite by number, and assess authenticity.`;
 
   let rawReport;
   if (apexModel === 'apex-premium') {
@@ -2329,7 +2333,7 @@ export default {
       return jsonRes({
         status: 'ok',
         service: 'kivora-research',
-        version: '5.3.0',
+        version: '5.4.0',
         providers: {
           openrouter: !!getOpenRouterKey(env),
           gemini: !!getGeminiKey(env),
@@ -2352,11 +2356,20 @@ export default {
     if (url.pathname === '/research' && request.method === 'POST') {
       try {
         const body = await request.json();
-        const { query, mode = 'quick', openrouter_key = '', mistral_key = '', apex_model = 'apex-free', attachedFile } = body;
+        const { query, mode = 'quick', openrouter_key = '', mistral_key = '', apex_model = 'apex-free', attachedFile, attachedFiles } = body;
 
-        // Allow either a query or an attached file (so the user can submit
-        // with just an image and no text). If neither is present, error.
-        if ((!query || typeof query !== 'string' || query.trim().length === 0) && !attachedFile) {
+        // Normalize: support both `attachedFile` (single, legacy) and
+        // `attachedFiles` (array, multi-upload). Merge into one array.
+        const allFiles = [];
+        if (Array.isArray(attachedFiles)) {
+          allFiles.push(...attachedFiles.filter(f => f && f.content));
+        }
+        if (attachedFile && attachedFile.content && !allFiles.includes(attachedFile)) {
+          allFiles.push(attachedFile);
+        }
+
+        // Allow either a query or at least one attached file.
+        if ((!query || typeof query !== 'string' || query.trim().length === 0) && allFiles.length === 0) {
           return jsonRes({ error: 'Query or attached file is required' }, 400);
         }
 
@@ -2375,73 +2388,82 @@ export default {
           env.MISTRAL_API_KEY = mistral_key;
         }
 
-        // ── Process attached file (if any) ──
-        // The file is converted to a context string that's prepended to the
-        // research query. Images are described via a vision model; text files
-        // have their content inlined; binary documents are noted by name+size.
+        // ── Process attached files ──
+        // Images are described via a vision model (in parallel when multiple);
+        // text files have their content inlined; binary documents are noted by
+        // name+size. Multi-image: all descriptions are concatenated.
         let fileContext = '';
         let hasImage = false;
         let imageDescription = '';
-        if (attachedFile && attachedFile.content) {
-          const fileName = attachedFile.name || 'attachment';
-          const fileType = attachedFile.type || 'application/octet-stream';
-          const fileSize = attachedFile.size || 0;
-          const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+        const imageFileNames = [];
+        const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-          if (fileSize > MAX_FILE_SIZE) {
-            return jsonRes({ error: `File too large (max ${MAX_FILE_SIZE / 1024 / 1024}MB)` }, 400);
+        if (allFiles.length > 0) {
+          // Validate sizes first
+          for (const f of allFiles) {
+            const sz = f.size || 0;
+            if (sz > MAX_FILE_SIZE) {
+              return jsonRes({ error: `File too large (max ${MAX_FILE_SIZE / 1024 / 1024}MB): ${f.name || 'attachment'}` }, 400);
+            }
           }
 
-          console.log(`[Research] Attached file: ${fileName} (${fileType}, ${fileSize} bytes)`);
+          // Process images in parallel for speed; text/binary sequentially (cheap)
+          const imageFiles = allFiles.filter(f => (f.type || '').startsWith('image/'));
+          const nonImageFiles = allFiles.filter(f => !(f.type || '').startsWith('image/'));
 
-          if (fileType.startsWith('image/')) {
-            // Image: use vision model to describe it
+          if (imageFiles.length > 0) {
             hasImage = true;
-            console.log('[Research] Image detected — calling vision model...');
-            const description = await describeImage(env, attachedFile.content, fileType);
-            if (description) {
-              imageDescription = description;
-              fileContext = `[User attached an image: ${fileName}]\nImage description: ${description}\n\n`;
-              console.log(`[Research] Image described: ${description.length} chars`);
+            console.log(`[Research] ${imageFiles.length} image(s) detected — calling vision models in parallel...`);
+            const t_v0 = Date.now();
+            const descriptions = await Promise.all(
+              imageFiles.map(f => describeImage(env, f.content, f.type || 'image/png').then(d => ({ name: f.name || 'image', desc: d })))
+            );
+            console.log(`[Research] Vision parallel done in ${Date.now()-t_v0}ms for ${imageFiles.length} image(s)`);
+            const validDescs = descriptions.filter(d => d.desc);
+            if (validDescs.length > 0) {
+              imageDescription = validDescs.map(d => `=== ${d.name} ===\n${d.desc}`).join('\n\n');
+              imageFileNames.push(...validDescs.map(d => d.name));
+              fileContext = `[User attached ${validDescs.length} image(s): ${imageFileNames.join(', ')}]\nImage description(s):\n${imageDescription}\n\n`;
             } else {
-              fileContext = `[User attached an image: ${fileName} — vision analysis unavailable]\n\n`;
-              console.error('[Research] Image description failed');
+              fileContext = `[User attached ${imageFiles.length} image(s) — vision analysis unavailable]\n\n`;
+              console.error('[Research] All image descriptions failed');
             }
-          } else if (isTextLikeFile(fileName, fileType)) {
-            // Text file: inline the content (truncated to 4K chars)
-            const textContent = attachedFile.content.startsWith('data:')
-              ? decodeURIComponent(atob(attachedFile.content.split(',')[1] || ''))
-              : attachedFile.content;
-            const truncated = textContent.slice(0, 4000);
-            fileContext = `[User attached a text file: ${fileName}]\nFile content:\n${truncated}${textContent.length > 4000 ? '\n... (truncated)' : ''}\n\n`;
-            console.log(`[Research] Text file inlined: ${truncated.length} chars`);
-          } else {
-            // Binary document (pdf/docx/xlsx/etc): note the attachment, no content extraction
-            fileContext = `[User attached a document: ${fileName} (${fileType}, ${fileSize} bytes) — content not extracted]\n\n`;
-            console.log('[Research] Binary document noted (no content extraction)');
+          }
+
+          for (const f of nonImageFiles) {
+            const fileName = f.name || 'attachment';
+            const fileType = f.type || 'application/octet-stream';
+            const fileSize = f.size || 0;
+            if (isTextLikeFile(fileName, fileType)) {
+              const textContent = f.content.startsWith('data:')
+                ? decodeURIComponent(atob(f.content.split(',')[1] || ''))
+                : f.content;
+              const truncated = textContent.slice(0, 4000);
+              fileContext += `[User attached a text file: ${fileName}]\nFile content:\n${truncated}${textContent.length > 4000 ? '\n... (truncated)' : ''}\n\n`;
+              console.log(`[Research] Text file inlined: ${truncated.length} chars (${fileName})`);
+            } else {
+              fileContext += `[User attached a document: ${fileName} (${fileType}, ${fileSize} bytes) — content not extracted]\n\n`;
+              console.log(`[Research] Binary document noted: ${fileName}`);
+            }
           }
         }
 
         // ── Image Intelligence Pipeline ──
-        // When an image is attached, route through the multi-pass OSINT pipeline:
-        //   Phase 1: Vision model already produced `fileContext` above.
-        //   Phase 2: extractImageEntities — LLM extracts brands/numbers/visual elements
-        //   Phase 3: multiQuerySearch — runs 2-3 targeted parallel web searches
-        //   Phase 4: crossReferenceImage — verifies image claims against web evidence
-        //   Phase 5: imageIntelligenceResearch — generates final OSINT report
-        // This produces "government computer system" style depth: entities →
-        // targeted searches → cross-reference → fact-checked report.
+        // When at least one image is attached, route through the multi-pass
+        // OSINT pipeline: vision → entity extraction → multi-query search →
+        // final report with inline cross-reference.
         if (hasImage && imageDescription) {
           console.log('[Research] Routing to Image Intelligence pipeline...');
+          const t_e0 = Date.now();
           const entities = await extractImageEntities(env, imageDescription, safeQuery);
-          console.log(`[Research] Entities: brands=${(entities.brand_names||[]).length}, queries=${(entities.search_queries||[]).length}, category=${entities.topic_category}`);
+          console.log(`[Research] Entities extracted in ${Date.now()-t_e0}ms — brands=${(entities.brand_names||[]).length}, queries=${(entities.search_queries||[]).length}, category=${entities.topic_category}`);
 
           const result = await imageIntelligenceResearch({
             userQuery: safeQuery,
             env,
             apexModel: apex_model,
             imageDescription,
-            fileName: attachedFile?.name || 'image',
+            fileName: imageFileNames.length > 0 ? imageFileNames.join(', ') : 'image(s)',
             entities,
             mode,
           });
@@ -2457,13 +2479,13 @@ export default {
 
         // Build a SEPARATE short search query for web search.
         let searchQuery = safeQuery;
-        if (!searchQuery && attachedFile && attachedFile.content) {
-          const fileType = attachedFile.type || '';
-          if (isTextLikeFile(attachedFile.name || '', fileType)) {
+        if (!searchQuery && allFiles.length > 0) {
+          const firstTextFile = allFiles.find(f => isTextLikeFile(f.name || '', f.type || ''));
+          if (firstTextFile) {
             // Use first 200 chars of text content as search query
-            const textContent = attachedFile.content.startsWith('data:')
-              ? decodeURIComponent(atob(attachedFile.content.split(',')[1] || ''))
-              : attachedFile.content;
+            const textContent = firstTextFile.content.startsWith('data:')
+              ? decodeURIComponent(atob(firstTextFile.content.split(',')[1] || ''))
+              : firstTextFile.content;
             searchQuery = textContent.slice(0, 200).replace(/\s+/g, ' ').trim();
           } else {
             searchQuery = 'document analysis methodology';
@@ -2472,7 +2494,7 @@ export default {
         }
         if (!searchQuery) searchQuery = 'research analysis';
 
-        console.log(`[Research] ${mode} mode: "${safeQuery || '(file only)'}", file: ${attachedFile ? 'yes' : 'no'}, image: ${hasImage}, apex: ${apex_model}`);
+        console.log(`[Research] ${mode} mode: "${safeQuery || '(file only)'}", files: ${allFiles.length}, image: ${hasImage}, apex: ${apex_model}`);
         console.log(`[Research] Search query: "${searchQuery.slice(0, 150)}"`);
         console.log(`[Research] LLM context: ${effectiveQuery.length} chars`);
 

@@ -146,11 +146,14 @@ export async function POST(req) {
 
   try {
     const body = await req.json()
-    const { query, mode = 'quick', apex_model = 'apex-free', attachedFile } = body
+    const { query, mode = 'quick', apex_model = 'apex-free', attachedFile, attachedFiles } = body
 
-    // Allow either a query or an attached file (so the user can submit
-    // with just an image and no text). If neither is present, error.
-    if ((!query || typeof query !== 'string' || query.trim().length === 0) && !attachedFile) {
+    // Normalize: accept both legacy single `attachedFile` and array `attachedFiles`.
+    // Forward both to the worker — the worker handles whichever is present.
+    const hasAnyFile = !!attachedFile || (Array.isArray(attachedFiles) && attachedFiles.length > 0)
+
+    // Allow either a query or at least one attached file.
+    if ((!query || typeof query !== 'string' || query.trim().length === 0) && !hasAnyFile) {
       return Response.json({ error: 'Query or attached file is required' }, { status: 400 })
     }
 
@@ -162,14 +165,13 @@ export async function POST(req) {
     const normalized = trimmedQuery.toLowerCase().trim()
     const apexTier = apex_model
 
-    // ── Skip cache when a file is attached ────────────────────────
+    // ── Skip cache when any file is attached ─────────────────────
     // File-bearing queries are inherently unique (the file content is part of
     // the research context), so caching by query hash would either:
     //   (a) return a stale result that doesn't account for the file, or
     //   (b) poison the cache with a file-specific result for future
     //       text-only queries with the same normalized text.
-    // We bypass the cache entirely when attachedFile is present.
-    const skipCache = !!attachedFile
+    const skipCache = hasAnyFile
 
     // ── APEX 2.0 Cache: check before calling Worker ──────────────
     const admin = getSupabaseAdmin()
@@ -216,9 +218,12 @@ export async function POST(req) {
     // overall 60s fallback timeout.
     // When an image is attached, the vision model needs extra time (up to
     // 15s for image description) — extend the timeout by 30s in that case.
-    const hasImage = attachedFile && (
-      attachedFile.type?.startsWith('image/') ||
-      /\.(png|jpe?g|gif|webp)$/i.test(attachedFile.name || '')
+    const allFilesForImageCheck = Array.isArray(attachedFiles) && attachedFiles.length > 0
+      ? attachedFiles
+      : (attachedFile ? [attachedFile] : [])
+    const hasImage = allFilesForImageCheck.some(f =>
+      f?.type?.startsWith('image/') ||
+      /\.(png|jpe?g|gif|webp)$/i.test(f?.name || '')
     )
     const baseTimeout = mode === 'deep' ? 120000 : 30000
     const workerTimeout = hasImage ? baseTimeout + 30000 : baseTimeout
@@ -231,6 +236,9 @@ export async function POST(req) {
     }
     if (attachedFile) {
       workerBody.attachedFile = attachedFile
+    }
+    if (Array.isArray(attachedFiles) && attachedFiles.length > 0) {
+      workerBody.attachedFiles = attachedFiles
     }
 
     const workerRes = await fetch(RESEARCH_WORKER_URL, {
