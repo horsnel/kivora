@@ -1598,6 +1598,302 @@ function stripSourcesSection(report) {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// IMAGE INTELLIGENCE PIPELINE — multi-pass, OSINT-style analysis
+// ══════════════════════════════════════════════════════════════════
+//
+// Designed for "government computer system" style depth: extract entities
+// from the image description, generate targeted search queries, run them
+// in parallel, then cross-reference findings against the image content
+// to verify authenticity and identify scams / real products / context.
+
+// Phase 2: Extract structured entities from the vision description.
+// Uses a fast LLM call (Groq llama-3.1-8b via llmApexFree) to pull out:
+//   - brand_names:    recognized brands, products, platforms, organizations
+//   - key_numbers:    token amounts, prices, dates, version numbers
+//   - visual_elements: logos, QR codes, icons, characters, flags
+//   - text_content:   key text elements quoted from the image
+//   - context:        what the image appears to be (ad, screenshot, diagram)
+//   - topic_category: marketing/scam/educational/news/personal/document
+//   - search_queries: 2-3 targeted web search queries derived from entities
+async function extractImageEntities(env, imageDescription, userQuery) {
+  const t0 = Date.now();
+  const prompt = `You are an intelligence analyst. Analyze this image description and extract structured entities for an OSINT investigation.
+
+Image description:
+${imageDescription}
+
+${userQuery ? `User question: ${userQuery}` : ''}
+
+Return STRICT JSON only (no markdown, no commentary). Schema:
+{
+  "brand_names": ["recognized brands, platforms, organizations, products"],
+  "key_numbers": ["token amounts, prices, dates, version numbers, statistics"],
+  "visual_elements": ["logos, QR codes, icons, characters, flags, charts, screenshots"],
+  "text_content": ["key text strings quoted from the image (headlines, CTAs, labels)"],
+  "context": "one sentence: what this image appears to be (advertisement, screenshot, diagram, photo, document, meme, etc.)",
+  "topic_category": "one of: marketing | scam_or_phishing | educational | news | personal_photo | document | meme | technical_diagram | other",
+  "search_queries": ["2-3 targeted web search queries (3-7 words each) that would find authoritative information about this image's content"]
+}
+
+Rules:
+- search_queries should target the SPECIFIC entities (brand + product), not generic terms.
+- If the image appears to be a scam or phishing attempt, include "scam" or "phishing" in one search query.
+- If you recognize a specific brand, name it explicitly in search_queries.
+- Return at most 3 search_queries.`;
+
+  try {
+    const raw = await llmApexFree(env, [
+      { role: 'system', content: 'You are a JSON-only OSINT entity extractor. Return valid JSON, no markdown fences.' },
+      { role: 'user', content: prompt },
+    ], 1024, 'quick');
+
+    // Strip markdown fences if present
+    let cleaned = (raw || '').trim();
+    if (cleaned.startsWith('```')) {
+      cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+    }
+    // Find first { and last }
+    const first = cleaned.indexOf('{');
+    const last = cleaned.lastIndexOf('}');
+    if (first >= 0 && last > first) {
+      cleaned = cleaned.slice(first, last + 1);
+    }
+
+    const parsed = JSON.parse(cleaned);
+    console.log(`[ImgIntel] entities extracted in ${Date.now()-t0}ms — brands: ${parsed.brand_names?.length||0}, queries: ${parsed.search_queries?.length||0}`);
+    return parsed;
+  } catch (err) {
+    console.error('[ImgIntel] entity extraction failed:', err.message);
+    // Return minimal fallback so pipeline can continue
+    return {
+      brand_names: [],
+      key_numbers: [],
+      visual_elements: [],
+      text_content: [],
+      context: 'image content',
+      topic_category: 'other',
+      search_queries: [],
+    };
+  }
+}
+
+// Phase 3b: Run multiple Tavily searches in parallel and merge/dedupe results.
+async function multiQuerySearch(queries, env, perQuery = 5) {
+  if (!queries || queries.length === 0) return [];
+  const t0 = Date.now();
+  console.log(`[ImgIntel] running ${queries.length} parallel searches: ${JSON.stringify(queries)}`);
+
+  const results = await Promise.all(
+    queries.map(q => searchTavily(q, env, perQuery, 'basic').catch(() => []))
+  );
+
+  // Merge and dedupe by URL
+  const seen = new Set();
+  const merged = [];
+  for (const list of results) {
+    for (const r of list) {
+      try {
+        const u = new URL(r.url);
+        const key = u.hostname.replace(/^www\./, '') + u.pathname.replace(/\/$/, '');
+        if (!seen.has(key)) {
+          seen.add(key);
+          merged.push(r);
+        }
+      } catch {
+        // skip invalid URLs
+      }
+    }
+  }
+  console.log(`[ImgIntel] multi-query search returned ${merged.length} unique results in ${Date.now()-t0}ms`);
+  return merged;
+}
+
+// Phase 4: Cross-reference image content with web findings.
+// Determines if the image is authentic, identifies scams, verifies claims.
+async function crossReferenceImage(env, imageDescription, entities, searchResults, userQuery) {
+  const t0 = Date.now();
+
+  const searchContext = searchResults.slice(0, 8).map((s, i) =>
+    `[${i + 1}] ${s.title}\nURL: ${s.url}\n${s.snippet || ''}`
+  ).join('\n\n');
+
+  const prompt = `You are an OSINT analyst cross-referencing an image's content with web findings.
+
+IMAGE DESCRIPTION:
+${imageDescription}
+
+EXTRACTED ENTITIES:
+- Brands: ${entities.brand_names?.join(', ') || 'none'}
+- Numbers: ${entities.key_numbers?.join(', ') || 'none'}
+- Visual elements: ${entities.visual_elements?.join(', ') || 'none'}
+- Text content: ${entities.text_content?.join(' | ') || 'none'}
+- Apparent context: ${entities.context || 'unknown'}
+- Topic category: ${entities.topic_category || 'other'}
+
+WEB FINDINGS:
+${searchContext}
+
+${userQuery ? `User question: ${userQuery}` : ''}
+
+Produce a cross-reference analysis (300-500 words) covering:
+1. **Verification**: Does web evidence confirm or contradict the image's claims? Cite source numbers.
+2. **Authenticity**: Is this a real product/ad/person, or a fabrication/scam/misinformation?
+3. **Context**: What is the broader context? (e.g., "this is a known phishing campaign targeting X")
+4. **Key findings**: 2-3 bullet points of the most important verified facts.
+5. **Confidence**: HIGH / MEDIUM / LOW with one-sentence reason.
+
+Be specific. Quote source numbers like [1], [3] when citing. If findings don't mention the image's content, say so explicitly.`;
+
+  try {
+    const result = await llmApexFree(env, [
+      { role: 'system', content: 'You are a precise OSINT cross-reference analyst. Be factual, cite sources by number.' },
+      { role: 'user', content: prompt },
+    ], 2048, 'deep');
+    console.log(`[ImgIntel] cross-reference done in ${Date.now()-t0}ms, ${result?.length||0} chars`);
+    return result || '';
+  } catch (err) {
+    console.error('[ImgIntel] cross-reference failed:', err.message);
+    return '';
+  }
+}
+
+// Full image intelligence pipeline — used when an image is attached.
+// Replaces the standard quickResearch/deepResearch for image uploads.
+async function imageIntelligenceResearch({
+  userQuery, env, apexModel, imageDescription, fileName,
+  entities, mode = 'quick'
+}) {
+  const t0 = Date.now();
+
+  // Phase 3: Targeted multi-query web search
+  const searchQueries = entities?.search_queries?.length
+    ? entities.search_queries.slice(0, 3)
+    : [userQuery || 'image analysis'];
+
+  // Always include the user query as one of the search queries if present
+  if (userQuery && userQuery.length > 5 && !searchQueries.includes(userQuery)) {
+    searchQueries.push(userQuery.slice(0, 100));
+  }
+
+  const perQuery = mode === 'deep' ? 6 : 4;
+  const searchResults = await multiQuerySearch(searchQueries, env, perQuery);
+
+  if (searchResults.length === 0) {
+    return { error: 'No web sources found for this image. Try a more specific query.' };
+  }
+
+  console.log(`[ImgIntel] ${mode} mode — ${searchResults.length} sources, generating report...`);
+
+  // Phase 4: Cross-reference (always — even in quick mode this adds value)
+  const crossRef = await crossReferenceImage(env, imageDescription, entities, searchResults, userQuery);
+
+  // Phase 5: Final intelligence report
+  const sourcesContext = searchResults.map((s, i) =>
+    `[${i + 1}] ${s.title}\n${s.url}\n${s.snippet || ''}`
+  ).join('\n\n');
+
+  const isDeep = mode === 'deep';
+  const systemPrompt = isDeep
+    ? `You are a senior intelligence analyst producing a comprehensive OSINT report based on an image submission and corroborating web sources.
+
+Structure your report as:
+## Executive Summary
+(2-3 paragraph overview of what the image shows, what was verified, and key findings)
+
+## Image Content Analysis
+(Detailed breakdown of visual elements, text, and context — using the image description)
+
+## Verification & Cross-Reference
+(Integrate the cross-reference analysis. Cite sources by number like [1], [3].)
+
+## Key Findings
+- **Finding 1** — detail with source citation
+- **Finding 2** — detail with source citation
+- **Finding 3** — detail with source citation
+
+## Risk Assessment
+(Is this a scam/legitimate/educational? Confidence level with reasoning.)
+
+## Methodology
+(Brief note on what was searched and how findings were corroborated.)
+
+Use markdown. Be specific and cite sources by number. Do NOT include a "Sources" or "Follow-ups" section — those are handled separately.`
+    : `You are an intelligence analyst producing a concise OSINT brief based on an image and corroborating web sources.
+
+Structure:
+## Image Analysis
+(1 paragraph: what the image shows)
+
+## Verification
+(1-2 paragraphs: what was confirmed/contradicted by web sources, with [1] citations)
+
+## Key Findings
+- 3-4 bullets with source citations
+
+## Assessment
+(1 paragraph: authenticity verdict and confidence)
+
+Use markdown. Cite sources by number. Do NOT include "Sources" or "Follow-ups" sections.`;
+
+  const userContent = `USER QUERY: ${userQuery || '(no specific question — analyze this image)'}
+
+ATTACHED IMAGE: ${fileName}
+
+IMAGE DESCRIPTION (from vision model):
+${imageDescription}
+
+EXTRACTED ENTITIES:
+- Brands: ${entities.brand_names?.join(', ') || 'none'}
+- Numbers: ${entities.key_numbers?.join(', ') || 'none'}
+- Visual elements: ${entities.visual_elements?.join(', ') || 'none'}
+- Text content: ${entities.text_content?.join(' | ') || 'none'}
+- Apparent context: ${entities.context || 'unknown'}
+- Topic category: ${entities.topic_category || 'other'}
+
+CROSS-REFERENCE ANALYSIS (preliminary):
+${crossRef || '(cross-reference unavailable)'}
+
+WEB SOURCES:
+${sourcesContext}
+
+Produce the intelligence report now.`;
+
+  let rawReport;
+  if (apexModel === 'apex-premium') {
+    rawReport = await llmApexPremium(env, [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userContent },
+    ], isDeep ? 8192 : 4096, mode);
+  } else {
+    rawReport = await llmApexFree(env, [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userContent },
+    ], isDeep ? 8192 : 4096, mode);
+  }
+
+  console.log(`[ImgIntel] report generated in ${Date.now()-t0}ms total`);
+
+  // Process report (extract followups, strip sources section)
+  const { report: rawReport2, followups } = extractFollowups(rawReport);
+  const report = stripSourcesSection(rawReport2);
+  const titleMatch = report.match(/^##\s+(.+)$/m) || report.match(/^#\s+(.+)$/m);
+  const title = titleMatch ? titleMatch[1].replace(/[*_]/g, '') : (userQuery || 'Image Intelligence Report');
+
+  const sources = searchResults.map((s, i) => ({
+    id: i,
+    url: s.url,
+    title: s.title || `Source ${i + 1}`,
+    snippet: s.snippet?.slice(0, 200) || '',
+    favicon: '',
+    status: 'loaded',
+    tier: s.tier || 'UNV',
+    tierLabel: s.tierLabel || 'UNV — Unverified',
+  }));
+
+  return makeResponse({ sources, report, title, followups, mode, classification: 'image_intelligence' });
+}
+
+// ══════════════════════════════════════════════════════════════════
 // MAIN RESEARCH PIPELINE — SPEED OPTIMIZED
 // ══════════════════════════════════════════════════════════════════
 
@@ -2033,7 +2329,7 @@ export default {
       return jsonRes({
         status: 'ok',
         service: 'kivora-research',
-        version: '5.2.0',
+        version: '5.3.0',
         providers: {
           openrouter: !!getOpenRouterKey(env),
           gemini: !!getGeminiKey(env),
@@ -2085,6 +2381,7 @@ export default {
         // have their content inlined; binary documents are noted by name+size.
         let fileContext = '';
         let hasImage = false;
+        let imageDescription = '';
         if (attachedFile && attachedFile.content) {
           const fileName = attachedFile.name || 'attachment';
           const fileType = attachedFile.type || 'application/octet-stream';
@@ -2103,6 +2400,7 @@ export default {
             console.log('[Research] Image detected — calling vision model...');
             const description = await describeImage(env, attachedFile.content, fileType);
             if (description) {
+              imageDescription = description;
               fileContext = `[User attached an image: ${fileName}]\nImage description: ${description}\n\n`;
               console.log(`[Research] Image described: ${description.length} chars`);
             } else {
@@ -2124,25 +2422,44 @@ export default {
           }
         }
 
-        // Build the effective query: file context (if any) + user query.
-        // This is the FULL context passed to the LLM for report generation.
+        // ── Image Intelligence Pipeline ──
+        // When an image is attached, route through the multi-pass OSINT pipeline:
+        //   Phase 1: Vision model already produced `fileContext` above.
+        //   Phase 2: extractImageEntities — LLM extracts brands/numbers/visual elements
+        //   Phase 3: multiQuerySearch — runs 2-3 targeted parallel web searches
+        //   Phase 4: crossReferenceImage — verifies image claims against web evidence
+        //   Phase 5: imageIntelligenceResearch — generates final OSINT report
+        // This produces "government computer system" style depth: entities →
+        // targeted searches → cross-reference → fact-checked report.
+        if (hasImage && imageDescription) {
+          console.log('[Research] Routing to Image Intelligence pipeline...');
+          const entities = await extractImageEntities(env, imageDescription, safeQuery);
+          console.log(`[Research] Entities: brands=${(entities.brand_names||[]).length}, queries=${(entities.search_queries||[]).length}, category=${entities.topic_category}`);
+
+          const result = await imageIntelligenceResearch({
+            userQuery: safeQuery,
+            env,
+            apexModel: apex_model,
+            imageDescription,
+            fileName: attachedFile?.name || 'image',
+            entities,
+            mode,
+          });
+
+          if (result.error) {
+            return jsonRes(result, 500);
+          }
+          return jsonRes(result);
+        }
+
+        // ── Standard research pipeline (text-only or text-attached file) ──
         const effectiveQuery = fileContext + (safeQuery || '(Analyze the attached file and provide insights.)');
 
         // Build a SEPARATE short search query for web search.
-        // When a file is attached, the fileContext (image description, file
-        // contents) can be 1600+ chars — too long for Tavily, which returns
-        // no results. We use just the user's text query for search.
-        // If the user has no text query (file-only upload), derive a short
-        // generic search query from the file type:
-        //   - image: "image analysis" (broad enough to return results)
-        //   - text:  first 200 chars of the file content (truncated)
-        //   - binary: "document analysis"
         let searchQuery = safeQuery;
         if (!searchQuery && attachedFile && attachedFile.content) {
           const fileType = attachedFile.type || '';
-          if (fileType.startsWith('image/')) {
-            searchQuery = 'image content analysis techniques';
-          } else if (isTextLikeFile(attachedFile.name || '', fileType)) {
+          if (isTextLikeFile(attachedFile.name || '', fileType)) {
             // Use first 200 chars of text content as search query
             const textContent = attachedFile.content.startsWith('data:')
               ? decodeURIComponent(atob(attachedFile.content.split(',')[1] || ''))
@@ -2153,7 +2470,6 @@ export default {
           }
           console.log(`[Research] Derived search query from file: "${searchQuery.slice(0, 100)}"`);
         }
-        // Fallback: if we still have no search query, use a generic one
         if (!searchQuery) searchQuery = 'research analysis';
 
         console.log(`[Research] ${mode} mode: "${safeQuery || '(file only)'}", file: ${attachedFile ? 'yes' : 'no'}, image: ${hasImage}, apex: ${apex_model}`);
