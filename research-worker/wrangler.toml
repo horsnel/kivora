@@ -11,6 +11,7 @@ binding = "AI"
 # OPENROUTER_API_KEY — for OpenRouter LLM calls
 # TAVILY_API_KEY — for Tavily web search
 # GEMINI_API_KEY — for Gemini LLM calls
+# MISTRAL_API_KEY — for Mistral Pixtral vision (image descriptions)
 # BRAVE_SEARCH_API_KEY — for Brave Search (deep mode)
 # FIRECRAWL_API_KEY — for Firecrawl search & scraping
 

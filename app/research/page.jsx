@@ -845,7 +845,7 @@ function ResearchPageContent() {
             <div className="chat-container-expanded">
               {/* Attachment chip (if any) */}
               {attachedFile && (
-                <div className="flex items-center gap-2 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1.5 mb-2 max-w-full animate-fade-in">
+                <div className="flex items-center gap-2 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1.5 mb-2 max-w-full animate-fade-in attachment-chip">
                   {attachedFile.type?.startsWith('image/') ? (
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
                       <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
@@ -909,30 +909,32 @@ function ResearchPageContent() {
                     </svg>
                   </button>
                   {/* Apex model selector dropdown */}
-                  <div className="relative" style={{position:'relative'}}>
+                  <div className="relative min-w-0" style={{position:'relative'}}>
                     <button
                       onClick={() => {
                         const next = apexModel === 'apex-free' ? 'apex-premium' : 'apex-free'
                         setApexModel(next)
                       }}
-                      className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ml-0.5 flex items-center gap-1 ${
+                      className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ml-0.5 flex items-center gap-1 min-w-0 shrink ${
                         apexModel === 'apex-premium'
                           ? 'bg-[rgba(220,38,38,0.12)] text-[#ef4444] border-[rgba(220,38,38,0.2)]'
                           : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
                       }`}
                     >
-                      {apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}
+                      <span className="apex-label-full">{apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}</span>
+                      <span className="apex-label-short">{apexModel === 'apex-premium' ? '2.3' : '1.7'}</span>
                     </button>
                   </div>
                   <button
                     onClick={() => setMode(mode === 'quick' ? 'deep' : 'quick')}
-                    className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ml-0.5 ${
+                    className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ml-0.5 min-w-0 shrink ${
                       mode === 'deep'
                         ? 'bg-[rgba(168,85,247,0.12)] text-[#a855f7] border-[rgba(168,85,247,0.2)]'
                         : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
                     }`}
                   >
-                    {mode === 'deep' ? 'Deep' : 'Quick'}
+                    <span className="mode-label-full">{mode === 'deep' ? 'Deep' : 'Quick'}</span>
+                    <span className="mode-label-short">{mode === 'deep' ? 'D' : 'Q'}</span>
                   </button>
                 </div>
                 <div className="chat-toolbar-right">
@@ -1187,7 +1189,7 @@ function ResearchPageContent() {
               {(attachedFile || fileError) && (
                 <div className="max-w-full mb-2">
                   {attachedFile && (
-                    <div className="flex items-center gap-2 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1.5 max-w-full animate-fade-in">
+                    <div className="flex items-center gap-2 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1.5 max-w-full animate-fade-in attachment-chip">
                       {attachedFile.type?.startsWith('image/') ? (
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
                           <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
@@ -1259,24 +1261,26 @@ function ResearchPageContent() {
                     const next = apexModel === 'apex-free' ? 'apex-premium' : 'apex-free'
                     setApexModel(next)
                   }}
-                  className={`text-[10px] px-2 py-1 rounded-full transition-all duration-200 border shrink-0 ${
+                  className={`text-[10px] px-2 py-1 rounded-full transition-all duration-200 border min-w-0 shrink ${
                     apexModel === 'apex-premium'
                       ? 'bg-[rgba(220,38,38,0.12)] text-[#ef4444] border-[rgba(220,38,38,0.2)]'
                       : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
                   }`}
                 >
-                  {apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}
+                  <span className="apex-label-full">{apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}</span>
+                  <span className="apex-label-short">{apexModel === 'apex-premium' ? '2.3' : '1.7'}</span>
                 </button>
                 {/* Mode chip */}
                 <button
                   onClick={() => setMode(mode === 'quick' ? 'deep' : 'quick')}
-                  className={`text-[10px] px-2 py-1 rounded-full transition-all duration-200 border shrink-0 ${
+                  className={`text-[10px] px-2 py-1 rounded-full transition-all duration-200 border min-w-0 shrink ${
                     mode === 'deep'
                       ? 'bg-[rgba(168,85,247,0.12)] text-[#a855f7] border-[rgba(168,85,247,0.2)]'
                       : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
                   }`}
                 >
-                  {mode === 'deep' ? 'Deep' : 'Quick'}
+                  <span className="mode-label-full">{mode === 'deep' ? 'Deep' : 'Quick'}</span>
+                  <span className="mode-label-short">{mode === 'deep' ? 'D' : 'Q'}</span>
                 </button>
 
                 {/* Send button */}
@@ -1381,12 +1385,20 @@ function ResearchPageContent() {
           align-items: center;
           gap: 6px;
           min-height: 38px;
+          min-width: 0;
+          overflow: hidden;
         }
         .chat-toolbar-left, .chat-toolbar-right {
           display: flex;
           align-items: center;
           gap: 4px;
-          flex-shrink: 0;
+          flex-shrink: 1;
+          min-width: 0;
+        }
+        .chat-toolbar-right { flex-shrink: 0; }
+        @media (max-width: 480px) {
+          .chat-toolbar-expanded { gap: 4px; }
+          .chat-toolbar-left, .chat-toolbar-right { gap: 3px; }
         }
         .chat-toolbar-btn {
           background: transparent;
@@ -1464,6 +1476,10 @@ function ResearchPageContent() {
           min-height: 56px;
           transition: border-color 0.3s ease;
           position: relative;
+          overflow: hidden;
+        }
+        @media (max-width: 480px) {
+          .research-bar-collapsed { padding: 6px 8px; gap: 4px; min-height: 50px; }
         }
         .research-bar-collapsed:focus-within { border-color: transparent; }
         .research-bar-collapsed:focus-within::before {
@@ -1537,6 +1553,22 @@ function ResearchPageContent() {
         .research-collapsed-send:disabled { cursor: not-allowed; opacity: 0.5; }
         .research-collapsed-send-active { background: #e2e2e2; color: #0a0a0a; }
         .research-collapsed-send-active:hover { background: #ffffff; transform: scale(1.05); }
+
+        /* ─── Responsive chip labels ─── */
+        /* On narrow screens (< 480px), show short labels (e.g. "2.3" instead
+           of "Apex 2.3", "D" instead of "Deep") to prevent the toolbar from
+           overflowing on mobile. On wider screens, show the full label. */
+        .apex-label-short, .mode-label-short { display: none; }
+        .apex-label-full, .mode-label-full { display: inline; }
+        @media (max-width: 480px) {
+          .apex-label-short, .mode-label-short { display: inline; }
+          .apex-label-full, .mode-label-full { display: none; }
+          .attachment-chip {
+            padding: 6px 8px !important;
+            gap: 6px !important;
+          }
+          .attachment-chip svg { width: 12px !important; height: 12px !important; }
+        }
 
         /* ─── Shared ─── */
         .scrollbar-none::-webkit-scrollbar { display: none; }

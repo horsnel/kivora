@@ -34,6 +34,9 @@ function getOpenRouterKey(env) {
 function getGeminiKey(env) {
   return env.GEMINI_API_KEY || '';
 }
+function getMistralKey(env) {
+  return env.MISTRAL_API_KEY || '';
+}
 function getBraveKey(env) {
   return env.BRAVE_SEARCH_API_KEY || '';
 }
@@ -662,7 +665,62 @@ async function describeImage(env, imageDataUrl, mimeType = 'image/png') {
   // Strip the data URL prefix to get raw base64
   const base64 = imageDataUrl.replace(/^data:[^;]+;base64,/, '');
 
-  // --- Provider 1: Gemini 2.0 Flash (vision) ---
+  // Vision prompt — detailed and structured to match the quality of the chat page analysis.
+  // Asks for text elements, graphics, colors, and overall impression so the research
+  // model gets rich context about the image content (not just metadata).
+  const VISION_PROMPT = 'Analyze this image thoroughly. Describe:\n1. What the image shows (objects, people, scenes, charts/diagrams)\n2. ALL text elements visible in the image (titles, headlines, labels, captions, UI text) — quote them exactly\n3. Graphics, symbols, logos, icons, and visual elements\n4. Color scheme and overall visual style\n5. The overall impression / what the image is communicating\n\nBe specific and detailed. Your description will be used as context for a research query, so capture every meaningful visual element.';
+
+  // --- Provider 1: Mistral Pixtral (vision) ---
+  // Mistral's pixtral-12b-2409 is a dedicated vision model that produces rich,
+  // structured descriptions. Primary provider because it handles text-in-image
+  // extraction especially well (ads, screenshots, documents).
+  if (getMistralKey(env)) {
+    try {
+      const t0 = Date.now();
+      const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getMistralKey(env)}`,
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'pixtral-12b-2409',
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: VISION_PROMPT },
+              { type: 'image_url', image_url: { url: imageDataUrl } },
+            ],
+          }],
+          max_tokens: 1500,
+          temperature: 0.2,
+        }),
+        signal: AbortSignal.timeout(20000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.choices?.[0]?.message?.content;
+        // Mistral may return content as string or array of content blocks
+        const desc = typeof text === 'string'
+          ? text
+          : Array.isArray(text)
+            ? text.map(b => b?.text || '').join('')
+            : '';
+        if (desc && desc.length > 30) {
+          console.log(`[Vision/Mistral] success in ${Date.now()-t0}ms, chars: ${desc.length}`);
+          return desc.trim();
+        }
+      } else {
+        const errBody = await res.text().catch(() => '');
+        console.error(`[Vision/Mistral] error ${res.status}: ${errBody.slice(0, 200)}`);
+      }
+    } catch (err) {
+      console.error('[Vision/Mistral] exception:', err.message);
+    }
+  }
+
+  // --- Provider 2: Gemini 2.0 Flash (vision) ---
   if (getGeminiKey(env)) {
     try {
       const t0 = Date.now();
@@ -676,11 +734,11 @@ async function describeImage(env, imageDataUrl, mimeType = 'image/png') {
             contents: [{
               role: 'user',
               parts: [
-                { text: 'Describe this image in detail. Focus on objects, text, people, scenes, charts/diagrams, and any other visually relevant information. Be concise but thorough — your description will be used as context for a research query.' },
+                { text: VISION_PROMPT },
                 { inline_data: { mime_type: mimeType, data: base64 } },
               ],
             }],
-            generationConfig: { temperature: 0.3, maxOutputTokens: 1024 },
+            generationConfig: { temperature: 0.2, maxOutputTokens: 1536 },
           }),
           signal: AbortSignal.timeout(15000),
         }
@@ -700,7 +758,7 @@ async function describeImage(env, imageDataUrl, mimeType = 'image/png') {
     }
   }
 
-  // --- Provider 2: OpenRouter llama-4-maverick (vision) ---
+  // --- Provider 3: OpenRouter llama-4-maverick (vision) ---
   if (getOpenRouterKey(env)) {
     try {
       const t0 = Date.now();
@@ -717,12 +775,12 @@ async function describeImage(env, imageDataUrl, mimeType = 'image/png') {
           messages: [{
             role: 'user',
             content: [
-              { type: 'text', text: 'Describe this image in detail. Focus on objects, text, people, scenes, charts/diagrams. Be concise but thorough.' },
+              { type: 'text', text: VISION_PROMPT },
               { type: 'image_url', image_url: { url: imageDataUrl } },
             ],
           }],
-          max_tokens: 1024,
-          temperature: 0.3,
+          max_tokens: 1500,
+          temperature: 0.2,
         }),
         signal: AbortSignal.timeout(15000),
       });
@@ -741,7 +799,7 @@ async function describeImage(env, imageDataUrl, mimeType = 'image/png') {
     }
   }
 
-  // --- Provider 3: Workers AI Llava (fallback) ---
+  // --- Provider 4: Workers AI Llava (fallback) ---
   if (env.AI) {
     try {
       const t0 = Date.now();
@@ -751,7 +809,7 @@ async function describeImage(env, imageDataUrl, mimeType = 'image/png') {
       for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
       const response = await env.AI.run('@cf/llava-hf', {
         image: bytes,
-        prompt: 'Describe this image in detail. Focus on objects, text, people, scenes, charts/diagrams.',
+        prompt: VISION_PROMPT,
       });
       const text = response?.description || response?.response;
       if (text && text.length > 20) {
@@ -1278,18 +1336,39 @@ function cleanFollowupQuestion(q) {
 //   "## Related Questions"     — alternative heading
 //   "### Follow-up Questions"  — different heading level
 //   "Specific follow-up questions:" — lowercase + custom prefix
+//   "## Follow-up Inquiries"   — variant noun
+//   "## Questions for Further Research" — reordered phrasing
+//   "## Further Investigation" — variant phrasing
+//   "## Next Steps"            — variant phrasing (sometimes used)
 // Allows 0-3 leading '#', optional markdown bold (**...**), optional prefix
 // word, optional trailing descriptor in parentheses or after a colon, and is
 // CASE-INSENSITIVE so "follow-up", "Follow-up", "FOLLOW-UP" all match.
 // The trailing portion allows any combination of bold markers, colons, and
 // whitespace so "Follow-ups:**" and "**Follow-ups:**" both match.
-const FOLLOWUP_HEADING_RE = /^[ \t]*#{0,3}\s*(?:\*{1,2}\s*)?(?:(?:suggested|potential|recommended|possible|additional|further|specific|other|relevant)\s+)?(?:follow[-\s]?[Uu]?ps?|follow[-\s]?[Uu]?p\s+questions?|related\s+questions?)[\s*:：\*]*(?:\([^)]*\)[\s*:：\*]*)?(?:\s+for\s+[^\n]+)?\s*$/im;
+const FOLLOWUP_PREFIX_WORDS = '(?:suggested|potential|recommended|possible|additional|further|specific|other|relevant|proposed|noteworthy|interesting)';
+const FOLLOWUP_KEYWORDS = '(?:follow[-\\s]?[Uu]?ps?|follow[-\\s]?[Uu]?p\\s+(?:questions?|inquiries|items|research\\s+questions?)|related\\s+questions?|questions\\s+for\\s+(?:further\\s+)?research|further\\s+(?:investigation|questions?|research)|next\\s+steps)';
+const FOLLOWUP_HEADING_RE = new RegExp(
+  '^[ \\t]*#{0,3}\\s*(?:\\*{1,2}\\s*)?' +
+  '(?:' + FOLLOWUP_PREFIX_WORDS + '\\s+)?' +
+  FOLLOWUP_KEYWORDS +
+  '[\\s*:：\\*]*(?:\\([^)]*\\)[\\s*:：\\*]*)?(?:\\s+for\\s+[^\\n]+)?\\s*$',
+  'im'
+);
 
 // Looser variant used for defensive line-by-line scan inside stripSourcesSection.
 // Matches any line whose stripped form starts with a follow-ups-style word,
 // regardless of trailing punctuation or descriptor text. Used as a last-resort
 // catch for heading formats the main regex might miss.
-const FOLLOWUP_HEADING_LOOSE_RE = /^[ \t]*#{0,3}\s*(?:\*{1,2}\s*)?(?:suggested|potential|recommended|possible|additional|further|specific|other|relevant\s+)?(?:follow[-\s]?[Uu]?ps?|follow[-\s]?[Uu]?p\s+questions?|related\s+questions?)/im;
+// IMPORTANT: The prefix word group MUST have `\\s+` after it (same as main
+// regex), otherwise "Suggested Follow-ups" won't match — the space between
+// "Suggested" and "Follow-ups" would not be consumed, and the regex would fail
+// to match the keyword after the prefix.
+const FOLLOWUP_HEADING_LOOSE_RE = new RegExp(
+  '^[ \\t]*#{0,3}\\s*(?:\\*{1,2}\\s*)?' +
+  '(?:' + FOLLOWUP_PREFIX_WORDS + '\\s+)?' +
+  FOLLOWUP_KEYWORDS,
+  'im'
+);
 
 function extractFollowups(text) {
   if (!text) return { report: '', followups: [] };
@@ -1349,6 +1428,28 @@ function extractFollowups(text) {
       }
       return { report: report.trim(), followups: questions };
     }
+    // ── Pattern 2.5: heading matched but no questions followed ──
+    // The model emitted a "## Follow-ups" heading but the content after it
+    // didn't look like questions (no '?' endings). We STILL need to strip the
+    // heading + everything after it up to the next `---` divider — otherwise
+    // the heading and its non-question follow-up content leak into the report
+    // body. We then fall through to Pattern 3 with the stripped text in case
+    // there are question lines ELSEWHERE in the remaining text.
+    const dividerAfterHeading = afterHeading.indexOf('\n---');
+    let report2_5;
+    if (dividerAfterHeading !== -1) {
+      // Preserve content after the divider (likely part2 of a deep-mode report)
+      const beforeDivider = text.slice(0, headingStart);
+      const afterDivider = afterHeading.slice(dividerAfterHeading + 1);
+      report2_5 = beforeDivider + '\n' + afterDivider;
+    } else {
+      // No divider — strip heading + everything after it. The content after
+      // a Follow-ups heading is follow-up content (even if not questions),
+      // so it should not appear in the report body.
+      report2_5 = text.slice(0, headingStart);
+    }
+    text = report2_5.trim();
+    // Fall through to Pattern 3 to look for question lines elsewhere.
   }
 
   // ── Pattern 3 (last-resort fallback): scan last 25 lines for question lines ──
@@ -1404,17 +1505,29 @@ function stripSourcesSection(report) {
     stripped = stripped.replace(/^[ \t]*Sources?\s*:?\s*\n[\s\S]*?$/im, '');
   }
   // Belt-and-suspenders: strip any "## Follow-ups" / "## Followups" /
-  // "## Follow Up Questions" / "## Related Questions" heading + everything
-  // after it. extractFollowups() should have already removed this content,
-  // but if the model used a slightly different heading format (e.g. extra
-  // whitespace, or no question mark at the end of questions), some content
-  // could leak through. This guarantees the report body never contains a
-  // duplicate Follow-ups section that overlaps with the UI's section.
-  // Uses the bulletproof pattern that catches every variant:
+  // "## Follow Up Questions" / "## Related Questions" / "## Next Steps" /
+  // "## Questions for Further Research" heading + everything after it.
+  // extractFollowups() should have already removed this content, but if the
+  // model used a slightly different heading format (e.g. extra whitespace, or
+  // no question mark at the end of questions), some content could leak
+  // through. This guarantees the report body never contains a duplicate
+  // Follow-ups section that overlaps with the UI's section.
+  // Uses the same bulletproof pattern (FOLLOWUP_HEADING_RE) that
+  // extractFollowups uses — built from FOLLOWUP_PREFIX_WORDS +
+  // FOLLOWUP_KEYWORDS so every variant is caught:
   // ## Follow-ups, ## **Follow-ups**, ## **Follow-ups:** (colon inside bold),
   // ## Suggested Follow-ups (5), ## Follow-ups for Further Research, bare
-  // Follow-ups:, etc.
-  stripped = stripped.replace(/^[ \t]*#{0,3}\s*(?:\*{1,2}\s*)?(?:(?:suggested|potential|recommended|possible|additional|further|specific|other|relevant)\s+)?(?:follow[-\s]?[Uu]?ps?|follow[-\s]?[Uu]?p\s+questions?|related\s+questions?)[\s*:：\*]*(?:\([^)]*\)[\s*:：\*]*)?(?:\s+for\s+[^\n]+)?\s*\n[\s\S]*$/im, '');
+  // Follow-ups:, ## Next Steps, ## Questions for Further Research, etc.
+  // We use a RegExp built from the same source strings to avoid duplicating
+  // the pattern logic.
+  const SINK_FOLLOWUP_RE = new RegExp(
+    '^[ \\t]*#{0,3}\\s*(?:\\*{1,2}\\s*)?' +
+    '(?:' + FOLLOWUP_PREFIX_WORDS + '\\s+)?' +
+    FOLLOWUP_KEYWORDS +
+    '[\\s*:：\\*]*(?:\\([^)]*\\)[\\s*:：\\*]*)?(?:\\s+for\\s+[^\\n]+)?\\s*\\n[\\s\\S]*$',
+    'im'
+  );
+  stripped = stripped.replace(SINK_FOLLOWUP_RE, '');
   // Also strip a bare "FOLLOWUPS:" keyword + everything after it (defensive
   // — extractFollowups should have caught this, but if it returned an empty
   // followups array because questions didn't end in '?', the keyword could
@@ -1493,16 +1606,22 @@ function makeResponse({ sources, report, title, followups, mode, classification 
   return { sources, report, title, followups, mode, classification };
 }
 
-async function quickResearch(query, env, apexModel = 'apex-free') {
+async function quickResearch(query, env, apexModel = 'apex-free', searchQueryOverride = null) {
   const t0 = Date.now();
-  
+
+  // The search query is separate from the LLM context query. When an image
+  // is attached, the LLM gets the full image description + user query, but
+  // the web search uses just the user's text query (or a short derived query)
+  // to avoid sending a 1600+ char blob to Tavily (which returns no results).
+  const searchQuery = searchQueryOverride || query;
+
   // Step 0: Classify the query for search routing
-  const classification = classifyQuery(query);
+  const classification = classifyQuery(searchQuery);
   console.log(`[Quick] Query classified as: ${classification}`);
-  
+
   // Step 1: Fast search (2 providers + classified extras, ~2-3s)
   console.log('[Quick] Searching...');
-  const searchResults = await searchQuick(query, env, 10, classification);
+  const searchResults = await searchQuick(searchQuery, env, 10, classification);
 
   if (searchResults.length === 0) {
     return { error: 'No sources found. Please try a different query.' };
@@ -1573,16 +1692,22 @@ async function quickResearch(query, env, apexModel = 'apex-free') {
   return makeResponse({ sources, report, title, followups, mode: 'quick', classification });
 }
 
-async function deepResearch(query, env, apexModel = 'apex-free') {
+async function deepResearch(query, env, apexModel = 'apex-free', searchQueryOverride = null) {
   const t0 = Date.now();
 
+  // The search query is separate from the LLM context query. When an image
+  // is attached, the LLM gets the full image description + user query, but
+  // the web search uses just the user's text query (or a short derived query)
+  // to avoid sending a 1600+ char blob to Tavily (which returns no results).
+  const searchQuery = searchQueryOverride || query;
+
   // ── PHASE 0: Classify the query for search routing ──
-  const classification = classifyQuery(query);
+  const classification = classifyQuery(searchQuery);
   console.log(`[Deep] Query classified as: ${classification}`);
 
   // ── PHASE 1: Search (3+ providers + classified extras, ~2.5-4s) ──
   console.log('[Deep] Phase 1: Searching...');
-  const searchResults = await searchDeep(query, env, 15, classification);
+  const searchResults = await searchDeep(searchQuery, env, 15, classification);
 
   if (searchResults.length === 0) {
     return { error: 'No sources found. Please try a different query.' };
@@ -1814,6 +1939,7 @@ export default {
       return jsonRes({
         openrouter: getOpenRouterKey(env) ? `yes-${getOpenRouterKey(env).length}chars` : 'no',
         gemini: getGeminiKey(env) ? `yes-${getGeminiKey(env).length}chars` : 'no',
+        mistral: getMistralKey(env) ? `yes-${getMistralKey(env).length}chars` : 'no',
         workers_ai: !!env.AI,
         tavily: getTavilyKey(env) ? `yes-${getTavilyKey(env).length}chars` : 'no',
         firecrawl: getFirecrawlKey(env) ? `yes-${getFirecrawlKey(env).length}chars` : 'no',
@@ -1907,10 +2033,11 @@ export default {
       return jsonRes({
         status: 'ok',
         service: 'kivora-research',
-        version: '5.1.0',
+        version: '5.2.0',
         providers: {
           openrouter: !!getOpenRouterKey(env),
           gemini: !!getGeminiKey(env),
+          mistral: !!getMistralKey(env),
           workers_ai: !!env.AI,
           pollinations: true,
           tavily: !!getTavilyKey(env),
@@ -1929,7 +2056,7 @@ export default {
     if (url.pathname === '/research' && request.method === 'POST') {
       try {
         const body = await request.json();
-        const { query, mode = 'quick', openrouter_key = '', apex_model = 'apex-free', attachedFile } = body;
+        const { query, mode = 'quick', openrouter_key = '', mistral_key = '', apex_model = 'apex-free', attachedFile } = body;
 
         // Allow either a query or an attached file (so the user can submit
         // with just an image and no text). If neither is present, error.
@@ -1946,6 +2073,10 @@ export default {
         // Per-request key always takes priority over Worker secret
         if (openrouter_key) {
           env.OPENROUTER_API_KEY = openrouter_key;
+        }
+        // Allow Mistral key to be passed per-request (used for vision / Pixtral)
+        if (mistral_key) {
+          env.MISTRAL_API_KEY = mistral_key;
         }
 
         // ── Process attached file (if any) ──
@@ -1993,14 +2124,45 @@ export default {
           }
         }
 
-        // Build the effective query: file context (if any) + user query
+        // Build the effective query: file context (if any) + user query.
+        // This is the FULL context passed to the LLM for report generation.
         const effectiveQuery = fileContext + (safeQuery || '(Analyze the attached file and provide insights.)');
 
+        // Build a SEPARATE short search query for web search.
+        // When a file is attached, the fileContext (image description, file
+        // contents) can be 1600+ chars — too long for Tavily, which returns
+        // no results. We use just the user's text query for search.
+        // If the user has no text query (file-only upload), derive a short
+        // generic search query from the file type:
+        //   - image: "image analysis" (broad enough to return results)
+        //   - text:  first 200 chars of the file content (truncated)
+        //   - binary: "document analysis"
+        let searchQuery = safeQuery;
+        if (!searchQuery && attachedFile && attachedFile.content) {
+          const fileType = attachedFile.type || '';
+          if (fileType.startsWith('image/')) {
+            searchQuery = 'image content analysis techniques';
+          } else if (isTextLikeFile(attachedFile.name || '', fileType)) {
+            // Use first 200 chars of text content as search query
+            const textContent = attachedFile.content.startsWith('data:')
+              ? decodeURIComponent(atob(attachedFile.content.split(',')[1] || ''))
+              : attachedFile.content;
+            searchQuery = textContent.slice(0, 200).replace(/\s+/g, ' ').trim();
+          } else {
+            searchQuery = 'document analysis methodology';
+          }
+          console.log(`[Research] Derived search query from file: "${searchQuery.slice(0, 100)}"`);
+        }
+        // Fallback: if we still have no search query, use a generic one
+        if (!searchQuery) searchQuery = 'research analysis';
+
         console.log(`[Research] ${mode} mode: "${safeQuery || '(file only)'}", file: ${attachedFile ? 'yes' : 'no'}, image: ${hasImage}, apex: ${apex_model}`);
+        console.log(`[Research] Search query: "${searchQuery.slice(0, 150)}"`);
+        console.log(`[Research] LLM context: ${effectiveQuery.length} chars`);
 
         const result = mode === 'deep'
-          ? await deepResearch(effectiveQuery, env, apex_model)
-          : await quickResearch(effectiveQuery, env, apex_model);
+          ? await deepResearch(effectiveQuery, env, apex_model, searchQuery)
+          : await quickResearch(effectiveQuery, env, apex_model, searchQuery);
 
         if (result.error) {
           return jsonRes(result, 500);
