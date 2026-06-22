@@ -146,25 +146,36 @@ export async function POST(req) {
 
   try {
     const body = await req.json()
-    const { query, mode = 'quick', apex_model = 'apex-free' } = body
+    const { query, mode = 'quick', apex_model = 'apex-free', attachedFile } = body
 
-    if (!query || typeof query !== 'string') {
-      return Response.json({ error: 'Query is required' }, { status: 400 })
+    // Allow either a query or an attached file (so the user can submit
+    // with just an image and no text). If neither is present, error.
+    if ((!query || typeof query !== 'string' || query.trim().length === 0) && !attachedFile) {
+      return Response.json({ error: 'Query or attached file is required' }, { status: 400 })
     }
 
-    if (query.length > 2000) {
+    const trimmedQuery = (query || '').trim()
+    if (trimmedQuery.length > 2000) {
       return Response.json({ error: 'Query too long (max 2000 characters)' }, { status: 400 })
     }
 
-    const trimmedQuery = query.trim()
     const normalized = trimmedQuery.toLowerCase().trim()
     const apexTier = apex_model
+
+    // ── Skip cache when a file is attached ────────────────────────
+    // File-bearing queries are inherently unique (the file content is part of
+    // the research context), so caching by query hash would either:
+    //   (a) return a stale result that doesn't account for the file, or
+    //   (b) poison the cache with a file-specific result for future
+    //       text-only queries with the same normalized text.
+    // We bypass the cache entirely when attachedFile is present.
+    const skipCache = !!attachedFile
 
     // ── APEX 2.0 Cache: check before calling Worker ──────────────
     const admin = getSupabaseAdmin()
     let queryHash = null
 
-    if (admin) {
+    if (admin && !skipCache) {
       try {
         queryHash = await computeQueryHash(normalized, mode, apexTier)
         const cached = await checkCache(admin, queryHash, mode, apexTier)
@@ -203,16 +214,29 @@ export async function POST(req) {
     // Quick mode gets 30s so the fallback chain (which now races in parallel
     // and finishes in ~15-25s) has plenty of headroom under the frontend's
     // overall 60s fallback timeout.
-    const workerTimeout = mode === 'deep' ? 120000 : 30000
+    // When an image is attached, the vision model needs extra time (up to
+    // 15s for image description) — extend the timeout by 30s in that case.
+    const hasImage = attachedFile && (
+      attachedFile.type?.startsWith('image/') ||
+      /\.(png|jpe?g|gif|webp)$/i.test(attachedFile.name || '')
+    )
+    const baseTimeout = mode === 'deep' ? 120000 : 30000
+    const workerTimeout = hasImage ? baseTimeout + 30000 : baseTimeout
+
+    const workerBody = {
+      query: trimmedQuery,
+      mode,
+      apex_model,
+      openrouter_key: openrouterKey || '',
+    }
+    if (attachedFile) {
+      workerBody.attachedFile = attachedFile
+    }
+
     const workerRes = await fetch(RESEARCH_WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query: trimmedQuery,
-        mode,
-        apex_model,
-        openrouter_key: openrouterKey || '',
-      }),
+      body: JSON.stringify(workerBody),
       signal: AbortSignal.timeout(workerTimeout),
     })
 
@@ -240,7 +264,7 @@ export async function POST(req) {
     let wikiSlug = null
     let wikiVersion = null
 
-    if (admin && queryHash) {
+    if (admin && queryHash && !skipCache) {
       try {
         cacheId = await storeCacheResult(admin, queryHash, trimmedQuery, normalized, mode, apexTier, data, latencyMs)
       } catch (storeErr) {

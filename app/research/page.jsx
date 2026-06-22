@@ -8,6 +8,24 @@ const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false })
 import { supabasePublic } from '@/lib/supabase'
 import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, IconRocket, IconHeart, IconMicroscope, IconWarning } from '@/components/Icons'
 
+// ── File Upload Constants ──
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const ACCEPTED_FILE_TYPES = '.png,.jpg,.jpeg,.gif,.webp,.txt,.md,.json,.csv,.js,.py,.ts,.jsx,.tsx,.css,.html,.sql,.xml,.yaml,.yml,.log,.pdf,.docx,.xlsx,.pptx,.odt,.rtf'
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp']
+const TEXT_EXTENSIONS = ['txt', 'md', 'json', 'csv', 'js', 'py', 'ts', 'jsx', 'tsx', 'css', 'html', 'sql', 'xml', 'yaml', 'yml', 'log']
+
+function guessTypeFromName(name) {
+  const ext = (name.split('.').pop() || '').toLowerCase()
+  const typeMap = {
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
+    txt: 'text/plain', md: 'text/markdown', json: 'application/json', csv: 'text/csv',
+    pdf: 'application/pdf', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  }
+  return typeMap[ext] || 'application/octet-stream'
+}
+
 // ── Strip inline markdown from follow-up questions ──
 // The worker should already do this, but as a safety net we strip again here
 // so `**bold**` / `__italic__` / `*italic*` / `code` markers never appear as
@@ -345,11 +363,13 @@ function ResearchPageContent() {
   const chatBarRef = useRef(null)
   const fileInputRef = useRef(null)
   const collapsedFileInputRef = useRef(null)
+  const [attachedFile, setAttachedFile] = useState(null) // { name, type, size, content }
+  const [fileError, setFileError] = useState('')
   const typewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
   const collapsedTypewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
 
   const hasActiveResearch = activeResearch !== null
-  const hasInput = input.trim().length > 0
+  const hasInput = input.trim().length > 0 || !!attachedFile
 
   // ── Typewriter animation for big text bar (Fix #10: fully canceled during research) ──
   useEffect(() => {
@@ -475,12 +495,15 @@ function ResearchPageContent() {
 
   // ── Start Research ──
   async function startResearch(query, researchMode) {
-    if (!query.trim() || isResearching) return
+    if ((!query.trim() && !attachedFile) || isResearching) return
+
+    // Capture the attached file (if any) before clearing state
+    const fileAttachment = attachedFile
 
     const id = generateId()
     const research = {
       id,
-      query: query.trim(),
+      query: query.trim() || `(Analyze: ${fileAttachment?.name || 'file'})`,
       mode: researchMode,
       apexModel,
       sources: [],
@@ -545,10 +568,24 @@ function ResearchPageContent() {
 
       const primaryController = new AbortController()
       const fallbackController = new AbortController()
-      const primaryTimeout = setTimeout(() => primaryController.abort(), researchMode === 'deep' ? 120000 : 30000)
-      const fallbackTimeout = setTimeout(() => fallbackController.abort(), researchMode === 'deep' ? 90000 : 30000)
+      const isImage = fileAttachment && (
+        fileAttachment.type?.startsWith('image/') ||
+        IMAGE_EXTENSIONS.includes((fileAttachment.name.split('.').pop() || '').toLowerCase())
+      )
+      // Base timeouts — deep mode gets 2 minutes, quick gets 30s.
+      // When an image is attached, the vision model needs extra time (up to
+      // 15s for image description) — extend by 30s.
+      const basePrimary = researchMode === 'deep' ? 120000 : 30000
+      const baseFallback = researchMode === 'deep' ? 90000 : 30000
+      const primaryTimeout = setTimeout(() => primaryController.abort(), isImage ? basePrimary + 30000 : basePrimary)
+      const fallbackTimeout = setTimeout(() => fallbackController.abort(), isImage ? baseFallback + 30000 : baseFallback)
 
-      const body = JSON.stringify({ query: query.trim(), mode: researchMode, apex_model: apexModel })
+      // Build request body — include attachedFile if present
+      const reqBody = { query: query.trim(), mode: researchMode, apex_model: apexModel }
+      if (fileAttachment) {
+        reqBody.attachedFile = fileAttachment
+      }
+      const body = JSON.stringify(reqBody)
 
       const primaryPromise = fetch('/api/research', {
         method: 'POST',
@@ -563,18 +600,23 @@ function ResearchPageContent() {
         return { data, usedFallback: false }
       }).finally(() => clearTimeout(primaryTimeout))
 
-      const fallbackPromise = fetch('/api/research-fallback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body,
-        signal: fallbackController.signal,
-      }).then(async r => {
-        const data = await r.json()
-        if (!r.ok || data.error) {
-          throw new Error(data.error || `fallback_${r.status}`)
-        }
-        return { data, usedFallback: true }
-      }).finally(() => clearTimeout(fallbackTimeout))
+      // Skip fallback when a file is attached — the fallback endpoint doesn't
+      // support vision/file analysis. Use a never-resolving promise so
+      // Promise.any only races the primary.
+      const fallbackPromise = fileAttachment
+        ? new Promise(() => {}) // never resolves
+        : fetch('/api/research-fallback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+            signal: fallbackController.signal,
+          }).then(async r => {
+            const data = await r.json()
+            if (!r.ok || data.error) {
+              throw new Error(data.error || `fallback_${r.status}`)
+            }
+            return { data, usedFallback: true }
+          }).finally(() => clearTimeout(fallbackTimeout))
 
       let data
       let usedFallback = false
@@ -594,6 +636,10 @@ function ResearchPageContent() {
         clearTimeout(primaryTimeout)
         clearTimeout(fallbackTimeout)
       }
+
+      // Clear the attachment after the request is sent
+      setAttachedFile(null)
+      setFileError('')
 
       clearInterval(progressRef.current)
       progressRef.current = null
@@ -661,8 +707,49 @@ function ResearchPageContent() {
 
   function handleSubmit() {
     const q = input.trim()
-    if (!q || isResearching) return
+    if ((!q && !attachedFile) || isResearching) return
     startResearch(q, mode)
+  }
+
+  // ── File Attachment Handlers ──
+  function handleFileSelect(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setFileError('')
+
+    if (file.size > MAX_FILE_SIZE) {
+      setFileError(`File too large (max ${MAX_FILE_SIZE / 1024 / 1024}MB)`)
+      e.target.value = ''
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      setAttachedFile({
+        name: file.name,
+        type: file.type || guessTypeFromName(file.name),
+        size: file.size,
+        content: reader.result, // data URL for images, raw text content for text files
+      })
+    }
+    reader.onerror = () => {
+      setFileError('Failed to read file')
+    }
+
+    // Read as data URL for images, as text for text files
+    const ext = (file.name.split('.').pop() || '').toLowerCase()
+    if (IMAGE_EXTENSIONS.includes(ext) || file.type?.startsWith('image/')) {
+      reader.readAsDataURL(file)
+    } else {
+      reader.readAsText(file)
+    }
+
+    e.target.value = ''
+  }
+
+  function removeAttachment() {
+    setAttachedFile(null)
+    setFileError('')
   }
 
   function newResearch() {
@@ -756,6 +843,34 @@ function ResearchPageContent() {
 
           {/* Big expanded text bar */}
             <div className="chat-container-expanded">
+              {/* Attachment chip (if any) */}
+              {attachedFile && (
+                <div className="flex items-center gap-2 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1.5 mb-2 max-w-full animate-fade-in">
+                  {attachedFile.type?.startsWith('image/') ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                    </svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                    </svg>
+                  )}
+                  <span className="text-xs text-[#a0a0a0] truncate flex-1 min-w-0">{attachedFile.name}</span>
+                  <span className="text-[10px] text-[#525252] shrink-0">{(attachedFile.size / 1024).toFixed(1)}KB</span>
+                  <button
+                    onClick={removeAttachment}
+                    className="shrink-0 text-[#525252] hover:text-red-400 transition-colors p-0.5"
+                    aria-label="Remove attachment"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+              {fileError && (
+                <div className="text-xs text-red-400 mb-2 px-2">{fileError}</div>
+              )}
               <textarea
                 ref={textareaRef}
                 rows={1}
@@ -774,27 +889,20 @@ function ResearchPageContent() {
               )}
               <div className="chat-toolbar-expanded">
                 <div className="chat-toolbar-left">
-                  {/* File upload button */}
+                  {/* File upload button — now active */}
                   <input
                     ref={fileInputRef}
                     type="file"
                     className="hidden"
-                    multiple
-                    onChange={e => {
-                      const files = Array.from(e.target.files || [])
-                      if (files.length > 0) {
-                        // TODO: process attached files with research query
-                        setInput(prev => prev ? prev + ' ' + files.map(f => f.name).join(', ') : files.map(f => f.name).join(', '))
-                      }
-                      e.target.value = ''
-                    }}
+                    accept={ACCEPTED_FILE_TYPES}
+                    onChange={handleFileSelect}
                   />
-                  {/* Fix #4: File attachment disabled — coming soon */}
                   <button
+                    onClick={() => fileInputRef.current?.click()}
                     className="chat-toolbar-btn"
-                    title="File attachments coming soon"
-                    disabled
-                    style={{ opacity: 0.4, cursor: 'not-allowed' }}
+                    title="Attach file (image, text, document)"
+                    aria-label="Attach file"
+                    disabled={isResearching}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
@@ -1076,15 +1184,45 @@ function ResearchPageContent() {
                   ))}
                 </div>
               )}
+              {(attachedFile || fileError) && (
+                <div className="max-w-full mb-2">
+                  {attachedFile && (
+                    <div className="flex items-center gap-2 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1.5 max-w-full animate-fade-in">
+                      {attachedFile.type?.startsWith('image/') ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
+                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                        </svg>
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                        </svg>
+                      )}
+                      <span className="text-xs text-[#a0a0a0] truncate flex-1 min-w-0">{attachedFile.name}</span>
+                      <span className="text-[10px] text-[#525252] shrink-0">{(attachedFile.size / 1024).toFixed(1)}KB</span>
+                      <button
+                        onClick={removeAttachment}
+                        className="shrink-0 text-[#525252] hover:text-red-400 transition-colors p-0.5"
+                        aria-label="Remove attachment"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                  {fileError && (
+                    <div className="text-xs text-red-400 px-2">{fileError}</div>
+                  )}
+                </div>
+              )}
               <div className="research-bar-collapsed">
-                {/* File upload button */}
-                {/* Fix #4: File attachment disabled — coming soon */}
+                {/* File upload button — now active */}
                 <button
+                  onClick={() => collapsedFileInputRef.current?.click()}
                   className="research-collapsed-btn-circle"
-                  aria-label="File attachments coming soon"
-                  title="File attachments coming soon"
-                  disabled
-                  style={{ opacity: 0.4, cursor: 'not-allowed' }}
+                  aria-label="Attach file"
+                  title="Attach file (image, text, document)"
+                  disabled={isResearching}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
@@ -1095,14 +1233,8 @@ function ResearchPageContent() {
                   ref={collapsedFileInputRef}
                   type="file"
                   className="hidden"
-                  multiple
-                  onChange={e => {
-                    const files = Array.from(e.target.files || [])
-                    if (files.length > 0) {
-                      setInput(prev => prev ? prev + ' ' + files.map(f => f.name).join(', ') : files.map(f => f.name).join(', '))
-                    }
-                    e.target.value = ''
-                  }}
+                  accept={ACCEPTED_FILE_TYPES}
+                  onChange={handleFileSelect}
                 />
 
                 {/* Input */}

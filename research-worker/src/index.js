@@ -633,6 +633,140 @@ async function geminiChat(env, messages, model = 'gemini-2.0-flash', maxTokens =
   }
 }
 
+// ── Image Description (Vision) ──
+// Used when the user attaches an image to a research query. The image (base64
+// data URL) is sent to a vision-capable LLM which returns a textual
+// description. That description is then prepended to the research query so
+// the research LLM can reason about the image's contents.
+//
+// Provider chain:
+//   1. Gemini 2.0 Flash (native vision support, generous free tier)
+//   2. OpenRouter llama-4-maverick (vision-capable, 20K RPM free tier)
+//   3. Workers AI @cf/llava-hf (Cloudflare's hosted vision model)
+// Each provider is tried in order; the first non-empty response wins.
+
+// Determine if a file is "text-like" (we can safely inline its content).
+// Checks both the file extension and MIME type for robustness.
+const TEXT_FILE_EXTENSIONS = ['txt', 'md', 'json', 'csv', 'js', 'py', 'ts', 'jsx', 'tsx', 'css', 'html', 'sql', 'xml', 'yaml', 'yml', 'log'];
+function isTextLikeFile(fileName, mimeType) {
+  if (mimeType && (mimeType.startsWith('text/') || mimeType === 'application/json' || mimeType === 'application/javascript' || mimeType === 'application/xml')) {
+    return true;
+  }
+  const ext = (fileName.split('.').pop() || '').toLowerCase();
+  return TEXT_FILE_EXTENSIONS.includes(ext);
+}
+
+async function describeImage(env, imageDataUrl, mimeType = 'image/png') {
+  if (!imageDataUrl) return null;
+
+  // Strip the data URL prefix to get raw base64
+  const base64 = imageDataUrl.replace(/^data:[^;]+;base64,/, '');
+
+  // --- Provider 1: Gemini 2.0 Flash (vision) ---
+  if (getGeminiKey(env)) {
+    try {
+      const t0 = Date.now();
+      const apiKey = getGeminiKey(env);
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              role: 'user',
+              parts: [
+                { text: 'Describe this image in detail. Focus on objects, text, people, scenes, charts/diagrams, and any other visually relevant information. Be concise but thorough — your description will be used as context for a research query.' },
+                { inline_data: { mime_type: mimeType, data: base64 } },
+              ],
+            }],
+            generationConfig: { temperature: 0.3, maxOutputTokens: 1024 },
+          }),
+          signal: AbortSignal.timeout(15000),
+        }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text && text.length > 20) {
+          console.log(`[Vision/Gemini] success in ${Date.now()-t0}ms, chars: ${text.length}`);
+          return text.trim();
+        }
+      } else {
+        console.error(`[Vision/Gemini] error ${res.status}`);
+      }
+    } catch (err) {
+      console.error('[Vision/Gemini] exception:', err.message);
+    }
+  }
+
+  // --- Provider 2: OpenRouter llama-4-maverick (vision) ---
+  if (getOpenRouterKey(env)) {
+    try {
+      const t0 = Date.now();
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getOpenRouterKey(env)}`,
+          'HTTP-Referer': 'https://kivora.pages.dev',
+          'X-Title': 'Kivora Research',
+        },
+        body: JSON.stringify({
+          model: 'meta-llama/llama-4-maverick',
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Describe this image in detail. Focus on objects, text, people, scenes, charts/diagrams. Be concise but thorough.' },
+              { type: 'image_url', image_url: { url: imageDataUrl } },
+            ],
+          }],
+          max_tokens: 1024,
+          temperature: 0.3,
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.choices?.[0]?.message?.content;
+        if (text && text.length > 20) {
+          console.log(`[Vision/OpenRouter] success in ${Date.now()-t0}ms, chars: ${text.length}`);
+          return text.trim();
+        }
+      } else {
+        console.error(`[Vision/OpenRouter] error ${res.status}`);
+      }
+    } catch (err) {
+      console.error('[Vision/OpenRouter] exception:', err.message);
+    }
+  }
+
+  // --- Provider 3: Workers AI Llava (fallback) ---
+  if (env.AI) {
+    try {
+      const t0 = Date.now();
+      // Convert base64 to Uint8Array for Workers AI
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+      const response = await env.AI.run('@cf/llava-hf', {
+        image: bytes,
+        prompt: 'Describe this image in detail. Focus on objects, text, people, scenes, charts/diagrams.',
+      });
+      const text = response?.description || response?.response;
+      if (text && text.length > 20) {
+        console.log(`[Vision/WorkersAI] success in ${Date.now()-t0}ms, chars: ${text.length}`);
+        return text.trim();
+      }
+    } catch (err) {
+      console.error('[Vision/WorkersAI] exception:', err.message);
+    }
+  }
+
+  console.error('[Vision] All providers failed');
+  return null;
+}
+
 // Pollinations AI — free, no API key needed. ~3-8s for 4K tokens
 async function pollinationsChat(messages, model = 'openai', maxTokens = 4096, timeout = 8000) {
   try {
@@ -1130,12 +1264,29 @@ function cleanFollowupQuestion(q) {
     .trim();
 }
 
-// Regex for any heading-style follow-ups section. Matches:
-//   "## Follow-ups", "## Follow-ups:", "## Follow Up Questions",
-//   "## Followups", "### Follow-up Questions", "## Related Questions"
-//   "Follow-ups:" (without #), etc.
-// Case-insensitive. Supports 0-3 leading '#' and optional trailing colon.
-const FOLLOWUP_HEADING_RE = /^([ \t]*#{0,3}\s*)(Follow[-\s]?[Uu]ps?|Follow[-\s]?[Uu]p\s+Questions?|Related\s+Questions?)\s*:?\s*$/m;
+// Bulletproof regex for any heading-style follow-ups section. Matches every
+// variant the model has been observed to produce:
+//   "## Follow-ups"           — basic heading
+//   "## Follow-ups:"           — with trailing colon
+//   "## Follow-ups for Further Research"  — with descriptive suffix
+//   "## **Follow-ups**"        — markdown bold wrapping the word
+//   "## Suggested Follow-ups (5 questions)" — prefix + suffix
+//   "## Follow-Ups"            — capital U in middle
+//   "Follow-ups:"              — bare, no #
+//   "## Follow Up Questions"   — variant phrasing
+//   "## Related Questions"     — alternative heading
+//   "### Follow-up Questions"  — different heading level
+// Allows 0-3 leading '#', optional markdown bold (**...**), optional prefix
+// word (Suggested, Potential, Recommended, Possible, Additional, Further),
+// optional trailing descriptor in parentheses or after a colon, and is
+// case-insensitive.
+const FOLLOWUP_HEADING_RE = /^[ \t]*#{0,3}\s*(?:\*{1,2}\s*)?(?:(?:Suggested|Potential|Recommended|Possible|Additional|Further)\s+)?(?:Follow[-\s]?[Uu]ps?|Follow[-\s]?[Uu]p\s+Questions?|Related\s+Questions?)(?:\s*\*{1,2})?(?:\s*[:：]|\s*\([^)]*\)|\s+for\s+[^\n]+)?\s*$/m;
+
+// Looser variant used for defensive line-by-line scan inside stripSourcesSection.
+// Matches any line whose stripped form starts with a follow-ups-style word,
+// regardless of trailing punctuation or descriptor text. Used as a last-resort
+// catch for heading formats the main regex might miss.
+const FOLLOWUP_HEADING_LOOSE_RE = /^[ \t]*#{0,3}\s*(?:\*{1,2}\s*)?(?:Suggested|Potential|Recommended|Possible|Additional|Further\s+)?(?:Follow[-\s]?[Uu]ps?|Follow[-\s]?[Uu]p\s+Questions?|Related\s+Questions?)/m;
 
 function extractFollowups(text) {
   if (!text) return { report: '', followups: [] };
@@ -1167,6 +1318,12 @@ function extractFollowups(text) {
   // The model sometimes outputs the section as a markdown heading instead of
   // using the FOLLOWUPS: keyword. This is the case that was leaking through
   // to the report body in production (see "## Followups" bug).
+  //
+  // IMPORTANT: In deep mode, the report is assembled from part1 + part2.
+  // If a Follow-ups heading appears at the end of part1, we must NOT strip
+  // everything after it blindly — that would delete part2. Instead, we strip
+  // only up to the next `---` horizontal rule (the part1/part2 divider) and
+  // preserve everything after the divider.
   const headingMatch = text.match(FOLLOWUP_HEADING_RE);
   if (headingMatch) {
     const headingStart = headingMatch.index;
@@ -1174,9 +1331,19 @@ function extractFollowups(text) {
     const afterHeading = text.slice(headingEnd);
     const questions = extractQuestionsFromBlock(afterHeading);
     if (questions.length > 0) {
-      // Remove the heading AND everything after it (the questions).
-      // This guarantees no follow-up content leaks into the report body.
-      const report = text.slice(0, headingStart);
+      // Check if there's a `---` divider after the heading — if so, only strip
+      // up to that divider and preserve any part2 content that follows.
+      const dividerAfterHeading = afterHeading.indexOf('\n---');
+      let report;
+      if (dividerAfterHeading !== -1) {
+        // Preserve content after the divider (likely part2 of a deep-mode report)
+        const beforeDivider = text.slice(0, headingStart);
+        const afterDivider = afterHeading.slice(dividerAfterHeading + 1); // skip the leading \n, keep the --- line
+        report = beforeDivider + '\n' + afterDivider;
+      } else {
+        // No divider — strip the heading AND everything after it (the questions).
+        report = text.slice(0, headingStart);
+      }
       return { report: report.trim(), followups: questions };
     }
   }
@@ -1240,12 +1407,39 @@ function stripSourcesSection(report) {
   // whitespace, or no question mark at the end of questions), some content
   // could leak through. This guarantees the report body never contains a
   // duplicate Follow-ups section that overlaps with the UI's section.
-  stripped = stripped.replace(/^[ \t]*#{0,3}\s*(?:Follow[-\s]?[Uu]ps?|Follow[-\s]?[Uu]p\s+Questions?|Related\s+Questions?)\s*:?\s*\n[\s\S]*$/im, '');
+  // Uses the bulletproof FOLLOWUP_HEADING_LOOSE_RE so it catches every
+  // variant: ## Follow-ups, ## **Follow-ups**, ## Suggested Follow-ups (5),
+  // ## Follow-ups for Further Research, bare Follow-ups:, etc.
+  stripped = stripped.replace(/^[ \t]*#{0,3}\s*(?:\*{1,2}\s*)?(?:(?:Suggested|Potential|Recommended|Possible|Additional|Further)\s+)?(?:Follow[-\s]?[Uu]ps?|Follow[-\s]?[Uu]p\s+Questions?|Related\s+Questions?)(?:\s*\*{1,2})?(?:\s*[:：]|\s*\([^)]*\)|\s+for\s+[^\n]+)?\s*\n[\s\S]*$/im, '');
   // Also strip a bare "FOLLOWUPS:" keyword + everything after it (defensive
   // — extractFollowups should have caught this, but if it returned an empty
   // followups array because questions didn't end in '?', the keyword could
   // still be in the report body).
   stripped = stripped.replace(/^[ \t]*FOLLOWUPS:\s*\n[\s\S]*$/im, '');
+  // Final defensive line-by-line scan: if ANY line still looks like a
+  // follow-ups heading (using the loose regex), drop that line and any
+  // subsequent question-style lines (ending in '?'). This is the last
+  // line of defense against heading formats that slipped through the
+  // regex-based strip above. We only strip from the FIRST match to the
+  // end of the report — anything before that line is preserved.
+  const lines = stripped.split('\n');
+  let firstFollowupIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (FOLLOWUP_HEADING_LOOSE_RE.test(lines[i])) {
+      firstFollowupIdx = i;
+      break;
+    }
+  }
+  if (firstFollowupIdx !== -1) {
+    // Only strip if the lines after the heading look like questions
+    // (to avoid nuking legitimate content that happens to start with "Follow").
+    const tail = lines.slice(firstFollowupIdx + 1).join('\n');
+    const questionCount = (tail.match(/\?\s*$/gm) || []).length;
+    if (questionCount >= 1) {
+      lines.splice(firstFollowupIdx);
+      stripped = lines.join('\n').trim();
+    }
+  }
   // Collapse multiple consecutive --- horizontal rules into one. This
   // happens at the part1/part2 boundary when the model appends a trailing
   // --- despite instructions and the join adds another --- between parts.
@@ -1722,13 +1916,16 @@ export default {
     if (url.pathname === '/research' && request.method === 'POST') {
       try {
         const body = await request.json();
-        const { query, mode = 'quick', openrouter_key = '', apex_model = 'apex-free' } = body;
+        const { query, mode = 'quick', openrouter_key = '', apex_model = 'apex-free', attachedFile } = body;
 
-        if (!query || typeof query !== 'string') {
-          return jsonRes({ error: 'Query is required' }, 400);
+        // Allow either a query or an attached file (so the user can submit
+        // with just an image and no text). If neither is present, error.
+        if ((!query || typeof query !== 'string' || query.trim().length === 0) && !attachedFile) {
+          return jsonRes({ error: 'Query or attached file is required' }, 400);
         }
 
-        if (query.length > 2000) {
+        const safeQuery = (query || '').trim();
+        if (safeQuery.length > 2000) {
           return jsonRes({ error: 'Query too long (max 2000 characters)' }, 400);
         }
 
@@ -1738,11 +1935,59 @@ export default {
           env.OPENROUTER_API_KEY = openrouter_key;
         }
 
-        console.log(`[Research] ${mode} mode: "${query}", OR key: ${getOpenRouterKey(env) ? `yes-${getOpenRouterKey(env).length}chars` : 'no'}, apex: ${apex_model}`);
+        // ── Process attached file (if any) ──
+        // The file is converted to a context string that's prepended to the
+        // research query. Images are described via a vision model; text files
+        // have their content inlined; binary documents are noted by name+size.
+        let fileContext = '';
+        let hasImage = false;
+        if (attachedFile && attachedFile.content) {
+          const fileName = attachedFile.name || 'attachment';
+          const fileType = attachedFile.type || 'application/octet-stream';
+          const fileSize = attachedFile.size || 0;
+          const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+          if (fileSize > MAX_FILE_SIZE) {
+            return jsonRes({ error: `File too large (max ${MAX_FILE_SIZE / 1024 / 1024}MB)` }, 400);
+          }
+
+          console.log(`[Research] Attached file: ${fileName} (${fileType}, ${fileSize} bytes)`);
+
+          if (fileType.startsWith('image/')) {
+            // Image: use vision model to describe it
+            hasImage = true;
+            console.log('[Research] Image detected — calling vision model...');
+            const description = await describeImage(env, attachedFile.content, fileType);
+            if (description) {
+              fileContext = `[User attached an image: ${fileName}]\nImage description: ${description}\n\n`;
+              console.log(`[Research] Image described: ${description.length} chars`);
+            } else {
+              fileContext = `[User attached an image: ${fileName} — vision analysis unavailable]\n\n`;
+              console.error('[Research] Image description failed');
+            }
+          } else if (isTextLikeFile(fileName, fileType)) {
+            // Text file: inline the content (truncated to 4K chars)
+            const textContent = attachedFile.content.startsWith('data:')
+              ? decodeURIComponent(atob(attachedFile.content.split(',')[1] || ''))
+              : attachedFile.content;
+            const truncated = textContent.slice(0, 4000);
+            fileContext = `[User attached a text file: ${fileName}]\nFile content:\n${truncated}${textContent.length > 4000 ? '\n... (truncated)' : ''}\n\n`;
+            console.log(`[Research] Text file inlined: ${truncated.length} chars`);
+          } else {
+            // Binary document (pdf/docx/xlsx/etc): note the attachment, no content extraction
+            fileContext = `[User attached a document: ${fileName} (${fileType}, ${fileSize} bytes) — content not extracted]\n\n`;
+            console.log('[Research] Binary document noted (no content extraction)');
+          }
+        }
+
+        // Build the effective query: file context (if any) + user query
+        const effectiveQuery = fileContext + (safeQuery || '(Analyze the attached file and provide insights.)');
+
+        console.log(`[Research] ${mode} mode: "${safeQuery || '(file only)'}", file: ${attachedFile ? 'yes' : 'no'}, image: ${hasImage}, apex: ${apex_model}`);
 
         const result = mode === 'deep'
-          ? await deepResearch(query, env, apex_model)
-          : await quickResearch(query, env, apex_model);
+          ? await deepResearch(effectiveQuery, env, apex_model)
+          : await quickResearch(effectiveQuery, env, apex_model);
 
         if (result.error) {
           return jsonRes(result, 500);

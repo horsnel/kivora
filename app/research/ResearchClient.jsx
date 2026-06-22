@@ -32,6 +32,12 @@ const MOBILE_TABS = [
   { id: 'data', label: 'Data' },
 ]
 
+// ── File Upload Constants ──
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const ACCEPTED_FILE_TYPES = '.png,.jpg,.jpeg,.gif,.webp,.txt,.md,.json,.csv,.js,.py,.ts,.jsx,.tsx,.css,.html,.sql,.xml,.yaml,.yml,.log,.pdf,.docx,.xlsx,.pptx,.odt,.rtf'
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp']
+const TEXT_EXTENSIONS = ['txt', 'md', 'json', 'csv', 'js', 'py', 'ts', 'jsx', 'tsx', 'css', 'html', 'sql', 'xml', 'yaml', 'yml', 'log']
+
 // ── Helpers ──
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
@@ -207,6 +213,9 @@ export default function ResearchClient() {
 
   // ── Expandable text bar states ──
   const [barExpanded, setBarExpanded] = useState(false)
+  const [attachedFile, setAttachedFile] = useState(null) // { name, type, size, content }
+  const [fileError, setFileError] = useState('')
+  const fileInputRef = useRef(null)
 
   const textareaRef = useRef(null)
   const collapsedInputRef = useRef(null)
@@ -264,12 +273,15 @@ export default function ResearchClient() {
 
   // ── Start Research ──
   async function startResearch(query, researchMode) {
-    if (!query.trim() || isResearching) return
+    if ((!query.trim() && !attachedFile) || isResearching) return
+
+    // Capture the attached file (if any) before clearing state
+    const fileAttachment = attachedFile
 
     const id = generateId()
     const research = {
       id,
-      query: query.trim(),
+      query: query.trim() || `(Analyze: ${fileAttachment?.name || 'file'})`,
       mode: researchMode,
       sources: [],
       report: '',
@@ -312,11 +324,21 @@ export default function ResearchClient() {
         }, 5000)
       }
 
+      const isImage = fileAttachment && (fileAttachment.type?.startsWith('image/') || IMAGE_EXTENSIONS.includes((fileAttachment.name.split('.').pop() || '').toLowerCase()))
+      const requestBody = { query: query.trim(), mode: researchMode }
+      if (fileAttachment) {
+        requestBody.attachedFile = fileAttachment
+      }
+
       const res = await fetch('/api/research', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: query.trim(), mode: researchMode }),
+        body: JSON.stringify(requestBody),
       })
+
+      // Clear the attachment after the request is sent
+      setAttachedFile(null)
+      setFileError('')
 
       const data = await res.json()
 
@@ -427,9 +449,63 @@ export default function ResearchClient() {
   // ── Submit Handler ──
   function handleSubmit() {
     const q = input.trim()
-    if (!q || isResearching) return
+    if ((!q && !attachedFile) || isResearching) return
     setBarExpanded(false)
     startResearch(q, mode)
+  }
+
+  // ── File Attachment Handlers ──
+  function handleFileSelect(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setFileError('')
+
+    if (file.size > MAX_FILE_SIZE) {
+      setFileError(`File too large (max ${MAX_FILE_SIZE / 1024 / 1024}MB)`)
+      e.target.value = ''
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      setAttachedFile({
+        name: file.name,
+        type: file.type || guessTypeFromName(file.name),
+        size: file.size,
+        content: reader.result, // data URL for images, raw text content for text files
+      })
+    }
+    reader.onerror = () => {
+      setFileError('Failed to read file')
+    }
+
+    // Read as data URL for images, as text for text files
+    const ext = (file.name.split('.').pop() || '').toLowerCase()
+    if (IMAGE_EXTENSIONS.includes(ext) || file.type?.startsWith('image/')) {
+      reader.readAsDataURL(file)
+    } else {
+      // Read as text — readAsText handles UTF-8 properly
+      reader.readAsText(file)
+    }
+
+    e.target.value = '' // reset so the same file can be re-selected
+  }
+
+  function guessTypeFromName(name) {
+    const ext = (name.split('.').pop() || '').toLowerCase()
+    const typeMap = {
+      png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
+      txt: 'text/plain', md: 'text/markdown', json: 'application/json', csv: 'text/csv',
+      pdf: 'application/pdf', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    }
+    return typeMap[ext] || 'application/octet-stream'
+  }
+
+  function removeAttachment() {
+    setAttachedFile(null)
+    setFileError('')
   }
 
   // ── Auto-resize textarea ──
@@ -1049,69 +1125,151 @@ export default function ResearchClient() {
 
   // ── Render Input Bar ──
   function renderInputBar() {
-    const hasInput = input.trim().length > 0
+    const hasInput = input.trim().length > 0 || !!attachedFile
+
+    // Shared attachment chip component
+    const attachmentChip = attachedFile && (
+      <div className="flex items-center gap-2 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1.5 mb-2 max-w-full animate-fade-in">
+        {attachedFile.type?.startsWith('image/') ? (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+          </svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+          </svg>
+        )}
+        <span className="text-xs text-[#a0a0a0] truncate flex-1 min-w-0">{attachedFile.name}</span>
+        <span className="text-[10px] text-[#525252] shrink-0">{(attachedFile.size / 1024).toFixed(1)}KB</span>
+        <button
+          onClick={removeAttachment}
+          className="shrink-0 text-[#525252] hover:text-red-400 transition-colors p-0.5"
+          aria-label="Remove attachment"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+          </svg>
+        </button>
+      </div>
+    )
+
+    const fileErrorChip = fileError && (
+      <div className="text-xs text-red-400 mb-2 px-2">{fileError}</div>
+    )
+
+    // Hidden file input (shared)
+    const hiddenFileInput = (
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={ACCEPTED_FILE_TYPES}
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+    )
+
+    // Shared paperclip button component
+    const paperclipButton = (
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        disabled={isResearching}
+        className="research-toolbar-btn"
+        title="Attach file (image, text, document)"
+        aria-label="Attach file"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.83l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+        </svg>
+      </button>
+    )
 
     return (
       <div className="shrink-0 border-t border-[#1a1a1a] bg-[#0a0a0a]">
         <div className="max-w-4xl mx-auto px-3 py-3">
           {/* ═══ COLLAPSED STATE — Floating pill bar (v2) ═══ */}
           {!barExpanded && (
-            <div className="research-bar-collapsed">
-              {/* Search icon */}
-              <button
-                className="research-collapsed-btn-circle"
-                aria-label="Research"
-                title="Research"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
-                </svg>
-              </button>
+            <>
+              {(attachedFile || fileError) && (
+                <div className="max-w-full mb-2">
+                  {attachmentChip}
+                  {fileErrorChip}
+                </div>
+              )}
+              <div className="research-bar-collapsed">
+                {/* Search icon */}
+                <button
+                  className="research-collapsed-btn-circle"
+                  aria-label="Research"
+                  title="Research"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+                  </svg>
+                </button>
 
-              {/* Input field — single line in collapsed state */}
-              <div className="research-collapsed-input-wrap">
-                <input
-                  ref={collapsedInputRef}
-                  type="text"
-                  placeholder="Research anything..."
-                  value={input}
-                  onChange={e => setInput(e.target.value)}
-                  onFocus={() => setBarExpanded(true)}
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
-                  className="research-collapsed-input"
-                  autoComplete="off"
-                  spellCheck="false"
+                {/* Input field — single line in collapsed state */}
+                <div className="research-collapsed-input-wrap">
+                  <input
+                    ref={collapsedInputRef}
+                    type="text"
+                    placeholder={attachedFile ? `Ask about ${attachedFile.name}...` : 'Research anything...'}
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    onFocus={() => setBarExpanded(true)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
+                    className="research-collapsed-input"
+                    autoComplete="off"
+                    spellCheck="false"
+                    disabled={isResearching}
+                  />
+                </div>
+
+                {/* File attach button (collapsed) */}
+                <button
+                  onClick={() => fileInputRef.current?.click()}
                   disabled={isResearching}
-                />
-              </div>
+                  className="research-collapsed-btn-circle"
+                  title="Attach file"
+                  aria-label="Attach file"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.83l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                  </svg>
+                </button>
 
-              {/* Send button */}
-              <button
-                onClick={handleSubmit}
-                disabled={!hasInput || isResearching}
-                className={`research-collapsed-send ${hasInput && !isResearching ? 'research-collapsed-send-active' : ''}`}
-                aria-label="Start research"
-              >
-                {isResearching ? (
-                  <div className="w-4 h-4 border-2 border-[#525252] border-t-red-400 rounded-full animate-spin" />
-                ) : hasInput ? (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="8" y="5" width="2" height="14" rx="1" fill="currentColor"/><rect x="12" y="9" width="2" height="6" rx="1" fill="currentColor"/><rect x="16" y="6" width="2" height="12" rx="1" fill="currentColor"/><rect x="20" y="10" width="2" height="4" rx="1" fill="currentColor"/></svg>
-                )}
-              </button>
-            </div>
+                {/* Send button */}
+                <button
+                  onClick={handleSubmit}
+                  disabled={!hasInput || isResearching}
+                  className={`research-collapsed-send ${hasInput && !isResearching ? 'research-collapsed-send-active' : ''}`}
+                  aria-label="Start research"
+                >
+                  {isResearching ? (
+                    <div className="w-4 h-4 border-2 border-[#525252] border-t-red-400 rounded-full animate-spin" />
+                  ) : hasInput ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="8" y="5" width="2" height="14" rx="1" fill="currentColor"/><rect x="12" y="9" width="2" height="6" rx="1" fill="currentColor"/><rect x="16" y="6" width="2" height="12" rx="1" fill="currentColor"/><rect x="20" y="10" width="2" height="4" rx="1" fill="currentColor"/></svg>
+                  )}
+                </button>
+              </div>
+              {hiddenFileInput}
+            </>
           )}
 
           {/* ═══ EXPANDED STATE — Floating pill with toolbar ═══ */}
           {barExpanded && (
             <div className="research-container-expanded" ref={chatBarRef}>
+              {/* Attachment chip (if any) */}
+              {attachmentChip}
+              {fileErrorChip}
+
               {/* Textarea */}
               <textarea
                 ref={textareaRef}
                 rows={1}
                 className="research-textarea-expanded scrollbar-none"
-                placeholder="Research anything..."
+                placeholder={attachedFile ? `Ask about ${attachedFile.name}...` : 'Research anything...'}
                 value={input}
                 onChange={e => { setInput(e.target.value); autoResize(e.target) }}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
@@ -1166,6 +1324,20 @@ export default function ResearchClient() {
                   >
                     {mode === 'deep' ? 'Deep' : 'Quick'}
                   </button>
+
+                  {/* File attach button */}
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isResearching}
+                    className="research-toolbar-btn"
+                    title="Attach file (image, text, document)"
+                    aria-label="Attach file"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.83l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                    </svg>
+                  </button>
+                  {hiddenFileInput}
                 </div>
 
                 {/* Right actions */}
