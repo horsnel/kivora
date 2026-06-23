@@ -28,3 +28,6 @@ voice-server/.env
 *.mp3
 *.wav
 research-worker/.wrangler/
+
+# Deploy script secrets (see scripts/deploy/kivora-deploy.env.example)
+scripts/deploy/kivora-deploy.env
