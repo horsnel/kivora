@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabasePublic } from '@/lib/supabase'
 import { IconBookmark, IconChat, IconTrash, IconArrowRight, IconUser, IconMail, IconClock, IconCode, IconBook, IconFlame, IconTarget, IconPlus, IconClose, IconCheck, IconSearch, IconStar, IconMoney, IconLightning, IconGlobe } from '@/components/Icons'
 import { useTranslation } from '@/components/LanguageProvider'
+import CreditPill from '@/components/CreditPill'
 
 function IconActivity({ size = 16, className = '' }) {
   return (
@@ -461,25 +462,23 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-[#0a0a0a]">
-      <div className="max-w-5xl mx-auto px-4 py-10">
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-6 sm:py-10">
         {/* Header */}
-        <div className="flex items-start justify-between mb-8 animate-fade-up">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-[#141414] rounded-xl flex items-center justify-center">
-              <IconUser size={14} className="text-muted" />
-            </div>
-            <div>
-              <h1 className="font-semibold text-headline tracking-tight">{t('dashboard.title')}</h1>
-              <p className="text-muted text-caption">{user?.email}</p>
-            </div>
+        <div className="flex items-center justify-between mb-6 sm:mb-8 animate-fade-up">
+          <div>
+            <h1 className="font-semibold text-xl sm:text-headline tracking-tight">{t('dashboard.title')}</h1>
+            <p className="text-muted text-xs sm:text-caption mt-0.5">{user?.email}</p>
           </div>
-          <button onClick={() => router.push('/profile')} className="flex items-center gap-1.5 text-caption text-muted hover:text-white border border-[#262626] hover:border-[#3a3a3a] px-3 py-1.5 rounded-lg transition-all">
-            <IconUser size={14} /> {t('dashboard.profile')}
-          </button>
+          <div className="flex items-center gap-2">
+            <CreditPill compact />
+            <button onClick={() => router.push('/profile')} className="flex items-center gap-1.5 text-xs sm:text-caption text-muted hover:text-white border border-[#262626] hover:border-[#3a3a3a] px-2 sm:px-3 py-1.5 rounded-lg transition-all">
+              <IconUser size={14} /> <span className="hidden sm:inline">{t('dashboard.profile')}</span>
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-7">
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 mb-5 sm:mb-7">
           {[
             { label: t('dashboard.streak'), value: streakInfo.current > 0 ? `${streakInfo.current}d` : '0d', icon: streakInfo.current > 0 ? 'flame' : null },
             { label: 'Goals', value: goals.length },
@@ -487,18 +486,18 @@ export default function DashboardPage() {
             { label: t('dashboard.chats'), value: chats.length },
             { label: t('dashboard.messages'), value: messages.length },
           ].map(s => (
-            <div key={s.label} className="bg-[#141414] border border-white/[0.06] rounded-xl px-4 py-3 text-center">
-              <div className="font-bold text-headline tracking-tight">{s.icon === 'flame' && <IconFlame size={14} className="inline text-orange-400" />}{s.icon === 'flame' ? ' ' : ''}{s.value}</div>
-              <div className="text-caption text-muted mt-0.5">{s.label}</div>
+            <div key={s.label} className="bg-[#141414] border border-white/[0.06] rounded-xl px-2 sm:px-4 py-2 sm:py-3 text-center">
+              <div className="font-bold text-base sm:text-headline tracking-tight">{s.icon === 'flame' && <IconFlame size={12} className="inline text-orange-400" />}{s.icon === 'flame' ? ' ' : ''}{s.value}</div>
+              <div className="text-[10px] sm:text-caption text-muted mt-0.5">{s.label}</div>
             </div>
           ))}
         </div>
 
         {/* Streak & Weekly Activity */}
         {allTimeSessions.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-7">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-5 sm:mb-7">
             {/* Streak card */}
-            <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
+            <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-3 sm:p-5">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-6 h-6 bg-red-600/10 rounded-lg flex items-center justify-center">
                   <IconFlame size={14} className="text-red-400" />
@@ -521,7 +520,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Weekly Activity Heatmap */}
-            <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
+            <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-3 sm:p-5">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-6 h-6 bg-red-600/10 rounded-lg flex items-center justify-center">
                   <IconActivity size={14} className="text-red-400" />
@@ -564,22 +563,26 @@ export default function DashboardPage() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-[#141414] border border-[#262626] p-1 rounded-xl mb-6">
-          {[
-            { id: 'saved', label: t('dashboard.tab_saved'), shortLabel: t('dashboard.tab_saved'), Icon: IconBookmark },
-            { id: 'goals', label: 'Goals', shortLabel: 'Goals', Icon: IconTarget },
-            { id: 'tools', label: 'Tools', shortLabel: 'Tools', Icon: IconCode },
-            { id: 'chats', label: t('dashboard.tab_chats'), shortLabel: t('dashboard.chats'), Icon: IconChat },
-            { id: 'messages', label: `${t('dashboard.tab_messages')}${unreadCount > 0 ? ` (${unreadCount})` : ''}`, shortLabel: unreadCount > 0 ? `Msgs (${unreadCount})` : 'Msgs', Icon: IconMail },
-            { id: 'activity', label: t('dashboard.tab_activity'), shortLabel: t('dashboard.tab_activity'), Icon: IconActivity },
-          ].map(tabItem => (
-            <button key={tabItem.id} onClick={() => setTab(tabItem.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 sm:px-3 rounded-lg text-caption sm:text-body font-medium transition-all whitespace-nowrap ${
-                tab === tabItem.id ? 'bg-[#262626] text-white' : 'text-muted hover:text-white'
-              }`}>
-              <tabItem.Icon size={14} /> <span className="hidden sm:inline">{tabItem.label}</span><span className="sm:hidden">{tabItem.shortLabel}</span>
-            </button>
-          ))}
+        <div className="overflow-x-auto scrollbar-hide -mx-3 sm:mx-0 px-3 sm:px-0">
+          <div className="flex gap-1 bg-[#141414] border border-[#262626] p-1 rounded-xl mb-4 sm:mb-6 min-w-max sm:min-w-0 sm:w-full">
+            {[
+              { id: 'saved', label: t('dashboard.tab_saved'), shortLabel: t('dashboard.tab_saved'), Icon: IconBookmark },
+              { id: 'goals', label: 'Goals', shortLabel: 'Goals', Icon: IconTarget },
+              { id: 'tools', label: 'Tools', shortLabel: 'Tools', Icon: IconCode },
+              { id: 'chats', label: t('dashboard.tab_chats'), shortLabel: t('dashboard.chats'), Icon: IconChat },
+              { id: 'messages', label: `${t('dashboard.tab_messages')}${unreadCount > 0 ? ` (${unreadCount})` : ''}`, shortLabel: unreadCount > 0 ? `Msgs (${unreadCount})` : 'Msgs', Icon: IconMail },
+              { id: 'activity', label: t('dashboard.tab_activity'), shortLabel: t('dashboard.tab_activity'), Icon: IconActivity },
+            ].map(tabItem => (
+              <button key={tabItem.id} onClick={() => setTab(tabItem.id)}
+                className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-2.5 sm:px-3 rounded-lg text-[11px] sm:text-body font-medium transition-all whitespace-nowrap shrink-0 ${
+                  tab === tabItem.id ? 'bg-[#262626] text-white' : 'text-muted hover:text-white'
+                }`}>
+                <tabItem.Icon size={13} className="shrink-0" />
+                <span className="sm:hidden">{tabItem.shortLabel}</span>
+                <span className="hidden sm:inline">{tabItem.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Goals */}
@@ -858,7 +861,7 @@ export default function DashboardPage() {
                     .map(([cat, data]) => {
                       const colors = CATEGORY_COLORS[cat] || { dot: 'bg-[#404040]', text: 'text-[#888]' }
                       return (
-                        <div key={cat} className="bg-[#141414] border border-white/[0.06] rounded-xl p-4">
+                        <div key={cat} className="bg-[#141414] border border-white/[0.06] rounded-xl p-3 sm:p-4">
                           <div className="flex items-center gap-2 mb-2">
                             <div className={`w-2.5 h-2.5 rounded-full ${colors.dot}`} />
                             <span className={`text-[13px] font-semibold ${colors.text}`}>{cat}</span>
@@ -873,7 +876,7 @@ export default function DashboardPage() {
 
               {/* Per-tool breakdown */}
               {Object.keys(toolBreakdown).length > 0 && (
-                <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
+                <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-3 sm:p-5">
                   <h3 className="font-semibold text-body mb-4 text-muted">Tool Breakdown</h3>
                   <div className="space-y-1.5">
                     {Object.entries(toolBreakdown)
@@ -915,7 +918,7 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {saves.map(save => (
-                <div key={save.id} className="bg-[#141414] border border-white/[0.06] rounded-xl px-5 py-4 flex items-center justify-between gap-4">
+                <div key={save.id} className="bg-[#141414] border border-white/[0.06] rounded-xl px-3 sm:px-5 py-3 sm:py-4 flex items-center justify-between gap-3 sm:gap-4">
                   <button onClick={() => router.push(`/explore/${save.result_slug}`)} className="flex-1 text-left">
                     <div className="text-body text-white hover:text-red-400 transition-colors leading-snug">{save.query}</div>
                     <div className="text-caption text-muted2 mt-1">Saved {new Date(save.created_at).toLocaleDateString()}</div>
@@ -944,7 +947,7 @@ export default function DashboardPage() {
                 const msgs = chat.messages || []
                 const first = msgs.find(m => m.role === 'user')
                 return (
-                  <div key={chat.id} className="bg-[#141414] border border-white/[0.06] rounded-xl px-5 py-4">
+                  <div key={chat.id} className="bg-[#141414] border border-white/[0.06] rounded-xl px-3 sm:px-5 py-3 sm:py-4">
                     <div className="text-body text-white mb-1 line-clamp-1 leading-snug">{first?.content || 'Chat session'}</div>
                     <div className="flex items-center gap-3 text-caption text-muted2 font-mono">
                       <span>{msgs.length} msg{msgs.length !== 1 ? 's' : ''}</span>
@@ -965,7 +968,7 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {messages.map(msg => (
-                <div key={msg.id} className={`bg-[#141414] border rounded-xl px-5 py-4 transition-colors ${msg.read ? 'border-white/[0.06]' : 'border-red-900/30 bg-red-950/10'}`}>
+                <div key={msg.id} className={`bg-[#141414] border rounded-xl px-3 sm:px-5 py-3 sm:py-4 transition-colors ${msg.read ? 'border-white/[0.06]' : 'border-red-900/30 bg-red-950/10'}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
@@ -1036,33 +1039,33 @@ export default function DashboardPage() {
               </div>
 
               {/* Overview stats */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
-                  <div className="flex items-center gap-2 mb-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+                <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-3 sm:p-5">
+                  <div className="flex items-center gap-2 mb-2 sm:mb-3">
                     <div className="w-6 h-6 bg-red-600/10 rounded-lg flex items-center justify-center">
                       <IconClock size={14} className="text-red-400" />
                     </div>
-                    <span className="text-caption text-muted">{t('dashboard.time_spent')}</span>
+                    <span className="text-[11px] sm:text-caption text-muted">{t('dashboard.time_spent')}</span>
                   </div>
-                  <div className="font-bold text-headline tracking-tight">{formatDuration(totalTimeMs)}</div>
+                  <div className="font-bold text-base sm:text-headline tracking-tight">{formatDuration(totalTimeMs)}</div>
                 </div>
-                <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
-                  <div className="flex items-center gap-2 mb-3">
+                <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-3 sm:p-5">
+                  <div className="flex items-center gap-2 mb-2 sm:mb-3">
                     <div className="w-6 h-6 bg-red-600/10 rounded-lg flex items-center justify-center">
                       <IconActivity size={14} className="text-red-400" />
                     </div>
-                    <span className="text-caption text-muted">{t('dashboard.sessions')}</span>
+                    <span className="text-[11px] sm:text-caption text-muted">{t('dashboard.sessions')}</span>
                   </div>
-                  <div className="font-bold text-headline tracking-tight">{totalSessions}</div>
+                  <div className="font-bold text-base sm:text-headline tracking-tight">{totalSessions}</div>
                 </div>
-                <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-5">
-                  <div className="flex items-center gap-2 mb-3">
+                <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-3 sm:p-5">
+                  <div className="flex items-center gap-2 mb-2 sm:mb-3">
                     <div className="w-6 h-6 bg-red-600/10 rounded-lg flex items-center justify-center">
                       <IconBook size={14} className="text-red-400" />
                     </div>
-                    <span className="text-caption text-muted">{t('dashboard.subjects')}</span>
+                    <span className="text-[11px] sm:text-caption text-muted">{t('dashboard.subjects')}</span>
                   </div>
-                  <div className="font-bold text-headline tracking-tight">{Object.keys(subjectBreakdown).length}</div>
+                  <div className="font-bold text-base sm:text-headline tracking-tight">{Object.keys(subjectBreakdown).length}</div>
                 </div>
               </div>
 

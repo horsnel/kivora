@@ -9,6 +9,10 @@ export default function Error({ error, reset }) {
     console.error('[Kivora Error Boundary]', error?.message || error, error?.stack || '')
   }, [error])
 
+  // Extract a user-friendly message
+  const msg = error?.message || ''
+  const isHydration = msg.includes('Hydration') || msg.includes('hydration') || msg.includes('minified')
+
   return (
     <main className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4">
       <div className="text-center max-w-md">
@@ -17,14 +21,16 @@ export default function Error({ error, reset }) {
         </div>
         <h1 className="font-semibold text-2xl tracking-tight mb-2">Something went wrong</h1>
         <p className="text-muted text-sm mb-6">
-          An unexpected error occurred. This has been noted and we're working on it.
+          {isHydration
+            ? 'A page rendering conflict occurred. This usually resolves itself.'
+            : 'An unexpected error occurred. This has been noted and we\'re working on it.'}
         </p>
         <div className="flex items-center justify-center gap-3">
           <button
-            onClick={reset}
+            onClick={() => window.location.reload()}
             className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors"
           >
-            Try again
+            Refresh page
           </button>
           <Link
             href="/research"

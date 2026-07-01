@@ -193,16 +193,11 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen bg-[#0a0a0a]">
-      <div className="max-w-6xl mx-auto px-4 py-10">
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-6 sm:py-10">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-8 animate-fade-up">
-          <div className="w-9 h-9 bg-[#141414] rounded-xl flex items-center justify-center">
-            <IconUser size={14} className="text-muted" />
-          </div>
-          <div>
-            <h1 className="text-display font-semibold mb-2 tracking-tight">{t('profile.title')}</h1>
-            <p className="text-muted text-body-sm mt-0.5">{t('profile.subtitle')}</p>
-          </div>
+        <div className="mb-6 sm:mb-8 animate-fade-up">
+          <h1 className="font-semibold text-xl sm:text-display tracking-tight">{t('profile.title')}</h1>
+          <p className="text-muted text-xs sm:text-body-sm mt-0.5">{t('profile.subtitle')}</p>
         </div>
 
         {/* Toast */}
@@ -217,7 +212,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
           {/* Left — Avatar card */}
           <div className="lg:col-span-1">
             <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 text-center">

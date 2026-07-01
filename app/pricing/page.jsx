@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { supabasePublic } from '@/lib/supabase'
 import { PLANS, PLAN_LIST } from '@/lib/plans'
@@ -45,6 +45,14 @@ const CREDIT_COSTS = [
 ]
 
 export default function PricingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center"><div className="w-6 h-6 border-2 border-[#262626] border-t-red-500 rounded-full animate-spin" /></div>}>
+      <PricingPageContent />
+    </Suspense>
+  )
+}
+
+function PricingPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [billingCycle, setBillingCycle] = useState('monthly') // 'monthly' | 'annual'
@@ -198,22 +206,22 @@ export default function PricingPage() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       {/* ── Hero ── */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-12 sm:pt-16 pb-8">
-        <div className="text-center mb-8 sm:mb-12">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1a1a1a] border border-[#262626] text-xs text-[#a3a3a3] mb-4">
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-16 pb-6 sm:pb-8">
+        <div className="text-center mb-6 sm:mb-12">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1a1a1a] border border-[#262626] text-xs text-[#a3a3a3] mb-3 sm:mb-4">
             <IconLightning size={12} className="text-red-500" />
             Credits-based pricing — never worry about tokens
           </div>
-          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight mb-3">
+          <h1 className="text-2xl sm:text-5xl font-bold tracking-tight mb-2 sm:mb-3">
             Pick the plan that <span className="text-red-500">fits your hustle</span>
           </h1>
-          <p className="text-base sm:text-lg text-[#a3a3a3] max-w-2xl mx-auto">
+          <p className="text-sm sm:text-lg text-[#a3a3a3] max-w-2xl mx-auto">
             Every plan includes daily free credits. Upgrade when you need more power — Deep Research, Image Intelligence, voice, or team seats.
           </p>
         </div>
 
         {/* ── Billing cycle toggle ── */}
-        <div className="flex justify-center mb-10">
+        <div className="flex justify-center mb-6 sm:mb-10">
           <div className="inline-flex p-1 bg-[#141414] border border-[#262626] rounded-xl">
             <button
               onClick={() => setBillingCycle('monthly')}
@@ -240,7 +248,7 @@ export default function PricingPage() {
         </div>
 
         {/* ── Plan cards ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
           {PLAN_LIST.map((plan) => {
             const isCurrent = currentPlan === plan.code
             const isPopular = plan.code === 'pro'
@@ -252,7 +260,7 @@ export default function PricingPage() {
             return (
               <div
                 key={plan.code}
-                className={`relative rounded-2xl border p-5 flex flex-col ${
+                className={`relative rounded-2xl border p-3 sm:p-5 flex flex-col ${
                   isPopular
                     ? 'border-red-500/60 bg-gradient-to-b from-[#1a0d0d] to-[#0a0a0a]'
                     : 'border-[#262626] bg-[#0f0f0f]'
@@ -348,7 +356,7 @@ export default function PricingPage() {
         </div>
 
         {/* ── Payment trust badges ── */}
-        <div className="flex justify-center items-center gap-4 sm:gap-6 mt-8 text-[11px] text-[#737373]">
+        <div className="flex flex-wrap justify-center items-center gap-3 sm:gap-6 mt-6 sm:mt-8 text-[11px] text-[#737373]">
           <span className="flex items-center gap-1.5">
             <IconCheck size={12} className="text-emerald-500" />
             Secure payment by Paystack
@@ -365,8 +373,8 @@ export default function PricingPage() {
       </div>
 
       {/* ── Feature comparison table ── */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
-        <h2 className="text-xl sm:text-2xl font-bold mb-6 text-center">Compare every feature</h2>
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 py-6 sm:py-16">
+        <h2 className="text-lg sm:text-2xl font-bold mb-4 sm:mb-6 text-center">Compare every feature</h2>
         <div className="overflow-x-auto rounded-2xl border border-[#262626] bg-[#0f0f0f]">
           <table className="w-full text-sm">
             <thead>
@@ -401,8 +409,8 @@ export default function PricingPage() {
       </div>
 
       {/* ── Credit cost explainer ── */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-16 border-t border-[#1a1a1a]">
-        <h2 className="text-xl sm:text-2xl font-bold mb-3 text-center">How credits work</h2>
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 py-6 sm:py-16 border-t border-[#1a1a1a]">
+        <h2 className="text-lg sm:text-2xl font-bold mb-2 sm:mb-3 text-center">How credits work</h2>
         <p className="text-center text-[#a3a3a3] mb-8 max-w-2xl mx-auto text-sm">
           Every action costs a fixed number of credits — no token math, no surprise bills.
           Credits drain in this order: <span className="text-red-400">daily → monthly → bonus</span>.
@@ -421,8 +429,8 @@ export default function PricingPage() {
       </div>
 
       {/* ── Referral + Promo code redemption ── */}
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16 border-t border-[#1a1a1a]">
-        <div className="bg-[#0f0f0f] border border-[#262626] rounded-2xl p-6 sm:p-8">
+      <div className="max-w-3xl mx-auto px-3 sm:px-6 py-6 sm:py-16 border-t border-[#1a1a1a]">
+        <div className="bg-[#0f0f0f] border border-[#262626] rounded-2xl p-4 sm:p-8">
           <h2 className="text-lg sm:text-xl font-bold mb-2">Have a referral or promo code?</h2>
           <p className="text-sm text-[#a3a3a3] mb-5">
             Redeem it below to get bonus credits. Referral codes look like <code className="px-1.5 py-0.5 bg-[#1a1a1a] rounded text-red-400">KIV-AB12CD</code>; promo codes are like <code className="px-1.5 py-0.5 bg-[#1a1a1a] rounded text-red-400">LAUNCH100</code>.
@@ -461,8 +469,8 @@ export default function PricingPage() {
       </div>
 
       {/* ── FAQ ── */}
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16 border-t border-[#1a1a1a]">
-        <h2 className="text-xl sm:text-2xl font-bold mb-6 text-center">FAQ</h2>
+      <div className="max-w-3xl mx-auto px-3 sm:px-6 py-6 sm:py-16 border-t border-[#1a1a1a]">
+        <h2 className="text-lg sm:text-2xl font-bold mb-4 sm:mb-6 text-center">FAQ</h2>
         <div className="space-y-4">
           {FAQ_ITEMS.map((item, i) => (
             <details key={i} className="group bg-[#0f0f0f] border border-[#262626] rounded-xl p-4 cursor-pointer">
@@ -477,8 +485,8 @@ export default function PricingPage() {
       </div>
 
       {/* ── CTA ── */}
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16 text-center">
-        <h2 className="text-xl sm:text-2xl font-bold mb-3">Still on Free?</h2>
+      <div className="max-w-3xl mx-auto px-3 sm:px-6 py-6 sm:py-16 text-center">
+        <h2 className="text-lg sm:text-2xl font-bold mb-2 sm:mb-3">Still on Free?</h2>
         <p className="text-[#a3a3a3] mb-6 text-sm">
           You get 10 free credits every day. Use them on Quick Research, Chat, Explore, and more — no card needed.
         </p>

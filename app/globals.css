@@ -232,6 +232,15 @@ input, textarea, select {
   border: 2px solid #1a1a1a;
 }
 
+/* Hide scrollbar but allow scrolling */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 .skeleton {
   background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 50%, var(--surface) 75%);
   background-size: 200% 100%;
