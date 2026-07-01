@@ -167,7 +167,11 @@ export default function ProfilePage() {
   const displayName = form.display_name || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || ''
   const initials = displayName.slice(0, 2).toUpperCase()
 
-  const { browser, os } = parseUserAgent(typeof navigator !== 'undefined' ? navigator.userAgent : '')
+  const [uaInfo, setUaInfo] = useState({ browser: 'Detecting...', os: '' })
+  useEffect(() => {
+    setUaInfo(parseUserAgent(navigator.userAgent))
+  }, [])
+  const { browser, os } = uaInfo
   const lastSignIn = user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Unknown'
 
   const inputClass = "w-full bg-[#0a0a0a] border border-[#262626] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#404040] focus:outline-none transition-colors"

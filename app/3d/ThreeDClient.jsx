@@ -4858,23 +4858,19 @@ const SCENE_CREATORS = {
 /* ── Main Component ── */
 export default function ThreeDClient() {
   const { t } = useTranslation()
-  const [activeScene, setActiveScene] = useState(() => {
-    if (typeof window !== 'undefined') {
-      try { return localStorage.getItem('kivora-3d-last-scene') || 'moon' } catch { return 'moon' }
-    }
-    return 'moon'
-  })
-  const [activeCategory, setActiveCategory] = useState(() => {
-    // Derive category from the active scene
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('kivora-3d-last-scene') || 'moon'
+  const [activeScene, setActiveScene] = useState('moon')
+  const [activeCategory, setActiveCategory] = useState('all')
+  // Hydration-safe: load saved scene from localStorage after mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('kivora-3d-last-scene')
+      if (saved && saved !== 'moon') {
+        setActiveScene(saved)
         const scene = SCENES.find(s => s.id === saved)
-        return scene?.category || 'all'
-      } catch { return 'all' }
-    }
-    return 'all'
-  })
+        if (scene?.category) setActiveCategory(scene.category)
+      }
+    } catch {}
+  }, [])
   const [fullscreen, setFullscreen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null) // null = no error, 'NO_WEBGL' = no WebGL, 'LOAD' = script error

@@ -10,7 +10,6 @@ import MarkdownRenderer from '@/components/MarkdownRenderer'
 import ArtifactViewer from '@/components/ArtifactViewer'
 import CodePreviewCard from '@/components/CodePreviewCard'
 import VoiceOutput from '@/components/VoiceOutput'
-import VoiceSettings from '@/components/VoiceSettings'
 import { useVoiceTTS } from '@/hooks/useVoiceTTS'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
@@ -146,6 +145,7 @@ export default function ChatClient() {
   // ── Voice TTS (Text-to-Speech) ──
   const tts = useVoiceTTS()
   const [voiceSettingsOpen, setVoiceSettingsOpen] = useState(false)
+  const [voiceComingSoon, setVoiceComingSoon] = useState(false)
 
   function showVoiceToast(type, message) {
     if (voiceToastTimer.current) clearTimeout(voiceToastTimer.current)
@@ -1094,24 +1094,20 @@ export default function ChatClient() {
                       <span className="text-[20px] text-[#888]">›</span>
                     </button>
 
-                    {/* Voice */}
+                    {/* Voice — Coming Soon */}
                     <button
-                      onClick={() => settingsPush('voice')}
+                      onClick={() => setVoiceComingSoon(true)}
                       className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
                     >
-                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(115,115,115,0.1)] flex items-center justify-center shrink-0">
-                        <IconSpeaker size={18} className="text-[#737373]" />
+                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(115,115,115,0.1)] flex items-center justify-center shrink-0 relative">
+                        <IconSpeaker size={18} className="text-[#555]" />
+                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.4)]" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-[16px] font-medium text-white">Voice</div>
-                        <div className="text-[13px] text-[#888] truncate">
-                          {tts.currentEngine === 'browser' ? 'Browser TTS' : (tts.engines?.find(e => e.id === tts.currentEngine)?.name || 'Browser')} · {(tts.speed || 1.0).toFixed(1)}x
-                        </div>
+                        <div className="text-[16px] font-medium text-[#888] flex items-center gap-2">Voice <span className="text-[10px] font-semibold uppercase tracking-wider bg-amber-500/15 text-amber-400 px-1.5 py-0.5 rounded-md">Soon</span></div>
+                        <div className="text-[13px] text-[#666] truncate">Advanced voice settings</div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className={`w-2 h-2 rounded-full ${tts.serverAvailable ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.4)]' : 'bg-red-500/60'}`} />
-                        <span className="text-[20px] text-[#888]">›</span>
-                      </div>
+                      <IconLock size={14} className="text-[#555] shrink-0" />
                     </button>
 
                     {/* System Prompt */}
@@ -1131,13 +1127,13 @@ export default function ChatClient() {
                       <span className="text-[20px] text-[#888]">›</span>
                     </button>
 
-                    {/* Full Voice Settings shortcut */}
+                    {/* Full Voice Settings shortcut — Coming Soon */}
                     <div className="pt-4">
                       <button
-                        onClick={() => { setSettingsOpen(false); settingsReset(); setVoiceSettingsOpen(true) }}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[rgba(115,115,115,0.1)] text-[#737373] active:bg-[rgba(115,115,115,0.18)] transition-colors"
+                        onClick={() => setVoiceComingSoon(true)}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[rgba(115,115,115,0.1)] text-[#555] active:bg-[rgba(115,115,115,0.18)] transition-colors"
                       >
-                        <IconSpeaker size={16} /> Full Voice Settings Panel
+                        <IconLock size={14} /> Coming Soon
                       </button>
                     </div>
                   </div>
@@ -1256,109 +1252,17 @@ export default function ChatClient() {
                   </div>
                 )}
 
-                {/* ══════ VOICE ══════ */}
+                {/* ══════ VOICE — Coming Soon ══════ */}
                 {settingsCurrentPage === 'voice' && (
-                  <div className="divide-y divide-[#2a2a2a]">
-                    {/* Server status */}
-                    <div className="flex items-center gap-2.5 py-3.5">
-                      <div className={`w-2.5 h-2.5 rounded-full ${tts.serverAvailable ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-red-500/60'}`} />
-                      <span className="text-[14px] text-[#aaa]">
-                        Voice Server {tts.serverAvailable ? 'Connected' : 'Offline'}
-                      </span>
-                      <span className="text-[11px] text-[#555] ml-auto">
-                        {tts.serverAvailable ? 'High-quality TTS' : 'Browser fallback'}
-                      </span>
+                  <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+                    <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-5">
+                      <IconSpeaker size={28} className="text-amber-400" />
                     </div>
-
-                    {/* Engine */}
-                    <div className="py-3.5">
-                      <div className="text-[10px] font-medium text-[#666] uppercase tracking-wider mb-2">Engine</div>
-                      <div className="space-y-1">
-                        {(tts.engines?.length > 0 ? tts.engines : [{ id: 'browser', name: 'Browser TTS', features: ['free', 'low-latency'] }]).map(eng => (
-                          <button
-                            key={eng.id}
-                            onClick={() => tts.setEngine?.(eng.id)}
-                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-left ${
-                              tts.currentEngine === eng.id
-                                ? 'bg-[rgba(138,90,180,0.1)] border border-[rgba(138,90,180,0.2)]'
-                                : 'hover:bg-[#222] border border-transparent'
-                            }`}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className={`text-[14px] font-medium ${tts.currentEngine === eng.id ? 'text-[#b88fd8]' : 'text-white'}`}>
-                                {eng.name}
-                              </div>
-                              {eng.features && (
-                                <div className="flex gap-1 mt-0.5">
-                                  {eng.features.map(f => (
-                                    <span key={f} className="text-[9px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-[#555]">{f}</span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            {tts.currentEngine === eng.id && (
-                              <span className="text-[#b88fd8] text-[16px]">✓</span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Speed */}
-                    <div className="py-3.5">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-medium text-[#666] uppercase tracking-wider">Speed</span>
-                        <span className="text-[13px] text-[#aaa] font-mono">{(tts.speed || 1.0).toFixed(1)}x</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.5"
-                        max="2.0"
-                        step="0.1"
-                        value={tts.speed || 1.0}
-                        onChange={e => tts.setSpeed?.(parseFloat(e.target.value))}
-                        className="settings-voice-slider w-full h-1.5 rounded-full appearance-none cursor-pointer"
-                        style={{
-                          background: `linear-gradient(to right, #a855f7 0%, #ef4444 ${(((tts.speed || 1.0) - 0.5) / 1.5) * 100}%, #262626 ${(((tts.speed || 1.0) - 0.5) / 1.5) * 100}%)`,
-                        }}
-                      />
-                      <div className="flex justify-between mt-1.5">
-                        <span className="text-[11px] text-[#444]">0.5x</span>
-                        <span className="text-[11px] text-[#444]">1.0x</span>
-                        <span className="text-[11px] text-[#444]">2.0x</span>
-                      </div>
-                    </div>
-
-                    {/* Test Voice */}
-                    <div className="py-3.5">
-                      <button
-                        onClick={() => {
-                          if (tts.speak) {
-                            tts.speak("Hello from Kivora", { interrupt: true }).catch(() => {})
-                          } else if (typeof window !== 'undefined' && window.speechSynthesis) {
-                            window.speechSynthesis.speak(new SpeechSynthesisUtterance("Hello from Kivora"))
-                          }
-                        }}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-[14px] text-[15px] font-medium transition-all active:scale-[0.98]"
-                        style={{
-                          background: 'linear-gradient(135deg, rgba(168,85,247,0.12), rgba(239,68,68,0.12))',
-                          border: '1px solid rgba(168,85,247,0.15)',
-                          color: '#d4d4d4',
-                        }}
-                      >
-                        <IconSpeaker size={16} /> Test Voice
-                      </button>
-                    </div>
-
-                    {/* Full Voice Panel link */}
-                    <div className="py-3.5">
-                      <button
-                        onClick={() => { setSettingsOpen(false); settingsReset(); setVoiceSettingsOpen(true) }}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[rgba(138,90,180,0.12)] text-[#b88fd8] active:bg-[rgba(138,90,180,0.2)] transition-colors"
-                      >
-                        Full Voice Settings Panel →
-                      </button>
-                    </div>
+                    <h3 className="text-lg font-semibold text-white mb-2">Voice Settings</h3>
+                    <p className="text-[13px] text-[#888] leading-relaxed mb-6 max-w-[240px]">
+                      Advanced voice configuration is coming soon. We&apos;re working on high-quality TTS engines, voice presets, and more.
+                    </p>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider bg-amber-500/15 text-amber-400 px-3 py-1 rounded-lg">Coming Soon</span>
                   </div>
                 )}
 
@@ -1924,13 +1828,14 @@ export default function ChatClient() {
 
 
 
-                    {/* Voice Settings */}
+                    {/* Voice Settings — Coming Soon */}
                     <button
-                      className={`chat-toolbar-btn ${voiceSettingsOpen ? 'chat-toolbar-btn-active' : ''}`}
-                      onClick={() => setVoiceSettingsOpen(!voiceSettingsOpen)}
-                      title="Voice settings"
+                      className="chat-toolbar-btn relative"
+                      onClick={() => setVoiceComingSoon(true)}
+                      title="Voice settings — Coming soon"
                     >
                       <IconSpeaker size={16} />
+                      <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-500" />
                     </button>
 
                     {/* Model chip — model selector dropdown (logged in only) */}
@@ -2036,12 +1941,29 @@ export default function ChatClient() {
         </div>
       </div>
 
-      {/* ── Voice Settings Panel ── */}
-      <VoiceSettings
-        isOpen={voiceSettingsOpen}
-        onClose={() => setVoiceSettingsOpen(false)}
-        ttsHook={tts}
-      />
+      {/* ── Voice Settings Coming Soon Modal ── */}
+      {voiceComingSoon && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setVoiceComingSoon(false)}>
+          <div className="bg-[#141414] border border-[#262626] rounded-2xl p-8 max-w-sm w-full text-center" onClick={e => e.stopPropagation()}>
+            <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-5">
+              <IconSpeaker size={28} className="text-amber-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">Voice Settings</h3>
+            <p className="text-[13px] text-[#888] leading-relaxed mb-6">
+              Advanced voice configuration is coming soon. We&apos;re working on high-quality TTS engines, custom voice presets, and more control over your experience.
+            </p>
+            <span className="inline-block text-[10px] font-semibold uppercase tracking-wider bg-amber-500/15 text-amber-400 px-3 py-1.5 rounded-lg mb-6">Coming Soon</span>
+            <div>
+              <button
+                onClick={() => setVoiceComingSoon(false)}
+                className="px-6 py-2.5 rounded-xl text-sm font-medium bg-[#1a1a1a] border border-[#262626] text-white hover:bg-[#222] transition-colors"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Microphone Permission Modal ── */}
       {micPermModal && (

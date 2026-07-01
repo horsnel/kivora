@@ -8,9 +8,6 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
-  experimental: {
-    viewTransition: true,
-  },
   turbopack: {
     root: '/home/z/my-project',
   },

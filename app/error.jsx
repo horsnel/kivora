@@ -1,8 +1,14 @@
 'use client'
 
+import { useEffect } from 'react'
 import Link from 'next/link'
 
 export default function Error({ error, reset }) {
+  useEffect(() => {
+    // Log the actual error so we can debug in browser console
+    console.error('[Kivora Error Boundary]', error?.message || error, error?.stack || '')
+  }, [error])
+
   return (
     <main className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4">
       <div className="text-center max-w-md">

@@ -1,6 +1,13 @@
 'use client'
 
+import { useEffect } from 'react'
+
 export default function GlobalError({ error, reset }) {
+  useEffect(() => {
+    // Log the actual error so we can debug in browser console
+    console.error('[Kivora Global Error Boundary]', error?.message || error, error?.stack || '')
+  }, [error])
+
   return (
     <html lang="en">
       <body style={{
