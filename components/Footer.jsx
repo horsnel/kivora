@@ -87,7 +87,7 @@ export default function Footer() {
         </div>
 
         <p className="text-caption text-[#2e2e2e] whitespace-nowrap select-none">
-          © {new Date().getFullYear()} Kivora · product of{' '}
+          © 2025 Kivora · product of{' '}
           <span
             onClick={handleOlhmesClick}
             className="font-black text-[#2e2e2e] hover:text-[#525252] transition-colors cursor-default select-none"

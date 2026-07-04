@@ -2,7 +2,7 @@ export const runtime = 'edge'
 import { createClient } from '@supabase/supabase-js'
 import { groq, MODEL, groqChat, GroqError, getPrimaryClientAsync, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
 import { getEnvVar } from '@/lib/cfEnv'
-import { rateLimit } from '@/lib/ratelimit'
+import { rateLimit, anonymousRateLimit } from '@/lib/ratelimit'
 import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
 import { resolveUserAndAdmin } from '@/lib/authUser'
 
@@ -65,6 +65,17 @@ export async function POST(req) {
         metadata: { slug, category },
       })
       if (!creditCheck.ok) return creditCheck.response
+    }
+
+    // Anonymous user — apply tighter rate limit (3 req/min for explore)
+    if (!exploreUser) {
+      if (!anonymousRateLimit(ip, 3).ok) {
+        return Response.json({
+          error: 'Free exploration limit reached. Sign in for unlimited access.',
+          quotaExceeded: true,
+          upgrade_url: '/auth',
+        }, { status: 429 })
+      }
     }
 
     // Query wiki for existing context

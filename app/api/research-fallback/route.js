@@ -1,6 +1,7 @@
 export const runtime = 'edge'
 
 import { rateLimit } from '@/lib/ratelimit'
+import { getEnvVar } from '@/lib/cfEnv'
 
 // ══════════════════════════════════════════════════════════════════
 // FALLBACK RESEARCH API — Full pipeline: Search + LLM
@@ -10,24 +11,24 @@ import { rateLimit } from '@/lib/ratelimit'
 // Search: Tavily + Firecrawl (same as worker quick mode)
 // ══════════════════════════════════════════════════════════════════
 
-// ── API Keys ──
-function getTavilyKey() {
-  return process.env.TAVILY_API_KEY || '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'
+// ── API Keys (loaded from Cloudflare secrets) ──
+async function getTavilyKey() {
+  return (await getEnvVar('TAVILY_API_KEY')) || ''
 }
-function getFirecrawlKey() {
-  return process.env.FIRECRAWL_API_KEY || 'fc-9afd24762f1348c68c0c05e88130e890'
+async function getFirecrawlKey() {
+  return (await getEnvVar('FIRECRAWL_API_KEY')) || ''
 }
-function getGeminiKey() {
-  return process.env.GEMINI_API_KEY || ''
+async function getGeminiKey() {
+  return (await getEnvVar('GEMINI_API_KEY')) || ''
 }
-function getOpenRouterKey() {
-  return process.env.OPENROUTER_API_KEY || ''
+async function getOpenRouterKey() {
+  return (await getEnvVar('OPENROUTER_API_KEY')) || ''
 }
-function getMistralKey() {
-  return process.env.MISTRAL_API_KEY_FALLBACK || process.env.MISTRAL_API_KEY || ''
+async function getMistralKey() {
+  return (await getEnvVar('MISTRAL_API_KEY_FALLBACK')) || (await getEnvVar('MISTRAL_API_KEY')) || ''
 }
-function getGroqKey() {
-  return process.env.GROQ_API_KEY_FALLBACK || process.env.GROQ_API_KEY || ''
+async function getGroqKey() {
+  return (await getEnvVar('GROQ_API_KEY_FALLBACK')) || (await getEnvVar('GROQ_API_KEY')) || ''
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -39,7 +40,7 @@ async function searchTavily(query, maxResults = 8, depth = 'basic') {
     const res = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${getTavilyKey()}`,
+        'Authorization': `Bearer ${await getTavilyKey()}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -65,7 +66,7 @@ async function searchTavily(query, maxResults = 8, depth = 'basic') {
 }
 
 async function searchFirecrawl(query, limit = 8) {
-  const key = getFirecrawlKey()
+  const key = await getFirecrawlKey()
   if (!key) return []
   try {
     const res = await fetch('https://api.firecrawl.dev/v1/search', {
@@ -144,7 +145,7 @@ async function openaiCompatChat(url, apiKey, model, messages, maxTokens, timeout
 
 // Google Gemini
 async function geminiChat(messages, model = 'gemini-2.0-flash', maxTokens = 4096, timeout = 20000) {
-  const apiKey = getGeminiKey()
+  const apiKey = await getGeminiKey()
   if (!apiKey) return null
 
   try {
@@ -225,7 +226,7 @@ async function generateWithFallback(messages, apexModel, mode = 'quick') {
   const calls = []
 
   // 1. Mistral
-  const mistralKey = getMistralKey()
+  const mistralKey = await getMistralKey()
   if (mistralKey) {
     const mistralModels = apexModel === 'apex-premium'
       ? ['mistral-large-latest', 'mistral-small-latest']
@@ -243,7 +244,7 @@ async function generateWithFallback(messages, apexModel, mode = 'quick') {
   }
 
   // 2. Groq
-  const groqKey = getGroqKey()
+  const groqKey = await getGroqKey()
   if (groqKey) {
     const groqModels = apexModel === 'apex-premium'
       ? ['llama-3.3-70b-versatile']
@@ -261,7 +262,7 @@ async function generateWithFallback(messages, apexModel, mode = 'quick') {
   }
 
   // 3. Gemini
-  if (getGeminiKey()) {
+  if (await getGeminiKey()) {
     for (const model of ['gemini-2.0-flash', 'gemini-1.5-flash']) {
       calls.push({
         label: `Gemini/${model}`,
@@ -273,12 +274,13 @@ async function generateWithFallback(messages, apexModel, mode = 'quick') {
   }
 
   // 4. OpenRouter
-  if (getOpenRouterKey()) {
+  const openrouterKey = await getOpenRouterKey()
+  if (openrouterKey) {
     for (const model of ['mistralai/mistral-small-3.1-24b-instruct', 'meta-llama/llama-4-maverick']) {
       calls.push({
         label: `OpenRouter/${model}`,
         run: () => openaiCompatChat(
-          'https://openrouter.ai/api/v1/chat/completions', getOpenRouterKey(), model, messages, maxTokens, t.openrouter
+          'https://openrouter.ai/api/v1/chat/completions', openrouterKey, model, messages, maxTokens, t.openrouter
         ),
       })
     }

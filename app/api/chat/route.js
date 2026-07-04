@@ -2,7 +2,7 @@ export const runtime = 'edge'
 import { groq, MODEL, VISION_MODEL, groqChat, GroqError, ALLOWED_MODELS, getPrimaryClientAsync, getFallbackClientAsync, setCerebrasApiKey, setSambanovaApiKey, setSiliconflowApiKey, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
 import { createClient } from '@supabase/supabase-js'
 import { getEnvVar } from '@/lib/cfEnv'
-import { rateLimit } from '@/lib/ratelimit'
+import { rateLimit, anonymousRateLimit } from '@/lib/ratelimit'
 import { toolDefs, toolHandlers, TOOL_INSTRUCTIONS, filterToolsByQuery } from '@/lib/toolRegistry'
 import { buildSystemPrompt } from '@/lib/systemPrompt'
 import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
@@ -140,6 +140,17 @@ export async function POST(req) {
         const { data: { user: u } } = await userClient.auth.getUser()
         chatUser = u
       } catch { /* anonymous */ }
+    }
+
+    // Anonymous user — apply tighter rate limit (5 req/min vs 20 for registered)
+    if (!chatUser) {
+      if (!anonymousRateLimit(ip).ok) {
+        return Response.json({
+          error: 'Free usage limit reached. Sign in for more messages.',
+          quotaExceeded: true,
+          upgrade_url: '/auth',
+        }, { status: 429 })
+      }
     }
 
     // Determine action: reasoning model costs more

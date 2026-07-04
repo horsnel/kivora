@@ -37,22 +37,23 @@ export const metadata = {
     apple: '/apple-touch-icon.png',
   },
   manifest: '/manifest.webmanifest',
+  // Preconnect hints moved here from manual <head> to avoid hydration
+  // mismatches under Next.js 15 + React 19 (manual <head> children
+  // conflict with Next.js's managed <head>).
+  other: {
+    'preconnect:fonts-google': 'https://fonts.googleapis.com',
+    'preconnect:fonts-gstatic': 'https://fonts.gstatic.com',
+  },
 }
 
-// Viewport / theme-color — moved here from manual <head> to avoid SSR/hydration
-// mismatches under Next.js 15 + React 19 (manual <head> + metadata export is
-// an anti-pattern that throws hydration errors in React 19).
+// Viewport / theme-color — exported separately per Next.js 15 convention
 export const viewport = {
   themeColor: '#dc2626',
 }
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      </head>
+    <html lang="en">
       <body className="grain bg-[#0a0a0a] text-white antialiased">
         <LanguageProvider>
           <CurrencyProvider>

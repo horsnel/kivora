@@ -1,8 +1,12 @@
 export const runtime = 'edge'
 
 import { rateLimit } from '@/lib/ratelimit'
+import { getEnvVar } from '@/lib/cfEnv'
 
-const TAVILY_API_KEY = process.env.TAVILY_API_KEY || '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'
+// Tavily key loaded from Cloudflare secrets at request time
+async function getTavilyKey() {
+  return (await getEnvVar('TAVILY_API_KEY')) || ''
+}
 
 // Smart tier rotation — track request counts in memory to conserve free tiers
 const tierState = {
@@ -123,10 +127,12 @@ async function handleSearch(query) {
   if (!results || results.results.length < 2) {
     if (canUse('tavily', TAVILY_LIMIT)) {
       try {
+        const tavilyKey = await getTavilyKey()
+        if (!tavilyKey) throw new Error('Tavily key not configured')
         const tavilyRes = await fetch('https://api.tavily.com/search', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${TAVILY_API_KEY}`,
+            'Authorization': `Bearer ${tavilyKey}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({

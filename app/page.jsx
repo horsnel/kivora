@@ -637,7 +637,7 @@ export default function WelcomePage() {
             </div>
           </div>
           <div className="border-t border-[#1a1a1a] pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <p className="text-xs text-muted2">&copy; {new Date().getFullYear()} Kivora. All rights reserved.</p>
+            <p className="text-xs text-muted2">&copy; 2025 Kivora. All rights reserved.</p>
             <p className="text-xs text-muted2">product of <span className="font-black text-muted">O.L.H.M.E.S</span></p>
           </div>
         </div>

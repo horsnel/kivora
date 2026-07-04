@@ -14,6 +14,7 @@ import VoiceSettings from '@/components/VoiceSettings'
 import { useVoiceTTS } from '@/hooks/useVoiceTTS'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
+import ComingSoonPopup from '@/components/ComingSoonPopup'
 
 
 
@@ -146,6 +147,7 @@ export default function ChatClient() {
   // ── Voice TTS (Text-to-Speech) ──
   const tts = useVoiceTTS()
   const [voiceSettingsOpen, setVoiceSettingsOpen] = useState(false)
+  const [comingSoonFeature, setComingSoonFeature] = useState(null)
 
   function showVoiceToast(type, message) {
     if (voiceToastTimer.current) clearTimeout(voiceToastTimer.current)
@@ -631,7 +633,10 @@ export default function ChatClient() {
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(user ? { Authorization: `Bearer ${(await supabasePublic?.auth?.getSession())?.data?.session?.access_token || ''}` } : {}),
+        },
         body: JSON.stringify({
           messages: newMessages,
           sessionId,
@@ -1256,109 +1261,23 @@ export default function ChatClient() {
                   </div>
                 )}
 
-                {/* ══════ VOICE ══════ */}
+                {/* ══════ VOICE — Coming Soon ══════ */}
                 {settingsCurrentPage === 'voice' && (
-                  <div className="divide-y divide-[#2a2a2a]">
-                    {/* Server status */}
-                    <div className="flex items-center gap-2.5 py-3.5">
-                      <div className={`w-2.5 h-2.5 rounded-full ${tts.serverAvailable ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-red-500/60'}`} />
-                      <span className="text-[14px] text-[#aaa]">
-                        Voice Server {tts.serverAvailable ? 'Connected' : 'Offline'}
-                      </span>
-                      <span className="text-[11px] text-[#555] ml-auto">
-                        {tts.serverAvailable ? 'High-quality TTS' : 'Browser fallback'}
-                      </span>
+                  <div className="py-6 text-center">
+                    <div className="w-12 h-12 bg-red-950/30 border border-red-900/30 rounded-xl flex items-center justify-center mx-auto mb-4">
+                      <IconSpeaker size={20} className="text-red-400" />
                     </div>
-
-                    {/* Engine */}
-                    <div className="py-3.5">
-                      <div className="text-[10px] font-medium text-[#666] uppercase tracking-wider mb-2">Engine</div>
-                      <div className="space-y-1">
-                        {(tts.engines?.length > 0 ? tts.engines : [{ id: 'browser', name: 'Browser TTS', features: ['free', 'low-latency'] }]).map(eng => (
-                          <button
-                            key={eng.id}
-                            onClick={() => tts.setEngine?.(eng.id)}
-                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-left ${
-                              tts.currentEngine === eng.id
-                                ? 'bg-[rgba(138,90,180,0.1)] border border-[rgba(138,90,180,0.2)]'
-                                : 'hover:bg-[#222] border border-transparent'
-                            }`}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className={`text-[14px] font-medium ${tts.currentEngine === eng.id ? 'text-[#b88fd8]' : 'text-white'}`}>
-                                {eng.name}
-                              </div>
-                              {eng.features && (
-                                <div className="flex gap-1 mt-0.5">
-                                  {eng.features.map(f => (
-                                    <span key={f} className="text-[9px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-[#555]">{f}</span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            {tts.currentEngine === eng.id && (
-                              <span className="text-[#b88fd8] text-[16px]">✓</span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Speed */}
-                    <div className="py-3.5">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-medium text-[#666] uppercase tracking-wider">Speed</span>
-                        <span className="text-[13px] text-[#aaa] font-mono">{(tts.speed || 1.0).toFixed(1)}x</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.5"
-                        max="2.0"
-                        step="0.1"
-                        value={tts.speed || 1.0}
-                        onChange={e => tts.setSpeed?.(parseFloat(e.target.value))}
-                        className="settings-voice-slider w-full h-1.5 rounded-full appearance-none cursor-pointer"
-                        style={{
-                          background: `linear-gradient(to right, #a855f7 0%, #ef4444 ${(((tts.speed || 1.0) - 0.5) / 1.5) * 100}%, #262626 ${(((tts.speed || 1.0) - 0.5) / 1.5) * 100}%)`,
-                        }}
-                      />
-                      <div className="flex justify-between mt-1.5">
-                        <span className="text-[11px] text-[#444]">0.5x</span>
-                        <span className="text-[11px] text-[#444]">1.0x</span>
-                        <span className="text-[11px] text-[#444]">2.0x</span>
-                      </div>
-                    </div>
-
-                    {/* Test Voice */}
-                    <div className="py-3.5">
-                      <button
-                        onClick={() => {
-                          if (tts.speak) {
-                            tts.speak("Hello from Kivora", { interrupt: true }).catch(() => {})
-                          } else if (typeof window !== 'undefined' && window.speechSynthesis) {
-                            window.speechSynthesis.speak(new SpeechSynthesisUtterance("Hello from Kivora"))
-                          }
-                        }}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-[14px] text-[15px] font-medium transition-all active:scale-[0.98]"
-                        style={{
-                          background: 'linear-gradient(135deg, rgba(168,85,247,0.12), rgba(239,68,68,0.12))',
-                          border: '1px solid rgba(168,85,247,0.15)',
-                          color: '#d4d4d4',
-                        }}
-                      >
-                        <IconSpeaker size={16} /> Test Voice
-                      </button>
-                    </div>
-
-                    {/* Full Voice Panel link */}
-                    <div className="py-3.5">
-                      <button
-                        onClick={() => { setSettingsOpen(false); settingsReset(); setVoiceSettingsOpen(true) }}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[rgba(138,90,180,0.12)] text-[#b88fd8] active:bg-[rgba(138,90,180,0.2)] transition-colors"
-                      >
-                        Full Voice Settings Panel →
-                      </button>
-                    </div>
+                    <h4 className="text-white font-semibold mb-2">Voice Settings — Coming Soon</h4>
+                    <p className="text-sm text-[#a3a3a3] mb-4">
+                      Voice input and output features are currently in development.
+                      They will be available for Max and Team plan subscribers.
+                    </p>
+                    <button
+                      onClick={() => setSettingsOpen(false)}
+                      className="px-4 py-2 bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-white rounded-xl text-sm font-medium transition-colors"
+                    >
+                      Close
+                    </button>
                   </div>
                 )}
 
@@ -1637,9 +1556,17 @@ export default function ChatClient() {
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                               <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                             </svg>
-                            <span className="text-[13px] font-medium text-amber-300">Service temporarily limited</span>
+                            <span className="text-[13px] font-medium text-amber-300">
+                              {user ? 'Credits used up' : 'Free usage limit reached'}
+                            </span>
                           </div>
-                          <p className="text-[12px] text-amber-200/70 leading-relaxed">{msg.content}</p>
+                          <p className="text-[12px] text-amber-200/70 leading-relaxed mb-2">{msg.content}</p>
+                          <Link
+                            href={user ? '/pricing' : '/auth'}
+                            className="inline-flex items-center gap-1 text-[12px] font-semibold text-amber-300 hover:text-amber-200 transition-colors"
+                          >
+                            {user ? 'Upgrade plan →' : 'Sign in for more →'}
+                          </Link>
                         </div>
                       ) : msg.isImage && msg.imageData ? (
                         <div className="space-y-2">
@@ -1736,11 +1663,7 @@ export default function ChatClient() {
                     </svg>
                   </div>
                   <span className="ai-thinking-label">Thinking</span>
-                  <span className="ai-thinking-dots">
-                    <span className="ai-dot" />
-                    <span className="ai-dot" />
-                    <span className="ai-dot" />
-                  </span>
+                  <span className="ai-thinking-activity" />
                 </div>
               </div>
             )}
@@ -1924,11 +1847,11 @@ export default function ChatClient() {
 
 
 
-                    {/* Voice Settings */}
+                    {/* Voice Settings — Coming Soon */}
                     <button
                       className={`chat-toolbar-btn ${voiceSettingsOpen ? 'chat-toolbar-btn-active' : ''}`}
-                      onClick={() => setVoiceSettingsOpen(!voiceSettingsOpen)}
-                      title="Voice settings"
+                      onClick={() => setComingSoonFeature('Voice Settings')}
+                      title="Voice settings (coming soon)"
                     >
                       <IconSpeaker size={16} />
                     </button>
@@ -2036,12 +1959,13 @@ export default function ChatClient() {
         </div>
       </div>
 
-      {/* ── Voice Settings Panel ── */}
-      <VoiceSettings
-        isOpen={voiceSettingsOpen}
-        onClose={() => setVoiceSettingsOpen(false)}
-        ttsHook={tts}
-      />
+      {/* ── Voice Settings — Coming Soon Popup ── */}
+      {comingSoonFeature && (
+        <ComingSoonPopup
+          feature={comingSoonFeature}
+          onClose={() => setComingSoonFeature(null)}
+        />
+      )}
 
       {/* ── Microphone Permission Modal ── */}
       {micPermModal && (
@@ -2887,24 +2811,37 @@ export default function ChatClient() {
           color: #525252;
           letter-spacing: 0.01em;
         }
-        .ai-thinking-dots {
-          display: inline-flex;
-          gap: 2px;
-          margin-left: 1px;
+        .ai-thinking-activity {
+          font-size: 11px;
+          font-style: italic;
+          color: #404040;
+          letter-spacing: 0.02em;
+          animation: aiActivityCycle 4s ease-in-out infinite;
         }
-        .ai-dot {
-          width: 2px;
-          height: 2px;
-          border-radius: 50%;
-          background: #525252;
-          animation: aiDotBounce 0.9s ease-in-out infinite;
+        @keyframes aiActivityCycle {
+          0%, 14%   { opacity: 0; }
+          2%, 12%   { opacity: 1; }
+          16%, 30%  { opacity: 0; }
+          18%, 28%  { opacity: 1; }
+          32%, 46%  { opacity: 0; }
+          34%, 44%  { opacity: 1; }
+          50%, 64%  { opacity: 0; }
+          52%, 62%  { opacity: 1; }
+          66%, 80%  { opacity: 0; }
+          68%, 78%  { opacity: 1; }
+          82%, 96%  { opacity: 0; }
+          84%, 94%  { opacity: 1; }
         }
-        .ai-dot:nth-child(1) { animation-delay: 0s; }
-        .ai-dot:nth-child(2) { animation-delay: 0.12s; }
-        .ai-dot:nth-child(3) { animation-delay: 0.24s; }
-        @keyframes aiDotBounce {
-          0%, 60%, 100% { opacity: 0.2; transform: translateY(0); }
-          30% { opacity: 1; transform: translateY(-2px); background: #dc2626; }
+        .ai-thinking-activity::after {
+          content: 'reasoning';
+          animation: aiActivityText 8s steps(1) infinite;
+        }
+        @keyframes aiActivityText {
+          0%    { content: 'reasoning'; }
+          20%   { content: 'analyzing'; }
+          40%   { content: 'processing'; }
+          60%   { content: 'thinking'; }
+          80%   { content: 'considering'; }
         }
 
       `}</style>

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCurrency } from '@/components/CurrencyToggle'
 import { useTranslation } from '@/components/LanguageProvider'
+import { authFetch } from '@/lib/authFetch'
 import {
   IconMoney, IconRobot, IconVideo, IconShop, IconWrite, IconCode,
   IconChat, IconSearch, IconFlame, IconTrending, IconArrowRight,
@@ -77,7 +78,7 @@ export default function HomePage() {
     if (!q || loading) return
     setLoading(true)
     try {
-      const res = await fetch('/api/explore', {
+      const res = await authFetch('/api/explore', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: q })
