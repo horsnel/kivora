@@ -167,3 +167,33 @@ Work Log:
 
 Stage Summary:
 - 404 fixed. The package.json already had the correct scripts: `npm run pages:deploy` (which uses next-on-pages). Going forward, deploys MUST use `npm run pages:deploy` or the equivalent `npx @cloudflare/next-on-pages && npx wrangler pages deploy .vercel/output/static --project-name=kivora --branch=main`. Deploying .next/ directly breaks routing for any URL with query strings.
+
+---
+Task ID: hydration-fix-300
+Agent: main
+Task: Fix React hydration error #300 — site crashes with "Something went wrong" on first load
+
+Work Log:
+- Cloned kivora repo from GitHub (horsnel/kivora main branch)
+- Investigated all client components for hydration mismatch sources
+- Identified 4 root causes:
+  1. `@import url(...)` for Google Fonts in globals.css — render-blocking CSS that produces different styles on server vs client during hydration
+  2. Missing `suppressHydrationWarning` on `<html>` tag — React 19 crashes on any attribute difference between server and client HTML (browser extensions, CSS-only animations like .grain overlay, etc.)
+  3. Module-level `createBrowserClient()` in lib/supabase.js — `@supabase/ssr`'s `isBrowser()` check returns different values on server vs client, creating different singleton behavior
+  4. Dead `src/app/` scaffold directory (Z.ai template) conflicting with real `app/` directory
+- Applied fixes:
+  - Replaced `@import url(...)` with `next/font/google` (Inter, JetBrains Mono) — eliminates render-blocking CSS and guarantees identical font CSS on server & client
+  - Added `suppressHydrationWarning` on `<html>` tag — prevents React 19 from crashing on minor attribute differences
+  - Converted `supabasePublic` from module-level const to lazy Proxy-based singleton — defers `createBrowserClient()` until first actual use (useEffect/event handler), never during SSR render
+  - Removed dead `src/app/` directory (layout.tsx, page.tsx, api/route.ts) — eliminates potential routing confusion
+  - Updated CSS variables to reference next/font custom properties (`--font-inter`, `--font-jetbrains`)
+  - Improved error boundary with hydration error detection
+- Built with `@cloudflare/next-on-pages` and deployed to Cloudflare Pages
+- Verified all pages (/ , /chat, /research, /explore) load with zero console errors
+
+Stage Summary:
+- Hydration error #300 resolved via 4-pronged fix
+- Deployed to https://kivora.pages.dev (commit 04eebda)
+- Zero console errors on all tested pages
+- Font loading now uses next/font optimization (faster + SSR-safe)
+- Supabase client now lazy-initialized (SSR-safe)
