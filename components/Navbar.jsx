@@ -39,14 +39,28 @@ export default function Navbar() {
   const isMinimal = MINIMAL_ROUTES.some(r => pathname.startsWith(r))
   const hideSidebar = pathname === '/' || pathname.startsWith('/auth') || pathname.startsWith('/onboarding') || pathname.startsWith('/chat')
 
-  // Auth state
+  // Auth state — safe against Supabase initialization timing
   useEffect(() => {
-    if (!supabasePublic) return
-    supabasePublic.auth.getUser().then(({ data: { user } }) => setUser(user))
-    const { data: { subscription } } = supabasePublic.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null)
-    })
-    return () => subscription.unsubscribe()
+    let mounted = true
+    let subscription
+
+    try {
+      if (!supabasePublic?.auth) return
+      supabasePublic.auth.getUser().then(({ data }) => {
+        if (mounted) setUser(data?.user ?? null)
+      }).catch(() => {})
+      const { data } = supabasePublic.auth.onAuthStateChange((_event, session) => {
+        if (mounted) setUser(session?.user ?? null)
+      })
+      subscription = data?.subscription
+    } catch {
+      // Supabase may not be initialized yet — safe to ignore
+    }
+
+    return () => {
+      mounted = false
+      subscription?.unsubscribe()
+    }
   }, [])
 
   // Close mobile sidebar on route change

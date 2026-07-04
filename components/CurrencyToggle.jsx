@@ -74,8 +74,8 @@ export function CurrencyProvider({ children }) {
     }
   }, [])
 
-  // Close banner on route change
-  useEffect(() => { setShowBanner(false) }, [pathname])
+  // Close banner on route change — only update if banner is currently visible
+  useEffect(() => { if (showBanner) setShowBanner(false) }, [pathname])
 
   function select(c) {
     setCurrency(c)

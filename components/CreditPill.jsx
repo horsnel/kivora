@@ -55,13 +55,18 @@ export default function CreditPill({ compact = false }) {
 
   useEffect(() => {
     if (shouldHide) return
-    refresh()
+
+    // Defer first refresh to avoid triggering during navigation re-render
+    const initTimer = setTimeout(() => refresh(), 100)
 
     // Refresh on auth state changes
-    if (!supabasePublic) return
-    const { data: { subscription } } = supabasePublic.auth.onAuthStateChange(() => {
-      refresh()
-    })
+    let subscription
+    if (supabasePublic) {
+      const { data } = supabasePublic.auth.onAuthStateChange(() => {
+        refresh()
+      })
+      subscription = data.subscription
+    }
 
     // Refresh every 60 seconds while the page is open
     const interval = setInterval(refresh, 60000)
@@ -71,11 +76,12 @@ export default function CreditPill({ compact = false }) {
     window.addEventListener('focus', onFocus)
 
     return () => {
+      clearTimeout(initTimer)
       subscription?.unsubscribe()
       clearInterval(interval)
       window.removeEventListener('focus', onFocus)
     }
-  }, [shouldHide, pathname])
+  }, [shouldHide])
 
   if (shouldHide || loading || !balance || !plan) return null
 
