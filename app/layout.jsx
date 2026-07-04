@@ -1,10 +1,28 @@
 import './globals.css'
 import Script from 'next/script'
+import { Inter, JetBrains_Mono } from 'next/font/google'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import PageContent from '@/components/PageContent'
 import { CurrencyProvider } from '@/components/CurrencyToggle'
 import { LanguageProvider } from '@/components/LanguageProvider'
+
+// ── Font optimization via next/font ──
+// Using next/font instead of @import url() in globals.css to:
+// 1. Eliminate render-blocking external CSS request
+// 2. Guarantee identical font CSS on server & client (fixes hydration mismatch)
+// 3. Automatic font-display: swap + preloading
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains',
+  display: 'swap',
+})
 
 export const metadata = {
   title: {
@@ -51,10 +69,14 @@ export const viewport = {
   themeColor: '#dc2626',
 }
 
+// suppressHydrationWarning on <html> prevents React 19 from crashing
+// when browser extensions, user preferences, or CSS-only animations
+// (like the .grain overlay) cause minor attribute/text differences
+// between server and client HTML. Recommended fix per Next.js docs.
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body className="grain bg-[#0a0a0a] text-white antialiased">
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.variable} ${jetbrainsMono.variable} grain bg-[#0a0a0a] text-white antialiased`}>
         <LanguageProvider>
           <CurrencyProvider>
             {/* App shell: full viewport, sidebar + content side by side */}

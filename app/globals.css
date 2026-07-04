@@ -1,4 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap'); /* font-display: swap is default in Google Fonts v2 */
+/* Fonts are now loaded via next/font/google in app/layout.jsx (Inter + JetBrains Mono).
+   The CSS variables --font-inter and --font-jetbrains are set by next/font and
+   applied to <body> via className. This eliminates the render-blocking @import url()
+   that caused hydration mismatches between server and client HTML. */
 
 @tailwind base;
 @tailwind components;
@@ -33,8 +36,9 @@
   --teal-dim: rgba(0,201,167,0.08);
   --green: #16a34a;
   --green-dim: rgba(22,163,74,0.08);
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  /* Font variables now reference next/font CSS custom properties for consistency */
+  --font-sans: var(--font-inter), 'Inter', system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), 'JetBrains Mono', 'Fira Code', monospace;
 }
 
 * { box-sizing: border-box; }
