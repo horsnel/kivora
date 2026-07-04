@@ -248,29 +248,41 @@ export default function DashboardPage() {
   useEffect(() => { checkAuth() }, [])
 
   async function checkAuth() {
-    const { data: { user } } = await supabasePublic.auth.getUser()
-    if (!user) { router.push('/auth'); return }
-    setUser(user)
-    // Check if user has completed onboarding — redirect if not
-    const { data: profile } = await supabasePublic.from('profiles').select('onboarding_done').eq('id', user.id).single()
-    if (!profile?.onboarding_done) { router.push('/onboarding'); return }
-    await Promise.all([loadSaves(user.id), loadChats(user.id), loadMessages(user.id), loadAllTimeSessions(user.id)])
-    // Load goals from localStorage
+    if (!supabasePublic) { router.push('/auth'); return }
     try {
-      const saved = localStorage.getItem('kv_discover_goals')
-      if (saved) setGoals(JSON.parse(saved))
-    } catch (_) {}
-    setLoading(false)
+      const { data: { user } } = await supabasePublic.auth.getUser()
+      if (!user) { router.push('/auth'); return }
+      setUser(user)
+      // Check if user has completed onboarding — redirect if not
+      const { data: profile } = await supabasePublic.from('profiles').select('onboarding_done').eq('id', user.id).single()
+      if (!profile?.onboarding_done) { router.push('/onboarding'); return }
+      await Promise.all([loadSaves(user.id), loadChats(user.id), loadMessages(user.id), loadAllTimeSessions(user.id)])
+      // Load goals from localStorage
+      try {
+        const saved = localStorage.getItem('kv_discover_goals')
+        if (saved) setGoals(JSON.parse(saved))
+      } catch (_) {}
+      setLoading(false)
+    } catch (err) {
+      console.error('Dashboard auth check failed:', err)
+      router.push('/auth')
+    }
   }
 
   async function loadSaves(id) {
-    const { data } = await supabasePublic.from('saved_results').select('*').eq('user_id', id).order('created_at', { ascending: false })
-    if (data) setSaves(data)
+    if (!supabasePublic) return
+    try {
+      const { data } = await supabasePublic.from('saved_results').select('*').eq('user_id', id).order('created_at', { ascending: false })
+      if (data) setSaves(data)
+    } catch {}
   }
 
   async function loadChats(id) {
-    const { data } = await supabasePublic.from('chat_sessions').select('id,messages,updated_at').eq('user_id', id).order('updated_at', { ascending: false }).limit(20)
-    if (data) setChats(data)
+    if (!supabasePublic) return
+    try {
+      const { data } = await supabasePublic.from('chat_sessions').select('id,messages,updated_at').eq('user_id', id).order('updated_at', { ascending: false }).limit(20)
+      if (data) setChats(data)
+    } catch {}
   }
 
   async function loadMessages(userId) {
@@ -310,8 +322,11 @@ export default function DashboardPage() {
   }, [tab, activityRange, user])
 
   async function deleteSave(id) {
-    await supabasePublic.from('saved_results').delete().eq('id', id)
-    setSaves(p => p.filter(s => s.id !== id))
+    if (!supabasePublic) return
+    try {
+      await supabasePublic.from('saved_results').delete().eq('id', id)
+      setSaves(p => p.filter(s => s.id !== id))
+    } catch {}
   }
 
   async function markRead(id) {

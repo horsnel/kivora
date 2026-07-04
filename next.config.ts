@@ -1,8 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // output: "standalone", // NOT compatible with Cloudflare Pages
-  serverExternalPackages: ['groq-sdk', 'pptxgenjs', 'jszip', 'jspdf', 'docx'],
+  serverExternalPackages: ['groq-sdk', 'pptxgenjs', 'jszip', 'jspdf', 'docx', '@e2b/code-interpreter', 'e2b'],
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -13,6 +12,9 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true, // Required for CF Pages
   },
+  // View Transitions DISABLED — causes hydration mismatches and crashes
+  // on Cloudflare Pages when combined with React 19 + SSR.
+  experimental: {},
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
@@ -33,6 +35,8 @@ const nextConfig: NextConfig = {
           jspdf: 'commonjs jspdf',
           docx: 'commonjs docx',
           jszip: 'commonjs jszip',
+          '@e2b/code-interpreter': 'commonjs @e2b/code-interpreter',
+          'e2b': 'commonjs e2b',
         })
       }
     }

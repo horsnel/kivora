@@ -1,4 +1,5 @@
 'use client'
+import { Suspense } from 'react'
 import dynamic from 'next/dynamic'
 
 const ChatClient = dynamic(() => import('./ChatClient'), {
@@ -32,5 +33,15 @@ const ChatClient = dynamic(() => import('./ChatClient'), {
 })
 
 export default function ChatPage() {
-  return <ChatClient />
+  return (
+    <Suspense fallback={
+      <main className="h-dvh flex bg-[#0a0a0a] overflow-hidden">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-[#262626] border-t-red-500 rounded-full animate-spin" />
+        </div>
+      </main>
+    }>
+      <ChatClient />
+    </Suspense>
+  )
 }

@@ -1,6 +1,12 @@
 'use client'
 
+import { useEffect } from 'react'
+
 export default function GlobalError({ error, reset }) {
+  useEffect(() => {
+    console.error('[GlobalError]', error?.message || error, error?.stack || '')
+  }, [error])
+
   return (
     <html lang="en">
       <body style={{
@@ -31,9 +37,23 @@ export default function GlobalError({ error, reset }) {
           <h1 style={{ fontWeight: 700, fontSize: '1.5rem', marginBottom: '0.5rem' }}>
             Something went wrong
           </h1>
-          <p style={{ color: '#737373', fontSize: '1rem', marginBottom: '1.5rem' }}>
+          <p style={{ color: '#737373', fontSize: '1rem', marginBottom: '0.5rem' }}>
             A critical error occurred. Please try refreshing the page.
           </p>
+          {error?.message && (
+            <p style={{
+              color: 'rgba(248,113,113,0.8)',
+              fontSize: '0.75rem',
+              fontFamily: 'monospace',
+              background: '#1a1a1a',
+              borderRadius: '0.5rem',
+              padding: '0.5rem 0.75rem',
+              marginBottom: '1.5rem',
+              wordBreak: 'break-all',
+            }}>
+              {error.message}
+            </p>
+          )}
           <button
             onClick={reset}
             style={{

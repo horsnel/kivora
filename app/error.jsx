@@ -1,8 +1,13 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect } from 'react'
 
 export default function Error({ error, reset }) {
+  useEffect(() => {
+    console.error('[ErrorBoundary]', error?.message || error, error?.stack || '')
+  }, [error])
+
   return (
     <main className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4">
       <div className="text-center max-w-md">
@@ -10,9 +15,14 @@ export default function Error({ error, reset }) {
           <span className="text-red-400 text-xl">!</span>
         </div>
         <h1 className="font-semibold text-2xl tracking-tight mb-2">Something went wrong</h1>
-        <p className="text-muted text-sm mb-6">
+        <p className="text-muted text-sm mb-2">
           An unexpected error occurred. This has been noted and we're working on it.
         </p>
+        {error?.message && (
+          <p className="text-red-400/80 text-xs font-mono bg-[#1a1a1a] rounded-lg px-3 py-2 mb-4 break-all">
+            {error.message}
+          </p>
+        )}
         <div className="flex items-center justify-center gap-3">
           <button
             onClick={reset}

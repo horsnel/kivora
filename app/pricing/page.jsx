@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { supabasePublic } from '@/lib/supabase'
 import { PLANS, PLAN_LIST } from '@/lib/plans'
@@ -44,7 +44,7 @@ const CREDIT_COSTS = [
   { action: 'ReelPen video script',      cost: 4,   Icon: IconVideo },
 ]
 
-export default function PricingPage() {
+function PricingPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [billingCycle, setBillingCycle] = useState('monthly') // 'monthly' | 'annual'
@@ -143,6 +143,7 @@ export default function PricingPage() {
     }
     setCheckoutLoading(planCode)
     try {
+      if (!supabasePublic) { router.push('/auth'); return }
       const { data: { session } } = await supabasePublic.auth.getSession()
       const res = await fetch('/api/billing/checkout', {
         method: 'POST',
@@ -173,6 +174,7 @@ export default function PricingPage() {
     }
     setRedeemLoading(true)
     try {
+      if (!supabasePublic) { router.push('/auth'); return }
       const { data: { session } } = await supabasePublic.auth.getSession()
       const res = await fetch('/api/credits/redeem', {
         method: 'POST',
@@ -513,6 +515,18 @@ export default function PricingPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function PricingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-[#262626] border-t-red-500 rounded-full animate-spin" />
+      </div>
+    }>
+      <PricingPageContent />
+    </Suspense>
   )
 }
 
