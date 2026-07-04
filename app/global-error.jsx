@@ -8,7 +8,7 @@ export default function GlobalError({ error, reset }) {
   }, [error])
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body style={{
         margin: 0,
         minHeight: '100vh',

@@ -2,6 +2,8 @@ import './globals.css'
 import Script from 'next/script'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import Navbar from '@/components/Navbar'
+import NavbarErrorBoundary from '@/components/NavbarErrorBoundary'
+import ProvidersErrorBoundary from '@/components/ProvidersErrorBoundary'
 import Footer from '@/components/Footer'
 import PageContent from '@/components/PageContent'
 import { CurrencyProvider } from '@/components/CurrencyToggle'
@@ -77,18 +79,22 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${jetbrainsMono.variable} grain bg-[#0a0a0a] text-white antialiased`}>
-        <LanguageProvider>
-          <CurrencyProvider>
-            {/* App shell: full viewport, sidebar + content side by side */}
-            <div className="h-dvh flex flex-col lg:flex-row overflow-hidden">
-              <Navbar />
-              <PageContent>
-                {children}
-                <Footer />
-              </PageContent>
-            </div>
-          </CurrencyProvider>
-        </LanguageProvider>
+        <ProvidersErrorBoundary>
+          <LanguageProvider>
+            <CurrencyProvider>
+              {/* App shell: full viewport, sidebar + content side by side */}
+              <div className="h-dvh flex flex-col lg:flex-row overflow-hidden">
+                <NavbarErrorBoundary>
+                  <Navbar />
+                </NavbarErrorBoundary>
+                <PageContent>
+                  {children}
+                  <Footer />
+                </PageContent>
+              </div>
+            </CurrencyProvider>
+          </LanguageProvider>
+        </ProvidersErrorBoundary>
         {/* Service worker registration — using next/script (strategy=afterInteractive)
             to avoid inline dangerouslySetInnerHTML hydration mismatches under React 19. */}
         <Script id="sw-register" strategy="afterInteractive">{`
