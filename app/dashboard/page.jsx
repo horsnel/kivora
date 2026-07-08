@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabasePublic } from '@/lib/supabase'
 import { IconBookmark, IconChat, IconTrash, IconArrowRight, IconUser, IconMail, IconClock, IconCode, IconBook, IconFlame, IconTarget, IconPlus, IconClose, IconCheck, IconSearch, IconStar, IconMoney, IconLightning, IconGlobe } from '@/components/Icons'
 import { useTranslation } from '@/components/LanguageProvider'
+import CreditPill from '@/components/CreditPill'
 
 function IconActivity({ size = 16, className = '' }) {
   return (
@@ -479,18 +480,16 @@ export default function DashboardPage() {
       <div className="max-w-5xl mx-auto px-4 py-10">
         {/* Header */}
         <div className="flex items-start justify-between mb-8 animate-fade-up">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-[#141414] rounded-xl flex items-center justify-center">
-              <IconUser size={14} className="text-muted" />
-            </div>
-            <div>
-              <h1 className="font-semibold text-headline tracking-tight">{t('dashboard.title')}</h1>
-              <p className="text-muted text-caption">{user?.email}</p>
-            </div>
+          <div>
+            <h1 className="font-semibold text-headline tracking-tight">{t('dashboard.title')}</h1>
+            <p className="text-muted text-caption">{user?.email}</p>
           </div>
-          <button onClick={() => router.push('/profile')} className="flex items-center gap-1.5 text-caption text-muted hover:text-white border border-[#262626] hover:border-[#3a3a3a] px-3 py-1.5 rounded-lg transition-all">
-            <IconUser size={14} /> {t('dashboard.profile')}
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="w-44"><CreditPill compact /></div>
+            <button onClick={() => router.push('/profile')} className="flex items-center gap-1.5 text-caption text-muted hover:text-white border border-[#262626] hover:border-[#3a3a3a] px-3 py-1.5 rounded-lg transition-all">
+              <IconUser size={14} /> {t('dashboard.profile')}
+            </button>
+          </div>
         </div>
 
         {/* Stats */}

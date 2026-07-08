@@ -29,10 +29,19 @@ class PageErrorBoundary extends Component {
     super(props)
     this.state = { hasError: false, error: null, retryCount: 0 }
     this.maxRetries = 3
+    this.retryTimer = null
   }
 
   static getDerivedStateFromError(error) {
     return { hasError: true, error }
+  }
+
+  componentWillUnmount() {
+    // Clear any pending retry timer when navigating away
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer)
+      this.retryTimer = null
+    }
   }
 
   componentDidCatch(error, errorInfo) {
@@ -45,7 +54,10 @@ class PageErrorBoundary extends Component {
 
     // Auto-retry for transient errors
     if (this.state.retryCount < this.maxRetries) {
-      setTimeout(() => {
+      // Clear any existing timer before setting a new one
+      if (this.retryTimer) clearTimeout(this.retryTimer)
+      this.retryTimer = setTimeout(() => {
+        this.retryTimer = null
         this.setState(prev => ({ hasError: false, error: null, retryCount: prev.retryCount + 1 }))
       }, 150 * (this.state.retryCount + 1))
     }
@@ -54,9 +66,12 @@ class PageErrorBoundary extends Component {
   componentDidUpdate(prevProps) {
     // Reset error boundary when navigating to a new page
     // so a crash on /explore doesn't permanently block /chat.
-    // This is safe because the boundary stays mounted throughout,
-    // so there's never a gap in error coverage.
+    // Also clear any pending retry timer from the previous page's error.
     if (prevProps.pathname !== this.props.pathname) {
+      if (this.retryTimer) {
+        clearTimeout(this.retryTimer)
+        this.retryTimer = null
+      }
       this.setState({ hasError: false, error: null, retryCount: 0 })
     }
   }

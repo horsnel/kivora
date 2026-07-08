@@ -18,10 +18,19 @@ export default class ProvidersErrorBoundary extends Component {
     super(props)
     this.state = { hasError: false, error: null, retryCount: 0 }
     this.maxRetries = 3
+    this.retryTimer = null
   }
 
   static getDerivedStateFromError(error) {
     return { hasError: true, error }
+  }
+
+  componentWillUnmount() {
+    // Clear any pending retry timer when the boundary unmounts
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer)
+      this.retryTimer = null
+    }
   }
 
   componentDidCatch(error, errorInfo) {
@@ -32,7 +41,10 @@ export default class ProvidersErrorBoundary extends Component {
 
     // Auto-retry for transient errors (like React #300 from RSC hydration)
     if (this.state.retryCount < this.maxRetries) {
-      setTimeout(() => {
+      // Clear any existing timer before setting a new one
+      if (this.retryTimer) clearTimeout(this.retryTimer)
+      this.retryTimer = setTimeout(() => {
+        this.retryTimer = null
         this.setState(prev => ({ hasError: false, error: null, retryCount: prev.retryCount + 1 }))
       }, 100 * (this.state.retryCount + 1)) // Increasing delay: 100ms, 200ms, 300ms
     }
