@@ -2,7 +2,7 @@ export const runtime = 'edge'
 import { createClient } from '@supabase/supabase-js'
 import { groq, MODEL, groqChat, GroqError, getPrimaryClientAsync, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
 import { getEnvVar } from '@/lib/cfEnv'
-import { rateLimit, anonymousRateLimit } from '@/lib/ratelimit'
+import { rateLimit, anonymousRateLimit, anonymousDailyLimit } from '@/lib/ratelimit'
 import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
 import { resolveUserAndAdmin } from '@/lib/authUser'
 
@@ -67,12 +67,25 @@ export async function POST(req) {
       if (!creditCheck.ok) return creditCheck.response
     }
 
-    // Anonymous user — apply tighter rate limit (3 req/min for explore)
+    // Anonymous user — apply daily limit (15 explore/day) + per-minute burst protection
     if (!exploreUser) {
+      // Per-minute burst protection
       if (!anonymousRateLimit(ip, 3).ok) {
         return Response.json({
-          error: 'Free exploration limit reached. Sign in for unlimited access.',
+          error: "You're exploring too quickly. Slow down or sign in for unlimited access.",
           quotaExceeded: true,
+          upgrade_url: '/auth',
+        }, { status: 429 })
+      }
+      // Daily limit — 15 explore queries per day for anonymous visitors
+      const dailyCheck = await anonymousDailyLimit(admin, ip, 'explore', 15)
+      if (!dailyCheck.ok) {
+        return Response.json({
+          error: "You've used all 15 free explorations for today. Sign in for unlimited access.",
+          quotaExceeded: true,
+          anonLimitReached: true,
+          limit: dailyCheck.limit,
+          used: dailyCheck.used,
           upgrade_url: '/auth',
         }, { status: 429 })
       }

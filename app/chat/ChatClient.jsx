@@ -1139,7 +1139,7 @@ export default function ChatClient() {
                     {/* Full Voice Settings shortcut */}
                     <div className="pt-4">
                       <button
-                        onClick={() => { setSettingsOpen(false); settingsReset(); setVoiceSettingsOpen(true) }}
+                      onClick={() => { setSettingsOpen(false); settingsReset(); setComingSoonFeature('Voice Settings') }}
                         className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[rgba(115,115,115,0.1)] text-[#737373] active:bg-[rgba(115,115,115,0.18)] transition-colors"
                       >
                         <IconSpeaker size={16} /> Full Voice Settings Panel

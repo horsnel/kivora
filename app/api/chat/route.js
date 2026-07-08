@@ -2,7 +2,7 @@ export const runtime = 'edge'
 import { groq, MODEL, VISION_MODEL, groqChat, GroqError, ALLOWED_MODELS, getPrimaryClientAsync, getFallbackClientAsync, setCerebrasApiKey, setSambanovaApiKey, setSiliconflowApiKey, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
 import { createClient } from '@supabase/supabase-js'
 import { getEnvVar } from '@/lib/cfEnv'
-import { rateLimit, anonymousRateLimit } from '@/lib/ratelimit'
+import { rateLimit, anonymousRateLimit, anonymousDailyLimit } from '@/lib/ratelimit'
 import { toolDefs, toolHandlers, TOOL_INSTRUCTIONS, filterToolsByQuery } from '@/lib/toolRegistry'
 import { buildSystemPrompt } from '@/lib/systemPrompt'
 import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
@@ -142,12 +142,25 @@ export async function POST(req) {
       } catch { /* anonymous */ }
     }
 
-    // Anonymous user — apply tighter rate limit (5 req/min vs 20 for registered)
+    // Anonymous user — apply daily limit (5 chat messages/day) + per-minute burst protection
     if (!chatUser) {
+      // Per-minute burst protection (prevents rapid-fire abuse)
       if (!anonymousRateLimit(ip).ok) {
         return Response.json({
-          error: 'Free usage limit reached. Sign in for more messages.',
+          error: "You're sending messages too quickly. Slow down or sign in for more.",
           quotaExceeded: true,
+          upgrade_url: '/auth',
+        }, { status: 429 })
+      }
+      // Daily limit — 5 chat messages per day for anonymous visitors
+      const dailyCheck = await anonymousDailyLimit(admin, ip, 'chat', 5)
+      if (!dailyCheck.ok) {
+        return Response.json({
+          error: "You've used all 5 free chat messages for today. Sign in for unlimited access.",
+          quotaExceeded: true,
+          anonLimitReached: true,
+          limit: dailyCheck.limit,
+          used: dailyCheck.used,
           upgrade_url: '/auth',
         }, { status: 429 })
       }
@@ -249,11 +262,11 @@ export async function POST(req) {
         const { data: pages } = await admin
           .from('wiki_pages')
           .select('title, content')
-          .or(`title.ilike.%${lastMsg.slice(0, 40)}%,content.ilike.%${lastMsg.slice(0, 40)}%`)
+          .or(`title.ilike.%${lastMsg.slice(0, 30)}%,content.ilike.%${lastMsg.slice(0, 30)}%`)
           .not('slug', 'like', 'article-%')
-          .limit(3)
+          .limit(2)
         if (pages?.length) {
-          wikiContext = pages.map(p => `${p.title}: ${p.content.slice(0, 300)}`).join('\n\n')
+          wikiContext = pages.map(p => `${p.title}: ${p.content.slice(0, 200)}`).join('\n\n')
         }
       } catch (_) {}
     }
@@ -271,7 +284,7 @@ export async function POST(req) {
           role: 'system',
           content: `${systemPrompt ? `Additional instructions: ${systemPrompt}\n\n` : ''}You are Kivora — an advanced AI assistant. The user has attached an image. Describe what you see in precise detail and answer any questions about it. Be thorough: identify objects, text, people, settings, colors, styles, and any relevant context. Use markdown formatting with ## sections for structured analysis. No filler phrases — get straight to the description.`
         },
-        ...messages.slice(0, -1).slice(-12),
+        ...messages.slice(0, -1).slice(-8),
         {
           role: 'user',
           content: [
@@ -284,7 +297,7 @@ export async function POST(req) {
     } else {
       apiMessages = [
         { role: 'system', content: SYSTEM_PROMPT },
-        ...messages.slice(-12)
+        ...messages.slice(-8)
       ]
     }
 
@@ -299,7 +312,7 @@ export async function POST(req) {
     const llmParams = {
       model,
       messages: apiMessages,
-      max_tokens: 4096,
+      max_tokens: 2048,
       ...(relevantTools.length > 0 ? { tools: relevantTools, tool_choice: 'auto' } : {})
     }
 
@@ -428,7 +441,7 @@ export async function POST(req) {
       const finalChat = await groqChat({
         model,
         messages: [...apiMessages, ...toolMessages],
-        max_tokens: 4096,
+        max_tokens: 2048,
         tools: relevantTools,
         tool_choice: 'none'
       })

@@ -579,7 +579,7 @@ export default function DashboardPage() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-[#141414] border border-[#262626] p-1 rounded-xl mb-6">
+        <div className="flex gap-1 bg-[#141414] border border-[#262626] p-1 rounded-xl mb-6 overflow-x-auto scrollbar-hide">
           {[
             { id: 'saved', label: t('dashboard.tab_saved'), shortLabel: t('dashboard.tab_saved'), Icon: IconBookmark },
             { id: 'goals', label: 'Goals', shortLabel: 'Goals', Icon: IconTarget },
@@ -589,7 +589,7 @@ export default function DashboardPage() {
             { id: 'activity', label: t('dashboard.tab_activity'), shortLabel: t('dashboard.tab_activity'), Icon: IconActivity },
           ].map(tabItem => (
             <button key={tabItem.id} onClick={() => setTab(tabItem.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 sm:px-3 rounded-lg text-caption sm:text-body font-medium transition-all whitespace-nowrap ${
+              className={`flex items-center justify-center gap-1.5 py-2 px-3 sm:px-3 rounded-lg text-caption sm:text-body font-medium transition-all whitespace-nowrap shrink-0 ${
                 tab === tabItem.id ? 'bg-[#262626] text-white' : 'text-muted hover:text-white'
               }`}>
               <tabItem.Icon size={14} /> <span className="hidden sm:inline">{tabItem.label}</span><span className="sm:hidden">{tabItem.shortLabel}</span>

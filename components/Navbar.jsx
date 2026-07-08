@@ -6,7 +6,6 @@ import { IconMenu, IconClose, IconDashboard, IconUser, IconChevronDown, IconChec
 import { supabasePublic } from '@/lib/supabase'
 import { useCurrency } from '@/components/CurrencyToggle'
 import { useTranslation } from '@/components/LanguageProvider'
-import CreditPill from '@/components/CreditPill'
 
 const NAV_LINKS = [
   { labelKey: 'nav.explore',        href: '/explore',        Icon: IconSearch },
@@ -259,7 +258,6 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
 
       {/* ── Language switcher + Currency toggle ── */}
       <div className="px-2.5 pb-1.5 shrink-0 space-y-0.5">
-        {user && <CreditPill />}
         <InlineCurrencyToggle
           open={currencyOpen}
           setOpen={setCurrencyOpen}

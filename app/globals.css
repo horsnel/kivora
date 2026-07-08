@@ -7,6 +7,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── scrollbar-hide utility — hide scrollbars while keeping scroll ── */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;     /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;              /* Chrome, Safari, Opera */
+  }
+}
+
 /* Syntax highlighting — GitHub Dark theme (used by rehype-highlight) */
 @import 'highlight.js/styles/github-dark.min.css';
 

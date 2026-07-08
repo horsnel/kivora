@@ -206,7 +206,7 @@ function PricingPageContent() {
             <IconLightning size={12} className="text-red-500" />
             Credits-based pricing — never worry about tokens
           </div>
-          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight mb-3">
+          <h1 className="text-2xl sm:text-5xl font-bold tracking-tight mb-3">
             Pick the plan that <span className="text-red-500">fits your hustle</span>
           </h1>
           <p className="text-base sm:text-lg text-[#a3a3a3] max-w-2xl mx-auto">
@@ -350,7 +350,7 @@ function PricingPageContent() {
         </div>
 
         {/* ── Payment trust badges ── */}
-        <div className="flex justify-center items-center gap-4 sm:gap-6 mt-8 text-[11px] text-[#737373]">
+        <div className="flex flex-wrap justify-center items-center gap-3 sm:gap-6 mt-8 text-[11px] text-[#737373]">
           <span className="flex items-center gap-1.5">
             <IconCheck size={12} className="text-emerald-500" />
             Secure payment by Paystack
@@ -370,7 +370,7 @@ function PricingPageContent() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
         <h2 className="text-xl sm:text-2xl font-bold mb-6 text-center">Compare every feature</h2>
         <div className="overflow-x-auto rounded-2xl border border-[#262626] bg-[#0f0f0f]">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[600px]">
             <thead>
               <tr className="border-b border-[#262626]">
                 <th className="text-left p-4 font-medium text-[#a3a3a3]">Feature</th>
