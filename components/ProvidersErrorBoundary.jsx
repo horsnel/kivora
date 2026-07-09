@@ -9,15 +9,20 @@ import { Component } from 'react'
  *
  * Known issue: React 19 + @cloudflare/next-on-pages (deprecated adapter)
  * can throw transient error #300 ("Objects are not valid as a React child")
- * during RSC hydration. This boundary auto-retries up to 3 times with
- * a small delay, since the error is usually transient and the page
- * renders correctly on subsequent attempts.
+ * during RSC hydration. This boundary auto-retries with INVISIBLE fallback
+ * so users never see an error flash — the page just takes a moment to appear.
+ *
+ * Key design decisions:
+ * - During retry, renders `null` (invisible) instead of error UI
+ * - Uses more retries with shorter delays since error is very transient
+ * - Only shows error UI after all retries exhausted
+ * - Wraps children in a div with the correct background to prevent flash
  */
 export default class ProvidersErrorBoundary extends Component {
   constructor(props) {
     super(props)
     this.state = { hasError: false, error: null, retryCount: 0 }
-    this.maxRetries = 3
+    this.maxRetries = 5
     this.retryTimer = null
   }
 
@@ -26,7 +31,6 @@ export default class ProvidersErrorBoundary extends Component {
   }
 
   componentWillUnmount() {
-    // Clear any pending retry timer when the boundary unmounts
     if (this.retryTimer) {
       clearTimeout(this.retryTimer)
       this.retryTimer = null
@@ -34,25 +38,44 @@ export default class ProvidersErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('[ProvidersErrorBoundary] Provider error (attempt ' + (this.state.retryCount + 1) + '/' + this.maxRetries + '):', {
-      error: error?.message || error,
-      componentStack: errorInfo?.componentStack,
-    })
+    const isTransient300 = error?.message?.includes?.('Objects are not valid as a React child')
+      || error?.message?.includes?.('#300')
 
-    // Auto-retry for transient errors (like React #300 from RSC hydration)
+    // Only log on first occurrence to reduce console spam
+    if (this.state.retryCount === 0) {
+      console.warn('[ProvidersErrorBoundary] Caught' + (isTransient300 ? ' transient #300' : '') + ' error, auto-retrying:', {
+        error: error?.message || error,
+        componentStack: errorInfo?.componentStack,
+      })
+    }
+
+    // Auto-retry — for transient #300 errors, use very short delays
     if (this.state.retryCount < this.maxRetries) {
-      // Clear any existing timer before setting a new one
       if (this.retryTimer) clearTimeout(this.retryTimer)
+      const delay = isTransient300
+        ? 50 * (this.state.retryCount + 1)  // 50ms, 100ms, 150ms, 200ms, 250ms for #300
+        : 150 * (this.state.retryCount + 1)  // 150ms, 300ms, ... for other errors
       this.retryTimer = setTimeout(() => {
         this.retryTimer = null
         this.setState(prev => ({ hasError: false, error: null, retryCount: prev.retryCount + 1 }))
-      }, 100 * (this.state.retryCount + 1)) // Increasing delay: 100ms, 200ms, 300ms
+      }, delay)
     }
   }
 
   render() {
-    if (this.state.hasError && this.state.retryCount >= this.maxRetries) {
-      // After max retries, show a full-page reload button
+    if (this.state.hasError) {
+      if (this.state.retryCount < this.maxRetries) {
+        // During retry: render INVISIBLE placeholder with matching background
+        // This prevents any visual flash — the page just appears after retry
+        return (
+          <div style={{
+            minHeight: '100vh',
+            background: '#0a0a0a',
+            color: 'transparent',
+          }} />
+        )
+      }
+      // After all retries exhausted: show error UI
       return (
         <div style={{
           minHeight: '100vh',

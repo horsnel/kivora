@@ -22,13 +22,14 @@ const FULL_VIEWPORT = ['/chat', '/research']
  * pathname changes, which keeps the boundary active at all times.
  *
  * Auto-retry: Known issue with React 19 + @cloudflare/next-on-pages (deprecated)
- * causes transient error #300 during RSC hydration. Auto-retry up to 3 times.
+ * causes transient error #300 during RSC hydration. Auto-retry with INVISIBLE
+ * fallback so users never see an error flash.
  */
 class PageErrorBoundary extends Component {
   constructor(props) {
     super(props)
     this.state = { hasError: false, error: null, retryCount: 0 }
-    this.maxRetries = 3
+    this.maxRetries = 5
     this.retryTimer = null
   }
 
@@ -37,7 +38,6 @@ class PageErrorBoundary extends Component {
   }
 
   componentWillUnmount() {
-    // Clear any pending retry timer when navigating away
     if (this.retryTimer) {
       clearTimeout(this.retryTimer)
       this.retryTimer = null
@@ -45,28 +45,34 @@ class PageErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    // Log the full error with component stack for debugging
-    console.error('[PageErrorBoundary] Caught render error (attempt ' + (this.state.retryCount + 1) + '/' + this.maxRetries + '):', {
-      error: error?.message || error,
-      componentStack: errorInfo?.componentStack,
-      pathname: this.props.pathname,
-    })
+    const isTransient300 = error?.message?.includes?.('Objects are not valid as a React child')
+      || error?.message?.includes?.('#300')
 
-    // Auto-retry for transient errors
+    // Only log on first occurrence to reduce console spam
+    if (this.state.retryCount === 0) {
+      console.warn('[PageErrorBoundary] Caught' + (isTransient300 ? ' transient #300' : '') + ' error, auto-retrying:', {
+        error: error?.message || error,
+        componentStack: errorInfo?.componentStack,
+        pathname: this.props.pathname,
+      })
+    }
+
+    // Auto-retry with shorter delays for transient #300 errors
     if (this.state.retryCount < this.maxRetries) {
-      // Clear any existing timer before setting a new one
       if (this.retryTimer) clearTimeout(this.retryTimer)
+      const delay = isTransient300
+        ? 50 * (this.state.retryCount + 1)   // 50ms, 100ms, 150ms, 200ms, 250ms
+        : 150 * (this.state.retryCount + 1)  // 150ms, 300ms, 450ms, 600ms, 750ms
       this.retryTimer = setTimeout(() => {
         this.retryTimer = null
         this.setState(prev => ({ hasError: false, error: null, retryCount: prev.retryCount + 1 }))
-      }, 150 * (this.state.retryCount + 1))
+      }, delay)
     }
   }
 
   componentDidUpdate(prevProps) {
     // Reset error boundary when navigating to a new page
     // so a crash on /explore doesn't permanently block /chat.
-    // Also clear any pending retry timer from the previous page's error.
     if (prevProps.pathname !== this.props.pathname) {
       if (this.retryTimer) {
         clearTimeout(this.retryTimer)
@@ -77,7 +83,13 @@ class PageErrorBoundary extends Component {
   }
 
   render() {
-    if (this.state.hasError && this.state.retryCount >= this.maxRetries) {
+    if (this.state.hasError) {
+      if (this.state.retryCount < this.maxRetries) {
+        // During retry: render INVISIBLE placeholder
+        // The page just takes a moment to appear — no error flash
+        return <div className="flex-1 min-h-[50vh]" />
+      }
+      // After all retries exhausted: show error UI with retry button
       return (
         <div className="flex-1 flex items-center justify-center min-h-[50vh]">
           <div className="text-center max-w-sm px-4">
