@@ -1,4 +1,4 @@
-export const runtime = 'edge'
+export const runtime = 'edge' 
 import { getSupabaseAdmin } from '@/lib/supabase'
 import { rateLimit } from '@/lib/ratelimit'
 

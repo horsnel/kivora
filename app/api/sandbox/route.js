@@ -2,7 +2,7 @@
 // Proxies requests to the Cloudflare Sandbox Worker
 // Falls back gracefully if sandbox is not configured
 
-export const runtime = 'edge'
+export const runtime = 'edge' 
 
 import { rateLimit } from '@/lib/ratelimit'
 import { isSandboxAvailable, getSandboxUrl, getSandboxHeaders } from '@/lib/sandboxConfig'

@@ -31,3 +31,11 @@ research-worker/.wrangler/
 
 # Deploy script secrets (see scripts/deploy/kivora-deploy.env.example)
 scripts/deploy/kivora-deploy.env
+
+# OpenNext
+.open-next
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example

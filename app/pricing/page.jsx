@@ -369,7 +369,8 @@ function PricingPageContent() {
       {/* ── Feature comparison table ── */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
         <h2 className="text-xl sm:text-2xl font-bold mb-6 text-center">Compare every feature</h2>
-        <div className="overflow-x-auto rounded-2xl border border-[#262626] bg-[#0f0f0f]">
+        {/* Desktop: full table */}
+        <div className="hidden sm:block overflow-x-auto rounded-2xl border border-[#262626] bg-[#0f0f0f]">
           <table className="w-full text-sm min-w-[600px]">
             <thead>
               <tr className="border-b border-[#262626]">
@@ -399,6 +400,30 @@ function PricingPageContent() {
               ))}
             </tbody>
           </table>
+        </div>
+        {/* Mobile: stacked plan cards */}
+        <div className="sm:hidden space-y-4">
+          {PLAN_LIST.map((plan) => (
+            <div key={plan.code} className="bg-[#0f0f0f] border border-[#262626] rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-bold">{plan.name}</h3>
+                {currentPlan === plan.code && (
+                  <span className="text-[10px] text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">Your plan</span>
+                )}
+              </div>
+              <div className="space-y-2">
+                {FEATURE_MATRIX.map((row, i) => {
+                  const val = row.get(plan)
+                  return (
+                    <div key={i} className="flex items-center justify-between text-sm">
+                      <span className="text-[#a3a3a3]">{row.label}</span>
+                      <span className={val === '—' ? 'text-[#525252]' : 'text-white font-medium'}>{val}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -437,7 +462,7 @@ function PricingPageContent() {
             </div>
           )}
 
-          <form onSubmit={handleRedeem} className="flex gap-2">
+          <form onSubmit={handleRedeem} className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
               value={redeemCode}
@@ -494,7 +519,7 @@ function PricingPageContent() {
 
       {/* ── Toast ── */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 max-w-sm">
+        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:bottom-6 sm:right-6 z-50 sm:max-w-sm">
           <div className={`rounded-xl border p-4 shadow-2xl ${
             toast.type === 'success' ? 'bg-emerald-950/90 border-emerald-700 text-emerald-100' :
             toast.type === 'pending' ? 'bg-amber-950/90 border-amber-700 text-amber-100' :

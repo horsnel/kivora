@@ -1,4 +1,4 @@
-export const runtime = 'edge'
+export const runtime = 'edge' 
 import { getSupabaseAdmin } from '@/lib/supabase'
 
 const ADMIN_PASSWORD = 'Ebuka457'

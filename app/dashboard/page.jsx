@@ -479,13 +479,13 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-[#0a0a0a]">
       <div className="max-w-5xl mx-auto px-4 py-10">
         {/* Header */}
-        <div className="flex items-start justify-between mb-8 animate-fade-up">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-8 animate-fade-up">
           <div>
             <h1 className="font-semibold text-headline tracking-tight">{t('dashboard.title')}</h1>
             <p className="text-muted text-caption">{user?.email}</p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="w-44"><CreditPill compact /></div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="w-full sm:w-44"><CreditPill compact /></div>
             <button onClick={() => router.push('/profile')} className="flex items-center gap-1.5 text-caption text-muted hover:text-white border border-[#262626] hover:border-[#3a3a3a] px-3 py-1.5 rounded-lg transition-all">
               <IconUser size={14} /> {t('dashboard.profile')}
             </button>
@@ -493,7 +493,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-7">
+        <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 mb-7">
           {[
             { label: t('dashboard.streak'), value: streakInfo.current > 0 ? `${streakInfo.current}d` : '0d', icon: streakInfo.current > 0 ? 'flame' : null },
             { label: 'Goals', value: goals.length },
@@ -980,19 +980,19 @@ export default function DashboardPage() {
             <div className="space-y-2">
               {messages.map(msg => (
                 <div key={msg.id} className={`bg-[#141414] border rounded-xl px-5 py-4 transition-colors ${msg.read ? 'border-white/[0.06]' : 'border-red-900/30 bg-red-950/10'}`}>
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         {!msg.read && <span className="w-1.5 h-1.5 bg-red-500 rounded-full shrink-0" />}
                         <span className="text-body text-white font-medium truncate">{msg.name || t('dashboard.anonymous')}</span>
-                        <span className="text-caption text-muted2 shrink-0">{new Date(msg.created_at).toLocaleDateString()}</span>
+                        <span className="text-caption text-muted2">{new Date(msg.created_at).toLocaleDateString()}</span>
                       </div>
-                      <a href={`mailto:${msg.email}`} className="text-caption text-red-400 hover:text-red-300 transition-colors">{msg.email}</a>
+                      <a href={`mailto:${msg.email}`} className="text-caption text-red-400 hover:text-red-300 transition-colors break-all">{msg.email}</a>
                       <div className="flex items-center gap-2 mt-1.5">
-                        <span className="text-caption font-medium text-muted bg-[#1a1a1a] border border-[#262626] px-2 py-0.5 rounded-full">{msg.subject}</span>
+                        <span className="text-caption font-medium text-muted bg-[#1a1a1a] border border-[#262626] px-2 py-0.5 rounded-full truncate max-w-full">{msg.subject}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0 self-start">
                       <button
                         onClick={() => {
                           if (expandedMsg === msg.id) { setExpandedMsg(null) }
@@ -1131,7 +1131,7 @@ export default function DashboardPage() {
                     {activitySessions.slice(0, 15).map(s => {
                       const duration = s.duration_ms || (s.ended_at && s.started_at ? new Date(s.ended_at) - new Date(s.started_at) : null)
                       return (
-                        <div key={s.id} className="flex items-center justify-between py-2 border-b border-[#1a1a1a] last:border-0">
+                        <div key={s.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2 border-b border-[#1a1a1a] last:border-0 gap-1 sm:gap-3">
                           <div className="flex items-center gap-3 min-w-0">
                             <div className={`w-2 h-2 rounded-full shrink-0 ${
                               (CATEGORY_COLORS[TOOL_CATEGORIES[s.tool_type]] || {}).dot || 'bg-[#404040]'
@@ -1139,13 +1139,13 @@ export default function DashboardPage() {
                             <div className="min-w-0">
                               <div className="text-body text-[#d4d4d4] truncate">{TOOL_LABELS[s.tool_type] || s.tool_type}</div>
                               {s.input_summary && (
-                                <div className="text-caption text-muted2 truncate max-w-[480px]">{s.input_summary}</div>
+                                <div className="text-caption text-muted2 truncate">{s.input_summary}</div>
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-3 shrink-0 text-caption text-muted">
+                          <div className="flex items-center gap-2 sm:gap-3 text-caption text-muted pl-5 sm:pl-0">
                             {duration != null && <span className="font-mono">{formatDuration(duration)}</span>}
-                            {s.subject && <span className="bg-[#1a1a1a] border border-[#262626] px-2 py-0.5 rounded-full text-caption">{s.subject}</span>}
+                            {s.subject && <span className="bg-[#1a1a1a] border border-[#262626] px-2 py-0.5 rounded-full text-caption truncate max-w-[120px]">{s.subject}</span>}
                             <span>{new Date(s.created_at).toLocaleDateString('en', { month: 'short', day: 'numeric' })}</span>
                           </div>
                         </div>

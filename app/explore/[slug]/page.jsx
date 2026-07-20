@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 
 // Required for CloudFlare Pages edge runtime
-export const runtime = 'edge'
+export const runtime = 'edge' 
 import { useCurrency } from '@/components/CurrencyToggle'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
 import DataTable from '@/components/DataTable'

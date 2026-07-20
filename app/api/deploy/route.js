@@ -1,4 +1,4 @@
-export const runtime = 'edge'
+export const runtime = 'edge' 
 
 import { getEnvVar, getCloudflareAccountId } from '@/lib/cfEnv'
 import { rateLimit } from '@/lib/ratelimit'

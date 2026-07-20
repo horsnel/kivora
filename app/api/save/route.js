@@ -1,4 +1,4 @@
-export const runtime = 'edge'
+export const runtime = 'edge' 
 import { getSupabaseAdmin } from '@/lib/supabase'
 
 // Uses user_id from body/query + service role key (bypasses RLS).

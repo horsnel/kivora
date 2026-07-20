@@ -1,4 +1,4 @@
-export const runtime = 'edge'
+export const runtime = 'edge' 
 
 /**
  * ZAI Skills API — Unified endpoint for all ZAI SDK skills

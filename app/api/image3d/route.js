@@ -1,4 +1,4 @@
-export const runtime = 'edge'
+export const runtime = 'edge' 
 
 // ── 3D Image Generation: hitem3d (primary) → Tripo3D (fallback) ──
 //
