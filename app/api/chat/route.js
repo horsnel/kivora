@@ -2,7 +2,7 @@ export const runtime = 'edge'
 import { groq, MODEL, VISION_MODEL, groqChat, GroqError, ALLOWED_MODELS, getPrimaryClientAsync, getFallbackClientAsync, setCerebrasApiKey, setSambanovaApiKey, setSiliconflowApiKey, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
 import { createClient } from '@supabase/supabase-js'
 import { getEnvVar } from '@/lib/cfEnv'
-import { rateLimit, anonymousRateLimit, anonymousDailyLimit } from '@/lib/ratelimit'
+import { rateLimit, anonymousRateLimit, anonymousDailyLimit, getClientIP } from '@/lib/ratelimit'
 import { toolDefs, toolHandlers, TOOL_INSTRUCTIONS, filterToolsByQuery } from '@/lib/toolRegistry'
 import { buildSystemPrompt } from '@/lib/systemPrompt'
 import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
@@ -80,7 +80,7 @@ async function ingestToWiki(admin, { userMessage, assistantReply, userId }) {
 }
 
 export async function POST(req) {
-  const ip = req.headers.get('x-forwarded-for') || 'unknown'
+  const ip = getClientIP(req)
   if (!rateLimit(ip).ok) {
     return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
   }

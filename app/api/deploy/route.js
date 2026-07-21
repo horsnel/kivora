@@ -1,14 +1,14 @@
+import { rateLimit, getClientIP } from '@/lib/ratelimit'
 export const runtime = 'edge' 
 
 import { getEnvVar, getCloudflareAccountId } from '@/lib/cfEnv'
-import { rateLimit } from '@/lib/ratelimit'
 
 // ── Deploy Site to Cloudflare Pages ──
 // Accepts a project name + files, deploys to CF Pages, returns live URL
 // CF_ACCOUNT_ID is auto-detected from the API token if not set explicitly
 
 export async function POST(req) {
-  const ip = req.headers.get('x-forwarded-for') || 'unknown'
+  const ip = getClientIP(req)
   if (!rateLimit(ip).ok) {
     return Response.json({ error: 'Too many requests. Try again shortly.' }, { status: 429 })
   }

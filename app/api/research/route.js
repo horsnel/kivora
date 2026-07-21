@@ -1,6 +1,6 @@
 export const runtime = 'edge' 
 
-import { rateLimit } from '@/lib/ratelimit'
+import { rateLimit, getClientIP } from '@/lib/ratelimit'
 import { getEnvVar } from '@/lib/cfEnv'
 import { getSupabaseAdmin } from '@/lib/supabase'
 import { createClient } from '@supabase/supabase-js'
@@ -141,7 +141,7 @@ async function storeCacheResult(admin, queryHash, queryText, normalized, mode, a
 }
 
 export async function POST(req) {
-  const ip = req.headers.get('x-forwarded-for') || 'unknown'
+  const ip = getClientIP(req)
   if (!rateLimit(ip).ok) {
     return Response.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
   }

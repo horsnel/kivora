@@ -2,7 +2,7 @@ export const runtime = 'edge'
 
 import { createClient } from '@supabase/supabase-js'
 import { getEnvVar } from '@/lib/cfEnv'
-import { rateLimit } from '@/lib/ratelimit'
+import { rateLimit, getClientIP } from '@/lib/ratelimit'
 
 /**
  * POST /api/credits/redeem
@@ -16,7 +16,7 @@ import { rateLimit } from '@/lib/ratelimit'
  * Auth: requires logged-in user.
  */
 export async function POST(req) {
-  const ip = req.headers.get('x-forwarded-for') || 'unknown'
+  const ip = getClientIP(req)
   if (!rateLimit(ip, 5).ok) {
     return Response.json({ error: 'Too many attempts. Please slow down.' }, { status: 429 })
   }

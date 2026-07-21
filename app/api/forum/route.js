@@ -1,6 +1,6 @@
 export const runtime = 'edge' 
 import { getSupabaseAdmin } from '@/lib/supabase'
-import { rateLimit } from '@/lib/ratelimit'
+import { rateLimit, getClientIP } from '@/lib/ratelimit'
 
 // GET — list posts or get single post with replies
 export async function GET(req) {
@@ -77,7 +77,7 @@ export async function GET(req) {
 
 // POST — create new post or reply
 export async function POST(req) {
-  const ip = req.headers.get('x-forwarded-for') || 'unknown'
+  const ip = getClientIP(req)
   if (!rateLimit(ip, 5).ok) {
     return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
   }

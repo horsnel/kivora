@@ -1,7 +1,7 @@
 export const runtime = 'edge' 
 
 import { getEnvVar } from '@/lib/cfEnv'
-import { rateLimit } from '@/lib/ratelimit'
+import { rateLimit, getClientIP } from '@/lib/ratelimit'
 import { createClient } from '@supabase/supabase-js'
 import {
   setColabAccessToken,
@@ -27,7 +27,7 @@ import {
 // Actions: auth-url, status, new, exec, run, stop, sessions, install, ls, download, upload, drivemount, accelerators
 
 export async function POST(req) {
-  const ip = req.headers.get('x-forwarded-for') || 'unknown'
+  const ip = getClientIP(req)
   if (!rateLimit(ip).ok) {
     return Response.json({ error: 'Too many requests. Slow down and try again.' }, { status: 429 })
   }

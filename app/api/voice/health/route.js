@@ -1,7 +1,7 @@
 export const runtime = 'edge' 
 
 import { getEnvVar } from '@/lib/cfEnv'
-import { rateLimit } from '@/lib/ratelimit'
+import { rateLimit, getClientIP } from '@/lib/ratelimit'
 
 // ── Voice Server Fetch Helper ──
 async function voiceFetch(path, options = {}) {
@@ -15,7 +15,7 @@ async function voiceFetch(path, options = {}) {
 
 // ── GET /api/voice/health ──
 export async function GET(req) {
-  const ip = req.headers.get('x-forwarded-for') || 'unknown'
+  const ip = getClientIP(req)
   if (!rateLimit(ip, 30).ok) {
     return Response.json({ error: "You're sending requests too quickly." }, { status: 429 })
   }

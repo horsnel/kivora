@@ -1,6 +1,6 @@
 export const runtime = 'edge' 
 
-import { rateLimit } from '@/lib/ratelimit'
+import { rateLimit, getClientIP } from '@/lib/ratelimit'
 
 const SUPPORTED_CONVERSIONS = {
   'markdown-html': true,
@@ -15,7 +15,7 @@ const SUPPORTED_CONVERSIONS = {
 }
 
 export async function POST(req) {
-  const ip = req.headers.get('x-forwarded-for') || 'unknown'
+  const ip = getClientIP(req)
   if (!rateLimit(ip).ok) {
     return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
   }
