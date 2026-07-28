@@ -3,7 +3,7 @@ import { groq, MODEL, VISION_MODEL, groqChat, GroqError, ALLOWED_MODELS, getPrim
 import { createClient } from '@supabase/supabase-js'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit, anonymousRateLimit, anonymousDailyLimit, getClientIP } from '@/lib/ratelimit'
-import { toolDefs, toolHandlers, TOOL_INSTRUCTIONS, filterToolsByQuery } from '@/lib/toolRegistry'
+import { toolDefs, toolHandlers, TOOL_INSTRUCTIONS, filterToolsByQuery, detectRequiredTool } from '@/lib/toolRegistry'
 import { buildSystemPrompt } from '@/lib/systemPrompt'
 import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
 
@@ -309,11 +309,21 @@ export async function POST(req) {
     const lastContent = (lastUserMsg?.content || '').trim()
     const relevantTools = useTools ? filterToolsByQuery(lastContent) : []
 
+    // ── Force tool_choice when user intent clearly requires a specific tool ──
+    // Models (especially Qwen 2.5 and Llama 3.3) often describe what they'd do
+    // instead of calling the tool. When the user's query unambiguously maps to
+    // a tool (e.g. "generate an image of X" → generate_image), we force that
+    // tool call via tool_choice so the model MUST invoke it.
+    const requiredTool = useTools ? detectRequiredTool(lastContent) : null
+    const toolChoice = requiredTool && relevantTools.some(t => t.function.name === requiredTool)
+      ? { type: 'function', function: { name: requiredTool } }
+      : (relevantTools.length > 0 ? 'auto' : undefined)
+
     const llmParams = {
       model,
       messages: apiMessages,
       max_tokens: 2048,
-      ...(relevantTools.length > 0 ? { tools: relevantTools, tool_choice: 'auto' } : {})
+      ...(relevantTools.length > 0 ? { tools: relevantTools, tool_choice: toolChoice } : {})
     }
 
     let chat
@@ -332,6 +342,31 @@ export async function POST(req) {
     }
 
     const message = chat.choices[0].message
+
+    // ── Retry with forced tool_choice if model ignored a required tool ──
+    // If the user clearly wanted a specific tool (e.g. "generate an image of X")
+    // but the model chose NOT to call it (tool_choice was 'auto'), retry with
+    // tool_choice forced to that specific function. This catches the case where
+    // the provider chain fell through to a model that ignored our intent.
+    if (useTools && requiredTool && (!message.tool_calls || message.tool_calls.length === 0)) {
+      console.warn(`[chat] model didn't call required tool "${requiredTool}", retrying with forced tool_choice`)
+      const forcedParams = {
+        ...llmParams,
+        tool_choice: { type: 'function', function: { name: requiredTool } }
+      }
+      try {
+        const forcedChat = await groqChat(forcedParams)
+        const forcedMessage = forcedChat.choices[0].message
+        if (forcedMessage.tool_calls && forcedMessage.tool_calls.length > 0) {
+          // Update the message and chat references to the forced response
+          chat = forcedChat
+          message = forcedMessage
+        }
+      } catch (forcedErr) {
+        console.warn(`[chat] forced tool_choice retry failed: ${forcedErr.message?.slice(0, 100)}`)
+        // Fall through — use the original response (which describes the image)
+      }
+    }
 
     // Handle tool calls
     if (useTools && message.tool_calls && message.tool_calls.length > 0) {
