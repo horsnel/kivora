@@ -322,7 +322,7 @@ export async function POST(req) {
     const llmParams = {
       model,
       messages: apiMessages,
-      max_tokens: 2048,
+      max_tokens: 4096,
       ...(relevantTools.length > 0 ? { tools: relevantTools, tool_choice: toolChoice } : {})
     }
 
@@ -330,12 +330,12 @@ export async function POST(req) {
     try {
       chat = await groqChat(llmParams)
     } catch (firstErr) {
-      // If the first call hit a quota/rate-limit error, wait 15s and retry
-      // once — SambaNova's free tier is 10 RPM, so a brief wait often clears it.
+      // If the first call hit a quota/rate-limit error, retry immediately —
+      // groqChat already tries all providers, so a 15s wait is too long.
+      // Instead, throw so the user gets a clear "rate limited" message.
       if (firstErr instanceof GroqError && firstErr.code === 'GROQ_QUOTA_EXCEEDED') {
-        console.warn('[chat] first call quota-exceeded, waiting 15s and retrying once')
-        await new Promise(r => setTimeout(r, 15000))
-        chat = await groqChat(llmParams)
+        console.warn('[chat] all providers quota-exceeded')
+        return Response.json({ reply: 'All AI providers are currently at capacity. Please try again in a moment.', model: 'kivora-rate-limited' }, { status: 429 })
       } else {
         throw firstErr
       }
@@ -471,18 +471,33 @@ export async function POST(req) {
         })
       }
 
-      // Second call with tool results — use the same filtered tools set so
-      // the input stays small enough for free-tier providers.
-      const finalChat = await groqChat({
-        model,
-        messages: [...apiMessages, ...toolMessages],
-        max_tokens: 2048,
-        tools: relevantTools,
-        tool_choice: 'none'
-      })
+      // ── Optimize: skip second LLM call for image generation ──
+      // When generate_image succeeds, the client already renders the image
+      // from imageData. A second LLM call to "summarize" wastes 5-10s and
+      // risks hitting CF Workers' 30s deadline. Instead, use a fast reply.
+      const isImageOnly = message.tool_calls.length === 1 && message.tool_calls[0].function.name === 'generate_image'
+      let reply
+      let artifacts = []
 
-      const reply = finalChat.choices[0].message.content
-      const artifacts = extractArtifacts(reply)
+      if (isImageOnly) {
+        // Fast path: skip second LLM call, return a minimal confirmation
+        const imgToolId = message.tool_calls[0].id
+        const imgResult = JSON.parse(toolResults[imgToolId] || '{}')
+        reply = imgResult.success
+          ? `Here's the image I generated for you! The image is displayed above.`
+          : `I wasn't able to generate the image. ${imgResult.error || 'The image generation service may be temporarily unavailable.'}`
+      } else {
+        // Normal path: second LLM call to synthesize tool results into a reply
+        const finalChat = await groqChat({
+          model,
+          messages: [...apiMessages, ...toolMessages],
+          max_tokens: 2048,
+          tools: relevantTools,
+          tool_choice: 'none'
+        })
+        reply = finalChat.choices[0].message.content
+        artifacts = extractArtifacts(reply)
+      }
 
       // Save session
       if (userId && sessionId) {
