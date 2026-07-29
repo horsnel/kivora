@@ -710,9 +710,11 @@ function ResearchPageContent() {
       setReportDisplay(completed.report)
       setSourcesVisible(completed.sources.length)
 
-      // Fix #9: Only store minimal fields in history, not full reports
-      const minimalCompleted = { id: completed.id, query: completed.query, mode: completed.mode, apexModel: completed.apexModel, title: completed.title, timestamp: completed.timestamp }
-      const newHistory = [minimalCompleted, ...loadHistory()].slice(0, MAX_HISTORY)
+      // Save full research to localStorage (reports are typically 5-20KB,
+      // well within the 5MB localStorage limit). Previously only minimal
+      // fields were saved (Fix #9), but this broke loading history items
+      // because loadResearch() couldn't find the report.
+      const newHistory = [completed, ...loadHistory()].slice(0, MAX_HISTORY)
       saveHistory(newHistory)
       setHistory(newHistory)
 
@@ -830,7 +832,7 @@ function ResearchPageContent() {
     setResearchStage('search')
   }
 
-  function loadResearch(item) {
+  async function loadResearch(item) {
     // Ensure item has all expected fields (guard against stale localStorage data)
     const safeItem = {
       ...item,
@@ -842,6 +844,37 @@ function ResearchPageContent() {
       content: item.content || '',
       title: item.title || item.query || '',
     }
+
+    // If the item has no report (from old localStorage data before the fix),
+    // try to fetch it from Supabase for logged-in users.
+    if (!safeItem.report && user?.id && supabasePublic) {
+      try {
+        const { data } = await supabasePublic
+          .from('research_reports')
+          .select('report, sources, followups')
+          .eq('user_id', user.id)
+          .eq('query', safeItem.query)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+        if (data?.report) {
+          safeItem.report = data.report
+          safeItem.sources = data.sources || safeItem.sources
+          safeItem.followups = data.followups || safeItem.followups
+          // Update localStorage with the full report
+          const currentHistory = loadHistory()
+          const idx = currentHistory.findIndex(h => h.id === safeItem.id)
+          if (idx !== -1) {
+            currentHistory[idx] = { ...currentHistory[idx], report: safeItem.report, sources: safeItem.sources, followups: safeItem.followups }
+            saveHistory(currentHistory)
+            setHistory(currentHistory)
+          }
+        }
+      } catch (e) {
+        console.warn('[research] Failed to fetch report from Supabase:', e.message)
+      }
+    }
+
     setActiveResearch(safeItem)
     setReportDisplay(safeItem.report)
     setSourcesVisible(safeItem.sources.length)
