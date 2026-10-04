@@ -1,5 +1,6 @@
 export const runtime = 'edge' 
 import { groq, MODEL, groqChat, GroqError, getPrimaryClientAsync, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
+import { mistralChat, MistralError, setMistralApiKeys } from '@/lib/mistral'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit, getClientIP } from '@/lib/ratelimit'
 import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
@@ -673,15 +674,18 @@ export async function POST(req) {
   }
 
   try {
-    const groqKey = await getEnvVar('GROQ_API_KEY')
+    // ── AI providers: Mistral first, legacy multi-provider chain as fallback ──
+    const mistralKey = await getEnvVar('MISTRAL_API_KEY')
+    const mistralFallbackKey = await getEnvVar('MISTRAL_API_KEY_FALLBACK')
+    setMistralApiKeys(mistralKey, mistralFallbackKey)
+
     const geminiKey = await getEnvVar('GEMINI_API_KEY')
     setGeminiApiKey(geminiKey)
     const openrouterKey = await getEnvVar('OPENROUTER_API_KEY')
     setOpenrouterApiKey(openrouterKey)
+    const groqKey = await getEnvVar('GROQ_API_KEY')
     const groqClient = await getPrimaryClientAsync(groqKey)
-    if (!groqClient) {
-      return Response.json({ error: 'AI service not configured' }, { status: 503 })
-    }
+
     const { tool, payload } = await req.json()
     const promptFn = PROMPTS[tool]
     if (!promptFn) {
@@ -698,21 +702,32 @@ export async function POST(req) {
       if (!creditCheck.ok) return creditCheck.response
     }
 
-    const chat = await groqChat({
-      model: MODEL,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a world-class creative AI assistant integrated into Kivora ReelPen, a professional toolkit for musicians, filmmakers, and entertainers. You produce output that is vivid, emotionally resonant, and immediately usable — never generic, never padded, never clichéd. Write like a seasoned industry professional who has studied the greatest films, series, albums, and campaigns ever made. Use rich markdown: **bold** for emphasis, headings for structure, blockquotes for key insights, and tables for comparisons. Every response should feel like it came from a creative director at the top of their craft.'
-        },
-        {
-          role: 'user',
-          content: promptFn(payload || {})
-        }
-      ]
-    })
+    const messages = [
+      {
+        role: 'system',
+        content: 'You are a world-class creative AI assistant integrated into Kivora ReelPen, a professional toolkit for musicians, filmmakers, and entertainers. You produce output that is vivid, emotionally resonant, and immediately usable — never generic, never padded, never clichéd. Write like a seasoned industry professional who has studied the greatest films, series, albums, and campaigns ever made. Use rich markdown: **bold** for emphasis, headings for structure, blockquotes for key insights, and tables for comparisons. Every response should feel like it came from a creative director at the top of their craft.'
+      },
+      {
+        role: 'user',
+        content: promptFn(payload || {})
+      }
+    ]
 
-    return Response.json({ result: chat.choices[0].message.content })
+    // ── Mistral primary — legacy chain only if Mistral fails ──
+    let chat
+    let provider = 'mistral'
+    try {
+      chat = await mistralChat({ messages })
+    } catch (mistralErr) {
+      console.warn('[reelpen] Mistral unavailable, falling back to legacy chain:', mistralErr.message)
+      if (!groqClient) {
+        return Response.json({ error: 'AI service not configured' }, { status: 503 })
+      }
+      provider = 'fallback'
+      chat = await groqChat({ model: MODEL, messages })
+    }
+
+    return Response.json({ result: chat.choices[0].message.content, provider })
   } catch (err) {
     console.error('[reelpen]', err)
     // Refund on failure

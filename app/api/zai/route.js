@@ -35,9 +35,23 @@ import {
   videoUnderstand,
   asyncResult,
 } from '@/lib/zai'
+import { rateLimit, getClientIP } from '@/lib/ratelimit'
+import { resolveUserAndAdmin } from '@/lib/authUser'
 
 export async function POST(req) {
+  // SECURITY: this is a paid LLM/media proxy — require an authenticated
+  // session and per-IP rate limiting so it can't be abused anonymously.
+  const ip = getClientIP(req)
+  if (!rateLimit(ip).ok) {
+    return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
+  }
+
   try {
+    const { user } = await resolveUserAndAdmin(req)
+    if (!user) {
+      return Response.json({ error: 'Sign in to use AI features.' }, { status: 401 })
+    }
+
     const body = await req.json()
     const { skill, ...params } = body
 

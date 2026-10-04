@@ -2,10 +2,14 @@ import { rateLimit, getClientIP } from '@/lib/ratelimit'
 export const runtime = 'edge' 
 
 import { getEnvVar, getCloudflareAccountId } from '@/lib/cfEnv'
+import { resolveUserAndAdmin } from '@/lib/authUser'
 
 // ── Deploy Site to Cloudflare Pages ──
 // Accepts a project name + files, deploys to CF Pages, returns live URL
 // CF_ACCOUNT_ID is auto-detected from the API token if not set explicitly
+// SECURITY: requires an authenticated Supabase session. Projects are
+// namespaced per user (kv-<uid8>-<name>) so users cannot overwrite each
+// other's deployments or squat arbitrary project names.
 
 export async function POST(req) {
   const ip = getClientIP(req)
@@ -14,6 +18,11 @@ export async function POST(req) {
   }
 
   try {
+    const { user } = await resolveUserAndAdmin(req)
+    if (!user) {
+      return Response.json({ error: 'Sign in to deploy sites.' }, { status: 401 })
+    }
+
     const CF_API_TOKEN = await getEnvVar('CF_API_TOKEN')
     const CF_ACCOUNT_ID = await getCloudflareAccountId()
 
@@ -34,7 +43,13 @@ export async function POST(req) {
       return Response.json({ error: 'Must include an index.html file.' }, { status: 400 })
     }
 
-    const projectName = project_name.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+    const safeName = project_name.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+    if (!safeName) {
+      return Response.json({ error: 'project_name must contain letters or numbers.' }, { status: 400 })
+    }
+
+    // Per-user namespacing — prevents cross-user overwrites and name squatting
+    const projectName = `kv-${user.id.replace(/-/g, '').slice(0, 12)}-${safeName}`.slice(0, 58)
 
     // Create project (ignore error if exists)
     await fetch(

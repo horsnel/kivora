@@ -8,6 +8,7 @@ import { useCurrency } from '@/components/CurrencyToggle'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
 import DataTable from '@/components/DataTable'
 import { supabasePublic } from '@/lib/supabase'
+import { authFetch } from '@/lib/authFetch'
 import {
   IconMoney, IconLightning, IconTool, IconArrowLeft, IconCheck,
   IconShare, IconBookmark, IconBookmarkFill, IconVpn, IconCard,
@@ -33,7 +34,7 @@ export default function ExplorePage() {
     supabasePublic.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
       try {
-        const res = await fetch(`/api/save?slug=${slug}&user_id=${user.id}`)
+        const res = await authFetch(`/api/save?slug=${slug}`)
         if (res.ok) {
           const data = await res.json()
           if (data.saved) setSaved(true)
@@ -70,17 +71,17 @@ export default function ExplorePage() {
     setSaving(true)
     try {
       if (saved) {
-        await fetch('/api/save', {
+        await authFetch('/api/save', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, resultSlug: slug }),
+          body: JSON.stringify({ resultSlug: slug }),
         })
         setSaved(false)
       } else {
-        const res = await fetch('/api/save', {
+        const res = await authFetch('/api/save', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, query: data?.title || slug, resultSlug: slug }),
+          body: JSON.stringify({ query: data?.title || slug, resultSlug: slug }),
         })
         if (res.ok) setSaved(true)
       }

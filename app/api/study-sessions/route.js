@@ -1,23 +1,25 @@
-export const runtime = 'edge' 
+export const runtime = 'edge'
 import { getSupabaseAdmin } from '@/lib/supabase'
+import { resolveUserAndAdmin } from '@/lib/authUser'
 
-// GET — fetch sessions for a user (for Dashboard)
-// Uses user_id query param + service role key (bypasses RLS)
+// SECURITY: the user identity is ALWAYS derived from the Supabase JWT —
+// user_id in query/body is ignored. Rows are only ever read/written for
+// the authenticated user.
+
+// GET — fetch sessions for the authenticated user (for Dashboard)
 export async function GET(req) {
   try {
-    const admin = getSupabaseAdmin()
+    const { user, admin } = await resolveUserAndAdmin(req)
     if (!admin) return Response.json({ error: 'Server configuration error' }, { status: 500 })
+    if (!user) return Response.json({ error: 'Authentication required' }, { status: 401 })
 
     const url = new URL(req.url)
-    const userId = url.searchParams.get('user_id')
     const range = url.searchParams.get('range') || 'week'
-
-    if (!userId) return Response.json({ error: 'user_id is required' }, { status: 400 })
 
     let query = admin
       .from('study_sessions')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
     if (range === 'week') {
@@ -71,19 +73,20 @@ export async function GET(req) {
   }
 }
 
-// POST — start a new study session
+// POST — start a new study session (owned by the authenticated user)
 export async function POST(req) {
   try {
-    const admin = getSupabaseAdmin()
+    const { user, admin } = await resolveUserAndAdmin(req)
     if (!admin) return Response.json({ error: 'Server configuration error' }, { status: 500 })
+    if (!user) return Response.json({ error: 'Authentication required' }, { status: 401 })
 
-    const { user_id, tool_type, subject, input_summary } = await req.json()
-    if (!user_id || !tool_type) return Response.json({ error: 'user_id and tool_type are required' }, { status: 400 })
+    const { tool_type, subject, input_summary } = await req.json()
+    if (!tool_type) return Response.json({ error: 'tool_type is required' }, { status: 400 })
 
     const { data, error } = await admin
       .from('study_sessions')
       .insert({
-        user_id,
+        user_id: user.id,
         tool_type,
         subject: subject || null,
         input_summary: input_summary?.slice(0, 200) || null,
@@ -99,14 +102,15 @@ export async function POST(req) {
   }
 }
 
-// PATCH — end a session or mark events
+// PATCH — end a session or mark events (only for the authenticated user's rows)
 export async function PATCH(req) {
   try {
-    const admin = getSupabaseAdmin()
+    const { user, admin } = await resolveUserAndAdmin(req)
     if (!admin) return Response.json({ error: 'Server configuration error' }, { status: 500 })
+    if (!user) return Response.json({ error: 'Authentication required' }, { status: 401 })
 
-    const { id, user_id, ended_at, result_copied, follow_up_asked } = await req.json()
-    if (!id || !user_id) return Response.json({ error: 'id and user_id are required' }, { status: 400 })
+    const { id, ended_at, result_copied, follow_up_asked } = await req.json()
+    if (!id) return Response.json({ error: 'id is required' }, { status: 400 })
 
     const updates = {}
     if (ended_at) updates.ended_at = ended_at
@@ -117,7 +121,7 @@ export async function PATCH(req) {
       .from('study_sessions')
       .update(updates)
       .eq('id', id)
-      .eq('user_id', user_id)
+      .eq('user_id', user.id)
 
     if (error) throw error
     return Response.json({ success: true })

@@ -1,28 +1,32 @@
-export const runtime = 'edge' 
+export const runtime = 'edge'
 import { getSupabaseAdmin } from '@/lib/supabase'
+import { resolveUserAndAdmin } from '@/lib/authUser'
 
-// Uses user_id from body/query + service role key (bypasses RLS).
-// Client validates auth before calling — API trusts user_id from client.
+// SECURITY: the user identity is ALWAYS derived from the Supabase JWT
+// (Authorization: Bearer header) — never from the query string or body.
+// Service-role client is used only for the lookup after auth.
 
-// GET — check if a result is saved by a user
+// GET — check if a result is saved by the authenticated user
 export async function GET(req) {
   try {
-    const admin = getSupabaseAdmin()
+    const { user, admin } = await resolveUserAndAdmin(req)
     if (!admin) {
       return Response.json({ error: 'Database not configured' }, { status: 503 })
     }
+    if (!user) {
+      return Response.json({ saved: false })
+    }
 
     const url = new URL(req.url)
-    const userId = url.searchParams.get('user_id')
     const slug = url.searchParams.get('slug')
-    if (!userId || !slug) {
-      return Response.json({ error: 'user_id and slug required' }, { status: 400 })
+    if (!slug) {
+      return Response.json({ error: 'slug required' }, { status: 400 })
     }
 
     const { data } = await admin
       .from('saved_results')
       .select('id')
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .eq('result_slug', slug)
       .single()
 
@@ -35,21 +39,24 @@ export async function GET(req) {
 // POST — save a result
 export async function POST(req) {
   try {
-    const admin = getSupabaseAdmin()
+    const { user, admin } = await resolveUserAndAdmin(req)
     if (!admin) {
       return Response.json({ error: 'Database not configured' }, { status: 503 })
     }
+    if (!user) {
+      return Response.json({ error: 'Authentication required' }, { status: 401 })
+    }
 
-    const { userId, query, resultSlug } = await req.json()
-    if (!userId || !resultSlug) {
-      return Response.json({ error: 'userId and resultSlug required' }, { status: 400 })
+    const { query, resultSlug } = await req.json()
+    if (!resultSlug) {
+      return Response.json({ error: 'resultSlug required' }, { status: 400 })
     }
 
     // Check for duplicate
     const { data: existing } = await admin
       .from('saved_results')
       .select('id')
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .eq('result_slug', resultSlug)
       .single()
 
@@ -58,7 +65,7 @@ export async function POST(req) {
     }
 
     await admin.from('saved_results').insert({
-      user_id: userId,
+      user_id: user.id,
       query,
       result_slug: resultSlug
     })
@@ -72,20 +79,23 @@ export async function POST(req) {
 // DELETE — unsave a result
 export async function DELETE(req) {
   try {
-    const admin = getSupabaseAdmin()
+    const { user, admin } = await resolveUserAndAdmin(req)
     if (!admin) {
       return Response.json({ error: 'Database not configured' }, { status: 503 })
     }
+    if (!user) {
+      return Response.json({ error: 'Authentication required' }, { status: 401 })
+    }
 
-    const { userId, resultSlug } = await req.json()
-    if (!userId || !resultSlug) {
-      return Response.json({ error: 'userId and resultSlug required' }, { status: 400 })
+    const { resultSlug } = await req.json()
+    if (!resultSlug) {
+      return Response.json({ error: 'resultSlug required' }, { status: 400 })
     }
 
     await admin
       .from('saved_results')
       .delete()
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .eq('result_slug', resultSlug)
 
     return Response.json({ success: true })

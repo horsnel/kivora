@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabasePublic } from '@/lib/supabase'
+import { authFetch } from '@/lib/authFetch'
 import { IconBookmark, IconChat, IconTrash, IconArrowRight, IconUser, IconMail, IconClock, IconCode, IconBook, IconFlame, IconTarget, IconPlus, IconClose, IconCheck, IconSearch, IconStar, IconMoney, IconLightning, IconGlobe } from '@/components/Icons'
 import { useTranslation } from '@/components/LanguageProvider'
 import CreditPill from '@/components/CreditPill'
@@ -230,7 +231,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [saves, setSaves] = useState([])
   const [chats, setChats] = useState([])
-  const [messages, setMessages] = useState([])
+  const [contactMsgs, setContactMsgs] = useState([])
+  const [isAdmin, setIsAdmin] = useState(false)
   const [tab, setTab] = useState('saved')
   const [expandedMsg, setExpandedMsg] = useState(null)
   const [activityData, setActivityData] = useState(null)
@@ -254,10 +256,12 @@ export default function DashboardPage() {
       const { data: { user } } = await supabasePublic.auth.getUser()
       if (!user) { router.push('/auth'); return }
       setUser(user)
-      // Check if user has completed onboarding — redirect if not
-      const { data: profile } = await supabasePublic.from('profiles').select('onboarding_done').eq('id', user.id).single()
+      // Check if user has completed onboarding — redirect if not. Also grab
+      // is_admin to gate the Messages tab (contact submissions are admin-only).
+      const { data: profile } = await supabasePublic.from('profiles').select('onboarding_done, is_admin').eq('id', user.id).single()
+      setIsAdmin(!!profile?.is_admin)
       if (!profile?.onboarding_done) { router.push('/onboarding'); return }
-      await Promise.all([loadSaves(user.id), loadChats(user.id), loadMessages(user.id), loadAllTimeSessions(user.id)])
+      await Promise.all([loadSaves(user.id), loadChats(user.id), loadMessages(), loadAllTimeSessions(user.id)])
       // Load goals from localStorage
       try {
         const saved = localStorage.getItem('kv_discover_goals')
@@ -286,19 +290,22 @@ export default function DashboardPage() {
     } catch {}
   }
 
-  async function loadMessages(userId) {
+  async function loadMessages() {
     try {
-      const res = await fetch(`/api/messages?user_id=${userId}`)
+      // Contact submissions are admin-only — non-admins get 403 and an empty list
+      const res = await authFetch('/api/messages')
       if (res.ok) {
         const data = await res.json()
-        setMessages(data.submissions || [])
+        setContactMsgs(data.submissions || [])
+      } else {
+        setContactMsgs([])
       }
     } catch {}
   }
 
   async function loadAllTimeSessions(userId) {
     try {
-      const res = await fetch(`/api/study-sessions?user_id=${userId}&range=all`)
+      const res = await authFetch('/api/study-sessions?range=all')
       if (res.ok) {
         const data = await res.json()
         setAllTimeSessions(data.sessions || [])
@@ -309,7 +316,7 @@ export default function DashboardPage() {
   async function loadActivity(range) {
     try {
       if (!user) return
-      const res = await fetch(`/api/study-sessions?user_id=${user.id}&range=${range || activityRange}`)
+      const res = await authFetch(`/api/study-sessions?range=${range || activityRange}`)
       if (res.ok) {
         const data = await res.json()
         setActivityData(data)
@@ -331,17 +338,17 @@ export default function DashboardPage() {
   }
 
   async function markRead(id) {
-    await fetch(`/api/messages?markRead=${id}`)
-    setMessages(p => p.map(m => m.id === id ? { ...m, read: true } : m))
+    await authFetch(`/api/messages?markRead=${id}`)
+    setContactMsgs(p => p.map(m => m.id === id ? { ...m, read: true } : m))
   }
 
   async function deleteMessage(id) {
-    await fetch('/api/messages', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
-    setMessages(p => p.filter(m => m.id !== id))
+    await authFetch('/api/messages', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+    setContactMsgs(p => p.filter(m => m.id !== id))
     if (expandedMsg === id) setExpandedMsg(null)
   }
 
-  const unreadCount = messages.filter(m => !m.read).length
+  const unreadCount = contactMsgs.filter(m => !m.read).length
 
   // ── Goal helpers ──
   const GOAL_TEMPLATES = [
@@ -499,7 +506,7 @@ export default function DashboardPage() {
             { label: 'Goals', value: goals.length },
             { label: t('dashboard.saved'), value: saves.length },
             { label: t('dashboard.chats'), value: chats.length },
-            { label: t('dashboard.messages'), value: messages.length },
+            { label: t('dashboard.messages'), value: contactMsgs.length },
           ].map(s => (
             <div key={s.label} className="bg-[#141414] border border-white/[0.06] rounded-xl px-4 py-3 text-center">
               <div className="font-bold text-headline tracking-tight">{s.icon === 'flame' && <IconFlame size={14} className="inline text-orange-400" />}{s.icon === 'flame' ? ' ' : ''}{s.value}</div>
@@ -584,7 +591,7 @@ export default function DashboardPage() {
             { id: 'goals', label: 'Goals', shortLabel: 'Goals', Icon: IconTarget },
             { id: 'tools', label: 'Tools', shortLabel: 'Tools', Icon: IconCode },
             { id: 'chats', label: t('dashboard.tab_chats'), shortLabel: t('dashboard.chats'), Icon: IconChat },
-            { id: 'messages', label: `${t('dashboard.tab_messages')}${unreadCount > 0 ? ` (${unreadCount})` : ''}`, shortLabel: unreadCount > 0 ? `Msgs (${unreadCount})` : 'Msgs', Icon: IconMail },
+            { ...(isAdmin ? [{ id: 'messages', label: `${t('dashboard.tab_messages')}${unreadCount > 0 ? ` (${unreadCount})` : ''}`, shortLabel: unreadCount > 0 ? `Msgs (${unreadCount})` : 'Msgs', Icon: IconMail }] : []) },
             { id: 'activity', label: t('dashboard.tab_activity'), shortLabel: t('dashboard.tab_activity'), Icon: IconActivity },
           ].map(tabItem => (
             <button key={tabItem.id} onClick={() => setTab(tabItem.id)}
@@ -974,11 +981,11 @@ export default function DashboardPage() {
 
         {/* Messages */}
         {tab === 'messages' && (
-          messages.length === 0 ? (
+          contactMsgs.length === 0 ? (
             <Empty icon={<IconMail size={20} className="text-[#2e2e2e]" />} title={t('dashboard.empty_messages')} desc="Contact form submissions will appear here." action={{ label: 'View contact page', href: '/contact' }} router={router} />
           ) : (
             <div className="space-y-2">
-              {messages.map(msg => (
+              {contactMsgs.map(msg => (
                 <div key={msg.id} className={`bg-[#141414] border rounded-xl px-5 py-4 transition-colors ${msg.read ? 'border-white/[0.06]' : 'border-red-900/30 bg-red-950/10'}`}>
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3">
                     <div className="flex-1 min-w-0">

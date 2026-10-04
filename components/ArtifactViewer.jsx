@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { authFetch } from '@/lib/authFetch'
 
 export default function ArtifactViewer({ artifact, onClose }) {
   const iframeRef = useRef(null)
@@ -136,7 +137,7 @@ export default function ArtifactViewer({ artifact, onClose }) {
         files = [{ path: 'index.html', content: artifact.code }]
       }
 
-      const res = await fetch('/api/deploy', {
+      const res = await authFetch('/api/deploy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ project_name: projectName, files }),

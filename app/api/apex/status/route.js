@@ -1,4 +1,5 @@
 export const runtime = 'edge' 
+import { rateLimit, getClientIP } from '@/lib/ratelimit'
 
 import { getSupabaseAdmin } from '@/lib/supabase'
 
@@ -7,7 +8,14 @@ import { getSupabaseAdmin } from '@/lib/supabase'
 // GET /api/apex/status — Get APEX 2.0 engine status
 // ══════════════════════════════════════════════════════════════════
 
-export async function GET() {
+export async function GET(req) {
+  // Rate limit — paid/proxied resource
+  const rl = rateLimit(getClientIP(req))
+  if (!rl.ok) {
+    return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
+  }
+
+
   const admin = getSupabaseAdmin()
 
   const status = {

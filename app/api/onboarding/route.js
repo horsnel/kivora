@@ -1,18 +1,20 @@
-export const runtime = 'edge' 
+export const runtime = 'edge'
 import { getSupabaseAdmin } from '@/lib/supabase'
+import { resolveUserAndAdmin } from '@/lib/authUser'
 
-// Uses user_id from body + service role key (bypasses RLS).
-// Client validates auth before calling — API trusts user_id from client.
-
+// SECURITY: the profile being updated is derived from the Supabase JWT —
+// the userId in the body is ignored.
 export async function POST(req) {
   try {
-    const admin = getSupabaseAdmin()
+    const { user, admin } = await resolveUserAndAdmin(req)
     if (!admin) {
       return Response.json({ error: 'Database not configured' }, { status: 503 })
     }
+    if (!user) {
+      return Response.json({ error: 'Authentication required' }, { status: 401 })
+    }
 
-    const { userId, goal, experience, location, interests } = await req.json()
-    if (!userId) return Response.json({ error: 'userId required' }, { status: 400 })
+    const { goal, experience, location, interests } = await req.json()
 
     await admin.from('profiles').update({
       onboarding_done: true,
@@ -20,7 +22,7 @@ export async function POST(req) {
       onboarding_experience: experience,
       onboarding_location: location,
       onboarding_interests: interests || [],
-    }).eq('id', userId)
+    }).eq('id', user.id)
 
     return Response.json({ success: true })
   } catch (err) {

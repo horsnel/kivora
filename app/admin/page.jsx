@@ -28,7 +28,9 @@ const TOOL_LABELS = {
   devtools_api_analyzer: 'API Analyzer',
 }
 
-const ADMIN_PASSWORD = 'Ebuka457'
+// Admin access is validated server-side (/api/admin checks the key against
+// the ADMIN_PASSWORD env var) — no password material is stored in the client
+// bundle.
 
 export default function AdminPage() {
   const router = useRouter()
@@ -40,6 +42,7 @@ export default function AdminPage() {
   const [unlocked, setUnlocked] = useState(false)
   const [passwordInput, setPasswordInput] = useState('')
   const [passwordError, setPasswordError] = useState(false)
+  const [checkingPassword, setCheckingPassword] = useState(false)
 
   // Check sessionStorage for persisted unlock
   useEffect(() => {
@@ -54,13 +57,25 @@ export default function AdminPage() {
 
   function handlePasswordSubmit(e) {
     e.preventDefault()
-    if (passwordInput === ADMIN_PASSWORD) {
-      sessionStorage.setItem('kivora-admin-unlocked', '1')
-      setUnlocked(true)
-      setPasswordError(false)
-    } else {
+    if (!passwordInput) {
       setPasswordError(true)
+      return
     }
+    setPasswordError(false)
+    setCheckingPassword(true)
+    // Validate the password against the server — never trust the client bundle
+    fetch('/api/admin', { headers: { 'x-admin-key': passwordInput } })
+      .then(res => {
+        if (res.ok) {
+          sessionStorage.setItem('kivora-admin-key', passwordInput)
+          sessionStorage.setItem('kivora-admin-unlocked', '1')
+          setUnlocked(true)
+        } else {
+          setPasswordError(true)
+        }
+      })
+      .catch(() => setPasswordError(true))
+      .finally(() => setCheckingPassword(false))
   }
 
   // ── Password gate screen ──
@@ -87,9 +102,10 @@ export default function AdminPage() {
             )}
             <button
               type="submit"
-              className="w-full bg-[#dc2626] hover:bg-red-700 text-white text-[14px] font-semibold py-3 rounded-xl transition-colors mt-3"
+              disabled={checkingPassword}
+              className="w-full bg-[#dc2626] hover:bg-red-700 disabled:opacity-60 text-white text-[14px] font-semibold py-3 rounded-xl transition-colors mt-3"
             >
-              Unlock
+              {checkingPassword ? 'Checking…' : 'Unlock'}
             </button>
           </form>
         </div>
@@ -105,9 +121,9 @@ export default function AdminPage() {
 
   async function checkAuth() {
     try {
-      // Fetch admin data using password key (no Supabase auth required)
+      // Fetch admin data using the server-validated key stored at unlock time
       const res = await fetch('/api/admin', {
-        headers: { 'x-admin-key': ADMIN_PASSWORD },
+        headers: { 'x-admin-key': sessionStorage.getItem('kivora-admin-key') || '' },
       })
       if (res.status === 403) { setForbidden(true); setLoading(false); return }
       if (!res.ok) throw new Error('Failed to fetch admin data')

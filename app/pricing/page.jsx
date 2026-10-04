@@ -20,22 +20,22 @@ const FEATURE_MATRIX = [
   { label: 'Explore topics',          get: (p) => '✓',                                                               all: true },
   { label: 'Opportunities feed',      get: (p) => '✓',                                                               all: true },
   { label: 'Study Desk',              get: (p) => '✓',                                                               all: true },
-  { label: 'Deep Research (multi-phase)', get: (p) => p.features.deepResearch ? '✓' : '—',                           pro: true },
-  { label: 'DevTools code generation', get: (p) => p.features.deepResearch ? '✓' : '—',                             pro: true },
-  { label: 'ReelPen video scripts',   get: (p) => p.features.deepResearch ? '✓' : '—',                              pro: true },
-  { label: 'Image Intelligence (OSINT)', get: (p) => p.features.imageOsint ? '✓' : '—',                             max: true },
-  { label: 'Voice TTS / STT',         get: (p) => p.features.voice ? '✓' : '—',                                     max: true },
-  { label: 'Custom domain',           get: (p) => p.features.customDomain ? '✓' : '—',                             max: true },
-  { label: 'Priority compute',        get: (p) => p.features.priorityCompute ? '✓' : '—',                          max: true },
-  { label: 'Team seats (pooled credits)', get: (p) => p.features.teamSeats ? 'Up to 5 seats' : '—',                 team: true },
+  { label: 'Deep Research (multi-phase)', get: (p) => p.features.deepResearch ? '✓' : '✕',                           pro: true },
+  { label: 'DevTools code generation', get: (p) => p.features.deepResearch ? '✓' : '✕',                             pro: true },
+  { label: 'ReelPen video scripts',   get: (p) => p.features.deepResearch ? '✓' : '✕',                              pro: true },
+  { label: 'Image Intelligence (OSINT)', get: (p) => p.features.imageOsint ? '✓' : '✕',                             max: true },
+  { label: 'Voice TTS / STT',         get: (p) => p.features.voice ? '✓' : '✕',                                     max: true },
+  { label: 'Custom domain',           get: (p) => p.features.customDomain ? '✓' : '✕',                             max: true },
+  { label: 'Priority compute',        get: (p) => p.features.priorityCompute ? '✓' : '✕',                          max: true },
+  { label: 'Team seats (pooled credits)', get: (p) => p.features.teamSeats ? 'Up to 5 seats' : '✕',                 team: true },
   { label: 'Storage',                 get: (p) => `${p.storageGB} GB`,                                              all: true },
 ]
 
 const CREDIT_COSTS = [
   { action: 'Chat message',              cost: 1,   Icon: IconChat },
   { action: 'Chat (reasoning model)',    cost: 3,   Icon: IconChat },
-  { action: 'Research — Quick',          cost: 5,   Icon: IconMicroscope },
-  { action: 'Research — Deep',           cost: 15,  Icon: IconMicroscope },
+  { action: 'Quick Research',          cost: 5,   Icon: IconMicroscope },
+  { action: 'Deep Research',           cost: 15,  Icon: IconMicroscope },
   { action: 'Image Intelligence',        cost: 25,  Icon: IconImage },
   { action: 'Explore topic',             cost: 2,   Icon: IconGlobe },
   { action: 'Opportunity generation',    cost: 3,   Icon: IconTrending },
@@ -204,13 +204,13 @@ function PricingPageContent() {
         <div className="text-center mb-8 sm:mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1a1a1a] border border-[#262626] text-xs text-[#a3a3a3] mb-4">
             <IconLightning size={12} className="text-red-500" />
-            Credits-based pricing — never worry about tokens
+            Credits-based pricing, never worry about tokens
           </div>
           <h1 className="text-2xl sm:text-5xl font-bold tracking-tight mb-3">
             Pick the plan that <span className="text-red-500">fits your hustle</span>
           </h1>
           <p className="text-base sm:text-lg text-[#a3a3a3] max-w-2xl mx-auto">
-            Every plan includes daily free credits. Upgrade when you need more power — Deep Research, Image Intelligence, voice, or team seats.
+            Every plan includes daily free credits. Upgrade when you need more power: Deep Research, Image Intelligence, voice, or team seats.
           </p>
         </div>
 
@@ -391,7 +391,7 @@ function PricingPageContent() {
                   <td className="p-4 text-[#d4d4d4]">{row.label}</td>
                   {PLAN_LIST.map((p) => (
                     <td key={p.code} className="text-center p-4">
-                      <span className={row.get(p) === '—' ? 'text-[#525252]' : 'text-white'}>
+                      <span className={row.get(p) === '✕' ? 'text-[#525252]' : 'text-white'}>
                         {row.get(p)}
                       </span>
                     </td>
@@ -417,7 +417,7 @@ function PricingPageContent() {
                   return (
                     <div key={i} className="flex items-center justify-between text-sm">
                       <span className="text-[#a3a3a3]">{row.label}</span>
-                      <span className={val === '—' ? 'text-[#525252]' : 'text-white font-medium'}>{val}</span>
+                      <span className={val === '✕' ? 'text-[#525252]' : 'text-white font-medium'}>{val}</span>
                     </div>
                   )
                 })}
@@ -431,7 +431,7 @@ function PricingPageContent() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-16 border-t border-[#1a1a1a]">
         <h2 className="text-xl sm:text-2xl font-bold mb-3 text-center">How credits work</h2>
         <p className="text-center text-[#a3a3a3] mb-8 max-w-2xl mx-auto text-sm">
-          Every action costs a fixed number of credits — no token math, no surprise bills.
+          Every action costs a fixed number of credits. No token math, no surprise bills.
           Credits drain in this order: <span className="text-red-400">daily → monthly → bonus</span>.
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -507,7 +507,7 @@ function PricingPageContent() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16 text-center">
         <h2 className="text-xl sm:text-2xl font-bold mb-3">Still on Free?</h2>
         <p className="text-[#a3a3a3] mb-6 text-sm">
-          You get 10 free credits every day. Use them on Quick Research, Chat, Explore, and more — no card needed.
+          You get 10 free credits every day. Use them on Quick Research, Chat, Explore, and more. No card needed.
         </p>
         <Link
           href="/research"
@@ -562,7 +562,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Can I switch plans later?',
-    a: 'Yes. Upgrades take effect immediately and your unused monthly credits roll over (one-month only). Downgrades take effect at the end of your current billing cycle — no refunds, but you keep your credits until the cycle ends.',
+    a: 'Yes. Upgrades take effect immediately and your unused monthly credits roll over (one-month only). Downgrades take effect at the end of your current billing cycle: no refunds, but you keep your credits until the cycle ends.',
   },
   {
     q: 'How do I pay?',
@@ -578,6 +578,6 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Is there a free trial?',
-    a: 'The Free plan IS the trial — it never expires. You get 10 free credits every day, enough for ~10 chat messages or 2 quick research queries. Upgrade only when you need more.',
+    a: 'The Free plan IS the trial; it never expires. You get 10 free credits every day, enough for ~10 chat messages or 2 quick research queries. Upgrade only when you need more.',
   },
 ]

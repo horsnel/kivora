@@ -1,8 +1,8 @@
-export const runtime = 'edge' 
+export const runtime = 'edge'
 
 import { rateLimit, getClientIP } from '@/lib/ratelimit'
-
-const VALID_LANGUAGE_IDS = [71, 63, 74, 62, 54, 50, 60, 73, 72, 68, 46, 82]
+import { getEnvVar } from '@/lib/cfEnv'
+import { runJudge0, setJudge0Config, VALID_LANGUAGE_IDS } from '@/lib/judge0'
 
 export async function POST(req) {
   const ip = getClientIP(req)
@@ -21,38 +21,27 @@ export async function POST(req) {
       return Response.json({ error: 'language_id is required (must be a number)' }, { status: 400 })
     }
 
-    if (!VALID_LANGUAGE_IDS.includes(language_id)) {
+    if (!VALID_LANGUAGE_IDS.has(language_id)) {
       return Response.json(
-        { error: `Unsupported language. Supported IDs: ${VALID_LANGUAGE_IDS.join(', ')}` },
+        { error: `Unsupported language. Supported IDs: ${[...VALID_LANGUAGE_IDS].join(', ')}` },
         { status: 400 }
       )
     }
 
-    const response = await fetch(
-      'https://ce.judge0.com/submissions?base64_encoded=false&wait=true',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          source_code,
-          language_id,
-          stdin
-        })
-      }
-    )
+    // Apply self-hosted / RapidAPI Judge0 config when provided
+    const judge0Url = await getEnvVar('JUDGE0_URL')
+    const judge0Key = await getEnvVar('JUDGE0_API_KEY')
+    setJudge0Config(judge0Url, judge0Key)
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('[execute] Judge0 error:', response.status, errorText)
+    const data = await runJudge0(source_code, language_id, stdin)
+
+    if (data.error) {
+      console.error('[execute] Judge0 error:', data.error)
       return Response.json(
-        { error: 'Code execution service error', details: errorText },
-        { status: response.status }
+        { error: 'Code execution service error', details: data.error },
+        { status: 502 }
       )
     }
-
-    const data = await response.json()
 
     // Build the full result — include ALL output fields
     const result = {

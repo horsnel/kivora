@@ -1,9 +1,16 @@
 export const runtime = 'edge' 
+import { rateLimit, getClientIP } from '@/lib/ratelimit'
 import { createClient } from '@supabase/supabase-js'
 import { groq, MODEL_FAST, groqChat, GroqError, getPrimaryClientAsync, setGeminiApiKey } from '@/lib/groq'
 import { getEnvVar } from '@/lib/cfEnv'
 
 export async function POST(req) {
+  // Rate limit — paid/proxied resource
+  const rl = rateLimit(getClientIP(req))
+  if (!rl.ok) {
+    return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
+  }
+
   try {
     const groqKey = await getEnvVar('GROQ_API_KEY')
     const geminiKey = await getEnvVar('GEMINI_API_KEY')

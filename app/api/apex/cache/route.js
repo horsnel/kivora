@@ -1,4 +1,5 @@
 export const runtime = 'edge' 
+import { rateLimit, getClientIP } from '@/lib/ratelimit'
 
 import { getSupabaseAdmin } from '@/lib/supabase'
 
@@ -10,6 +11,12 @@ import { getSupabaseAdmin } from '@/lib/supabase'
 // ══════════════════════════════════════════════════════════════════
 
 export async function GET(request) {
+  // Rate limit — paid/proxied resource
+  const rl = rateLimit(getClientIP(request))
+  if (!rl.ok) {
+    return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
+  }
+
   const { searchParams } = new URL(request.url)
   const query = searchParams.get('q')
   const mode = searchParams.get('mode') || 'quick'
@@ -87,6 +94,12 @@ export async function GET(request) {
 
 // Mark a cache entry as hot or store new cache
 export async function POST(request) {
+  // Rate limit — paid/proxied resource
+  const rl = rateLimit(getClientIP(request))
+  if (!rl.ok) {
+    return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
+  }
+
   const admin = getSupabaseAdmin()
   if (!admin) {
     return Response.json({ error: 'Database not configured' }, { status: 503 })

@@ -160,24 +160,33 @@ export function useVoiceTTS() {
 
   async function loadServerVoices(engineId) {
     try {
-      const res = await fetch(`/api/voice/voices?engine=${engineId}`, { signal: AbortSignal.timeout(3000) })
+      // NOTE: /api/voice/voices never existed (dead endpoint). The engines
+      // endpoint is the real source — it returns engine metadata including
+      // per-engine voice lists when the server TTS backend provides them.
+      const res = await fetch(`/api/voice/engines`, { signal: AbortSignal.timeout(3000) })
       if (res.ok) {
         const data = await res.json()
-        if (data.voices) {
-          setVoices(data.voices.map(v => ({
+        const engine = (data.engines || []).find(e => e.id === engineId)
+        const serverVoices = engine?.voices || []
+        if (serverVoices.length > 0) {
+          setVoices(serverVoices.map(v => ({
             id: v.id,
             name: v.name || v.id,
             lang: v.language || v.lang || 'en-US',
             local: false,
           })))
-          if (data.voices.length > 0) {
-            setCurrentVoice(data.voices[0].id)
-          }
+          setCurrentVoice(serverVoices[0].id)
+        } else {
+          // No server voice list — keep browser voices selectable; the TTS
+          // endpoint falls back to a default voice for the chosen engine.
+          loadBrowserVoices(synthRef.current)
         }
+      } else {
+        loadBrowserVoices(synthRef.current)
       }
     } catch {
-      // Fall back to empty voice list
-      setVoices([])
+      // Network/API failure — fall back to browser voices
+      loadBrowserVoices(synthRef.current)
     }
   }
 

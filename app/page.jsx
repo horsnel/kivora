@@ -277,7 +277,7 @@ export default function WelcomePage() {
               {[...SAMPLE_IMAGES, ...SAMPLE_IMAGES].map((img, i) => (
                 <Link
                   key={`${img.src}-${i}`}
-                  href={`/research?q=${encodeURIComponent('Generate an image: ' + img.prompt)}`}
+                  href={`/chat?q=${encodeURIComponent('Generate an image: ' + img.prompt)}`}
                   className="group relative shrink-0 w-[200px] h-[200px] rounded-xl overflow-hidden bg-[#111] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all duration-200 cursor-pointer"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -300,7 +300,7 @@ export default function WelcomePage() {
             {['Landscape', 'Portrait', 'Logo', 'Icon', 'Illustration'].map(tag => (
               <Link
                 key={tag}
-                href={`/research?q=${encodeURIComponent(`Generate a ${tag.toLowerCase()}: `)}`}
+                href={`/chat?q=${encodeURIComponent(`Generate a ${tag.toLowerCase()}: `)}`}
                 className="px-3 py-1.5 rounded-full text-xs font-medium bg-[#111] border border-[#1f1f1f] text-[#737373] hover:bg-[#1a1a1a] hover:border-[#2a2a2a] hover:text-white transition-all duration-200"
               >
                 {tag}

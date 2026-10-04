@@ -1,7 +1,7 @@
-export const runtime = 'edge' 
+export const runtime = 'edge'
 import { getSupabaseAdmin } from '@/lib/supabase'
-
-const ADMIN_PASSWORD = 'Ebuka457'
+import { createClient } from '@supabase/supabase-js'
+import { getEnvVar } from '@/lib/cfEnv'
 
 export async function GET(req) {
   try {
@@ -10,26 +10,43 @@ export async function GET(req) {
       return Response.json({ error: 'Server configuration error' }, { status: 500 })
     }
 
-    // Auth: accept admin password OR legacy is_admin profile check
+    // ── Auth (two paths, both server-verified) ──
+    // 1. Admin password sent as x-admin-key (checked against ADMIN_PASSWORD env var)
+    // 2. Supabase JWT via Authorization: Bearer — must belong to a profile with is_admin
+    // NOTE: client-supplied user IDs are never trusted — identity comes from the JWT.
     const adminKey = req.headers.get('x-admin-key')
+    const envPassword = await getEnvVar('ADMIN_PASSWORD')
 
-    if (adminKey === ADMIN_PASSWORD) {
-      // Password gate — allowed
+    let authorized = false
+
+    if (envPassword && adminKey && adminKey === envPassword) {
+      authorized = true
     } else {
-      // Fallback: check user_id + is_admin profile
-      const userId = req.headers.get('x-user-id')
-      if (!userId) {
-        return Response.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-      const { data: profile, error: profileError } = await admin
-        .from('profiles')
-        .select('is_admin')
-        .eq('id', userId)
-        .single()
+      const authHeader = req.headers.get('authorization') || ''
+      const accessToken = authHeader.replace(/^Bearer\s+/i, '')
+      const supaUrl = await getEnvVar('NEXT_PUBLIC_SUPABASE_URL')
+      const supaAnon = await getEnvVar('NEXT_PUBLIC_SUPABASE_ANON_KEY')
 
-      if (profileError || !profile?.is_admin) {
-        return Response.json({ error: 'Forbidden — admin access required' }, { status: 403 })
+      if (accessToken && supaUrl && supaAnon) {
+        try {
+          const userClient = createClient(supaUrl, supaAnon, {
+            global: { headers: { Authorization: `Bearer ${accessToken}` } },
+          })
+          const { data: { user } } = await userClient.auth.getUser()
+          if (user) {
+            const { data: profile } = await admin
+              .from('profiles')
+              .select('is_admin')
+              .eq('id', user.id)
+              .single()
+            if (profile?.is_admin) authorized = true
+          }
+        } catch { /* invalid token — unauthorized */ }
       }
+    }
+
+    if (!authorized) {
+      return Response.json({ error: 'Forbidden — admin access required' }, { status: 403 })
     }
 
     // Fetch all metrics in parallel

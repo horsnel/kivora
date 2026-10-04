@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabasePublic } from '@/lib/supabase'
+import { authFetch } from '@/lib/authFetch'
 import { IconCheck, IconSpinner, IconGlobe, IconMapPin, IconLink, IconWarning, IconLogout } from '@/components/Icons'
 import { useTranslation } from '@/components/LanguageProvider'
 
@@ -136,10 +137,10 @@ export default function ProfilePage() {
     if (deleteConfirm !== 'DELETE') return
     setDeleting(true)
     try {
-      const res = await fetch('/api/profile/delete', {
+      const res = await authFetch('/api/profile/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id }),
+        body: JSON.stringify({ confirm: 'DELETE' }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to delete account')

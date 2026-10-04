@@ -1,4 +1,5 @@
 export const runtime = 'edge' 
+import { rateLimit, getClientIP } from '@/lib/ratelimit'
 
 // ── Image Generation: Pollinations AI ──
 //
@@ -135,6 +136,12 @@ async function generateWithPollinations(prompt, size) {
 // ── Main Handler ──
 
 export async function POST(req) {
+  // Rate limit — paid/proxied resource
+  const rl = rateLimit(getClientIP(req))
+  if (!rl.ok) {
+    return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
+  }
+
   try {
     const body = await req.json()
     const { prompt, size } = body

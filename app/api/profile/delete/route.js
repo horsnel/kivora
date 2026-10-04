@@ -1,16 +1,18 @@
-export const runtime = 'edge' 
+export const runtime = 'edge'
 import { getSupabaseAdmin } from '@/lib/supabase'
+import { resolveUserAndAdmin } from '@/lib/authUser'
 
+// SECURITY: account deletion requires a valid Supabase JWT and only ever
+// deletes the authenticated user's own account. The userId in the request
+// body is ignored — identity is derived from the token server-side.
 export async function POST(req) {
   try {
-    const admin = getSupabaseAdmin()
+    const { user, admin } = await resolveUserAndAdmin(req)
     if (!admin) return Response.json({ error: 'Server configuration error' }, { status: 500 })
+    if (!user) return Response.json({ error: 'Authentication required' }, { status: 401 })
 
-    const { userId } = await req.json()
-    if (!userId) return Response.json({ error: 'userId is required' }, { status: 400 })
-
-    // Delete the user from auth.users — cascading deletes handle profiles, study_sessions, etc.
-    const { error } = await admin.auth.admin.deleteUser(userId)
+    // Delete the authenticated user from auth.users — cascading deletes handle profiles, study_sessions, etc.
+    const { error } = await admin.auth.admin.deleteUser(user.id)
     if (error) throw error
 
     return Response.json({ success: true })
