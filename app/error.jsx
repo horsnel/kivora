@@ -3,10 +3,36 @@
 import Link from 'next/link'
 import { useEffect } from 'react'
 
+const CHUNK_RELOAD_KEY = '__kivora_chunk_reload_at'
+
+// Stale-chunk auto-recovery: after each deployment, an already-open tab still
+// runs the previous build. Client-side navigation then requests route chunks
+// that no longer exist in the new deployment → a render error that a manual
+// refresh always fixed. We do that refresh automatically. Timestamp-guarded
+// (once per minute per tab) so a genuinely broken page still shows this UI
+// instead of entering a reload loop.
+function isStaleChunkError(error) {
+  const msg = String(error?.message || '') + ' ' + String(error?.digest || '')
+  return /ChunkLoadError|Loading chunk|Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|missing required error components|An error occurred in the Server Components render/i.test(msg)
+}
+
 export default function Error({ error, reset }) {
+  const staleChunk =
+    typeof window !== 'undefined' &&
+    isStaleChunkError(error) &&
+    Date.now() - Number(sessionStorage.getItem(CHUNK_RELOAD_KEY) || 0) > 60_000
+
   useEffect(() => {
+    if (staleChunk) {
+      sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()))
+      window.location.reload()
+      return
+    }
     console.error('[ErrorBoundary]', error?.message || error, error?.stack || '')
-  }, [error])
+  }, [error, staleChunk])
+
+  // Reload in progress — render nothing for a frame instead of flashing the card
+  if (staleChunk) return null
 
   // Detect hydration errors specifically
   const isHydrationError = error?.message?.includes('hydrat') ||

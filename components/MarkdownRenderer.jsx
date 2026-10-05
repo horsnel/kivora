@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Highlight, themes } from 'prism-react-renderer'
@@ -552,7 +552,11 @@ function CodeBlock({ langLabel, codeText, codeClassName }) {
 }
 
 /* ─── Main Component ───────────────────────────────────────────── */
-export default function MarkdownRenderer({ content, className = '' }) {
+// Memoized: during SSE streaming the chat re-renders on every token delta.
+// Without memo, ReactMarkdown re-parses EVERY historical message on EVERY
+// token — long conversations visibly stutter ("streaming glitch"). Completed
+// messages have stable props, so memo skips their entire subtree.
+function MarkdownRenderer({ content, className = '' }) {
   if (!content) return null
 
   return (
@@ -698,3 +702,5 @@ export default function MarkdownRenderer({ content, className = '' }) {
     </div>
   )
 }
+
+export default memo(MarkdownRenderer)
