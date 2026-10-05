@@ -591,7 +591,7 @@ export default function DashboardPage() {
             { id: 'goals', label: 'Goals', shortLabel: 'Goals', Icon: IconTarget },
             { id: 'tools', label: 'Tools', shortLabel: 'Tools', Icon: IconCode },
             { id: 'chats', label: t('dashboard.tab_chats'), shortLabel: t('dashboard.chats'), Icon: IconChat },
-            { ...(isAdmin ? [{ id: 'messages', label: `${t('dashboard.tab_messages')}${unreadCount > 0 ? ` (${unreadCount})` : ''}`, shortLabel: unreadCount > 0 ? `Msgs (${unreadCount})` : 'Msgs', Icon: IconMail }] : []) },
+            ...(isAdmin ? [{ id: 'messages', label: `${t('dashboard.tab_messages')}${unreadCount > 0 ? ` (${unreadCount})` : ''}`, shortLabel: unreadCount > 0 ? `Msgs (${unreadCount})` : 'Msgs', Icon: IconMail }] : []),
             { id: 'activity', label: t('dashboard.tab_activity'), shortLabel: t('dashboard.tab_activity'), Icon: IconActivity },
           ].map(tabItem => (
             <button key={tabItem.id} onClick={() => setTab(tabItem.id)}
