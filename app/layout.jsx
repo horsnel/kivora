@@ -72,29 +72,21 @@ export const viewport = {
   themeColor: '#dc2626',
 }
 
-// ── Force dynamic rendering (every request re-renders the layout) ──
-// The bootstrap script below injects the two PUBLIC Supabase values from
-// the WORKER's runtime env. With static prerendering that script would be
-// generated once at build time (when runtime env is unavailable) and the
-// browser would boot without a Supabase client — the cause of the
-// "Cannot read properties of undefined (reading 'getUser')" crashes on
-// Cloudflare Pages direct-upload deployments.
-export const dynamic = 'force-dynamic'
-
-// suppressHydrationWarning on <html> prevents React 19 from crashing
-// when browser extensions, user preferences, or CSS-only animations
-// (like the .grain overlay) cause minor attribute/text differences
-// between server and client HTML. Recommended fix per Next.js docs.
+// ── Runtime env bootstrap for the browser ──
+// NEXT_PUBLIC_* vars are INLINED at build time. Direct-upload deploys to
+// Cloudflare Pages can be built without them, which left supabasePublic
+// permanently null in the browser. The GitHub Actions deploy workflow now
+// exports the CF project env (NEXT_PUBLIC_SUPABASE_URL/ANON_KEY are stored
+// as plain_text — they are public-by-design) so builds always inline them.
+// This bootstrap script additionally injects the two PUBLIC values from the
+// server env at render time, so even an env-less build serves a working
+// client. lib/supabase.js reads window.__KIVORA_ENV__ before falling back
+// to build-time values. Both values are public (anon key), so embedding
+// them in the served HTML is safe.
+// NOTE: no `force-dynamic` here — pages stay statically prerendered, which
+// is what next-on-pages expects (dynamic routes would each need
+// `export const runtime = 'edge'`).
 export default async function RootLayout({ children }) {
-  // ── Runtime env bootstrap for the browser ──
-  // NEXT_PUBLIC_* vars are INLINED at build time. Direct-upload deploys to
-  // Cloudflare Pages can be built without them, which left supabasePublic
-  // permanently null in the browser. Both values are PUBLIC (anon key), so
-  // embedding them in the served HTML is safe. lib/supabase.js reads
-  // window.__KIVORA_ENV__ before falling back to build-time values.
-  // suppressHydrationWarning: the server renders real values while the
-  // client re-render only knows build-time values — the inline script is
-  // never re-executed during hydration, so the server HTML wins.
   const bootUrl = (await getEnvVar('NEXT_PUBLIC_SUPABASE_URL')) || (await getEnvVar('SUPABASE_URL')) || ''
   const bootKey = (await getEnvVar('NEXT_PUBLIC_SUPABASE_ANON_KEY')) || (await getEnvVar('SUPABASE_ANON_KEY')) || ''
   const bootPayload = JSON.stringify({ url: bootUrl, key: bootKey }).replace(/</g, '\\u003c')
