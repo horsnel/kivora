@@ -23,8 +23,8 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          # Build-time placeholders — pages are client-rendered; runtime
-          # secrets come from Cloudflare Pages environment variables.
+          # Build-time placeholders — pages are client-rendered; production
+          # gets real values at runtime via the layout's env bootstrap.
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
           NEXT_PUBLIC_SITE_URL: https://kivora.pages.dev

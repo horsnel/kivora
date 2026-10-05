@@ -1,5 +1,6 @@
 import './globals.css'
 import Script from 'next/script'
+import { getEnvVar } from '@/lib/cfEnv'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import Navbar from '@/components/Navbar'
 import NavbarErrorBoundary from '@/components/NavbarErrorBoundary'
@@ -71,14 +72,40 @@ export const viewport = {
   themeColor: '#dc2626',
 }
 
+// ── Force dynamic rendering (every request re-renders the layout) ──
+// The bootstrap script below injects the two PUBLIC Supabase values from
+// the WORKER's runtime env. With static prerendering that script would be
+// generated once at build time (when runtime env is unavailable) and the
+// browser would boot without a Supabase client — the cause of the
+// "Cannot read properties of undefined (reading 'getUser')" crashes on
+// Cloudflare Pages direct-upload deployments.
+export const dynamic = 'force-dynamic'
+
 // suppressHydrationWarning on <html> prevents React 19 from crashing
 // when browser extensions, user preferences, or CSS-only animations
 // (like the .grain overlay) cause minor attribute/text differences
 // between server and client HTML. Recommended fix per Next.js docs.
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  // ── Runtime env bootstrap for the browser ──
+  // NEXT_PUBLIC_* vars are INLINED at build time. Direct-upload deploys to
+  // Cloudflare Pages can be built without them, which left supabasePublic
+  // permanently null in the browser. Both values are PUBLIC (anon key), so
+  // embedding them in the served HTML is safe. lib/supabase.js reads
+  // window.__KIVORA_ENV__ before falling back to build-time values.
+  // suppressHydrationWarning: the server renders real values while the
+  // client re-render only knows build-time values — the inline script is
+  // never re-executed during hydration, so the server HTML wins.
+  const bootUrl = (await getEnvVar('NEXT_PUBLIC_SUPABASE_URL')) || (await getEnvVar('SUPABASE_URL')) || ''
+  const bootKey = (await getEnvVar('NEXT_PUBLIC_SUPABASE_ANON_KEY')) || (await getEnvVar('SUPABASE_ANON_KEY')) || ''
+  const bootPayload = JSON.stringify({ url: bootUrl, key: bootKey }).replace(/</g, '\\u003c')
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${jetbrainsMono.variable} grain bg-[#0a0a0a] text-white antialiased`}>
+        <script
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: `window.__KIVORA_ENV__=${bootPayload}` }}
+        />
         <ProvidersErrorBoundary>
           <LanguageProvider>
             <CurrencyProvider>

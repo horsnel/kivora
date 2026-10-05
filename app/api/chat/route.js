@@ -1,5 +1,6 @@
 export const runtime = 'edge' 
 import { groq, MODEL, VISION_MODEL, groqChat, GroqError, ALLOWED_MODELS, getPrimaryClientAsync, getFallbackClientAsync, setCerebrasApiKey, setSambanovaApiKey, setSiliconflowApiKey, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
+import { mistralChat, setMistralApiKeys, isMistralConfigured } from '@/lib/mistral'
 import { createClient } from '@supabase/supabase-js'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit, anonymousRateLimit, anonymousDailyLimit, getClientIP } from '@/lib/ratelimit'
@@ -79,6 +80,30 @@ async function ingestToWiki(admin, { userMessage, assistantReply, userId }) {
   }
 }
 
+// ── Mistral-first chat with legacy-chain fallback ────────────────
+// Mistral's light tiers answer in well under a second of provider time; the
+// legacy 7-provider chain (SiliconFlow→SambaNova→Groq→grok→Gemini→
+// OpenRouter→Cerebras) adds seconds of dead retries before generation even
+// starts, so it is now the FALLBACK. Response shape is OpenAI-compatible for
+// both paths (choices[0].message), so callers are unchanged.
+async function aiChat(params) {
+  if (isMistralConfigured()) {
+    try {
+      const m = await mistralChat({
+        messages: params.messages,
+        temperature: params.temperature,
+        maxTokens: params.max_tokens,
+        tools: params.tools,
+        toolChoice: params.tool_choice,
+      })
+      if (m?.choices?.[0]?.message) return m
+    } catch (err) {
+      console.warn(`[chat] mistral unavailable (${String(err?.message).slice(0, 80)}) — falling back to legacy chain`)
+    }
+  }
+  return groqChat(params)
+}
+
 export async function POST(req) {
   const ip = getClientIP(req)
   if (!rateLimit(ip).ok) {
@@ -103,6 +128,9 @@ export async function POST(req) {
 
     // Wire all provider keys into the multi-provider chain.
     // Order is: Cerebras → SambaNova → SiliconFlow → Groq(primary) → Groq(fallback) → Gemini → OpenRouter
+    const mistralKey = await getEnvVar('MISTRAL_API_KEY')
+    const mistralFallbackKey = await getEnvVar('MISTRAL_API_KEY_FALLBACK')
+    setMistralApiKeys(mistralKey, mistralFallbackKey)
     setCerebrasApiKey(cerebrasKey)
     setSambanovaApiKey(sambanovaKey)
     setSiliconflowApiKey(siliconflowKey)
@@ -328,7 +356,7 @@ export async function POST(req) {
 
     let chat
     try {
-      chat = await groqChat(llmParams)
+      chat = await aiChat(llmParams)
     } catch (firstErr) {
       // If the first call hit a quota/rate-limit error, retry immediately —
       // groqChat already tries all providers, so a 15s wait is too long.
@@ -341,7 +369,7 @@ export async function POST(req) {
       }
     }
 
-    const message = chat.choices[0].message
+    let message = chat.choices[0].message
 
     // ── Retry with forced tool_choice if model ignored a required tool ──
     // If the user clearly wanted a specific tool (e.g. "generate an image of X")
@@ -355,7 +383,7 @@ export async function POST(req) {
         tool_choice: { type: 'function', function: { name: requiredTool } }
       }
       try {
-        const forcedChat = await groqChat(forcedParams)
+        const forcedChat = await aiChat(forcedParams)
         const forcedMessage = forcedChat.choices[0].message
         if (forcedMessage.tool_calls && forcedMessage.tool_calls.length > 0) {
           // Update the message and chat references to the forced response
@@ -488,7 +516,7 @@ export async function POST(req) {
           : `I wasn't able to generate the image. ${imgResult.error || 'The image generation service may be temporarily unavailable.'}`
       } else {
         // Normal path: second LLM call to synthesize tool results into a reply
-        const finalChat = await groqChat({
+        const finalChat = await aiChat({
           model,
           messages: [...apiMessages, ...toolMessages],
           max_tokens: 2048,
