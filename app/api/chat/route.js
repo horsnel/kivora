@@ -158,6 +158,10 @@ async function processChat(req, body, send) {
   // Hoisted so the catch block can refund on failure
   let chatUser = null
   let chatAction = 'chat'
+  // Hoisted: the catch block below references `admin` for credit refunds.
+  // It used to be declared inside the try, so any LLM failure crashed the
+  // catch itself ("admin is not defined") and escaped as a generic stream error.
+  let admin = null
 
   try {
     // Access Cloudflare Workers secrets via getEnvVar (process.env has empty values for secrets)
@@ -184,7 +188,7 @@ async function processChat(req, body, send) {
     const groqClient = await getPrimaryClientAsync(groqKey)
     if (groqFallbackKey) await getFallbackClientAsync(groqFallbackKey)
 
-    const admin = supaUrl && supaKey ? createClient(supaUrl, supaKey) : null
+    admin = supaUrl && supaKey ? createClient(supaUrl, supaKey) : null
     // Groq client is no longer strictly required — direct providers (Cerebras/SambaNova/SiliconFlow)
     // can serve requests without it. But Supabase is still mandatory for session storage.
     if (!admin) {
