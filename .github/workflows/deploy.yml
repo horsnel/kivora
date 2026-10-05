@@ -28,39 +28,41 @@ jobs:
           CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          set -e
-          curl -sf -H "Authorization: Bearer $CF_API_TOKEN" \
-            "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/kivora" \
-            -o /tmp/project.json
-          node -e '
-            const fs = require("fs");
-            const p = JSON.parse(fs.readFileSync("/tmp/project.json", "utf8"));
-            if (!p.success) { console.error("CF API call failed"); process.exit(1); }
-            const r = p.result || {};
-            // Newer API: deployment_configs.production.env_vars; older: env_vars / production_env_vars
-            const vars = r.deployment_configs?.production?.env_vars
-              || r.production_env_vars
-              || r.env_vars
-              || {};
-            const lines = [];
-            for (const [k, v] of Object.entries(vars)) {
-              const val = typeof v === "string" ? v : (v && v.value !== undefined ? v.value : null);
-              if (val == null || val === "") continue; // secret_text values are redacted by the API
-              lines.push(k + "=" + val);
-            }
-            console.log("CF env vars found (names only): " + Object.keys(vars).join(", "));
-            fs.writeFileSync(process.env.GITHUB_ENV, lines.join("\n") + "\n", { flag: "a" });
-          '
+          set +e
+          HTTP_CODE=$(curl -s -o /tmp/project.json -w "%{http_code}" \
+            -H "Authorization: Bearer $CF_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/kivora")
+          echo "CF API HTTP status: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            # Print only the error chain (codes/messages — no secret values)
+            node -e '
+              try {
+                const p = JSON.parse(require("fs").readFileSync("/tmp/project.json", "utf8"));
+                console.log("CF errors:", JSON.stringify(p.errors || p).slice(0, 400));
+              } catch { console.log("(non-JSON response)"); }
+            '
+            echo "::warning::Could not fetch CF project env — continuing; runtime bootstrap supplies env in production"
+          else
+            node -e '
+              const fs = require("fs");
+              const p = JSON.parse(fs.readFileSync("/tmp/project.json", "utf8"));
+              const r = p.result || {};
+              const vars = r.deployment_configs?.production?.env_vars
+                || r.production_env_vars
+                || r.env_vars
+                || {};
+              const lines = [];
+              for (const [k, v] of Object.entries(vars)) {
+                const val = typeof v === "string" ? v : (v && v.value !== undefined ? v.value : null);
+                if (val == null || val === "") continue; // secret_text values are redacted by the API
+                lines.push(k + "=" + val);
+              }
+              console.log("CF env vars found (names only): " + Object.keys(vars).join(", "));
+              console.log("Exported (values not logged): " + lines.map(l => l.split("=")[0]).join(", "));
+              fs.writeFileSync(process.env.GITHUB_ENV, lines.join("\n") + "\n", { flag: "a" });
+            '
+          fi
           rm -f /tmp/project.json
-
-      - name: Verify critical build env
-        run: |
-          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ]; then
-            echo "::warning::NEXT_PUBLIC_SUPABASE_URL not found in CF env — runtime bootstrap will supply it"
-          fi
-          if [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] && [ -z "$SUPABASE_ANON_KEY" ]; then
-            echo "::warning::No Supabase anon key found in CF env — runtime bootstrap will supply it"
-          fi
 
       - name: Build (next-on-pages)
         run: npx @cloudflare/next-on-pages@1
