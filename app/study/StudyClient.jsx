@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { IconBook, IconWrite, IconMicroscope, IconCode, IconCopy, IconCheck, IconSpinner } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
+import { streamSSE } from '@/lib/sseClient'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
 import ThinkingState, { STAGE_CONFIGS } from '@/components/ThinkingState'
 import Select from '@/components/Select'
@@ -284,13 +285,38 @@ export default function StudyClient() {
       const res = await fetch('/api/study', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: active, payload: payloads[active] })
+        body: JSON.stringify({ type: active, payload: payloads[active], stream: true })
       })
-      const data = await res.json()
-      setResult(data.result || data.error || t('common.error.general'))
-      if (active === 'quiz' && data.result) {
-        const parsed = parseQuiz(data.result)
-        if (parsed.length > 0) setQuizQuestions(parsed)
+      const contentType = res.headers.get('content-type') || ''
+      if (contentType.includes('text/event-stream') && res.body) {
+        // Streaming — render tokens as they arrive
+        let acc = ''
+        let finalEvent = null
+        await streamSSE(res, (evt) => {
+          if (evt.type === 'delta') {
+            acc += evt.v
+            setResult(acc)
+          } else if (evt.type === 'done') {
+            finalEvent = evt
+          } else if (evt.type === 'error') {
+            finalEvent = evt
+          }
+        })
+        const data = finalEvent || {}
+        const text = data.result || (data.error ? '' : acc) || data.error || t('common.error.general')
+        setResult(data.error || text)
+        if (active === 'quiz' && (data.result || acc)) {
+          const parsed = parseQuiz(data.result || acc)
+          if (parsed.length > 0) setQuizQuestions(parsed)
+        }
+      } else {
+        // Legacy JSON fallback
+        const data = await res.json()
+        setResult(data.result || data.error || t('common.error.general'))
+        if (active === 'quiz' && data.result) {
+          const parsed = parseQuiz(data.result)
+          if (parsed.length > 0) setQuizQuestions(parsed)
+        }
       }
     } catch { setResult(t('common.error.network')) }
     setLoading(false)

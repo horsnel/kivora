@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings, IconCopy as IconClipboard, IconWrite, IconFilter, IconRobot, IconTarget, IconDatabase, IconStack, IconSpeaker, IconArrowLeft, IconArrowRight, IconCube, IconLink } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
+import { streamSSE } from '@/lib/sseClient'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
 import ArtifactViewer from '@/components/ArtifactViewer'
 import CodePreviewCard from '@/components/CodePreviewCard'
@@ -645,63 +646,98 @@ export default function ChatClient() {
           systemPrompt: customSystemPrompt || undefined,
           focusMode: focusMode || 'All',
           proMode: proMode || false,
-          proModeType: proMode ? proModeType : undefined
+          proModeType: proModeType || undefined,
+          stream: true, // SSE — tokens render as they arrive (server falls back to JSON transparently)
         })
       })
-      const data = await res.json()
-      const assistantMsg = { role: 'assistant', content: data.reply || data.error || t('chat.error.general') }
-      // Treat both 429 (quota) and 503 (all providers failed) as a "service
-      // temporarily limited" state — shows the friendly amber error card.
-      if (data.quotaExceeded || res.status === 503) {
-        assistantMsg.quotaExceeded = true
+
+      // Shared post-processing: maps a final payload (done event or legacy
+      // JSON) onto the assistant message. Runs once per reply.
+      const applyChatMeta = (msg, data) => {
+        // Treat both 429 (quota) and 503 (all providers failed) as a "service
+        // temporarily limited" state — shows the friendly amber error card.
+        if (data.quotaExceeded || (data.status && data.status >= 400 && data.error) || (!res.ok && res.status === 503)) {
+          msg.quotaExceeded = true
+        }
+        if (data.searchUsed) {
+          msg.searchUsed = true
+          msg.searchQuery = data.searchQuery || ''
+        }
+        if (data.codeExecuted) msg.codeExecuted = true
+        if (data.sandboxUsed) msg.sandboxUsed = true
+        if (data.gpuUsed) {
+          msg.gpuUsed = true
+          msg.accelerator = data.accelerator || 'T4'
+        }
+        if (data.remoteExecUsed) {
+          msg.remoteExecUsed = true
+          msg.execLanguage = data.execLanguage || 'python'
+        }
+        if (data.downloadFile) msg.downloadFile = data.downloadFile
+        if (data.urlRead) {
+          msg.urlRead = true
+          msg.urlReadSource = data.urlReadSource || ''
+        }
+        if (data.imageGenerated) {
+          msg.isImage = true
+          msg.imageData = data.imageData
+          msg.imagePrompt = data.imagePrompt
+          msg.imageModel = 'flux'
+          msg.imageSize = '1024x1024'
+        }
+        if (data.artifacts && data.artifacts.length > 0) msg.artifacts = data.artifacts
+        if (data.opportunityCards && data.opportunityCards.length > 0) msg.opportunityCards = data.opportunityCards
+        if (data.siteDeployed && data.deployUrl) {
+          msg.siteDeployed = true
+          msg.deployUrl = data.deployUrl
+          msg.deployProject = data.deployProject || ''
+          msg.deployHtml = data.deployHtml || ''
+          msg.deployCss = data.deployCss || ''
+          msg.deployJs = data.deployJs || ''
+        }
+        return msg
       }
-      if (data.searchUsed) {
-        assistantMsg.searchUsed = true
-        assistantMsg.searchQuery = data.searchQuery || ''
+
+      const contentType = res.headers.get('content-type') || ''
+
+      if (contentType.includes('text/event-stream') && res.body) {
+        // ── Streaming path — tokens render as they arrive ──
+        setMessages(prev => [...prev, { role: 'assistant', content: '' }])
+        let acc = ''
+        let finalEvent = null
+        await streamSSE(res, (evt) => {
+          if (evt.type === 'delta') {
+            acc += evt.v
+            setMessages(prev => {
+              const next = [...prev]
+              const last = next[next.length - 1]
+              if (last && last.role === 'assistant') next[next.length - 1] = { ...last, content: acc }
+              return next
+            })
+          } else if (evt.type === 'done') {
+            finalEvent = evt
+          } else if (evt.type === 'error') {
+            finalEvent = evt
+          }
+        })
+        const data = finalEvent || {}
+        const assistantMsg = { role: 'assistant', content: '' }
+        if (data.error) {
+          assistantMsg.content = data.error
+        } else {
+          // `done` is authoritative — replaces the live buffer (covers forced
+          // tool retries where the model streamed discardable preamble text)
+          assistantMsg.content = data.reply || acc || t('chat.error.general')
+        }
+        applyChatMeta(assistantMsg, data)
+        setMessages(prev => { const next = [...prev]; next[next.length - 1] = assistantMsg; return next })
+      } else {
+        // ── Legacy JSON path (server without stream support / error JSON) ──
+        const data = await res.json()
+        const assistantMsg = { role: 'assistant', content: data.reply || data.error || t('chat.error.general') }
+        applyChatMeta(assistantMsg, data)
+        setMessages(prev => [...prev, assistantMsg])
       }
-      if (data.codeExecuted) {
-        assistantMsg.codeExecuted = true
-      }
-      if (data.sandboxUsed) {
-        assistantMsg.sandboxUsed = true
-      }
-      if (data.gpuUsed) {
-        assistantMsg.gpuUsed = true
-        assistantMsg.accelerator = data.accelerator || 'T4'
-      }
-      if (data.remoteExecUsed) {
-        assistantMsg.remoteExecUsed = true
-        assistantMsg.execLanguage = data.execLanguage || 'python'
-      }
-      if (data.downloadFile) {
-        assistantMsg.downloadFile = data.downloadFile
-      }
-      if (data.urlRead) {
-        assistantMsg.urlRead = true
-        assistantMsg.urlReadSource = data.urlReadSource || ''
-      }
-      if (data.imageGenerated) {
-        assistantMsg.isImage = true
-        assistantMsg.imageData = data.imageData
-        assistantMsg.imagePrompt = data.imagePrompt
-        assistantMsg.imageModel = 'flux'
-        assistantMsg.imageSize = '1024x1024'
-      }
-      if (data.artifacts && data.artifacts.length > 0) {
-        assistantMsg.artifacts = data.artifacts
-      }
-      if (data.opportunityCards && data.opportunityCards.length > 0) {
-        assistantMsg.opportunityCards = data.opportunityCards
-      }
-      if (data.siteDeployed && data.deployUrl) {
-        assistantMsg.siteDeployed = true
-        assistantMsg.deployUrl = data.deployUrl
-        assistantMsg.deployProject = data.deployProject || ''
-        assistantMsg.deployHtml = data.deployHtml || ''
-        assistantMsg.deployCss = data.deployCss || ''
-        assistantMsg.deployJs = data.deployJs || ''
-      }
-      setMessages(prev => [...prev, assistantMsg])
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: t('chat.error.network') }])
     }

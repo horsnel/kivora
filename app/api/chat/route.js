@@ -1,6 +1,7 @@
 export const runtime = 'edge' 
 import { groq, MODEL, VISION_MODEL, groqChat, GroqError, ALLOWED_MODELS, getPrimaryClientAsync, getFallbackClientAsync, setCerebrasApiKey, setSambanovaApiKey, setSiliconflowApiKey, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
-import { mistralChat, setMistralApiKeys, isMistralConfigured } from '@/lib/mistral'
+import { mistralChat, mistralChatStream, setMistralApiKeys, isMistralConfigured } from '@/lib/mistral'
+import { sseResponse } from '@/lib/sse'
 import { createClient } from '@supabase/supabase-js'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit, anonymousRateLimit, anonymousDailyLimit, getClientIP } from '@/lib/ratelimit'
@@ -104,7 +105,51 @@ async function aiChat(params) {
   return groqChat(params)
 }
 
+// ── Mistral-first STREAMING chat with legacy-chain fallback ──────
+// Streams Mistral tokens through onDelta as they arrive. If Mistral is
+// unavailable (or dies before the stream starts), falls back to the legacy
+// chain NON-streamed and emits the whole reply as a single delta — clients
+// render both identically.
+async function aiChatStream(params, { onDelta }) {
+  if (isMistralConfigured()) {
+    try {
+      const m = await mistralChatStream({
+        messages: params.messages,
+        temperature: params.temperature,
+        maxTokens: params.max_tokens,
+        tools: params.tools,
+        toolChoice: params.tool_choice,
+        onDelta,
+      })
+      if (m?.choices?.[0]?.message) return m
+    } catch (err) {
+      console.warn(`[chat] mistral stream unavailable (${String(err?.message).slice(0, 80)}) — falling back to legacy chain`)
+    }
+  }
+  const res = await groqChat(params)
+  const text = res?.choices?.[0]?.message?.content || ''
+  if (text && onDelta) onDelta(text)
+  return res
+}
+
 export async function POST(req) {
+  const body = await req.json().catch(() => ({}))
+  // Streaming mode: SSE response opens immediately, then all events
+  // (deltas + final payload / errors) flow through it.
+  if (body?.stream) {
+    return sseResponse((send) => processChat(req, body, send))
+  }
+  return processChat(req, body, null)
+}
+
+async function processChat(req, body, send) {
+  // JSON emission helper — in streaming mode, error payloads travel through
+  // SSE error events instead of Response.json (status is carried in-band).
+  const json = (payload, status) => {
+    if (!send) return Response.json(payload, { status: status || 200 })
+    send({ type: 'error', status: status || 200, ...payload })
+    return null
+  }
   const ip = getClientIP(req)
   if (!rateLimit(ip).ok) {
     return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
@@ -143,15 +188,15 @@ export async function POST(req) {
     // Groq client is no longer strictly required — direct providers (Cerebras/SambaNova/SiliconFlow)
     // can serve requests without it. But Supabase is still mandatory for session storage.
     if (!admin) {
-      return Response.json({ error: 'Service not configured' }, { status: 503 })
+      return json({ error: 'Service not configured' }, 503)
     }
     // If no LLM provider is configured at all, fail fast with a clear error.
-    if (!groqClient && !cerebrasKey && !sambanovaKey && !siliconflowKey && !geminiKey && !openrouterKey) {
-      return Response.json({ error: 'No LLM providers configured' }, { status: 503 })
+    if (!isMistralConfigured() && !groqClient && !cerebrasKey && !sambanovaKey && !siliconflowKey && !geminiKey && !openrouterKey) {
+      return json({ error: 'No LLM providers configured' }, 503)
     }
-    const { messages, sessionId, userId, model: requestedModel, systemPrompt, focusMode, proMode, proModeType } = await req.json()
+    const { messages, sessionId, userId, model: requestedModel, systemPrompt, focusMode, proMode, proModeType } = body
     if (!messages?.length) {
-      return Response.json({ error: 'messages required' }, { status: 400 })
+      return json({ error: 'messages required' }, 400)
     }
 
     // ── Charge credits (1 for standard chat, 3 for reasoning model) ──
@@ -174,23 +219,23 @@ export async function POST(req) {
     if (!chatUser) {
       // Per-minute burst protection (prevents rapid-fire abuse)
       if (!anonymousRateLimit(ip).ok) {
-        return Response.json({
+        return json({
           error: "You're sending messages too quickly. Slow down or sign in for more.",
           quotaExceeded: true,
           upgrade_url: '/auth',
-        }, { status: 429 })
+        }, 429)
       }
       // Daily limit — 5 chat messages per day for anonymous visitors
       const dailyCheck = await anonymousDailyLimit(admin, ip, 'chat', 5)
       if (!dailyCheck.ok) {
-        return Response.json({
+        return json({
           error: "You've used all 5 free chat messages for today. Sign in for unlimited access.",
           quotaExceeded: true,
           anonLimitReached: true,
           limit: dailyCheck.limit,
           used: dailyCheck.used,
           upgrade_url: '/auth',
-        }, { status: 429 })
+        }, 429)
       }
     }
 
@@ -278,6 +323,11 @@ export async function POST(req) {
             }, { onConflict: 'id' })
           } catch (_) {}
         }
+        if (send) {
+          send({ type: 'delta', v: reply })
+          send({ type: 'done', reply, model: 'kivora-greeting', searchUsed: false })
+          return null
+        }
         return Response.json({ reply, model: 'kivora-greeting', searchUsed: false })
       }
     }
@@ -356,14 +406,16 @@ export async function POST(req) {
 
     let chat
     try {
-      chat = await aiChat(llmParams)
+      chat = send
+        ? await aiChatStream(llmParams, { onDelta: (v) => send({ type: 'delta', v }) })
+        : await aiChat(llmParams)
     } catch (firstErr) {
       // If the first call hit a quota/rate-limit error, retry immediately —
       // groqChat already tries all providers, so a 15s wait is too long.
       // Instead, throw so the user gets a clear "rate limited" message.
       if (firstErr instanceof GroqError && firstErr.code === 'GROQ_QUOTA_EXCEEDED') {
         console.warn('[chat] all providers quota-exceeded')
-        return Response.json({ reply: 'All AI providers are currently at capacity. Please try again in a moment.', model: 'kivora-rate-limited' }, { status: 429 })
+        return json({ reply: 'All AI providers are currently at capacity. Please try again in a moment.', model: 'kivora-rate-limited' }, 429)
       } else {
         throw firstErr
       }
@@ -383,7 +435,9 @@ export async function POST(req) {
         tool_choice: { type: 'function', function: { name: requiredTool } }
       }
       try {
-        const forcedChat = await aiChat(forcedParams)
+        const forcedChat = send
+          ? await aiChatStream(forcedParams, { onDelta: (v) => send({ type: 'delta', v }) })
+          : await aiChat(forcedParams)
         const forcedMessage = forcedChat.choices[0].message
         if (forcedMessage.tool_calls && forcedMessage.tool_calls.length > 0) {
           // Update the message and chat references to the forced response
@@ -515,14 +569,23 @@ export async function POST(req) {
           ? `Here's the image I generated for you! The image is displayed above.`
           : `I wasn't able to generate the image. ${imgResult.error || 'The image generation service may be temporarily unavailable.'}`
       } else {
-        // Normal path: second LLM call to synthesize tool results into a reply
-        const finalChat = await aiChat({
-          model,
-          messages: [...apiMessages, ...toolMessages],
-          max_tokens: 2048,
-          tools: relevantTools,
-          tool_choice: 'none'
-        })
+        // Normal path: second LLM call to synthesize tool results into a reply.
+        // Streamed in SSE mode — this is the long generation for tool queries.
+        const finalChat = send
+          ? await aiChatStream({
+              model,
+              messages: [...apiMessages, ...toolMessages],
+              max_tokens: 2048,
+              tools: relevantTools,
+              tool_choice: 'none'
+            }, { onDelta: (v) => send({ type: 'delta', v }) })
+          : await aiChat({
+              model,
+              messages: [...apiMessages, ...toolMessages],
+              max_tokens: 2048,
+              tools: relevantTools,
+              tool_choice: 'none'
+            })
         reply = finalChat.choices[0].message.content
         artifacts = extractArtifacts(reply)
       }
@@ -633,6 +696,10 @@ export async function POST(req) {
       if (artifacts.length > 0) response.artifacts = artifacts
       // Background wiki ingest (non-blocking — fire and forget)
       ingestToWiki(admin, { userMessage: lastUserMsg.content, assistantReply: reply, userId })
+      if (send) {
+        send({ type: 'done', ...response })
+        return null
+      }
       return Response.json(response)
     }
 
@@ -669,6 +736,10 @@ export async function POST(req) {
     if (artifacts.length > 0) response.artifacts = artifacts
     // Background wiki ingest (non-blocking — fire and forget)
     ingestToWiki(admin, { userMessage: lastUserMsg.content, assistantReply: reply, userId })
+    if (send) {
+      send({ type: 'done', ...response })
+      return null
+    }
     return Response.json(response)
   } catch (err) {
     console.error('[chat]', err)
@@ -684,17 +755,17 @@ export async function POST(req) {
     }
 
     if (err instanceof GroqError && err.code === 'GROQ_QUOTA_EXCEEDED') {
-      return Response.json({
+      return json({
         error: 'Too many requests, try again later.',
         quotaExceeded: true,
-      }, { status: 429 })
+      }, 429)
     }
     // Generic friendly error — never expose the underlying provider's HTML
     // error page (e.g. Cerebras's Cloudflare WAF 403 challenge page) or
     // provider-specific status codes. The detailed providerOutcomes are
     // logged server-side but not surfaced to the client.
-    return Response.json({
+    return json({
       error: 'I hit a snag reaching the AI service. Please try again in a moment.',
-    }, { status: 503 })
+    }, 503)
   }
 }

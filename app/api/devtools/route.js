@@ -1,6 +1,7 @@
 export const runtime = 'edge' 
 import { groq, MODEL, groqChat, GroqError, getPrimaryClientAsync, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
-import { mistralChat, MistralError, setMistralApiKeys } from '@/lib/mistral'
+import { mistralChat, mistralChatStream, MistralError, setMistralApiKeys } from '@/lib/mistral'
+import { sseResponse } from '@/lib/sse'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit, getClientIP } from '@/lib/ratelimit'
 import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
@@ -578,7 +579,7 @@ export async function POST(req) {
     const groqKey = await getEnvVar('GROQ_API_KEY')
     const groqClient = await getPrimaryClientAsync(groqKey)
 
-    const { tool, payload } = await req.json()
+    const { tool, payload, stream } = await req.json()
     const promptFn = PROMPTS[tool]
 
     if (!promptFn) {
@@ -605,6 +606,45 @@ export async function POST(req) {
         content: promptFn(payload || {})
       }
     ]
+
+    // ── Streaming mode — SSE with progressive deltas ──────────
+    // Client opted in via { stream: true }. Credits were already charged
+    // above, so any failure from here on refunds inside the handler.
+    if (stream) {
+      return sseResponse(async (send) => {
+        const refund = async (reason) => {
+          try {
+            const { user, admin } = await resolveUserAndAdmin(req)
+            if (admin && user?.id) await refundCredits(admin, user.id, CREDIT_COSTS.devtools, 'devtools', reason)
+          } catch {}
+        }
+        const isQuota = (e) => e instanceof GroqError && e.code === 'GROQ_QUOTA_EXCEEDED'
+        try {
+          let result = ''
+          let provider = 'mistral'
+          try {
+            const chat = await mistralChatStream({ messages, onDelta: (v) => send({ type: 'delta', v }) })
+            result = chat.choices[0].message.content
+          } catch (mistralErr) {
+            console.warn('[devtools] Mistral stream unavailable, falling back to legacy chain:', mistralErr?.message)
+            if (!groqClient) {
+              await refund('no_provider')
+              send({ type: 'error', error: 'AI service not configured' })
+              return
+            }
+            provider = 'fallback'
+            const chat = await groqChat({ model: MODEL, messages })
+            result = chat.choices[0].message.content
+            send({ type: 'delta', v: result })
+          }
+          send({ type: 'done', result, provider })
+        } catch (err) {
+          console.error('[devtools][stream]', err)
+          await refund(err.name || 'unknown')
+          send({ type: 'error', error: isQuota(err) ? 'Too many requests, try again later.' : (err.message || 'Server error'), quotaExceeded: isQuota(err) })
+        }
+      })
+    }
 
     // ── Mistral primary — legacy chain only if Mistral fails ──
     let chat

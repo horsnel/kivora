@@ -8,6 +8,7 @@ import Select from '@/components/Select'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
 import ThinkingState, { STAGE_CONFIGS } from '@/components/ThinkingState'
 import { useSessionTracker } from '@/lib/useSessionTracker'
+import { streamSSE } from '@/lib/sseClient'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
 
@@ -336,10 +337,29 @@ export default function DevToolsClient() {
       const res = await fetch('/api/devtools', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tool: active, payload: form })
+        body: JSON.stringify({ tool: active, payload: form, stream: true })
       })
-      const data = await res.json()
-      setResult(data.result || data.error || t('common.error.general'))
+      const contentType = res.headers.get('content-type') || ''
+      if (contentType.includes('text/event-stream') && res.body) {
+        // Streaming — render tokens as they arrive
+        let acc = ''
+        let finalEvent = null
+        await streamSSE(res, (evt) => {
+          if (evt.type === 'delta') {
+            acc += evt.v
+            setResult(acc)
+          } else if (evt.type === 'done') {
+            finalEvent = evt
+          } else if (evt.type === 'error') {
+            finalEvent = evt
+          }
+        })
+        const data = finalEvent || {}
+        setResult(data.error || data.result || (data.error ? '' : acc) || t('common.error.general'))
+      } else {
+        const data = await res.json()
+        setResult(data.result || data.error || t('common.error.general'))
+      }
     } catch { setResult(t('common.error.network')) }
     setLoading(false)
   }
