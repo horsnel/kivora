@@ -11,6 +11,18 @@ import { resolveAvatarUrl } from '@/lib/avatar'
 export function useProfileAvatar(user) {
   const [avatarUrl, setAvatarUrl] = useState(null)
 
+  // Live sync: the profile page broadcasts 'kivora:avatar-updated' the
+  // moment an avatar is picked/saved, so open sidebars update instantly
+  // without a reload.
+  useEffect(() => {
+    function onAvatarChange(e) {
+      const detail = e.detail
+      setAvatarUrl(detail ? resolveAvatarUrl(detail) : null)
+    }
+    window.addEventListener('kivora:avatar-updated', onAvatarChange)
+    return () => window.removeEventListener('kivora:avatar-updated', onAvatarChange)
+  }, [])
+
   useEffect(() => {
     let active = true
     setAvatarUrl(null)

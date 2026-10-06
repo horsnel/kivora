@@ -243,6 +243,8 @@ export default function ChatClient() {
   const textareaRef = useRef(null)
   const collapsedInputRef = useRef(null)
   const historyRef = useRef(null)
+  // AbortController for the in-flight chat request — powers the stop button
+  const abortRef = useRef(null)
   const modelDropdownRef = useRef(null)
   const chatBarRef = useRef(null)
   const focusDropdownRef = useRef(null)
@@ -633,12 +635,18 @@ export default function ChatClient() {
     }
 
     try {
+      // Wire the request to an AbortController so the stop button can cancel
+      // it — the SSE stream (or legacy JSON response) ends immediately.
+      const controller = new AbortController()
+      abortRef.current = controller
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(user ? { Authorization: `Bearer ${(await supabasePublic?.auth?.getSession())?.data?.session?.access_token || ''}` } : {}),
         },
+        signal: controller.signal,
         body: JSON.stringify({
           messages: newMessages,
           sessionId,
@@ -739,10 +747,27 @@ export default function ChatClient() {
         applyChatMeta(assistantMsg, data)
         setMessages(prev => [...prev, assistantMsg])
       }
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: t('chat.error.network') }])
+    } catch (err) {
+      if (err?.name === 'AbortError') {
+        // User pressed stop — keep whatever already streamed. If nothing
+        // arrived yet, drop the empty assistant bubble instead of showing it.
+        setMessages(prev => {
+          const next = [...prev]
+          const last = next[next.length - 1]
+          if (last && last.role === 'assistant' && !last.content) next.pop()
+          return next
+        })
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: t('chat.error.network') }])
+      }
     }
+    abortRef.current = null
     setLoading(false)
+  }
+
+  // Stop button — aborts the streaming request, keeping partial output
+  function stopGeneration() {
+    abortRef.current?.abort()
   }
 
 
@@ -1802,21 +1827,30 @@ export default function ChatClient() {
                   />
                 </div>
 
-                {/* Send button */}
-                <button
-                  onClick={send}
-                  disabled={loading || !hasInput}
-                  className={`chat-collapsed-send ${hasInput ? 'chat-collapsed-send-active' : ''}`}
-                  aria-label="Send message"
-                >
-                  {loading ? (
-                    <IconSpinner size={16} />
-                  ) : hasInput ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                  ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="8" y="5" width="2" height="14" rx="1" fill="currentColor"/><rect x="12" y="9" width="2" height="6" rx="1" fill="currentColor"/><rect x="16" y="6" width="2" height="12" rx="1" fill="currentColor"/><rect x="20" y="10" width="2" height="4" rx="1" fill="currentColor"/></svg>
-                  )}
-                </button>
+                {/* Send / Stop button */}
+                {loading ? (
+                  <button
+                    onClick={stopGeneration}
+                    className="chat-collapsed-send chat-collapsed-send-active text-red-500 hover:text-red-400"
+                    aria-label="Stop generating"
+                    title={t('chat.stop')}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></svg>
+                  </button>
+                ) : (
+                  <button
+                    onClick={send}
+                    disabled={!hasInput}
+                    className={`chat-collapsed-send ${hasInput ? 'chat-collapsed-send-active' : ''}`}
+                    aria-label="Send message"
+                  >
+                    {hasInput ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    ) : (
+                      <svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="8" y="5" width="2" height="14" rx="1" fill="currentColor"/><rect x="12" y="9" width="2" height="6" rx="1" fill="currentColor"/><rect x="16" y="6" width="2" height="12" rx="1" fill="currentColor"/><rect x="20" y="10" width="2" height="4" rx="1" fill="currentColor"/></svg>
+                    )}
+                  </button>
+                )}
               </div>
             )}
 
@@ -1971,19 +2005,26 @@ export default function ChatClient() {
                       )}
                     </div>
 
-                    {/* Submit button */}
-                    <button
-                      onClick={send}
-                      disabled={loading || !hasInput}
-                      className={`chat-submit-btn ${hasInput ? 'chat-submit-btn-active' : ''}`}
-                      aria-label="Send message"
-                    >
-                      {loading ? (
-                        <IconSpinner size={16} />
-                      ) : (
+                    {/* Submit / Stop button */}
+                    {loading ? (
+                      <button
+                        onClick={stopGeneration}
+                        className="chat-submit-btn chat-submit-btn-active text-red-500 hover:text-red-400"
+                        aria-label="Stop generating"
+                        title={t('chat.stop')}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></svg>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={send}
+                        disabled={!hasInput}
+                        className={`chat-submit-btn ${hasInput ? 'chat-submit-btn-active' : ''}`}
+                        aria-label="Send message"
+                      >
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                      )}
-                    </button>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

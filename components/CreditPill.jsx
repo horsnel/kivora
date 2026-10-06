@@ -94,20 +94,16 @@ export default function CreditPill({ compact = false }) {
         href="/pricing"
         onMouseEnter={() => setExpanded(true)}
         onMouseLeave={() => setExpanded(false)}
-        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-          isLow
-            ? 'bg-red-950/40 border border-red-500/30 text-red-300 hover:bg-red-950/60'
-            : 'bg-[#1a1a1a] text-[#d4d4d4] hover:bg-[#262626]'
-        }`}
+        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-[#525252] hover:text-white hover:bg-[#141414]"
       >
         <IconLightning size={14} className={isLow ? 'text-red-400' : 'text-red-500'} />
         <span className="font-semibold">{total}</span>
-        <span className="text-[10px] text-[#737373] uppercase tracking-wide">credits</span>
-        <IconChevronDown size={10} className="ml-auto text-[#525252]" />
+        <span className="text-[10px] uppercase tracking-wide">credits</span>
+        <IconChevronDown size={10} className="ml-auto transition-transform duration-200" />
       </Link>
 
       {expanded && (
-        <div className="absolute bottom-full left-0 mb-1 w-full bg-[#141414] border border-[#262626] rounded-xl overflow-hidden shadow-2xl z-50">
+        <div className="absolute top-full left-0 mt-1 w-full bg-[#141414] border border-[#262626] rounded-xl overflow-hidden shadow-2xl z-50">
           <div className="p-3 space-y-1.5 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-[#737373]">Plan</span>

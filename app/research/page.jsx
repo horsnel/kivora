@@ -362,6 +362,12 @@ function ResearchPageContent() {
   const reportRef = useRef(null)
   const progressRef = useRef(null)
   const stageTimersRef = useRef([])
+  // User-stop support: the stop button aborts both raced requests and the
+  // UI resets quietly (no error card). userStoppedRef distinguishes a
+  // user-initiated abort from the built-in timeout aborts.
+  const primaryAbortRef = useRef(null)
+  const fallbackAbortRef = useRef(null)
+  const userStoppedRef = useRef(false)
 
   const chatBarRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -593,6 +599,10 @@ function ResearchPageContent() {
 
       const primaryController = new AbortController()
       const fallbackController = new AbortController()
+      // Register for the stop button + reset the user-stop flag
+      userStoppedRef.current = false
+      primaryAbortRef.current = primaryController
+      fallbackAbortRef.current = fallbackController
       const isImage = fileAttachments.length > 0 && fileAttachments.some(f =>
         f.type?.startsWith('image/') ||
         IMAGE_EXTENSIONS.includes((f.name.split('.').pop() || '').toLowerCase())
@@ -672,6 +682,15 @@ function ResearchPageContent() {
       stageTimersRef.current = []
 
       if (data.error) {
+        if (userStoppedRef.current) {
+          // User pressed stop — reset quietly, no scary error card
+          userStoppedRef.current = false
+          setError('')
+          setIsResearching(false)
+          setResearchStage('done')
+          setProgress(100)
+          return
+        }
         setError(data.error)
         setIsResearching(false)
         setResearchStage('done')
@@ -746,6 +765,15 @@ function ResearchPageContent() {
       progressRef.current = null
       stageTimersRef.current.forEach(t => clearTimeout(t))
       stageTimersRef.current = []
+      if (userStoppedRef.current) {
+        // User pressed stop — reset quietly, no scary error card
+        userStoppedRef.current = false
+        setError('')
+        setIsResearching(false)
+        setResearchStage('done')
+        setProgress(100)
+        return
+      }
       let msg = err.message || 'Research failed. Please try again.'
       if (err.name === 'AbortError') msg = 'Research timed out. Please try again or use Quick mode.'
       else if (msg === 'Failed to fetch') msg = 'Network error. Please check your connection and try again.'
@@ -760,6 +788,23 @@ function ResearchPageContent() {
     const q = input.trim()
     if ((!q && attachedFiles.length === 0) || isResearching) return
     startResearch(q, mode)
+  }
+
+  // ── Stop button — cancels both raced research requests ──
+  // Resets the UI immediately: with attachments the fallback promise never
+  // settles, so we can't rely on Promise.any rejecting to reset the UI.
+  function stopResearch() {
+    userStoppedRef.current = true
+    try { primaryAbortRef.current?.abort() } catch {}
+    try { fallbackAbortRef.current?.abort() } catch {}
+    clearInterval(progressRef.current)
+    progressRef.current = null
+    stageTimersRef.current.forEach(t => clearTimeout(t))
+    stageTimersRef.current = []
+    setError('')
+    setIsResearching(false)
+    setResearchStage('done')
+    setProgress(100)
   }
 
   // ── File Attachment Handlers ──
@@ -1044,14 +1089,25 @@ function ResearchPageContent() {
                   </button>
                 </div>
                 <div className="chat-toolbar-right">
-                  <button
-                    onClick={handleSubmit}
-                    disabled={!hasInput}
-                    className={`chat-submit-btn ${hasInput ? 'chat-submit-btn-active' : ''}`}
-                    aria-label="Start research"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                  </button>
+                  {isResearching ? (
+                    <button
+                      onClick={stopResearch}
+                      className="chat-submit-btn chat-submit-btn-active text-red-500 hover:text-red-400"
+                      aria-label="Stop research"
+                      title="Stop"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></svg>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleSubmit}
+                      disabled={!hasInput}
+                      className={`chat-submit-btn ${hasInput ? 'chat-submit-btn-active' : ''}`}
+                      aria-label="Start research"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1396,21 +1452,30 @@ function ResearchPageContent() {
                     <span className="mode-label-short">{mode === 'deep' ? 'D' : 'Q'}</span>
                   </button>
 
-                  {/* Send button */}
-                  <button
-                    onClick={handleSubmit}
-                    disabled={!hasInput || isResearching}
-                    className={`research-collapsed-send ${hasInput && !isResearching ? 'research-collapsed-send-active' : ''}`}
-                    aria-label="Start research"
-                  >
-                    {isResearching ? (
-                      <div className="w-4 h-4 border-2 border-[#525252] border-t-red-400 rounded-full animate-spin" />
-                    ) : hasInput ? (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                    ) : (
-                      <svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="8" y="5" width="2" height="14" rx="1" fill="currentColor"/><rect x="12" y="9" width="2" height="6" rx="1" fill="currentColor"/><rect x="16" y="6" width="2" height="12" rx="1" fill="currentColor"/><rect x="20" y="10" width="2" height="4" rx="1" fill="currentColor"/></svg>
-                    )}
-                  </button>
+                  {/* Send / Stop button */}
+                  {isResearching ? (
+                    <button
+                      onClick={stopResearch}
+                      className="research-collapsed-send research-collapsed-send-active text-red-500 hover:text-red-400"
+                      aria-label="Stop research"
+                      title="Stop"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></svg>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleSubmit}
+                      disabled={!hasInput}
+                      className={`research-collapsed-send ${hasInput ? 'research-collapsed-send-active' : ''}`}
+                      aria-label="Start research"
+                    >
+                      {hasInput ? (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                      ) : (
+                        <svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="8" y="5" width="2" height="14" rx="1" fill="currentColor"/><rect x="12" y="9" width="2" height="6" rx="1" fill="currentColor"/><rect x="16" y="6" width="2" height="12" rx="1" fill="currentColor"/><rect x="20" y="10" width="2" height="4" rx="1" fill="currentColor"/></svg>
+                      )}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -1511,18 +1576,25 @@ function ResearchPageContent() {
                       </button>
                     </div>
                     <div className="chat-toolbar-right">
-                      <button
-                        onClick={handleSubmit}
-                        disabled={!hasInput || isResearching}
-                        className={`chat-submit-btn ${hasInput && !isResearching ? 'chat-submit-btn-active' : ''}`}
-                        aria-label="Start research"
-                      >
-                        {isResearching ? (
-                          <div className="w-4 h-4 border-2 border-[#525252] border-t-red-400 rounded-full animate-spin" />
-                        ) : (
+                      {isResearching ? (
+                        <button
+                          onClick={stopResearch}
+                          className="chat-submit-btn chat-submit-btn-active text-red-500 hover:text-red-400"
+                          aria-label="Stop research"
+                          title="Stop"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></svg>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleSubmit}
+                          disabled={!hasInput}
+                          className={`chat-submit-btn ${hasInput ? 'chat-submit-btn-active' : ''}`}
+                          aria-label="Start research"
+                        >
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                        )}
-                      </button>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

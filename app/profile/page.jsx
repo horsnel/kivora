@@ -101,7 +101,9 @@ export default function ProfilePage() {
           bio: profile.bio || '',
           location: profile.location || '',
           website: profile.website || '',
-          avatar_url: profile.avatar_url || '',
+          // Normalize legacy external URLs (e.g. old dicebear links) to the
+          // self-hosted route so the raw external link is never shown/kept
+          avatar_url: resolveAvatarUrl(profile.avatar_url) || '',
         })
       }
     } catch (err) {
@@ -127,11 +129,44 @@ export default function ProfilePage() {
         .eq('id', user.id)
 
       if (error) throw error
+      // Sync the sidebars if the avatar (or any field) was part of the save
+      window.dispatchEvent(new CustomEvent('kivora:avatar-updated', { detail: resolveAvatarUrl(form.avatar_url) || '' }))
       setToast({ type: 'success', message: t('profile.updated') })
     } catch (err) {
       setToast({ type: 'error', message: err.message || t('profile.update_failed') })
     }
     setSaving(false)
+  }
+
+  // ── Avatar — instant persist + live sidebar sync ──
+  // Picking an avatar saves it right away (no need to hunt for the Save
+  // button) and broadcasts 'kivora:avatar-updated' so every mounted
+  // UserAvatar (main sidebar, chat sidebar) updates without a reload.
+  async function persistAvatar(url) {
+    if (!user) return
+    try {
+      const { error } = await supabasePublic
+        .from('profiles')
+        .update({ avatar_url: url || null })
+        .eq('id', user.id)
+      if (error) throw error
+      window.dispatchEvent(new CustomEvent('kivora:avatar-updated', { detail: resolveAvatarUrl(url) || '' }))
+      setToast({ type: 'success', message: t('profile.avatar_saved') })
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || t('profile.update_failed') })
+    }
+  }
+
+  function pickAvatar(url) {
+    set('avatar_url', url)
+    setShowAvatarPicker(false)
+    persistAvatar(url)
+  }
+
+  function shuffleAvatar() {
+    // Random self-hosted avatar — the seed only ever lives on our domain
+    const seed = 'kv-' + Math.random().toString(36).slice(2, 8)
+    pickAvatar(internalAvatarUrl(seed))
   }
 
   async function deleteAccount() {
@@ -244,7 +279,7 @@ export default function ProfilePage() {
                   {showAvatarPicker ? t('profile.hide_avatars') : t('profile.choose_avatar')}
                 </button>
 
-                {/* Avatar picker grid */}
+                {/* Avatar picker grid — clicking picks AND saves instantly */}
                 {showAvatarPicker && (
                   <div className="bg-[#0a0a0a] border border-[#262626] rounded-xl p-4 mb-3">
                     <div className="grid grid-cols-5 gap-3 justify-items-center">
@@ -252,7 +287,7 @@ export default function ProfilePage() {
                         <button
                           key={name}
                           type="button"
-                          onClick={() => { set('avatar_url', url); setShowAvatarPicker(false) }}
+                          onClick={() => pickAvatar(url)}
                           className={`w-12 h-12 rounded-full cursor-pointer hover:ring-2 hover:ring-red-500/50 transition-all ${
                             resolveAvatarUrl(form.avatar_url) === url
                               ? 'ring-2 ring-red-500 ring-offset-2 ring-offset-[#0a0a0a]'
@@ -269,18 +304,27 @@ export default function ProfilePage() {
                         </button>
                       ))}
                     </div>
+                    <button
+                      type="button"
+                      onClick={shuffleAvatar}
+                      className="mt-3 w-full bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-[#a3a3a3] hover:text-white py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.8-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/></svg>
+                      {t('profile.shuffle')}
+                    </button>
                   </div>
                 )}
 
-                {/* Custom URL fallback */}
+                {/* Custom URL — shows the internal link, never a raw external one */}
                 <label className="text-xs text-muted block mb-1.5 font-medium text-left">{t('profile.custom_url')}</label>
                 <input
                   type="url"
                   className={inputClass}
                   placeholder="https://example.com/avatar.jpg"
-                  value={form.avatar_url}
+                  value={resolveAvatarUrl(form.avatar_url)}
                   onChange={e => set('avatar_url', e.target.value)}
                 />
+                <p className="text-[10px] text-muted2 mt-1.5">{t('profile.custom_url_hint')}</p>
               </div>
             </div>
           </div>

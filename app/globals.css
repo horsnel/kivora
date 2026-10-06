@@ -1805,3 +1805,29 @@ input, textarea, select {
 .driver-popover-arrow {
   border-color: #141414 !important;
 }
+
+/* ── Tour "Open page" action (rendered inside the popover description) ── */
+.tour-open-wrap {
+  margin-top: 12px;
+}
+.tour-open-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: 10px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.tour-open-link:hover {
+  background: #b91c1c;
+}
+.tour-open-link:active {
+  transform: scale(0.97);
+}

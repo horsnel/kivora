@@ -495,7 +495,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             <div className="w-full sm:w-44"><CreditPill compact /></div>
-            <button onClick={() => router.push('/profile')} className="flex items-center gap-1.5 text-caption text-muted hover:text-white border border-[#262626] hover:border-[#3a3a3a] px-3 py-1.5 rounded-lg transition-all">
+            <button onClick={() => router.push('/profile')} className="flex items-center gap-1.5 text-xs font-medium text-[#525252] hover:text-white px-3 py-2 rounded-lg hover:bg-[#141414] transition-colors">
               <IconUser size={14} /> {t('dashboard.profile')}
             </button>
           </div>

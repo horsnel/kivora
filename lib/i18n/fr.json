@@ -788,5 +788,9 @@
   "welcome.why.card6.desc": "Chaque guide que vous générez alimente notre wiki. La plateforme apprend et s'améliore à chaque utilisation.",
   "welcome.why.card6.title": "S'améliore avec le temps",
   "welcome.why.subtitle": "La plupart des outils IA sont conçus pour ceux qui ont déjà tout. Nous l'avons construit pour tous les autres.",
-  "welcome.why.title": "Pourquoi Kivora est différent"
+  "welcome.why.title": "Pourquoi Kivora est différent",
+  "profile.avatar_saved": "Avatar mis à jour",
+  "profile.shuffle": "Avatar aléatoire",
+  "profile.custom_url_hint": "Choisissez ci-dessus ou collez un lien d'image — votre avatar est toujours servi depuis notre domaine.",
+  "tour.open_page": "Ouvrir la page"
 }
