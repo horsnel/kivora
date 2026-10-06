@@ -1,11 +1,13 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "com.kivora.app",
       "sha256_cert_fingerprints": [
-        "54:02:17:60:DC:CB:74:1B:E7:0C:A7:EA:D6:9C:53:02:50:1C:6E:8C:12:F4:13:F5:A7:47:8F:DA:2F:3E:DE:B8"
+        "31:AD:3C:6E:87:42:B7:06:E6:70:41:13:5A:D0:98:A8:CB:A3:CA:EC:4A:44:E1:B4:77:03:0F:AE:19:EE:6E:4A"
       ]
     }
   }
