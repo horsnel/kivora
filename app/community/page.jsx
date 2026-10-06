@@ -1,10 +1,114 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabasePublic } from '@/lib/supabase'
+import { authFetch } from '@/lib/authFetch'
 import { useTranslation } from '@/components/LanguageProvider'
-import { IconChat, IconArrowLeft, IconPlus, IconSpinner, IconTrash, IconSend, IconUser } from '@/components/Icons'
+import { IconChat, IconArrowLeft, IconPlus, IconSpinner, IconTrash, IconSend, IconUser, IconPaperclip, IconFile, IconClose, IconDownload } from '@/components/Icons'
 
 const inputClass = "w-full bg-[#0a0a0a] border border-[#262626] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#404040] focus:outline-none transition-colors"
+
+// ── Attachment constraints (mirrored in /api/forum/upload) ──────────
+const ACCEPT = 'image/jpeg,image/png,image/webp,image/gif,.pdf,.txt,.md,.csv,.zip,.docx,.xlsx'
+const MAX_ATTACHMENTS = 6
+
+function formatSize(bytes) {
+  if (!bytes) return ''
+  const kb = bytes / 1024
+  if (kb < 1024) return `${Math.round(kb)} KB`
+  return `${(kb / 1024).toFixed(1)} MB`
+}
+
+// Composer preview — thumbnails / file chips with remove buttons
+function AttachmentPreview({ items, onRemove, onImageClick, uploading }) {
+  if (!items.length && !uploading) return null
+  return (
+    <div className="flex flex-wrap gap-2 mt-2.5">
+      {items.map((a, i) => (
+        <div key={`${a.url}-${i}`} className="relative group">
+          {a.kind === 'image' ? (
+            <button
+              type="button"
+              onClick={() => onImageClick?.(a.url)}
+              className="block w-14 h-14 rounded-xl overflow-hidden border border-[#262626] hover:border-[#3a3a3a] transition-colors"
+              title={a.name}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={a.url} alt={a.name || 'attachment'} className="w-full h-full object-cover" />
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 bg-[#0a0a0a] border border-[#262626] rounded-xl pl-2.5 pr-7 py-2 max-w-[220px]">
+              <IconFile size={14} className="text-red-400 shrink-0" />
+              <span className="text-[11px] text-[#d4d4d4] truncate">{a.name}</span>
+              <span className="text-[9px] text-[#525252] shrink-0">{formatSize(a.size)}</span>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => onRemove(i)}
+            aria-label="Remove attachment"
+            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#262626] hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <IconClose size={10} />
+          </button>
+        </div>
+      ))}
+      {uploading > 0 && (
+        <div className="w-14 h-14 rounded-xl border border-dashed border-[#333] flex items-center justify-center">
+          <IconSpinner size={16} className="text-[#525252]" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Feed renderer — image grid + file cards for a post/reply's attachments
+function AttachmentMedia({ items, onImageClick }) {
+  if (!Array.isArray(items) || items.length === 0) return null
+  const images = items.filter(a => a.kind === 'image')
+  const files = items.filter(a => a.kind !== 'image')
+  return (
+    <div className="space-y-2 mb-3">
+      {images.length > 0 && (
+        <div className={`grid gap-2 ${images.length === 1 ? 'grid-cols-1 max-w-md' : 'grid-cols-2 sm:grid-cols-3'}`}>
+          {images.map((a, i) => (
+            <button
+              key={`${a.url}-${i}`}
+              type="button"
+              onClick={() => onImageClick(a.url)}
+              className="relative rounded-xl overflow-hidden border border-[#262626] hover:border-[#3a3a3a] transition-colors group bg-[#0a0a0a]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={a.url}
+                alt={a.name || 'image attachment'}
+                loading="lazy"
+                className="w-full max-h-64 object-cover group-hover:scale-[1.02] transition-transform duration-200"
+              />
+            </button>
+          ))}
+        </div>
+      )}
+      {files.length > 0 && (
+        <div className="space-y-1.5">
+          {files.map((a, i) => (
+            <a
+              key={`${a.url}-${i}`}
+              href={a.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2.5 bg-[#0a0a0a] border border-[#262626] hover:border-[#3a3a3a] rounded-xl px-3 py-2.5 transition-colors"
+            >
+              <IconFile size={16} className="text-red-400 shrink-0" />
+              <span className="text-caption text-[#d4d4d4] truncate flex-1 min-w-0">{a.name}</span>
+              <span className="text-[10px] text-[#525252] shrink-0">{formatSize(a.size)}</span>
+              <IconDownload size={12} className="text-[#525252] shrink-0" />
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function CommunityPage() {
   const { t } = useTranslation()
@@ -19,8 +123,27 @@ export default function CommunityPage() {
   const [newPost, setNewPost] = useState({ title: '', body: '' })
   const [replyBody, setReplyBody] = useState('')
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+
+  // Attachments
+  const [postAtts, setPostAtts] = useState([])
+  const [replyAtts, setReplyAtts] = useState([])
+  const [uploading, setUploading] = useState(0)
+  const postFileRef = useRef(null)
+  const replyFileRef = useRef(null)
+
+  // Lightbox
+  const [lightbox, setLightbox] = useState(null)
 
   useEffect(() => { loadUser(); loadPosts() }, [])
+
+  // Esc closes the lightbox
+  useEffect(() => {
+    if (!lightbox) return
+    const onKey = (e) => { if (e.key === 'Escape') setLightbox(null) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [lightbox])
 
   async function loadUser() {
     if (!supabasePublic) return
@@ -53,13 +176,52 @@ export default function CommunityPage() {
     setLoadingDetail(false)
   }
 
+  // ── Upload attachments one-by-one through the verified API ──────────
+  async function uploadFiles(fileList, setter) {
+    const files = Array.from(fileList || [])
+    if (!files.length) return
+    if (!user) { setError(t('community.signin_to_post')); return }
+    let shownError = false
+    for (const f of files) {
+      setter(prev => (prev.length >= MAX_ATTACHMENTS ? prev : [...prev, { pending: true, name: f.name, size: f.size, kind: f.type?.startsWith('image/') ? 'image' : 'file' }]))
+      setUploading(n => n + 1)
+      try {
+        const fd = new FormData()
+        fd.append('file', f)
+        const res = await authFetch('/api/forum/upload', { method: 'POST', body: fd })
+        const data = await res.json()
+        if (!res.ok) {
+          shownError = true
+          setError(data.error || t('community.upload_failed'))
+          setter(prev => prev.filter(a => !a.pending))
+        } else {
+          setter(prev => {
+            // replace the first pending placeholder with the real metadata
+            const idx = prev.findIndex(a => a.pending)
+            if (idx === -1 || prev.length >= MAX_ATTACHMENTS + 1) return prev
+            const next = [...prev]
+            next[idx] = data
+            return next
+          })
+        }
+      } catch {
+        shownError = true
+        setError(t('community.upload_failed'))
+        setter(prev => prev.filter(a => !a.pending))
+      }
+      setUploading(n => n - 1)
+    }
+    if (shownError) setTimeout(() => setError(''), 4000)
+  }
+
   async function createPost() {
     if (!user) { setError(t('community.signin_to_post')); return }
     if (!newPost.title.trim() || !newPost.body.trim()) { setError('Title and body are required'); return }
-    setSubmitting(true); setError('')
+    if (postAtts.some(a => a.pending) || uploading > 0) { setError(t('community.wait_upload')); return }
+    setSubmitting(true); setError(''); setNotice('')
     try {
       const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Anonymous'
-      const res = await fetch('/api/forum', {
+      const res = await authFetch('/api/forum', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -68,11 +230,14 @@ export default function CommunityPage() {
           author_name: displayName,
           title: newPost.title,
           body: newPost.body,
+          attachments: postAtts,
         }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Failed to create post'); return }
+      if (data.warning === 'attachments_rolled_back') setNotice(t('community.attachments_rolled_back'))
       setNewPost({ title: '', body: '' })
+      setPostAtts([])
       setView('list')
       await loadPosts()
     } catch {
@@ -84,10 +249,11 @@ export default function CommunityPage() {
   async function createReply() {
     if (!user || !selectedPost) return
     if (!replyBody.trim()) return
-    setSubmitting(true); setError('')
+    if (replyAtts.some(a => a.pending) || uploading > 0) { setError(t('community.wait_upload')); return }
+    setSubmitting(true); setError(''); setNotice('')
     try {
       const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Anonymous'
-      const res = await fetch('/api/forum', {
+      const res = await authFetch('/api/forum', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -96,11 +262,14 @@ export default function CommunityPage() {
           author_name: displayName,
           post_id: selectedPost.id,
           body: replyBody,
+          attachments: replyAtts,
         }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Failed to post reply'); return }
+      if (data.warning === 'attachments_rolled_back') setNotice(t('community.attachments_rolled_back'))
       setReplyBody('')
+      setReplyAtts([])
       await loadPost(selectedPost.id)
     } catch {
       setError('Failed to post reply')
@@ -111,7 +280,7 @@ export default function CommunityPage() {
   async function deletePost(postId) {
     if (!user) return
     try {
-      await fetch('/api/forum', {
+      await authFetch('/api/forum', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'post', id: postId, user_id: user.id }),
@@ -125,7 +294,7 @@ export default function CommunityPage() {
   async function deleteReply(replyId) {
     if (!user || !selectedPost) return
     try {
-      await fetch('/api/forum', {
+      await authFetch('/api/forum', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'reply', id: replyId, user_id: user.id }),
@@ -223,6 +392,11 @@ export default function CommunityPage() {
                           <IconChat size={10} /> {post.reply_count} {post.reply_count === 1 ? t('community.reply') : t('community.replies')}
                         </span>
                       )}
+                      {Array.isArray(post.attachments) && post.attachments.length > 0 && (
+                        <span className="flex items-center gap-1 text-muted">
+                          <IconPaperclip size={10} /> {post.attachments.length}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="shrink-0 mt-1">
@@ -264,6 +438,11 @@ export default function CommunityPage() {
             {error}
           </div>
         )}
+        {notice && (
+          <div className="mb-4 bg-amber-950/30 border border-amber-900/40 rounded-xl px-4 py-2.5 text-xs text-amber-400 animate-slide-down">
+            {notice}
+          </div>
+        )}
 
         <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 space-y-4">
           <div>
@@ -287,6 +466,36 @@ export default function CommunityPage() {
               onChange={e => setNewPost(p => ({ ...p, body: e.target.value }))}
             />
           </div>
+
+          {/* Attachments */}
+          <div>
+            <input
+              ref={postFileRef}
+              type="file"
+              multiple
+              accept={ACCEPT}
+              className="hidden"
+              onChange={e => { uploadFiles(e.target.files, setPostAtts); e.target.value = '' }}
+            />
+            <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => postFileRef.current?.click()}
+                disabled={postAtts.length >= MAX_ATTACHMENTS}
+                className="flex items-center gap-1.5 text-xs text-muted hover:text-white transition-colors px-3 py-1.5 rounded-lg border border-[#262626] hover:border-[#3a3a3a] disabled:opacity-40"
+              >
+                <IconPaperclip size={13} /> {t('community.add_photos')}
+              </button>
+              <span className="text-[10px] text-muted2">{t('community.attachments_note')}</span>
+            </div>
+            <AttachmentPreview
+              items={postAtts}
+              onRemove={i => setPostAtts(p => p.filter((_, j) => j !== i))}
+              onImageClick={setLightbox}
+              uploading={uploading}
+            />
+          </div>
+
           <div className="flex items-center gap-3">
             <button
               onClick={createPost}
@@ -330,6 +539,11 @@ export default function CommunityPage() {
             {error}
           </div>
         )}
+        {notice && (
+          <div className="mb-4 bg-amber-950/30 border border-amber-900/40 rounded-xl px-4 py-2.5 text-xs text-amber-400 animate-slide-down">
+            {notice}
+          </div>
+        )}
 
         {loadingDetail ? (
           <div className="skeleton border border-[#262626] rounded-xl p-6 h-64" />
@@ -351,6 +565,7 @@ export default function CommunityPage() {
               <div className="text-body text-[#d4d4d4] leading-relaxed whitespace-pre-wrap mb-4">
                 {selectedPost.body}
               </div>
+              <AttachmentMedia items={selectedPost.attachments} onImageClick={setLightbox} />
               <div className="flex items-center gap-3 text-caption text-[#525252] pt-3 border-t border-[#1a1a1a]">
                 <span className="flex items-center gap-1">
                   <IconUser size={12} /> {selectedPost.author_name || 'Anonymous'}
@@ -376,7 +591,8 @@ export default function CommunityPage() {
                           <span className="text-caption text-white font-medium">{reply.author_name || 'Anonymous'}</span>
                           <span className="text-[10px] text-[#525252]">{formatTime(reply.created_at)}</span>
                         </div>
-                        <p className="text-caption text-[#d4d4d4] leading-relaxed whitespace-pre-wrap">{reply.body}</p>
+                        <p className="text-caption text-[#d4d4d4] leading-relaxed whitespace-pre-wrap mb-2">{reply.body}</p>
+                        <AttachmentMedia items={reply.attachments} onImageClick={setLightbox} />
                       </div>
                       {user && reply.user_id === user.id && (
                         <button
@@ -406,7 +622,31 @@ export default function CommunityPage() {
                       value={replyBody}
                       onChange={e => setReplyBody(e.target.value)}
                     />
-                    <div className="flex justify-end">
+                    <input
+                      ref={replyFileRef}
+                      type="file"
+                      multiple
+                      accept={ACCEPT}
+                      className="hidden"
+                      onChange={e => { uploadFiles(e.target.files, setReplyAtts); e.target.value = '' }}
+                    />
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => replyFileRef.current?.click()}
+                        disabled={replyAtts.length >= MAX_ATTACHMENTS}
+                        className="flex items-center gap-1.5 text-xs text-muted hover:text-white transition-colors px-3 py-1.5 rounded-lg border border-[#262626] hover:border-[#3a3a3a] disabled:opacity-40"
+                      >
+                        <IconPaperclip size={13} /> {t('community.add_photos')}
+                      </button>
+                    </div>
+                    <AttachmentPreview
+                      items={replyAtts}
+                      onRemove={i => setReplyAtts(p => p.filter((_, j) => j !== i))}
+                      onImageClick={setLightbox}
+                      uploading={uploading}
+                    />
+                    <div className="flex justify-end mt-2">
                       <button
                         onClick={createReply}
                         disabled={submitting || !replyBody.trim()}
@@ -429,6 +669,30 @@ export default function CommunityPage() {
           </>
         ) : null}
       </div>
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[70] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setLightbox(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightbox}
+            alt=""
+            className="max-w-full max-h-[88vh] rounded-xl object-contain shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          />
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={() => setLightbox(null)}
+            className="absolute top-4 right-4 w-9 h-9 bg-[#1a1a1a]/80 hover:bg-[#262626] text-white rounded-full flex items-center justify-center transition-colors"
+          >
+            <IconClose size={18} />
+          </button>
+        </div>
+      )}
     </main>
   )
 }

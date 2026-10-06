@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabasePublic } from '@/lib/supabase'
 import { authFetch } from '@/lib/authFetch'
+import { internalAvatarUrl, resolveAvatarUrl } from '@/lib/avatar'
 import { IconCheck, IconSpinner, IconGlobe, IconMapPin, IconLink, IconWarning, IconLogout } from '@/components/Icons'
 import { useTranslation } from '@/components/LanguageProvider'
 
@@ -13,7 +14,7 @@ const PRESET_AVATARS = [
   'Kai', 'Logan', 'Parker', 'Reese', 'Skyler',
 ].map(name => ({
   name,
-  url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
+  url: internalAvatarUrl(name),
 }))
 
 function IconShield({ size = 16, className = '' }) {
@@ -216,7 +217,7 @@ export default function ProfilePage() {
               {form.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={form.avatar_url}
+                  src={resolveAvatarUrl(form.avatar_url)}
                   alt="Avatar"
                   className="w-20 h-20 rounded-full mx-auto mb-4 object-cover border-2 border-[#262626]"
                   onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex' }}
@@ -253,7 +254,7 @@ export default function ProfilePage() {
                           type="button"
                           onClick={() => { set('avatar_url', url); setShowAvatarPicker(false) }}
                           className={`w-12 h-12 rounded-full cursor-pointer hover:ring-2 hover:ring-red-500/50 transition-all ${
-                            form.avatar_url === url
+                            resolveAvatarUrl(form.avatar_url) === url
                               ? 'ring-2 ring-red-500 ring-offset-2 ring-offset-[#0a0a0a]'
                               : ''
                           }`}

@@ -6,6 +6,7 @@ import { authFetch } from '@/lib/authFetch'
 import { IconBookmark, IconChat, IconTrash, IconArrowRight, IconUser, IconMail, IconClock, IconCode, IconBook, IconFlame, IconTarget, IconPlus, IconClose, IconCheck, IconSearch, IconStar, IconMoney, IconLightning, IconGlobe } from '@/components/Icons'
 import { useTranslation } from '@/components/LanguageProvider'
 import CreditPill from '@/components/CreditPill'
+import InstallPrompt from '@/components/InstallPrompt'
 
 function IconActivity({ size = 16, className = '' }) {
   return (
@@ -484,6 +485,7 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-[#0a0a0a]">
+      <InstallPrompt />
       <div className="max-w-5xl mx-auto px-4 py-10">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-8 animate-fade-up">

@@ -9,6 +9,7 @@ import Footer from '@/components/Footer'
 import PageContent from '@/components/PageContent'
 import { CurrencyProvider } from '@/components/CurrencyToggle'
 import { LanguageProvider } from '@/components/LanguageProvider'
+import TourGuide from '@/components/TourGuide'
 
 // ── Font optimization via next/font ──
 // Using next/font instead of @import url() in globals.css to:
@@ -53,6 +54,7 @@ export const metadata = {
     icon: [
       { url: '/favicon.ico', sizes: '32x32' },
       { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
     ],
     shortcut: '/favicon.svg',
     apple: '/apple-touch-icon.png',
@@ -112,6 +114,8 @@ export default async function RootLayout({ children }) {
                 </PageContent>
               </div>
             </CurrencyProvider>
+            {/* Guided tour — inside LanguageProvider so it can translate; auto-starts for new users on /dashboard, replayable from the sidebar */}
+            <TourGuide />
           </LanguageProvider>
         </ProvidersErrorBoundary>
         {/* Service worker registration — using next/script (strategy=afterInteractive)

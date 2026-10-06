@@ -2,20 +2,21 @@
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
-import { IconMenu, IconClose, IconDashboard, IconUser, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconVideo, IconEye, IconMicroscope, IconCommunity, IconOpportunity } from '@/components/Icons'
+import { IconMenu, IconClose, IconDashboard, IconUser, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconVideo, IconEye, IconMicroscope, IconCommunity, IconOpportunity, IconBulb } from '@/components/Icons'
 import { supabasePublic } from '@/lib/supabase'
+import UserAvatar from '@/components/UserAvatar'
 import { useCurrency } from '@/components/CurrencyToggle'
 import { useTranslation } from '@/components/LanguageProvider'
 
 const NAV_LINKS = [
-  { labelKey: 'nav.explore',        href: '/explore',        Icon: IconSearch },
+  { labelKey: 'nav.explore',        href: '/explore',        Icon: IconSearch,      tour: 'explore' },
   { labelKey: 'nav.research',       href: '/research',       Icon: IconMicroscope },
-  { labelKey: 'nav.chat',           href: '/chat',           Icon: IconChat },
-  { labelKey: 'nav.community',      href: '/community',      Icon: IconCommunity },
+  { labelKey: 'nav.chat',           href: '/chat',           Icon: IconChat,        tour: 'chat' },
+  { labelKey: 'nav.community',      href: '/community',      Icon: IconCommunity,   tour: 'community' },
   { labelKey: 'nav.opportunities',  href: '/opportunities',  Icon: IconOpportunity },
-  { labelKey: 'nav.studydesk',      href: '/study',          Icon: IconBook },
-  { labelKey: 'nav.devtools',       href: '/devtools',       Icon: IconCode },
-  { labelKey: 'nav.reelpen',        href: '/reelpen',        Icon: IconVideo },
+  { labelKey: 'nav.studydesk',      href: '/study',          Icon: IconBook,        tour: 'study' },
+  { labelKey: 'nav.devtools',       href: '/devtools',       Icon: IconCode,        tour: 'devtools' },
+  { labelKey: 'nav.reelpen',        href: '/reelpen',        Icon: IconVideo,       tour: 'reelpen' },
   { labelKey: 'nav.3dviewer',       href: '/3d',             Icon: IconEye },
 ]
 
@@ -195,7 +196,7 @@ function NavLinks({ pathname, onClose, minimal, user }) {
     }`
   }
 
-  return NAV_LINKS.map(({ labelKey, href, Icon }) => {
+  return NAV_LINKS.map(({ labelKey, href, Icon, tour }) => {
     // Community link only visible for logged-in users
     if (href === '/community' && !user) return null
     return (
@@ -204,6 +205,7 @@ function NavLinks({ pathname, onClose, minimal, user }) {
         href={href}
         className={linkClass(href)}
         onClick={onClose}
+        data-tour={tour ? `nav-${tour}` : undefined}
       >
         <Icon size={minimal ? 16 : 20} className={minimal ? '' : 'shrink-0'} />
         {t(labelKey)}
@@ -253,6 +255,14 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
       <div className="flex-1 overflow-y-auto overscroll-behavior-contain px-2.5 min-h-0">
         <div className="space-y-0.5">
           <NavLinks pathname={pathname} onClose={onClose} user={user} />
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('kivora:start-tour'))}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#525252] hover:text-white hover:bg-[#141414] transition-colors font-medium"
+          >
+            <IconBulb size={14} className="shrink-0" />
+            {t('tour.replay')}
+          </button>
         </div>
       </div>
 
@@ -286,6 +296,7 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
         {user ? (
           <Link
             href="/profile"
+            data-tour="nav-profile"
             className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
               isActive('/profile')
                 ? 'bg-[#1a1a1a]'
@@ -293,9 +304,7 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
             }`}
             onClick={onClose}
           >
-            <div className="w-6 h-6 bg-[#dc2626] rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0">
-              {initials}
-            </div>
+            <UserAvatar user={user} size={24} />
             <div className="min-w-0">
               <p className="text-sm text-white font-medium truncate">{displayName}</p>
               <p className="text-[10px] text-[#737373] truncate">{user.email}</p>

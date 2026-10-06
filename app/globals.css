@@ -1747,3 +1747,61 @@ input, textarea, select {
   margin: 0 1px;
 }
 
+
+/* ── Driver.js guided tour theme (dark, Kivora brand) ── */
+.driver-overlay {
+  fill: rgba(0, 0, 0, 0.65) !important;
+}
+.driver-popover {
+  background: #141414 !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6) !important;
+  padding: 16px 18px !important;
+  max-width: 320px !important;
+  font-family: inherit !important;
+}
+.driver-popover-title {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  color: #ffffff !important;
+}
+.driver-popover-description {
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+  color: #a3a3a3 !important;
+  margin-top: 4px !important;
+}
+.driver-popover-close-btn {
+  color: #525252 !important;
+}
+.driver-popover-close-btn:hover {
+  color: #ffffff !important;
+}
+.driver-popover-navigation-btns button {
+  background: #1a1a1a !important;
+  color: #e5e5e5 !important;
+  border: 1px solid #262626 !important;
+  border-radius: 10px !important;
+  padding: 6px 14px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
+  text-shadow: none !important;
+}
+.driver-popover-navigation-btns button:hover {
+  border-color: #3a3a3a !important;
+}
+.driver-popover-navigation-btns button:last-child {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+}
+.driver-popover-navigation-btns button:last-child:hover {
+  background: #b91c1c !important;
+}
+.driver-popover-arrow {
+  border-color: #141414 !important;
+}

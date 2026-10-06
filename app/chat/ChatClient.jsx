@@ -8,6 +8,7 @@ import { useSessionTracker } from '@/lib/useSessionTracker'
 import { supabasePublic } from '@/lib/supabase'
 import { streamSSE } from '@/lib/sseClient'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
+import UserAvatar from '@/components/UserAvatar'
 import ArtifactViewer from '@/components/ArtifactViewer'
 import CodePreviewCard from '@/components/CodePreviewCard'
 import VoiceOutput from '@/components/VoiceOutput'
@@ -1047,9 +1048,7 @@ export default function ChatClient() {
               className="flex items-center justify-center transition-colors rounded-lg hover:bg-[#141414] py-1.5"
               onClick={() => setHistoryOpen(false)}
             >
-              <div className="w-7 h-7 bg-[#dc2626] rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0">
-                {(user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || '').slice(0, 2).toUpperCase()}
-              </div>
+              <UserAvatar user={user} size={28} />
             </Link>
           ) : (
             <Link
