@@ -865,5 +865,10 @@
   "profile.custom_url_hint": "Pick above or paste any image link — your avatar is always served from our own domain.",
   "tour.open_page": "Open page",
   "chat.history.delete": "Delete conversation",
-  "chat.history.delete_confirm": "Delete this conversation permanently?"
+  "chat.history.delete_confirm": "Delete this conversation permanently?",
+  "usage.daily_limit": "Daily limit reached",
+  "usage.resets_at": "Resets at",
+  "usage.remaining": "{n} of {limit} free runs left today",
+  "usage.upgrade_more": "Need more? Upgrade to Pro",
+  "usage.header_free": "{n}/{limit} today"
 }

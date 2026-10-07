@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   IconCode, IconSearch, IconDatabase, IconBook, IconCopy, IconCheck,
   IconSpinner, IconMoney, IconGlobe, IconLightning, IconTool, IconChat
@@ -13,7 +13,7 @@ import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
 import { authFetch } from '@/lib/authFetch'
 import UpgradeCard from '@/components/UpgradeCard'
-import PlanBadge from '@/components/PlanBadge'
+import UsageTimerButton from '@/components/UsageTimerButton'
 
 // ── Inline SVG icons for tools not in the main library ────────────────
 function Ico({ path, size = 16, className = '' }) {
@@ -164,6 +164,18 @@ export default function DevToolsClient() {
   const sessionRef = useRef(null)
   const { t } = useTranslation()
 
+  // ── Tiered usage state (metered for anonymous/free, unlimited for Pro) ──
+  // Shaped like the GET /api/devtools response: { tier, plan, used, limit,
+  // remaining, unlimited, reset_at }. Null until the first probe resolves.
+  const [usage, setUsage] = useState(null)
+  const refreshUsage = useCallback(async () => {
+    try {
+      const r = await authFetch('/api/devtools')
+      if (r.ok) setUsage(await r.json())
+    } catch { /* offline — leave null, button renders normally */ }
+  }, [])
+  useEffect(() => { refreshUsage() }, [refreshUsage])
+
   // End session on unmount
   useEffect(() => {
     return () => { if (sessionRef.current) endSession(sessionRef.current) }
@@ -287,7 +299,6 @@ export default function DevToolsClient() {
     // End previous session if exists
     if (sessionRef.current) { endSession(sessionRef.current); sessionRef.current = null }
     setLoading(true); setResult(''); setGate(null); setDiffResult(null); setApiTestResult(null)
-    // Select thinking config based on category
     const catConfig = { code: 'devtoolsCode', data: 'devtoolsData', content: 'devtoolsContent', business: 'devtoolsContent', education: 'devtoolsCode' }
     setThinkingConfig(catConfig[activeCat] || 'devtools')
     // Start new session (silently fails for anonymous)
@@ -359,14 +370,21 @@ export default function DevToolsClient() {
           }
         })
         const data = finalEvent || {}
-        if (data.reason === 'upgrade_required' || data.reason === 'sign_in_required') {
+        if (data.reason === 'daily_limit_reached') {
+          // Metered tier exhausted — swap the execute button for the countdown
+          setUsage(u => ({ ...(u || {}), tier: data.tier || 'anonymous', used: data.used, limit: data.limit, remaining: 0, unlimited: false, reset_at: data.reset_at }))
+          setResult('')
+        } else if (data.reason === 'upgrade_required' || data.reason === 'sign_in_required') {
           setGate(data); setResult('')
         } else {
           setResult(data.error || data.result || (data.error ? '' : acc) || t('common.error.general'))
         }
       } else {
         const data = await res.json()
-        if (!res.ok && (data.reason === 'upgrade_required' || data.reason === 'sign_in_required')) {
+        if (!res.ok && data.reason === 'daily_limit_reached') {
+          setUsage(u => ({ ...(u || {}), tier: data.tier || 'anonymous', used: data.used, limit: data.limit, remaining: 0, unlimited: false, reset_at: data.reset_at }))
+          setResult('')
+        } else if (!res.ok && (data.reason === 'upgrade_required' || data.reason === 'sign_in_required')) {
           setGate(data); setResult('')
         } else {
           setResult(data.result || data.error || t('common.error.general'))
@@ -374,6 +392,8 @@ export default function DevToolsClient() {
       }
     } catch { setResult(t('common.error.network')) }
     setLoading(false)
+    // Re-sync the meter so the remaining-count stays honest after each run
+    refreshUsage()
   }
 
   function copy() {
@@ -481,7 +501,11 @@ export default function DevToolsClient() {
             <span>
               {t('devtools.title').slice(0, parseInt(t('devtools.split')))}<span className="text-red-500">{t('devtools.title').slice(parseInt(t('devtools.split')))}</span>
             </span>
-            <PlanBadge plan="Pro" />
+            {usage && !usage.unlimited && (
+              <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-[#141414] border border-[#262626] text-muted whitespace-nowrap">
+                {t('usage.header_free', { n: Math.max(0, usage.remaining), limit: usage.limit })}
+              </span>
+            )}
           </h1>
           <p className="text-muted text-body-sm mt-0.5">
             {t('devtools.subtitle')}
@@ -852,10 +876,22 @@ export default function DevToolsClient() {
 
             {validationError && <div className="bg-red-950/30 border border-red-900/40 rounded-xl px-4 py-2.5 text-xs text-red-400 mt-3">{validationError}</div>}
 
-            <button onClick={run} disabled={loading}
-              className="mt-5 w-full bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white py-3 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 press">
-              {loading ? <><IconSpinner size={14} /> {t('devtools.running')}</> : `${t('common.run')} ${t(currentTool.labelKey)} `}
-            </button>
+            <UsageTimerButton
+              exhausted={Boolean(usage && !usage.unlimited && usage.remaining <= 0)}
+              resetAt={usage?.reset_at || null}
+              loading={loading}
+              onClick={run}
+              label={`${t('common.run')} ${t(currentTool.labelKey)} `}
+              loadingLabel={t('devtools.running')}
+              limitReachedLabel={t('usage.daily_limit')}
+              resetsAtLabel={t('usage.resets_at')}
+              upgradeLabel={t('usage.upgrade_more')}
+              onResetComplete={refreshUsage}
+            />
+            {/* Remaining allowance hint for metered tiers */}
+            {usage && !usage.unlimited && usage.remaining > 0 && (
+              <div className="mt-2 text-center text-[11px] text-muted">{t('usage.remaining', { n: usage.remaining, limit: usage.limit })}</div>
+            )}
 
             {/* ── Live display: JWT Decoder ─────────────── */}
             {active === 'jwt_decoder' && form.jwtToken.trim() && (

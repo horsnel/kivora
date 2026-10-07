@@ -4,8 +4,23 @@ import { mistralChat, mistralChatStream, MistralError, setMistralApiKeys } from 
 import { sseResponse } from '@/lib/sse'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit, getClientIP } from '@/lib/ratelimit'
-import { requireCredits, requireFeatureAccess, refundCredits, CREDIT_COSTS } from '@/lib/credits'
+import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
 import { resolveUserAndAdmin } from '@/lib/authUser'
+import { consumeFeatureUsage, getFeatureUsage, nextUTCResetISO } from '@/lib/featureUsage'
+
+const FEATURE_ACTION = 'reelpen'
+
+// ── GET — usage snapshot for the client's timer/remaining UI ──────
+export async function GET(req) {
+  try {
+    const ip = getClientIP(req)
+    const { user, admin } = await resolveUserAndAdmin(req)
+    const usage = await getFeatureUsage(admin, user?.id, ip, FEATURE_ACTION)
+    return Response.json(usage)
+  } catch {
+    return Response.json({ tier: 'anonymous', plan: null, used: 0, limit: 5, remaining: 5, unlimited: false, reset_at: nextUTCResetISO() })
+  }
+}
 
 const PROMPTS = {
   lyrics_writer: ({ genre, mood, language, lyricsTheme }) =>
@@ -674,6 +689,10 @@ export async function POST(req) {
     return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
   }
 
+  // Tiered-usage result — hoisted so the refund path in the outer catch can
+  // check it even when the error fires before the meter runs (TDZ-safe).
+  let usage = null
+
   try {
     // ── AI providers: Mistral first, legacy multi-provider chain as fallback ──
     const mistralKey = await getEnvVar('MISTRAL_API_KEY')
@@ -689,15 +708,25 @@ export async function POST(req) {
 
     const { tool, payload, stream } = await req.json()
 
-    // ── Plan gate FIRST (fail closed): ReelPen AI tools are Pro-only ──
-    // Runs before tool validation so an anonymous/free user can't probe the
-    // tool list. The plan gate applies to EVERYONE (anonymous included) —
-    // otherwise the Pro paywall could be bypassed by simply not signing in.
-    // Credits are then charged for signed-in users.
+    // ── Tiered usage (ReelPen is metered, not plan-locked) ───────────
+    // Pro/Max → unlimited (credits charged below). Free signed-in → 15/day
+    // keyed by user id. Anonymous → 5/day keyed by IP. Consumed BEFORE tool
+    // validation so abusive probing can't bypass the meter.
     const { user: reelUser, admin: chargerAdmin } = await resolveUserAndAdmin(req)
-    const planGate = await requireFeatureAccess(chargerAdmin, reelUser, 'deepResearch')
-    if (planGate) return planGate.response
-    if (chargerAdmin && reelUser?.id) {
+    usage = await consumeFeatureUsage(chargerAdmin, reelUser?.id, ip, FEATURE_ACTION)
+    if (!usage.ok) {
+      return Response.json({
+        error: `You've used all ${usage.limit} free ReelPen runs for today. Your allowance resets at 00:00 UTC.`,
+        reason: 'daily_limit_reached',
+        used: usage.used,
+        limit: usage.limit,
+        remaining: 0,
+        reset_at: usage.reset_at,
+        tier: usage.tier,
+        upgrade_url: '/pricing',
+      }, { status: 429 })
+    }
+    if (usage.tier === 'paid' && chargerAdmin && reelUser?.id) {
       const creditCheck = await requireCredits(req, chargerAdmin, reelUser, 'reelpen', {
         description: `ReelPen: ${tool}`,
         metadata: { tool },
@@ -727,6 +756,8 @@ export async function POST(req) {
     if (stream) {
       return sseResponse(async (send) => {
         const refund = async (reason) => {
+          // Only paid users were charged credits — refund them only.
+          if (usage.tier !== 'paid') return
           try {
             const { user, admin } = await resolveUserAndAdmin(req)
             if (admin && user?.id) await refundCredits(admin, user.id, CREDIT_COSTS.reelpen, 'reelpen', reason)
@@ -777,13 +808,15 @@ export async function POST(req) {
     return Response.json({ result: chat.choices[0].message.content, provider })
   } catch (err) {
     console.error('[reelpen]', err)
-    // Refund on failure
-    try {
-      const { user, admin } = await resolveUserAndAdmin(req)
-      if (admin && user?.id) {
-        await refundCredits(admin, user.id, CREDIT_COSTS.reelpen, 'reelpen', err.name || 'unknown')
-      }
-    } catch {}
+    // Refund on failure — paid users only (free tier was never charged)
+    if (usage?.tier === 'paid') {
+      try {
+        const { user, admin } = await resolveUserAndAdmin(req)
+        if (admin && user?.id) {
+          await refundCredits(admin, user.id, CREDIT_COSTS.reelpen, 'reelpen', err.name || 'unknown')
+        }
+      } catch {}
+    }
     if (err instanceof GroqError && err.code === 'GROQ_QUOTA_EXCEEDED') {
       return Response.json({ error: 'Too many requests, try again later.', quotaExceeded: true }, { status: 429 })
     }

@@ -384,23 +384,25 @@ function ResearchPageContent() {
   const deepLocked = !allows('pro')
   const [gate, setGate] = useState(null)
 
-  // Shared by all three Deep/Quick toggles (hero bar, chat bar, collapsed bar).
-  // Switching TO deep is blocked pre-click for non-Pro users — they see the
-  // upgrade card instead of a 403 after waiting for the request to fail.
-  function handleModeToggle() {
-    if (mode === 'deep') {
-      setMode('quick')
+  // Shared by all three mode pill pairs (hero bar, chat bar, collapsed bar).
+  // Quick is always available; switching TO deep is blocked pre-click for
+  // non-Pro users — they see the upgrade card instead of a 403 after
+  // waiting for the request to fail.
+  function handleModeSelect(next) {
+    if (next === mode) return
+    if (next === 'deep') {
+      if (deepLocked) {
+        setGate({
+          reason: signedIn ? 'upgrade_required' : 'sign_in_required',
+          needed_plan: 'pro',
+          error: 'Deep multi-phase research is part of the Pro plan.',
+        })
+        return
+      }
+      setMode('deep')
       return
     }
-    if (deepLocked) {
-      setGate({
-        reason: signedIn ? 'upgrade_required' : 'sign_in_required',
-        needed_plan: 'pro',
-        error: 'Deep multi-phase research is part of the Pro plan.',
-      })
-      return
-    }
-    setMode('deep')
+    setMode('quick')
   }
 
   const hasActiveResearch = activeResearch !== null
@@ -1144,20 +1146,33 @@ function ResearchPageContent() {
                       <span className="apex-label-short">{apexModel === 'apex-premium' ? '2.3' : '1.7'}</span>
                     </button>
                   </div>
-                  <button
-                    onClick={handleModeToggle}
-                    className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ml-0.5 min-w-0 shrink ${
-                      mode === 'deep'
-                        ? 'bg-[rgba(168,85,247,0.12)] text-[#a855f7] border-[rgba(168,85,247,0.2)]'
-                        : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
-                    }`}
-                  >
-                    <span className="mode-label-full">{mode === 'deep' ? 'Deep' : 'Quick'}</span>
-                    <span className="mode-label-short">{mode === 'deep' ? 'D' : 'Q'}</span>
-                    {mode !== 'deep' && deepLocked && (
-                      <IconLock size={9} className="opacity-80 shrink-0" />
-                    )}
-                  </button>
+                  <div className="flex items-center gap-1 ml-0.5 min-w-0 shrink">
+                    {/* Quick pill — always available, no lock */}
+                    <button
+                      onClick={() => handleModeSelect('quick')}
+                      className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border min-w-0 ${
+                        mode !== 'deep'
+                          ? 'bg-[rgba(255,255,255,0.04)] text-white border-[rgba(255,255,255,0.14)]'
+                          : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
+                      }`}
+                    >
+                      <span className="mode-label-full">Quick</span>
+                      <span className="mode-label-short">Q</span>
+                    </button>
+                    {/* Deep pill — Pro tier; the lock lives HERE, on deep mode */}
+                    <button
+                      onClick={() => handleModeSelect('deep')}
+                      className={`flex items-center justify-center gap-1 text-xs px-2.5 py-1 rounded-full transition-all duration-200 border min-w-0 ${
+                        mode === 'deep'
+                          ? 'bg-[rgba(168,85,247,0.12)] text-[#a855f7] border-[rgba(168,85,247,0.2)]'
+                          : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
+                      }`}
+                    >
+                      <span className="mode-label-full">Deep</span>
+                      <span className="mode-label-short">D</span>
+                      {deepLocked && <IconLock size={9} className="opacity-80 shrink-0" />}
+                    </button>
+                  </div>
                 </div>
                 <div className="chat-toolbar-right">
                   {isResearching ? (
@@ -1510,21 +1525,32 @@ function ResearchPageContent() {
                     <span className="apex-label-full">{apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}</span>
                     <span className="apex-label-short">{apexModel === 'apex-premium' ? '2.3' : '1.7'}</span>
                   </button>
-                  {/* Mode chip */}
-                  <button
-                    onClick={handleModeToggle}
-                    className={`text-[10px] px-2 py-1 rounded-full transition-all duration-200 border min-w-0 shrink ${
-                      mode === 'deep'
-                        ? 'bg-[rgba(168,85,247,0.12)] text-[#a855f7] border-[rgba(168,85,247,0.2)]'
-                        : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
-                    }`}
-                  >
-                    <span className="mode-label-full">{mode === 'deep' ? 'Deep' : 'Quick'}</span>
-                    <span className="mode-label-short">{mode === 'deep' ? 'D' : 'Q'}</span>
-                    {mode !== 'deep' && deepLocked && (
-                      <IconLock size={9} className="opacity-80 shrink-0" />
-                    )}
-                  </button>
+                  {/* Mode pills — Quick (free) + Deep (Pro, lock on deep only) */}
+                  <div className="flex items-center gap-1 min-w-0 shrink">
+                    <button
+                      onClick={() => handleModeSelect('quick')}
+                      className={`text-[10px] px-2 py-1 rounded-full transition-all duration-200 border min-w-0 ${
+                        mode !== 'deep'
+                          ? 'bg-[rgba(255,255,255,0.04)] text-white border-[rgba(255,255,255,0.14)]'
+                          : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
+                      }`}
+                    >
+                      <span className="mode-label-full">Quick</span>
+                      <span className="mode-label-short">Q</span>
+                    </button>
+                    <button
+                      onClick={() => handleModeSelect('deep')}
+                      className={`flex items-center justify-center gap-1 text-[10px] px-2 py-1 rounded-full transition-all duration-200 border min-w-0 ${
+                        mode === 'deep'
+                          ? 'bg-[rgba(168,85,247,0.12)] text-[#a855f7] border-[rgba(168,85,247,0.2)]'
+                          : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
+                      }`}
+                    >
+                      <span className="mode-label-full">Deep</span>
+                      <span className="mode-label-short">D</span>
+                      {deepLocked && <IconLock size={9} className="opacity-80 shrink-0" />}
+                    </button>
+                  </div>
 
                   {/* Send / Stop button */}
                   {isResearching ? (
@@ -1637,23 +1663,33 @@ function ResearchPageContent() {
                           <span className="apex-label-short">{apexModel === 'apex-premium' ? '2.3' : '1.7'}</span>
                         </button>
                       </div>
-                      <button
-                        onClick={handleModeToggle}
-                        className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ml-0.5 min-w-0 shrink ${
-                          mode === 'deep'
-                            ? 'bg-[rgba(168,85,247,0.12)] text-[#a855f7] border-[rgba(168,85,247,0.2)]'
-                            : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
-                        }`}
-                      >
-                        <span className="mode-label-full">{mode === 'deep' ? 'Deep' : 'Quick'}</span>
-                        <span className="mode-label-short">{mode === 'deep' ? 'D' : 'Q'}</span>
-                        {mode !== 'deep' && deepLocked && (
-                          <IconLock size={9} className="opacity-80 shrink-0" />
-                        )}
-                    {mode !== 'deep' && deepLocked && (
-                      <IconLock size={9} className="opacity-80 shrink-0" />
-                    )}
-                      </button>
+                      <div className="flex items-center gap-1 ml-0.5 min-w-0 shrink">
+                        {/* Quick pill — always available, no lock */}
+                        <button
+                          onClick={() => handleModeSelect('quick')}
+                          className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border min-w-0 ${
+                            mode !== 'deep'
+                              ? 'bg-[rgba(255,255,255,0.04)] text-white border-[rgba(255,255,255,0.14)]'
+                              : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
+                          }`}
+                        >
+                          <span className="mode-label-full">Quick</span>
+                          <span className="mode-label-short">Q</span>
+                        </button>
+                        {/* Deep pill — Pro tier; the lock lives HERE, on deep mode */}
+                        <button
+                          onClick={() => handleModeSelect('deep')}
+                          className={`flex items-center justify-center gap-1 text-xs px-2.5 py-1 rounded-full transition-all duration-200 border min-w-0 ${
+                            mode === 'deep'
+                              ? 'bg-[rgba(168,85,247,0.12)] text-[#a855f7] border-[rgba(168,85,247,0.2)]'
+                              : 'text-[#525252] border-[rgba(255,255,255,0.06)]'
+                          }`}
+                        >
+                          <span className="mode-label-full">Deep</span>
+                          <span className="mode-label-short">D</span>
+                          {deepLocked && <IconLock size={9} className="opacity-80 shrink-0" />}
+                        </button>
+                      </div>
                     </div>
                     <div className="chat-toolbar-right">
                       {isResearching ? (
