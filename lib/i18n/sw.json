@@ -721,7 +721,7 @@
   "tour.profile_title": "Wasifu wako",
   "tour.reelpen_desc": "Geuza mawazo kuwa video fupi kwa sekunde chache.",
   "tour.reelpen_title": "ReelPen",
-  "tour.replay": "Cheza tena ziara",
+  "tour.replay": "Cheza tena",
   "tour.skip": "Ruka",
   "tour.study_desc": "Msaada wa kazi ya shule, insha, nukuu na muhtasari.",
   "tour.study_title": "StudyDesk",
@@ -792,5 +792,7 @@
   "profile.avatar_saved": "Avatar imesasishwa",
   "profile.shuffle": "Avatar nasisi",
   "profile.custom_url_hint": "Chagua hapo juu au weka kiungo cha picha — avatar yako hutolewa kwenye domain yetu.",
-  "tour.open_page": "Fungua ukurasa"
+  "tour.open_page": "Fungua ukurasa",
+  "chat.history.delete": "Futa mazungumzo",
+  "chat.history.delete_confirm": "Ufute mazungumzo hii kabisa?"
 }

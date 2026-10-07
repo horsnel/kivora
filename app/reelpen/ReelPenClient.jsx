@@ -10,6 +10,7 @@ import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
 import { authFetch } from '@/lib/authFetch'
 import UpgradeCard from '@/components/UpgradeCard'
+import PlanBadge from '@/components/PlanBadge'
 
 /* ─── Icon Components ─────────────────────────────────────────── */
 
@@ -480,8 +481,11 @@ export default function ReelPenClient() {
 
         {/* Header */}
         <div className="mb-6 animate-fade-up">
-          <h1 className="text-display font-semibold mb-2 tracking-tight">
-            Reel<span className="text-red-500">Pen</span>
+          <h1 className="text-display font-semibold mb-2 tracking-tight flex items-center gap-2.5">
+            <span>
+              Reel<span className="text-red-500">Pen</span>
+            </span>
+            <PlanBadge plan="Pro" />
           </h1>
           <p className="text-muted text-body-sm mt-0.5">
             AI-powered tools for music and film creators

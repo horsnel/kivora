@@ -5,6 +5,7 @@ import { sseResponse } from '@/lib/sse'
 import { createClient } from '@supabase/supabase-js'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit, anonymousRateLimit, anonymousDailyLimit, getClientIP } from '@/lib/ratelimit'
+import { safeJson } from '@/lib/payload'
 import { toolDefs, toolHandlers, TOOL_INSTRUCTIONS, filterToolsByQuery, detectRequiredTool } from '@/lib/toolRegistry'
 import { buildSystemPrompt } from '@/lib/systemPrompt'
 import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
@@ -133,7 +134,12 @@ async function aiChatStream(params, { onDelta }) {
 }
 
 export async function POST(req) {
-  const body = await req.json().catch(() => ({}))
+  // 10MB cap — chat bodies carry base64 image attachments; this blocks
+  // multi-hundred-MB junk requests before they reach any handler logic.
+  const body = await safeJson(req, 10 * 1024 * 1024)
+  if (body === null) {
+    return Response.json({ error: 'Payload too large or invalid JSON.' }, { status: 413 })
+  }
   // Streaming mode: SSE response opens immediately, then all events
   // (deltas + final payload / errors) flow through it.
   if (body?.stream) {

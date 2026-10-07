@@ -3,6 +3,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { authFetch } from '@/lib/authFetch'
 import UpgradeCard from '@/components/UpgradeCard'
+import { usePlan } from '@/lib/usePlan'
+import { IconLock } from '@/components/Icons'
+import { sanitizeHtml } from '@/lib/sanitizeHtml'
 
 // ── Constants ──
 const STORAGE_KEY = 'kivora-research-history'
@@ -63,7 +66,15 @@ function getDomain(url) {
 function loadHistory() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : []
+    const items = raw ? JSON.parse(raw) : []
+    // Defense-in-depth: sanitize persisted content too (older entries were
+    // stored pre-sanitizer and are rendered via dangerouslySetInnerHTML).
+    for (const it of items) {
+      if (it?.content) {
+        try { it.content = sanitizeHtml(it.content) } catch {}
+      }
+    }
+    return items
   } catch { return [] }
 }
 
@@ -205,6 +216,9 @@ export default function ResearchClient() {
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [error, setError] = useState('')
   const [gate, setGate] = useState(null) // 403 plan-gate payload → UpgradeCard
+
+  // Plan awareness — gate Deep mode BEFORE the API call
+  const { plan, signedIn, allows } = usePlan()
   const [isResearching, setIsResearching] = useState(false)
   const [reportDisplay, setReportDisplay] = useState('') // for streaming effect
   const [sourcesVisible, setSourcesVisible] = useState(0) // for stagger animation
@@ -370,7 +384,8 @@ export default function ResearchClient() {
         mode: researchMode,
         sources: data.sources || [],
         report: data.report || '',
-        content: data.content || '',
+        // Sanitize before state — this HTML is rendered via dangerouslySetInnerHTML
+        content: sanitizeHtml(data.content || ''),
         title: data.title || query.trim(),
         followups: data.followups || [],
         data: data.data || null,
@@ -1325,16 +1340,34 @@ export default function ResearchClient() {
                     </svg>
                   </button>
 
-                  {/* Deep/Quick label */}
+                  {/* Deep/Quick label — Deep requires Pro; gated pre-click */}
                   <button
-                    onClick={() => setMode(mode === 'quick' ? 'deep' : 'quick')}
-                    className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ${
+                    onClick={() => {
+                      if (mode === 'quick') {
+                        if (!allows('pro')) {
+                          setGate({
+                            reason: signedIn ? 'upgrade_required' : 'sign_in_required',
+                            needed_plan: 'pro',
+                            error: 'Deep multi-phase research is part of the Pro plan.',
+                          })
+                          return
+                        }
+                        setMode('deep')
+                        return
+                      }
+                      setMode('quick')
+                    }}
+                    className={`relative inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ${
                       mode === 'deep'
                         ? 'bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20'
                         : 'border-red-500/50 text-red-400'
                     }`}
+                    title={mode === 'deep' ? 'Switch to Quick research' : 'Deep multi-phase research — Pro plan'}
                   >
                     {mode === 'deep' ? 'Deep' : 'Quick'}
+                    {mode !== 'deep' && !allows('pro') && (
+                      <IconLock size={9} className={signedIn ? 'opacity-80' : 'opacity-80'} />
+                    )}
                   </button>
 
                   {/* File attach button */}

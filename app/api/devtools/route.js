@@ -580,16 +580,12 @@ export async function POST(req) {
     const groqClient = await getPrimaryClientAsync(groqKey)
 
     const { tool, payload, stream } = await req.json()
-    const promptFn = PROMPTS[tool]
 
-    if (!promptFn) {
-      return Response.json({ error: `Unknown tool: ${tool}` }, { status: 400 })
-    }
-
-    // ── Plan gate + credits: DevTools AI tools are Pro-only ──
-    // The plan gate applies to EVERYONE (anonymous included) — otherwise the
-    // Pro paywall could be bypassed by simply not signing in. Credits are
-    // then charged for signed-in users.
+    // ── Plan gate FIRST (fail closed): DevTools AI tools are Pro-only ──
+    // Runs before tool validation so an anonymous/free user can't probe the
+    // tool list. The plan gate applies to EVERYONE (anonymous included) —
+    // otherwise the Pro paywall could be bypassed by simply not signing in.
+    // Credits are then charged for signed-in users.
     const { user: devUser, admin: chargerAdmin } = await resolveUserAndAdmin(req)
     const planGate = await requireFeatureAccess(chargerAdmin, devUser, 'deepResearch')
     if (planGate) return planGate.response
@@ -599,6 +595,12 @@ export async function POST(req) {
         metadata: { tool },
       })
       if (!creditCheck.ok) return creditCheck.response
+    }
+
+    const promptFn = PROMPTS[tool]
+
+    if (!promptFn) {
+      return Response.json({ error: `Unknown tool: ${tool}` }, { status: 400 })
     }
 
     const messages = [

@@ -1,6 +1,31 @@
 import type { NextConfig } from "next";
+import { execSync } from "child_process";
+
+// Build provenance: which commit is baked into this bundle?
+// CF Pages GitHub builds set CF_PAGES_COMMIT_SHA; GH Actions sets GITHUB_SHA;
+// local builds fall back to git rev-parse; all else → 'dev'.
+function resolveBuildCommit(): string {
+  try {
+    return (
+      process.env.CF_PAGES_COMMIT_SHA ||
+      process.env.GITHUB_SHA ||
+      execSync("git rev-parse HEAD", { stdio: ["ignore", "pipe", "ignore"] })
+        .toString()
+        .trim() ||
+      "dev"
+    );
+  } catch {
+    return "dev";
+  }
+}
+
+const BUILD_COMMIT = resolveBuildCommit();
 
 const nextConfig: NextConfig = {
+  // ── Build provenance for /api/health ──────────────────────────────
+  env: {
+    NEXT_PUBLIC_BUILD_COMMIT: BUILD_COMMIT,
+  },
   serverExternalPackages: ['groq-sdk', 'pptxgenjs', 'jszip', 'jspdf', 'docx', '@e2b/code-interpreter', 'e2b'],
   eslint: {
     ignoreDuringBuilds: true,

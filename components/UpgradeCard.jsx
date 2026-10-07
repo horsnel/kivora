@@ -45,7 +45,7 @@ export default function UpgradeCard({ gate, onDismiss }) {
           </Link>
         )}
         <Link
-          href="/pricing"
+          href={`/pricing?plan=${gate.needed_plan || 'pro'}`}
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#dc2626] hover:bg-red-700 text-white text-sm font-semibold transition-colors"
         >
           Upgrade to {planName}

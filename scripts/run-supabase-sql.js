@@ -16,7 +16,12 @@ if (!PASSWORD) {
   process.exit(1)
 }
 
-const SQL_FILE = path.join(__dirname, '..', 'community-attachments-migration.sql')
+const SQL_FILE = path.resolve(process.argv[2] || path.join(__dirname, '..', 'community-attachments-migration.sql'))
+if (!fs.existsSync(SQL_FILE)) {
+  console.error(`SQL file not found: ${SQL_FILE}`)
+  console.error('Usage: node scripts/run-supabase-sql.js <file.sql>')
+  process.exit(1)
+}
 
 async function tryConnect(port, label) {
   const client = new Client({
@@ -71,13 +76,15 @@ function executableStatements(sql) {
         AND table_name IN ('forum_posts', 'forum_replies')
       ORDER BY table_name
     `)
-    console.log('verification:')
-    for (const row of verify.rows) {
-      console.log(`  ${row.table_name}.${row.column_name} ${row.data_type} default ${row.column_default}`)
-    }
-    if (verify.rows.length < 2) {
-      console.error('EXPECTED 2 rows (forum_posts + forum_replies) — got ' + verify.rows.length)
-      process.exit(3)
+    if (SQL_FILE.endsWith('community-attachments-migration.sql')) {
+      console.log('verification:')
+      for (const row of verify.rows) {
+        console.log(`  ${row.table_name}.${row.column_name} ${row.data_type} default ${row.column_default}`)
+      }
+      if (verify.rows.length < 2) {
+        console.error('EXPECTED 2 rows (forum_posts + forum_replies) — got ' + verify.rows.length)
+        process.exit(3)
+      }
     }
     console.log('MIGRATION COMPLETE')
   } finally {

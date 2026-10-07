@@ -1,0 +1,4 @@
+Contact: mailto:security@kivora.app
+Expires: 2027-12-31T23:59:00.000Z
+Preferred-Languages: en, fr
+Canonical: https://kivora.pages.dev/.well-known/security.txt

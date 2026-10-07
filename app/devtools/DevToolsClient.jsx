@@ -13,6 +13,7 @@ import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
 import { authFetch } from '@/lib/authFetch'
 import UpgradeCard from '@/components/UpgradeCard'
+import PlanBadge from '@/components/PlanBadge'
 
 // ── Inline SVG icons for tools not in the main library ────────────────
 function Ico({ path, size = 16, className = '' }) {
@@ -476,8 +477,11 @@ export default function DevToolsClient() {
 
         {/* Header */}
         <div className="mb-6 animate-fade-up">
-          <h1 className="text-display font-semibold mb-2 tracking-tight">
-            {t('devtools.title').slice(0, parseInt(t('devtools.split')))}<span className="text-red-500">{t('devtools.title').slice(parseInt(t('devtools.split')))}</span>
+          <h1 className="text-display font-semibold mb-2 tracking-tight flex items-center gap-2.5">
+            <span>
+              {t('devtools.title').slice(0, parseInt(t('devtools.split')))}<span className="text-red-500">{t('devtools.title').slice(parseInt(t('devtools.split')))}</span>
+            </span>
+            <PlanBadge plan="Pro" />
           </h1>
           <p className="text-muted text-body-sm mt-0.5">
             {t('devtools.subtitle')}

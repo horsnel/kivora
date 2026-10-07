@@ -73,6 +73,21 @@ export async function POST(req) {
     // ── Actions that require an access token ──
     const { accessToken, sessionName, code, gpu, tpu, packages, path, content, format, userId } = body
 
+    // ── Plan gate on accelerator tier FIRST (fail closed) ──
+    // Pro-tier accelerators (L4, G4, TPUs) require the Pro plan; premium-tier
+    // (A100, H100) require Max. Free tier (CPU, T4) is open to everyone.
+    // Runs BEFORE the Google-auth check so locked tiers never leak session
+    // availability information to users who can't use them anyway.
+    if (action === 'new' || action === 'run') {
+      const tier = acceleratorTier(gpu, tpu)
+      const feature = tier === 'pro' ? 'deepResearch' : tier === 'premium' ? 'priorityCompute' : null
+      if (feature) {
+        const { user: colabUser, admin: colabAdmin } = await resolveUserAndAdmin(req)
+        const planGate = await requireFeatureAccess(colabAdmin, colabUser, feature)
+        if (planGate) return planGate.response
+      }
+    }
+
     if (accessToken) {
       setColabAccessToken(accessToken)
     } else {
@@ -88,20 +103,6 @@ export async function POST(req) {
         error: 'Google account not connected. Connect your Google account to use Colab GPU/TPU.',
         needsAuth: true,
       }, { status: 401 })
-    }
-
-    // ── Plan gate on accelerator tier (session creation / one-shot runs) ──
-    // Pro-tier accelerators (L4, G4, TPUs) require the Pro plan; premium-tier
-    // (A100, H100) require Max. Free tier (CPU, T4) is open to everyone.
-    // The gate applies to EVERYONE — anonymous included.
-    if (action === 'new' || action === 'run') {
-      const tier = acceleratorTier(gpu, tpu)
-      const feature = tier === 'pro' ? 'deepResearch' : tier === 'premium' ? 'priorityCompute' : null
-      if (feature) {
-        const { user: colabUser, admin: colabAdmin } = await resolveUserAndAdmin(req)
-        const planGate = await requireFeatureAccess(colabAdmin, colabUser, feature)
-        if (planGate) return planGate.response
-      }
     }
 
     // ── Route to appropriate handler ──

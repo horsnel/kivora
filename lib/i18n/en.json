@@ -792,7 +792,7 @@
   "tour.profile_title": "Your profile",
   "tour.reelpen_desc": "Turn any idea into short-form video scripts in seconds.",
   "tour.reelpen_title": "ReelPen",
-  "tour.replay": "Replay tour",
+  "tour.replay": "Replay",
   "tour.skip": "Skip",
   "tour.study_desc": "Homework help, essay outlines, citations, research summaries — your study copilot.",
   "tour.study_title": "StudyDesk",
@@ -863,5 +863,7 @@
   "profile.avatar_saved": "Avatar updated",
   "profile.shuffle": "Shuffle avatar",
   "profile.custom_url_hint": "Pick above or paste any image link — your avatar is always served from our own domain.",
-  "tour.open_page": "Open page"
+  "tour.open_page": "Open page",
+  "chat.history.delete": "Delete conversation",
+  "chat.history.delete_confirm": "Delete this conversation permanently?"
 }

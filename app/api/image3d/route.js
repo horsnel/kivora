@@ -1,5 +1,6 @@
 export const runtime = 'edge' 
 import { rateLimit, getClientIP } from '@/lib/ratelimit'
+import { safeJson } from '@/lib/payload'
 
 // ── 3D Image Generation: hitem3d (primary) → Tripo3D (fallback) ──
 //
@@ -281,7 +282,10 @@ export async function POST(req) {
   }
 
   try {
-    const body = await req.json()
+    const body = await safeJson(req, 10 * 1024 * 1024)
+    if (body === null) {
+      return Response.json({ error: 'Payload too large or invalid JSON.' }, { status: 413 })
+    }
     const { prompt } = body
 
     if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {

@@ -54,6 +54,7 @@ function PricingPageContent() {
   const [toast, setToast] = useState(null) // { type: 'success' | 'error' | 'pending', message }
   const [redeemCode, setRedeemCode] = useState('')
   const [redeemLoading, setRedeemLoading] = useState(false)
+  const [highlightPlan, setHighlightPlan] = useState(null) // ?plan= deep-link from UpgradeCard
   const [referralCode, setReferralCode] = useState(null)
 
   // ── Auth + current plan ──
@@ -113,6 +114,20 @@ function PricingPageContent() {
       router.replace('/pricing')
     }
   }, [searchParams, user, router])
+
+  // ── Deep-link preselect: /pricing?plan=pro from an UpgradeCard ──
+  // Highlights the requested plan card and scrolls it into view.
+  useEffect(() => {
+    const plan = searchParams.get('plan')
+    if (plan && PLANS[plan] && searchParams.get('upgrade') === null) {
+      setHighlightPlan(plan)
+      const t = setTimeout(() => {
+        document.getElementById(`plan-${plan}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 350)
+      return () => clearTimeout(t)
+    }
+    setHighlightPlan(null)
+  }, [searchParams])
 
   // ── Dismiss toast after 6 seconds ──
   useEffect(() => {
@@ -254,15 +269,25 @@ function PricingPageContent() {
             return (
               <div
                 key={plan.code}
-                className={`relative rounded-2xl border p-5 flex flex-col ${
+                id={`plan-${plan.code}`}
+                className={`relative rounded-2xl border p-5 flex flex-col transition-all ${
                   isPopular
                     ? 'border-red-500/60 bg-gradient-to-b from-[#1a0d0d] to-[#0a0a0a]'
                     : 'border-[#262626] bg-[#0f0f0f]'
+                } ${
+                  highlightPlan === plan.code
+                    ? 'ring-2 ring-red-500 shadow-xl shadow-red-500/10 -translate-y-0.5'
+                    : ''
                 }`}
               >
                 {isPopular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-red-500 text-white text-[11px] font-semibold">
                     Most Popular
+                  </div>
+                )}
+                {highlightPlan === plan.code && !isPopular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-red-500 text-white text-[11px] font-semibold">
+                    Recommended for you
                   </div>
                 )}
                 <div className="mb-4">

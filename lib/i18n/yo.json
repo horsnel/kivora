@@ -721,7 +721,7 @@
   "tour.profile_title": "Prófáìlì rẹ",
   "tour.reelpen_desc": "Yí àwọn ìmọ̀ rẹ padà sí fíídìò kékeré ní ìṣẹ́jú aàyá.",
   "tour.reelpen_title": "ReelPen",
-  "tour.replay": "Tún eré ìjókòó wo",
+  "tour.replay": "Tún eré wo",
   "tour.skip": "Fò",
   "tour.study_desc": "Ìrànlọ́wọ́ iṣẹ́ ilé-ìwé, èdè ìkọwe, ìtọ́kasí àti àkótán.",
   "tour.study_title": "StudyDesk",
@@ -792,5 +792,7 @@
   "profile.avatar_saved": "Àwòrán áfátà ti ṣàfikún",
   "profile.shuffle": "Àwòrán àìròsísì",
   "profile.custom_url_hint": "Yan loke tabi lẹ́bẹẹ ọ̀nà àwòrán kan — àwòrán rẹ̀ máa ń wá láti domain wa.",
-  "tour.open_page": "Ṣí ojú-iwe"
+  "tour.open_page": "Ṣí ojú-iwe",
+  "chat.history.delete": "Nu àwọn ìjókòó kọ̀",
+  "chat.history.delete_confirm": "Ìjókòó yìí la àwọn ìjókòó tán pátápátá?"
 }

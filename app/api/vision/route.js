@@ -1,6 +1,7 @@
 export const runtime = 'edge' 
 
 import { rateLimit, getClientIP } from '@/lib/ratelimit'
+import { safeJson } from '@/lib/payload'
 import { groq, groqChat, getPrimaryClientAsync, GroqError, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
 import { getEnvVar } from '@/lib/cfEnv'
 
@@ -13,7 +14,12 @@ export async function POST(req) {
   }
 
   try {
-    const { image, prompt = 'Describe this image in detail.' } = await req.json()
+    // 8MB cap — vision bodies carry base64 images
+    const parsed = await safeJson(req, 8 * 1024 * 1024)
+    if (parsed === null) {
+      return Response.json({ error: 'Payload too large or invalid JSON.' }, { status: 413 })
+    }
+    const { image, prompt = 'Describe this image in detail.' } = parsed
 
     if (!image) {
       return Response.json({ error: 'image is required (base64 data URL or image URL)' }, { status: 400 })

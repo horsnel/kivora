@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { authFetch } from '@/lib/authFetch'
 import UpgradeCard from '@/components/UpgradeCard'
+import { usePlan } from '@/lib/usePlan'
+import { IconLock } from '@/components/Icons'
 import {
   IconCode, IconPlay, IconClose, IconDownload, IconPlus, IconSpinner,
   IconCheck, IconFile, IconFolder, IconWarning, IconChevronDown,
@@ -183,6 +185,9 @@ export default function ColabClient() {
   const [fileDialog, setFileDialog] = useState(null) // { type: 'upload'|'download', sessionName: string }
   const [filePath, setFilePath] = useState('')
   const [gate, setGate] = useState(null) // 403 plan-gate payload → UpgradeCard
+
+  // Plan awareness — gate locked accelerators BEFORE the API call
+  const { plan, signedIn, allows } = usePlan()
 
   const textareaRef = useRef(null)
   const accelDropdownRef = useRef(null)
@@ -753,34 +758,50 @@ export default function ColabClient() {
             {accelDropdownOpen && (
               <div className="absolute top-full left-0 mt-2 w-64 bg-[#141414] border border-[#262626] rounded-xl shadow-2xl z-50 overflow-hidden">
                 <div className="p-2 max-h-80 overflow-y-auto">
-                  {ACCELERATORS.map(acc => (
+                  {ACCELERATORS.map(acc => {
+                    const locked = !allows(acc.tier)
+                    return (
                     <button
                       key={acc.id}
-                      onClick={() => { setAccelerator(acc.id); setAccelDropdownOpen(false) }}
+                      onClick={() => {
+                        if (locked) {
+                          setGate({
+                            reason: signedIn ? 'upgrade_required' : 'sign_in_required',
+                            needed_plan: acc.tier === 'premium' ? 'max' : 'pro',
+                            error: `${acc.label} is part of the ${acc.tier === 'premium' ? 'Max' : 'Pro'} plan.`,
+                          })
+                          setAccelDropdownOpen(false)
+                          return
+                        }
+                        setAccelerator(acc.id)
+                        setAccelDropdownOpen(false)
+                      }}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all ${
                         accelerator === acc.id ? 'bg-[#1a1a1a]' : 'hover:bg-[#1a1a1a]'
                       }`}
                     >
                       <span
-                        className="w-3 h-3 rounded-full shrink-0"
+                        className={`w-3 h-3 rounded-full shrink-0 ${locked ? 'opacity-40' : ''}`}
                         style={{ background: acc.color }}
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-white">{acc.label}</span>
-                          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-md uppercase ${
+                          <span className={`text-sm font-medium ${locked ? 'text-[#737373]' : 'text-white'}`}>{acc.label}</span>
+                          <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-md uppercase ${
                             acc.tier === 'free' ? 'bg-green-600/20 text-green-400' :
                             acc.tier === 'pro' ? 'bg-amber-600/20 text-amber-400' :
                             'bg-purple-600/20 text-purple-400'
                           }`}>
-                            {acc.tier}
+                            {locked && <IconLock size={9} />}
+                            {acc.tier === 'premium' ? 'Max' : acc.tier}
                           </span>
                         </div>
                         <p className="text-[10px] text-[#555] mt-0.5">{acc.desc}</p>
                       </div>
                       {accelerator === acc.id && <IconCheck size={14} className="text-green-500" />}
                     </button>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )}

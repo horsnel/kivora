@@ -500,6 +500,28 @@ export default function ChatClient() {
     setAttachedIsImage(false)
   }
 
+  // ── Delete a conversation ──
+  // Goes straight through supabase-js against chat_sessions — RLS
+  // (`users own chats`) enforces ownership server-side, and the extra
+  // .eq('user_id') keeps the delete targeted even before that check.
+  async function deleteSession(sid) {
+    if (!user || !sid) return
+    if (!window.confirm(t('chat.history.delete_confirm') || 'Delete this conversation permanently?')) return
+    const prev = chatHistory
+    setChatHistory(prevList => prevList.filter(s => s.id !== sid))
+    if (sid === sessionId) clearChat()
+    try {
+      const { error } = await supabasePublic
+        .from('chat_sessions')
+        .delete()
+        .eq('id', sid)
+        .eq('user_id', user.id)
+      if (error) throw error
+    } catch {
+      setChatHistory(prev) // optimistic removal failed — restore
+    }
+  }
+
   // ── Feature #6: File Upload Handler ──
   function handleFileSelect(e) {
     const file = e.target.files?.[0]
@@ -1080,17 +1102,33 @@ export default function ChatClient() {
                   <p className="text-caption text-muted2 px-1 mb-1 uppercase tracking-wider font-medium">{t(group.labelKey)}</p>
                   <div className="space-y-0.5">
                     {group.sessions.map(s => (
-                      <button
+                      <div
                         key={s.id}
-                        onClick={() => loadSession(s)}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-caption transition-colors truncate ${
-                          s.id === sessionId
-                            ? 'bg-[#1a1a1a] text-white'
-                            : 'text-[#525252] hover:text-white hover:bg-[#141414]'
+                        className={`group relative flex items-center rounded-lg transition-colors ${
+                          s.id === sessionId ? 'bg-[#1a1a1a]' : 'hover:bg-[#141414]'
                         }`}
                       >
-                        {chatTitle(s)}
-                      </button>
+                        <button
+                          onClick={() => loadSession(s)}
+                          className={`flex-1 min-w-0 text-left px-3 py-2 text-caption transition-colors truncate ${
+                            s.id === sessionId
+                              ? 'text-white'
+                              : 'text-[#525252] hover:text-white'
+                          }`}
+                        >
+                          {chatTitle(s)}
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); deleteSession(s.id) }}
+                          title={t('chat.history.delete') || 'Delete conversation'}
+                          aria-label={t('chat.history.delete') || 'Delete conversation'}
+                          className="shrink-0 mr-1.5 p-1 rounded-md text-[#525252] opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-[#1f1f1f] focus:opacity-100 transition-all"
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                          </svg>
+                        </button>
+                      </div>
                     ))}
                   </div>
                 </div>
