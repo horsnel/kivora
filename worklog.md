@@ -197,3 +197,22 @@ Stage Summary:
 - Zero console errors on all tested pages
 - Font loading now uses next/font optimization (faster + SSR-safe)
 - Supabase client now lazy-initialized (SSR-safe)
+
+---
+Task ID: sec-hardening-1
+Agent: Main
+Task: Security scanner findings — CSP unsafe-inline, CORS, tech-stack disclosure, admin panel, robots.txt
+
+Work Log:
+- Hybrid CSP: hash-based (build-time, per-route, via scripts/generate-csp.mjs) for 30 prerendered pages; per-request nonce via middleware for 4 SSR page routes; no unsafe-inline/unsafe-eval anywhere
+- generate-csp.mjs also strips x-matched-path/x-nextjs-prerender/x-nextjs-stale-time from _worker.js/index.js (middleware never runs on prerendered short-circuit paths)
+- layout.jsx: sw-register + suppress-300 → external files; next.config: poweredByHeader false
+- _headers: CSP removed (dual-policy conflict), ACAO override → single origin, /admin* noindex; robots.txt filled
+- /api/admin: timing-safe compare + 25/day per-IP failure cap + 400ms delay
+- research-worker + sandbox-worker: ACAO wildcard → origin allowlist, deployed (4a2892bb / cfe6f076)
+- mermaid self-hosted at public/vendor/mermaid.min.js (jsdelivr allowlist failed real-browser test)
+- Commits 31ba957 + d9995dc, deployed via GitHub Actions; verified on prod + real browser (zero CSP violations, hydration intact, Code Explainer end-to-end, mermaid loads, jsdelivr blocked)
+
+Stage Summary:
+- All code-fixable scanner findings resolved and production-verified
+- Remaining (user/DNS side): SPF/DKIM/DMARC/DNSSEC/CAA records, Cloudflare Access for /admin, secret rotation
