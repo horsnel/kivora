@@ -66,9 +66,8 @@ const DYNAMIC_PAGE_PATTERNS = [
 ]
 const isDynamicPage = (path) => DYNAMIC_PAGE_PATTERNS.some((re) => re.test(path))
 
-// ArtifactViewer loads mermaid from jsdelivr at runtime via a trusted
-// script — allow ONLY that package path (no blanket CDN allowlist).
-const MERMAID_SRC = 'https://cdn.jsdelivr.net/npm/mermaid@10'
+// ArtifactViewer loads mermaid from SELF-HOSTED /vendor/mermaid.min.js now
+// (no third-party script origins in the CSP at all).
 
 function listHtmlFiles(dir) {
   const out = []
@@ -103,7 +102,7 @@ function extractInlineScriptHashes(html) {
 }
 
 function buildCsp(hashes) {
-  const scriptSrc = ["'self'", ...hashes, MERMAID_SRC].join(' ')
+  const scriptSrc = ["'self'", ...hashes].join(' ')
   return [
     "default-src 'self'",
     `script-src ${scriptSrc}`,

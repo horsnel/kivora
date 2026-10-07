@@ -37,8 +37,10 @@ export default function ArtifactViewer({ artifact, onClose }) {
   useEffect(() => {
     if (artifact?.type === 'mermaid' && !mermaidLoaded) {
       if (typeof window !== 'undefined' && !window.mermaid) {
+        // Self-hosted (public/vendor/mermaid.min.js) — the hardened CSP has
+        // no third-party script origins, and script-src 'self' covers this.
         const script = document.createElement('script')
-        script.src = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js'
+        script.src = '/vendor/mermaid.min.js'
         script.onload = () => {
           window.mermaid.initialize({ startOnLoad: false, theme: 'dark' })
           setMermaidLoaded(true)
