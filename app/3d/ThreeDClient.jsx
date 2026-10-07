@@ -1504,7 +1504,7 @@ function createTerrainScene(container) {
   scene.add(new THREE.AmbientLight(0x6688aa, 0.4))
   const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x3a5a2a, 0.3); scene.add(hemiLight)
 
-  const orbitControls = addOrbitControls(camera, renderer, { minDistance: 5, maxDistance: 80, autoRotateSpeed: 0.2, enablePan: true, maxDistance: 80 })
+  const orbitControls = addOrbitControls(camera, renderer, { minDistance: 5, maxDistance: 80, autoRotateSpeed: 0.2, enablePan: true })
 
   const clock = new THREE.Clock()
   let animId
@@ -1667,7 +1667,7 @@ function createCubeScene(container) {
   const bloomResize = () => { origOnResize(); if (bloom) { const w = container.clientWidth||300, h = container.clientHeight||300; bloom.composer.setSize(w, h) } }
   window.removeEventListener('resize', onResize)
   window.addEventListener('resize', bloomResize)
-  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, orbitControls); delete window.__cubeScramble; delete window.__cubeReset }
+  return () => { disposed = true; cancelAnimationFrame(animId); window.removeEventListener('resize', bloomResize); fullCleanup(scene, renderer, null); delete window.__cubeScramble; delete window.__cubeReset }
 }
 
 /* ── House Scene ── */
@@ -1989,7 +1989,7 @@ function createHouseScene(container) {
   // Lamp glow
   const lampLight = new THREE.PointLight(0xffdd88, 0.3, 3); lampLight.position.set(1.8, 1.0, -3); scene.add(lampLight)
 
-  const orbitControls = addOrbitControls(camera, renderer, { minDistance: 5, maxDistance: 40, autoRotateSpeed: 0.3, enablePan: true, maxDistance: 40 })
+  const orbitControls = addOrbitControls(camera, renderer, { minDistance: 5, maxDistance: 40, autoRotateSpeed: 0.3, enablePan: true })
 
   const clock = new THREE.Clock()
   let animId
@@ -2268,7 +2268,7 @@ function createMuseumScene(container) {
   const entranceLight = new THREE.PointLight(0xffeedd, 1.0, 15)
   entranceLight.position.set(0, 8, hallD/2 - 1); scene.add(entranceLight)
 
-  const orbitControls = addOrbitControls(camera, renderer, { minDistance: 3, maxDistance: 35, autoRotateSpeed: 0.2, enablePan: true, maxDistance: 35 })
+  const orbitControls = addOrbitControls(camera, renderer, { minDistance: 3, maxDistance: 35, autoRotateSpeed: 0.2, enablePan: true })
 
   const clock = new THREE.Clock()
   let animId

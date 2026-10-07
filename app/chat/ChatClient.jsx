@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings, IconCopy as IconClipboard, IconWrite, IconFilter, IconRobot, IconTarget, IconDatabase, IconStack, IconSpeaker, IconArrowLeft, IconArrowRight, IconCube, IconLink } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
+import { usePlan } from '@/lib/usePlan'
 import { supabasePublic } from '@/lib/supabase'
 import { streamSSE } from '@/lib/sseClient'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
@@ -21,11 +22,27 @@ import ComingSoonPopup from '@/components/ComingSoonPopup'
 
 
 const MODELS = [
-  { id: 'llama-3.3-70b-versatile', name: 'Nova 2.3', tag: 'Premium · Detailed', short: 'Nova 2.3' },
-  { id: 'llama-3.1-8b-instant', name: 'Nova 1.7', tag: 'Free · Fast', short: 'Nova 1.7' },
-  { id: 'llama3-70b-8192', name: 'Nova 2.3 Pro', tag: 'Extended context', short: '2.3 Pro' },
-  { id: 'mixtral-8x7b-32768', name: 'Nova 2.3 Mix', tag: 'Long context', short: '2.3 Mix' },
-  { id: 'gemma2-9b-it', name: 'Nova 1.7 Lite', tag: 'Efficient', short: '1.7 Lite' },
+  { id: 'llama-3.3-70b-versatile', name: 'Nova 2.3', tag: 'Premium · Detailed', short: 'Nova 2.3', pro: false },
+  { id: 'llama-3.1-8b-instant', name: 'Nova 1.7', tag: 'Free · Fast', short: 'Nova 1.7', pro: false },
+  { id: 'llama3-70b-8192', name: 'Nova 2.3 Pro', tag: 'Extended context', short: '2.3 Pro', pro: false },
+  { id: 'mixtral-8x7b-32768', name: 'Nova 2.3 Mix', tag: 'Long context', short: '2.3 Mix', pro: false },
+  { id: 'gemma2-9b-it', name: 'Nova 1.7 Lite', tag: 'Efficient', short: '1.7 Lite', pro: false },
+]
+
+// Reasoning / specialty models — shown in the selectors with a Pro badge;
+// the API rejects them for non-Pro plans (server-side gate).
+const EXTRA_MODELS = [
+  { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1', tag: 'Reasoning · Pro', short: 'R1', pro: true },
+  { id: 'qwen-qwq-32b', name: 'Qwen QwQ', tag: 'Reasoning · Pro', short: 'QwQ', pro: true },
+  { id: 'llama-3.2-3b-preview', name: 'Nova 0.9', tag: 'Lightweight', short: '0.9', pro: false },
+]
+
+const ALL_MODELS = [...MODELS, ...EXTRA_MODELS]
+
+const EFFORT_LEVELS = [
+  { level: 'low', label: 'Low', desc: 'Faster responses, less depth' },
+  { level: 'medium', label: 'Medium', desc: 'Balanced speed and depth' },
+  { level: 'high', label: 'High', desc: 'Longer, more thorough responses' },
 ]
 
 const DEFAULT_MODEL = 'llama-3.3-70b-versatile'
@@ -127,6 +144,8 @@ export default function ChatClient() {
   const [copiedIndex, setCopiedIndex] = useState(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [user, setUser] = useState(null)
+  const [effort, setEffort] = useState('low')
+  const [showUpgrade, setShowUpgrade] = useState(null) // { name } — Pro model gate popup
   const [chatHistory, setChatHistory] = useState([])
   const [webSearch, setWebSearch] = useState(false)
 
@@ -256,8 +275,14 @@ export default function ChatClient() {
   const modelChipDropdownRef = useRef(null)
   const pathname = usePathname()
   const { startSession, endSession, markFollowUp } = useSessionTracker()
+  const { allows: planAllows } = usePlan()
+
+  // A model is selectable when it's not Pro-gated, or the user's plan allows Pro.
+  const modelAllowed = (m) => !m?.pro || planAllows('pro')
   const studySessionRef = useRef(null)
   const firstMessageSent = useRef(false)
+  const lastConvoRef = useRef(null)
+  const emptyRetryRef = useRef(false)
   const { t } = useTranslation()
 
   useEffect(() => {
@@ -404,6 +429,12 @@ export default function ChatClient() {
   }, [input])
 
   // Load custom system prompt from localStorage
+  useEffect(() => {
+    try {
+      const savedEffort = localStorage.getItem('kivora-chat-effort')
+      if (savedEffort && EFFORT_LEVELS.some(l => l.level === savedEffort)) setEffort(savedEffort)
+    } catch {}
+  }, [])
   useEffect(() => {
     try {
       const saved = localStorage.getItem('kivora-custom-system-prompt')
@@ -629,17 +660,23 @@ export default function ChatClient() {
     }
   }
 
-  async function send() {
+  async function send(retryConvo) {
     const q = input.trim()
-    if ((!q && !attachedFile) || loading) return
+    if (loading) return
+    if (!retryConvo && !q && !attachedFile) return
 
+    // Hoisted so the retry path (retryConvo set) skips straight to the fetch
+    let newMessages = retryConvo || null
+    let wasImage = false
+    let sid = sessionId
+
+    if (!retryConvo) {
     // Lazy-generate session ID on first send (avoids hydration mismatch
     // from generating it during render).
     // NOTE: read the id into a local — `setSessionId` alone would leave the
     // closure's `sessionId` still '' for THIS fetch, so the very first
     // message of every new conversation arrived at the API with
     // sessionId:'' and was silently never saved to history.
-    let sid = sessionId
     if (!sid) {
       sid = crypto.randomUUID()
       setSessionId(sid)
@@ -664,13 +701,17 @@ export default function ChatClient() {
     if (attachedIsImage && attachedContent) {
       userMsg.userImageData = attachedContent
     }
-    const newMessages = [...messages, userMsg]
+    newMessages = [...messages, userMsg]
+    // Keep the exact conversation sent for this reply — an empty-response
+    // auto-retry re-runs it verbatim (same sessionId, no re-append).
+    lastConvoRef.current = newMessages
+    emptyRetryRef.current = false
     setMessages(newMessages)
     setInput('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
 
     // Capture attachment state before clearing
-    const wasImage = attachedIsImage
+    wasImage = attachedIsImage
 
     setLoading(true)
 
@@ -687,6 +728,14 @@ export default function ChatClient() {
       studySessionRef.current = await startSession('chat', null, q.slice(0, 200))
     } else if (studySessionRef.current) {
       markFollowUp(studySessionRef.current)
+    }
+    } // end if (!retryConvo)
+
+    if (!retryConvo) setLoading(true)
+    else {
+      setLoading(true)
+      // Retry re-adds nothing — the conversation already ends with the user message
+      setMessages(retryConvo)
     }
 
     try {
@@ -711,6 +760,7 @@ export default function ChatClient() {
           focusMode: focusMode || 'All',
           proMode: proMode || false,
           proModeType: proModeType || undefined,
+          effort,
           stream: true, // SSE — tokens render as they arrive (server falls back to JSON transparently)
         })
       })
@@ -802,20 +852,32 @@ export default function ChatClient() {
           flushNow()
         }
         const data = finalEvent || {}
+
+        // ── Empty-response auto-retry ──
+        // A provider can return HTTP 200 with zero content (rare, but it
+        // renders as a useless "Something went wrong"). Retry the exact same
+        // conversation once before giving the user an error.
+        const emptyReply = !data.error && !String(data.reply || '').trim() && !acc.trim() && !data.imageGenerated
+        if (emptyReply && lastConvoRef.current && !emptyRetryRef.current) {
+          emptyRetryRef.current = true
+          setMessages(prev => prev.slice(0, -1))
+          setTimeout(() => { if (!loading) send(lastConvoRef.current) }, 400)
+          return
+        }
         const assistantMsg = { role: 'assistant', content: '' }
         if (data.error) {
           assistantMsg.content = data.error
         } else {
           // `done` is authoritative — replaces the live buffer (covers forced
           // tool retries where the model streamed discardable preamble text)
-          assistantMsg.content = data.reply || acc || t('chat.error.general')
+          assistantMsg.content = data.reply || acc || "I couldn't generate a response for that. Please try sending it again."
         }
         applyChatMeta(assistantMsg, data)
         setMessages(prev => { const next = [...prev]; next[next.length - 1] = assistantMsg; return next })
       } else {
         // ── Legacy JSON path (server without stream support / error JSON) ──
         const data = await res.json()
-        const assistantMsg = { role: 'assistant', content: data.reply || data.error || t('chat.error.general') }
+        const assistantMsg = { role: 'assistant', content: data.reply || data.error || "I couldn't generate a response for that. Please try sending it again." }
         applyChatMeta(assistantMsg, data)
         setMessages(prev => [...prev, assistantMsg])
       }
@@ -999,7 +1061,7 @@ export default function ChatClient() {
 
   const hasInput = input.trim().length > 0 || attachedFile
 
-  const currentModel = MODELS.find(m => m.id === model) || MODELS[0]
+  const currentModel = ALL_MODELS.find(m => m.id === model) || MODELS[0]
 
   return (
     <main className="h-dvh flex bg-[#0a0a0a] overflow-hidden">
@@ -1299,17 +1361,29 @@ export default function ChatClient() {
                 {/* ══════ MODEL SELECTOR ══════ */}
                 {settingsCurrentPage === 'model' && (
                   <div className="divide-y divide-[#2a2a2a]">
-                    {MODELS.map(m => (
+                    {ALL_MODELS.map(m => (
                       <button
                         key={m.id}
-                        onClick={() => setModel(m.id)}
+                        onClick={() => {
+                          if (!modelAllowed(m)) {
+                            setShowUpgrade({ name: m.name })
+                            return
+                          }
+                          setModel(m.id)
+                        }}
                         className="w-full py-4 text-left active:opacity-60 transition-opacity"
                       >
                         <div className="flex items-center gap-2.5 mb-1">
                           <span className={`text-[17px] font-medium ${model === m.id ? 'text-[#4a9fd1]' : 'text-white'}`}>{m.name}</span>
-                          {m.tag && (
+                          {m.pro && (
+                            <span className="flex items-center gap-1 text-[10px] font-bold tracking-[0.5px] px-[7px] py-[2px] rounded-[5px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.12)]">
+                              {!modelAllowed(m) && <IconLock size={9} />}
+                              Pro
+                            </span>
+                          )}
+                          {m.tag && !m.pro && (
                             <span className={`text-[10px] font-bold tracking-[0.5px] px-[7px] py-[2px] rounded-[5px] uppercase ${
-                              m.tag.toLowerCase().includes('premium') || m.tag.toLowerCase().includes('pro')
+                              m.tag.toLowerCase().includes('premium')
                                 ? 'text-[#4a7fb5] bg-[rgba(74,127,181,0.12)]'
                                 : m.tag.toLowerCase().includes('free') || m.tag.toLowerCase().includes('fast')
                                   ? 'text-[#4caf50] bg-[rgba(76,175,80,0.12)]'
@@ -1334,7 +1408,7 @@ export default function ChatClient() {
                     >
                       <div className="flex-1">
                         <div className="text-[16px] font-medium text-white">Effort</div>
-                        <div className="text-[13px] text-[#888]" id="currentEffortLabel">Low</div>
+                        <div className="text-[13px] text-[#888]">{(EFFORT_LEVELS.find(l => l.level === effort) || EFFORT_LEVELS[0]).label}</div>
                       </div>
                       <span className="text-[20px] text-[#888]">›</span>
                     </button>
@@ -1355,47 +1429,52 @@ export default function ChatClient() {
                 {/* ══════ EFFORT SELECTOR ══════ */}
                 {settingsCurrentPage === 'effort' && (
                   <div className="space-y-2 pt-2">
-                    {[
-                      { level: 'Low', desc: 'Faster responses, less reasoning', selected: true },
-                      { level: 'Medium', desc: 'Balanced speed and depth', selected: false },
-                      { level: 'High', desc: 'Deeper reasoning, slower responses', selected: false },
-                    ].map(opt => (
-                      <button
-                        key={opt.level}
-                        onClick={() => {
-                          const el = document.getElementById('currentEffortLabel')
-                          if (el) el.textContent = opt.level
-                        }}
-                        className={`w-full flex items-center justify-between px-4 py-[18px] rounded-[14px] transition-all active:scale-[0.98] ${
-                          opt.selected
-                            ? 'bg-[rgba(196,92,74,0.08)] border-2 border-[#c45c4a]'
-                            : 'bg-[#242424] border-2 border-transparent'
-                        }`}
-                      >
-                        <span className="text-[16px] font-medium text-white">{opt.level}</span>
-                        <span className={`text-[20px] text-[#c45c4a] transition-opacity ${opt.selected ? 'opacity-100' : 'opacity-0'}`}>✓</span>
-                      </button>
-                    ))}
+                    {EFFORT_LEVELS.map(opt => {
+                      const selected = effort === opt.level
+                      return (
+                        <button
+                          key={opt.level}
+                          onClick={() => {
+                            setEffort(opt.level)
+                            try { localStorage.setItem('kivora-chat-effort', opt.level) } catch {}
+                          }}
+                          className={`w-full px-4 py-[18px] rounded-[14px] text-left transition-all active:scale-[0.98] ${
+                            selected
+                              ? 'bg-[rgba(196,92,74,0.08)] border-2 border-[#c45c4a]'
+                              : 'bg-[#242424] border-2 border-transparent'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-[16px] font-medium text-white">{opt.label}</span>
+                            <span className={`text-[20px] text-[#c45c4a] transition-opacity ${selected ? 'opacity-100' : 'opacity-0'}`}>✓</span>
+                          </div>
+                          <div className="text-[13px] text-[#888] mt-0.5">{opt.desc}</div>
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
 
                 {/* ══════ MORE MODELS ══════ */}
                 {settingsCurrentPage === 'more-models' && (
                   <div className="divide-y divide-[#2a2a2a]">
-                    {[
-                      { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1', tag: 'Reasoning', pro: true },
-                      { id: 'qwen-qwq-32b', name: 'Qwen QwQ', tag: 'Reasoning', pro: true },
-                      { id: 'llama-3.2-3b-preview', name: 'Nova 0.9', tag: 'Lightweight', pro: false },
-                    ].map(m => (
+                    {EXTRA_MODELS.map(m => (
                       <button
                         key={m.id}
-                        onClick={() => setModel(m.id)}
+                        onClick={() => {
+                          if (!modelAllowed(m)) {
+                            setShowUpgrade({ name: m.name })
+                            return
+                          }
+                          setModel(m.id)
+                        }}
                         className="w-full py-4 text-left active:opacity-60 transition-opacity"
                       >
                         <div className="flex items-center gap-2.5">
                           <span className={`text-[17px] font-medium ${model === m.id ? 'text-[#4a9fd1]' : 'text-white'}`}>{m.name}</span>
                           {m.pro && (
-                            <span className="text-[10px] font-bold tracking-[0.5px] px-[7px] py-[2px] rounded-[5px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.12)]">
+                            <span className="flex items-center gap-1 text-[10px] font-bold tracking-[0.5px] px-[7px] py-[2px] rounded-[5px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.12)]">
+                              {!modelAllowed(m) && <IconLock size={9} />}
                               Pro
                             </span>
                           )}
@@ -2030,19 +2109,37 @@ export default function ChatClient() {
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10A15 15 0 0 1 12 2z"/></svg>
                         <span>{currentModel.short}</span>
+                        {currentModel.pro && (
+                          <span className="text-[8px] font-bold tracking-[0.5px] px-[4px] py-[1px] rounded-[3px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.15)]">Pro</span>
+                        )}
                         <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M3 5l3 3 3-3"/></svg>
                       </button>
 
                       {modelChipDropdownOpen && (
                         <div className="chat-model-dropdown">
-                          {MODELS.map(m => (
+                          {ALL_MODELS.map(m => (
                             <button
                               key={m.id}
-                              onClick={() => { setModel(m.id); setModelChipDropdownOpen(false) }}
+                              onClick={() => {
+                                if (!modelAllowed(m)) {
+                                  setShowUpgrade({ name: m.name })
+                                  setModelChipDropdownOpen(false)
+                                  return
+                                }
+                                setModel(m.id); setModelChipDropdownOpen(false)
+                              }}
                               className={`chat-model-option ${m.id === model ? 'chat-model-option-active' : ''}`}
                             >
                               <div>
-                                <div className="chat-model-name">{m.name}</div>
+                                <div className="chat-model-name flex items-center gap-1.5">
+                                  {m.name}
+                                  {m.pro && (
+                                    <span className="flex items-center gap-0.5 text-[8px] font-bold tracking-[0.5px] px-[4px] py-[1px] rounded-[3px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.15)]">
+                                      {!modelAllowed(m) && <IconLock size={8} />}
+                                      Pro
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="chat-model-tag">{m.tag}</div>
                               </div>
                               {m.id === model && <IconCheck size={14} className="text-red-500 shrink-0" />}
@@ -2060,7 +2157,15 @@ export default function ChatClient() {
                     {/* Pro toggle with dropup */}
                     <div className="relative" ref={proTypeDropdownRef}>
                       <div className="chat-pro-toggle">
-                        <span className="chat-pro-label">Pro</span>
+                        <span className="chat-pro-label flex items-center gap-1">
+                          Pro
+                          {!planAllows('pro') && (
+                            <span className="flex items-center gap-0.5 text-[8px] font-bold tracking-[0.5px] px-[4px] py-[1px] rounded-[3px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.15)]">
+                              <IconLock size={8} />
+                              Pro
+                            </span>
+                          )}
+                        </span>
                         <label className="chat-switch">
                           <input
                             type="checkbox"
@@ -2136,6 +2241,39 @@ export default function ChatClient() {
           feature={comingSoonFeature}
           onClose={() => setComingSoonFeature(null)}
         />
+      )}
+
+      {/* ── Pro model gate — upgrade prompt ── */}
+      {showUpgrade && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4" onClick={() => setShowUpgrade(null)}>
+          <div
+            className="w-full max-w-[380px] bg-[#161616] border border-[rgba(74,127,181,0.25)] rounded-[18px] p-6 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <span className="flex items-center gap-1 text-[10px] font-bold tracking-[0.5px] px-[7px] py-[2px] rounded-[5px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.12)]">
+                <IconLock size={9} />
+                Pro
+              </span>
+            </div>
+            <h3 className="text-white font-semibold text-[18px] mb-2">{showUpgrade.name} is a Pro model</h3>
+            <p className="text-[14px] text-[#a3a3a3] leading-relaxed mb-5">
+              DeepSeek R1 and Qwen QwQ are advanced reasoning models reserved for the Pro plan and above.
+              Upgrade to unlock deeper thinking, longer responses and priority compute.
+            </p>
+            <div className="flex gap-2.5">
+              <Link href="/pricing" className="flex-1 text-center py-2.5 rounded-[10px] bg-[#c45c4a] hover:bg-[#d06a58] text-white text-[14px] font-medium transition-colors">
+                Upgrade to Pro
+              </Link>
+              <button
+                onClick={() => setShowUpgrade(null)}
+                className="px-4 py-2.5 rounded-[10px] bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.1)] text-[#ccc] text-[14px] transition-colors"
+              >
+                Later
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Microphone Permission Modal ── */}

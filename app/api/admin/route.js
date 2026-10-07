@@ -77,6 +77,22 @@ async function timingSafeEqual(a, b) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
+// ── Day-scoped session token ──
+// After a successful password+TOTP unlock, the client receives a session
+// token (HMAC of the admin password + today's date) so background refreshes
+// don't need a fresh 2FA code on every request. Valid until 00:00 UTC.
+async function hmacHex(secret, message) {
+  const enc = new TextEncoder()
+  const key = await crypto.subtle.importKey('raw', enc.encode(String(secret)), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(String(message)))
+  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+async function expectedSessionToken(envPassword) {
+  const day = new Date().toISOString().slice(0, 10)
+  return hmacHex(envPassword, `admin-session:${day}`)
+}
+
 export async function GET(req) {
   try {
     const admin = getSupabaseAdmin()
@@ -92,9 +108,19 @@ export async function GET(req) {
     const envPassword = await getEnvVar('ADMIN_PASSWORD')
 
     let authorized = false
+    let sessionToken = null
+
+    // 0. Day-scoped session token (issued after a successful 2FA unlock)
+    const sessionHeader = req.headers.get('x-admin-session') || ''
+    if (!authorized && sessionHeader && envPassword) {
+      if (await timingSafeEqual(sessionHeader, await expectedSessionToken(envPassword))) {
+        authorized = true
+        sessionToken = sessionHeader
+      }
+    }
 
     if (envPassword && adminKey) {
-      // ── Password path: rate-limited + timing-safe ──
+      // ── Password path: rate-limited + timing-safe + TOTP second factor ──
       const ip = getClientIP(req)
       const attempts = await failedAttemptsToday(admin, ip)
       if (attempts >= MAX_FAILED_ATTEMPTS_PER_DAY) {
@@ -103,11 +129,28 @@ export async function GET(req) {
           { status: 429, headers: { 'Retry-After': '3600' } }
         )
       }
-      if (await timingSafeEqual(adminKey, envPassword)) {
+      const passwordOk = await timingSafeEqual(adminKey, envPassword)
+
+      // TOTP second factor — active only when ADMIN_TOTP_SECRET is configured.
+      // A missing/invalid code fails the login with the SAME response shape as
+      // a wrong password (no oracle for which factor was wrong).
+      const totpSecret = await getEnvVar('ADMIN_TOTP_SECRET')
+      let totpOk = true
+      if (totpSecret) {
+        const { verifyTotp } = await import('@/lib/totp')
+        totpOk = await verifyTotp(totpSecret, req.headers.get('x-admin-totp') || '')
+      }
+
+      if (passwordOk && totpOk) {
         authorized = true
+        sessionToken = await expectedSessionToken(envPassword)
       } else {
         await recordFailedAttempt(admin, ip)
         await sleep(400) // blunt online brute force
+        return Response.json(
+          { error: 'Invalid credentials', totp_required: Boolean(totpSecret) },
+          { status: 403 }
+        )
       }
     } else {
       const authHeader = req.headers.get('authorization') || ''
@@ -157,6 +200,7 @@ export async function GET(req) {
     ])
 
     return Response.json({
+      session_token: sessionToken || undefined,
       metrics: {
         totalUsers: usersResult.count || 0,
         totalChats: chatsResult.count || 0,

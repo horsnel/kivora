@@ -8,7 +8,7 @@ import { rateLimit, anonymousRateLimit, anonymousDailyLimit, getClientIP } from 
 import { safeJson } from '@/lib/payload'
 import { toolDefs, toolHandlers, TOOL_INSTRUCTIONS, filterToolsByQuery, detectRequiredTool } from '@/lib/toolRegistry'
 import { buildSystemPrompt } from '@/lib/systemPrompt'
-import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
+import { requireCredits, requireFeatureAccess, refundCredits, CREDIT_COSTS } from '@/lib/credits'
 
 const ALLOWED_MODEL_IDS = ALLOWED_MODELS.map(m => m.id)
 
@@ -204,7 +204,7 @@ async function processChat(req, body, send) {
     if (!isMistralConfigured() && !groqClient && !cerebrasKey && !sambanovaKey && !siliconflowKey && !geminiKey && !openrouterKey) {
       return json({ error: 'No LLM providers configured' }, 503)
     }
-    const { messages, sessionId, userId, model: requestedModel, systemPrompt, focusMode, proMode, proModeType } = body
+    const { messages, sessionId, userId, model: requestedModel, systemPrompt, focusMode, proMode, proModeType, effort: requestedEffort } = body
     if (!messages?.length) {
       return json({ error: 'messages required' }, 400)
     }
@@ -223,6 +223,15 @@ async function processChat(req, body, send) {
         const { data: { user: u } } = await userClient.auth.getUser()
         chatUser = u
       } catch { /* anonymous */ }
+    }
+
+    // Logged-in burst protection (per-account, complements the per-IP limits
+    // below — prevents rapid-fire abuse even when the client IP rotates)
+    if (chatUser && !rateLimit('u:' + chatUser.id, 8).ok) {
+      return json({
+        error: "You're sending messages too quickly. Give it a few seconds and try again.",
+        quotaExceeded: true,
+      }, 429)
     }
 
     // Anonymous user — apply daily limit (5 chat messages/day) + per-minute burst protection
@@ -271,6 +280,25 @@ async function processChat(req, body, send) {
     if (requestedModel && ALLOWED_MODEL_IDS.includes(requestedModel)) {
       model = requestedModel
     }
+
+    // ── Pro model gate — DeepSeek R1 / Qwen QwQ require Pro and above ──
+    const modelMeta = ALLOWED_MODELS.find(m => m.id === model)
+    if (modelMeta?.pro) {
+      if (!chatUser?.id) {
+        return json({
+          error: `${modelMeta.name} is a Pro model. Sign in with a Pro plan to unlock it.`,
+          upgrade_url: '/pricing',
+          needed_plan: 'pro',
+          quotaExceeded: true,
+        }, 402)
+      }
+      const proGate = await requireFeatureAccess(admin, chatUser, 'proModels')
+      if (proGate) return proGate.response
+    }
+
+    // ── Effort level — controls how much the model is allowed to generate ──
+    const EFFORT_TOKENS = { low: 2048, medium: 4096, high: 8192 }
+    const effort = EFFORT_TOKENS[requestedEffort] ? requestedEffort : 'medium'
 
     // Check if the last user message contains an image attachment
     const lastUserMsg = messages[messages.length - 1]
@@ -411,7 +439,7 @@ async function processChat(req, body, send) {
     const llmParams = {
       model,
       messages: apiMessages,
-      max_tokens: 4096,
+      max_tokens: EFFORT_TOKENS[effort],
       ...(relevantTools.length > 0 ? { tools: relevantTools, tool_choice: toolChoice } : {})
     }
 
@@ -598,6 +626,18 @@ async function processChat(req, body, send) {
               tool_choice: 'none'
             })
         reply = finalChat.choices[0].message.content
+        if (!reply || !String(reply).trim()) {
+          // Empty second-pass reply — synthesize from the raw tool results so
+          // the user still sees what the tools returned instead of a blank
+          // bubble (which the client renders as a generic failure).
+          const toolSummary = toolMessages
+            .map(t => String(t.content || '').slice(0, 400))
+            .filter(Boolean)
+            .join('\n\n')
+          reply = toolSummary
+            ? `Here's what I found:\n\n${toolSummary}`
+            : "The tool ran but I couldn't summarize the results — please try again."
+        }
         artifacts = extractArtifacts(reply)
       }
 
@@ -724,7 +764,29 @@ async function processChat(req, body, send) {
     }
 
     // Normal response (no tool calls)
-    const reply = message.content
+    let reply = message.content
+
+    // ── Empty-reply hardening ──
+    // Some providers occasionally return HTTP 200 with empty content (content
+    // filters, mid-stream truncation). An empty reply renders client-side as
+    // a generic "Something went wrong" — unacceptable. Retry once without
+    // tools, then fall back to an honest, actionable message.
+    if ((!reply || !String(reply).trim()) && !hasImage) {
+      console.warn('[chat] empty reply from', model, '— retrying without tools')
+      try {
+        const retryChat = await aiChat({
+          model,
+          messages: apiMessages.map(m => ({ role: m.role, content: m.content })),
+          max_tokens: 2048,
+        })
+        reply = retryChat?.choices?.[0]?.message?.content || ''
+      } catch (retryErr) {
+        console.warn('[chat] empty-reply retry failed:', String(retryErr?.message || retryErr).slice(0, 100))
+      }
+    }
+    if (!reply || !String(reply).trim()) {
+      reply = "I received your message but couldn't compose a reply this time. Please send it again — if it keeps happening, try rephrasing or switching models."
+    }
     const artifacts = extractArtifacts(reply)
 
     // Save session. Identity comes from the verified JWT (chatUser),

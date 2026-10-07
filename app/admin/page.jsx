@@ -43,6 +43,8 @@ export default function AdminPage() {
   const [passwordInput, setPasswordInput] = useState('')
   const [passwordError, setPasswordError] = useState(false)
   const [checkingPassword, setCheckingPassword] = useState(false)
+  const [totpInput, setTotpInput] = useState('')
+  const [needsTotp, setNeedsTotp] = useState(false)
 
   // Check sessionStorage for persisted unlock
   useEffect(() => {
@@ -63,14 +65,20 @@ export default function AdminPage() {
     }
     setPasswordError(false)
     setCheckingPassword(true)
-    // Validate the password against the server — never trust the client bundle
-    fetch('/api/admin', { headers: { 'x-admin-key': passwordInput } })
-      .then(res => {
+    // Validate the password (and 2FA code, when enabled) against the server
+    const headers = { 'x-admin-key': passwordInput }
+    if (totpInput.trim()) headers['x-admin-totp'] = totpInput.trim().replace(/\s+/g, '')
+    fetch('/api/admin', { headers })
+      .then(async res => {
         if (res.ok) {
+          const json = await res.json().catch(() => ({}))
           sessionStorage.setItem('kivora-admin-key', passwordInput)
+          if (json.session_token) sessionStorage.setItem('kivora-admin-session', json.session_token)
           sessionStorage.setItem('kivora-admin-unlocked', '1')
           setUnlocked(true)
         } else {
+          const json = await res.json().catch(() => ({}))
+          if (json.totp_required) setNeedsTotp(true)
           setPasswordError(true)
         }
       })
@@ -97,8 +105,19 @@ export default function AdminPage() {
               autoFocus
               className={`w-full bg-[#0a0a0a] border ${passwordError ? 'border-red-500/60' : 'border-[#262626]'} rounded-xl px-4 py-3 text-[15px] text-white placeholder-[#525252] outline-none transition-colors mb-1`}
             />
+            {needsTotp && (
+              <input
+                type="text"
+                value={totpInput}
+                onChange={e => { setTotpInput(e.target.value.replace(/[^0-9]/g, '').slice(0, 6)); setPasswordError(false) }}
+                placeholder="2FA code (6 digits)"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                className={`w-full bg-[#0a0a0a] border ${passwordError ? 'border-red-500/60' : 'border-[#262626]'} rounded-xl px-4 py-3 text-[15px] text-white placeholder-[#525252] outline-none transition-colors mt-2 mb-1 tracking-[0.3em]`}
+              />
+            )}
             {passwordError && (
-              <p className="text-[12px] text-red-400 mb-3 px-1">Incorrect password</p>
+              <p className="text-[12px] text-red-400 mb-3 px-1">{needsTotp ? 'Invalid password or 2FA code' : 'Incorrect password'}</p>
             )}
             <button
               type="submit"
@@ -121,13 +140,22 @@ export default function AdminPage() {
 
   async function checkAuth() {
     try {
-      // Fetch admin data using the server-validated key stored at unlock time
-      const res = await fetch('/api/admin', {
-        headers: { 'x-admin-key': sessionStorage.getItem('kivora-admin-key') || '' },
-      })
-      if (res.status === 403) { setForbidden(true); setLoading(false); return }
+      // Prefer the day-scoped session token (2FA unlock); fall back to the key
+      const session = sessionStorage.getItem('kivora-admin-session') || ''
+      const key = sessionStorage.getItem('kivora-admin-key') || ''
+      const headers = session ? { 'x-admin-session': session } : { 'x-admin-key': key }
+      const res = await fetch('/api/admin', { headers })
+      if (res.status === 403) {
+        // Session expired — drop stored credentials and show the gate again
+        sessionStorage.removeItem('kivora-admin-session')
+        sessionStorage.removeItem('kivora-admin-unlocked')
+        setUnlocked(false)
+        setLoading(false)
+        return
+      }
       if (!res.ok) throw new Error('Failed to fetch admin data')
       const json = await res.json()
+      if (json.session_token) sessionStorage.setItem('kivora-admin-session', json.session_token)
       setData(json)
     } catch (err) {
       console.error('[admin]', err)
