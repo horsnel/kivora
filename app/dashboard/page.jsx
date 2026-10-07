@@ -7,7 +7,6 @@ import { IconBookmark, IconChat, IconTrash, IconArrowRight, IconMail, IconClock,
 import { useTranslation } from '@/components/LanguageProvider'
 import CreditPill from '@/components/CreditPill'
 import InstallPrompt from '@/components/InstallPrompt'
-import UserAvatar from '@/components/UserAvatar'
 
 function IconActivity({ size = 16, className = '' }) {
   return (
@@ -494,7 +493,7 @@ export default function DashboardPage() {
             <h1 className="font-semibold text-headline tracking-tight">{t('dashboard.title')}</h1>
             <p className="text-muted text-caption">{user?.email}</p>
           </div>
-          <div className="flex items-center gap-1 flex-wrap justify-start sm:justify-end">
+          <div className="flex items-center justify-start sm:justify-end">
             <button
               type="button"
               onClick={() => window.dispatchEvent(new CustomEvent('kivora:start-tour'))}
@@ -504,20 +503,11 @@ export default function DashboardPage() {
             >
               <IconBulb size={16} />
             </button>
-            <CreditPill icon />
-            <button
-              onClick={() => router.push('/profile')}
-              title={t('dashboard.profile')}
-              aria-label={t('dashboard.profile')}
-              className="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-[#141414] transition-colors"
-            >
-              <UserAvatar user={user} size={24} />
-            </button>
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 mb-7">
+        {/* Stats — credits tile (CreditPill) sits alongside the counters */}
+        <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 mb-7">
           {[
             { label: t('dashboard.streak'), value: streakInfo.current > 0 ? `${streakInfo.current}d` : '0d', icon: streakInfo.current > 0 ? 'flame' : null },
             { label: 'Goals', value: goals.length },
@@ -530,6 +520,7 @@ export default function DashboardPage() {
               <div className="text-caption text-muted mt-0.5">{s.label}</div>
             </div>
           ))}
+          <CreditPill />
         </div>
 
         {/* Streak & Weekly Activity */}
