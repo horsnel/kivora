@@ -487,23 +487,22 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-[#0a0a0a]">
       <InstallPrompt />
       <div className="max-w-5xl mx-auto px-4 py-10">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-8 animate-fade-up">
+        {/* Header — title left, Replay tour at the far opposite end */}
+        <div className="flex items-center justify-between gap-3 mb-8 animate-fade-up">
           <div>
             <h1 className="font-semibold text-headline tracking-tight">{t('dashboard.title')}</h1>
             <p className="text-muted text-caption">{user?.email}</p>
           </div>
-          <div className="flex items-center justify-start sm:justify-end">
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent('kivora:start-tour'))}
-              title={t('tour.replay')}
-              aria-label={t('tour.replay')}
-              className="flex items-center justify-center w-9 h-9 rounded-lg text-[#525252] hover:text-white hover:bg-[#141414] transition-colors"
-            >
-              <IconBulb size={16} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('kivora:start-tour'))}
+            title={t('tour.replay')}
+            aria-label={t('tour.replay')}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-[#525252] hover:text-white hover:bg-[#141414] transition-colors shrink-0"
+          >
+            <IconBulb size={14} />
+            {t('tour.replay')}
+          </button>
         </div>
 
         {/* Stats — credits tile (CreditPill) sits alongside the counters */}
