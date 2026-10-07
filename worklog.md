@@ -243,3 +243,28 @@ Stage Summary:
 - "Something went wrong" root-caused to empty provider replies; now retried once + honest fallback server-side AND client-side
 - Admin: TOTP live (secret ZXJCQ7H6ETWS3IV7SMJD2D23IFJVBWCF — user must add to authenticator)
 - DNS-side items (SPF/DKIM/DMARC p=quarantine/DNSSEC/CAA) remain user-dashboard actions
+
+---
+Task ID: chat-totp-2
+Agent: Main
+Task: Deploy verification + 7-page QA + explore guide crash fix
+
+Work Log:
+- Deployed b443146 (chat+admin+3d) — Actions success, prod verified (pro gates 402, TOTP challenge live, CSP intact, no fingerprint headers)
+- REAL-BROWSER QA (agent-browser, prod):
+  - /devtools: Code Explainer end-to-end PASS (real AI QuickSort walkthrough, usage 5/5→4/5)
+  - /reelpen: Lyrics Writer end-to-end PASS (Lagos sunset love song, usage 4/5)
+  - /study: Homework Helper end-to-end PASS (mitosis vs meiosis)
+  - /explore: index PASS; guide page CRASHED → root-caused
+  - /opportunities: renders PASS (12 cached guides, generate form)
+  - /chat + /research: anon → /auth redirect (design); logged-in chat UI verified via deployed bundle grep (upgrade popup, effort persistence, pro model ids, badges — all present)
+- EXPLORE CRASH ROOT CAUSE: AI schema drift — failure_reasons returned as [{reason:"..."}] instead of string[]; renderer emitted object as React child → error #31 → "Something went wrong" boundary
+- FIX: lib/exploreSchema.js (asText/asStringArray/asNumber/normalizeExploreResult); applied at API cache time (cecfbcb) AND render time (covers already-cached drifted guides); hardened opportunities checklist + CSV + metric renders
+- Verified: old drifted guide now renders fully; fresh generation returns normalized schema (failure_reasons all strings)
+- Chat generate_image retest: PASS (imageGenerated true, 62KB payload, fast-path reply)
+
+Stage Summary:
+- Commits b443146 + cecfbcb deployed; GitHub == prod
+- All 7 requested pages QA'd with real AI generation where quota allowed
+- Explore "Something went wrong" root-caused and fixed at both layers
+- Remaining for user: DNS/CF dashboard items (DMARC p=quarantine, SPF/DKIM, DNSSEC, CAA, CF Access), TOTP secret enrollment, secret rotation
