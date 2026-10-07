@@ -34,6 +34,8 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  // Don't advertise the framework/version (tech-stack disclosure finding)
+  poweredByHeader: false,
   images: {
     unoptimized: true, // Required for CF Pages
   },

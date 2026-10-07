@@ -213,14 +213,38 @@ function authenticate(request: Request, env: Env): boolean {
   return authHeader.replace('Bearer ', '') === env.KIVORA_API_KEY;
 }
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+// ── CORS: explicit origin allowlist (no wildcard) ────────────────
+// All real callers are server-side (app/api/sandbox proxies with the API
+// key) and ignore CORS. The allowlist only governs direct browser calls.
+const ALLOWED_ORIGIN_RE = new RegExp(
+  [
+    '^https://([a-z0-9-]+\\.)?kivora\\.pages\\.dev$', // prod + deploy previews
+    '^https://(www\\.)?kivora\\.app$', // custom domain
+    '^http://localhost:(\\d+)$', // local development
+  ].join('|')
+);
+
+function corsHeaders(request: Request): Record<string, string> {
+  const base: Record<string, string> = {
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+  const origin = request.headers.get('Origin') || '';
+  if (origin && ALLOWED_ORIGIN_RE.test(origin)) {
+    return {
+      ...base,
+      'Access-Control-Allow-Origin': origin,
+      Vary: 'Origin',
+    };
+  }
+  // No allowlisted Origin → no ACAO header → browsers block the read.
+  return base;
+}
 
 function jsonRes(data: unknown, status = 200): Response {
-  return Response.json(data, { status, headers: CORS_HEADERS });
+  // Fallback WITHOUT ACAO (fail-closed). The fetch handler shadows this
+  // with a request-scoped version that honors the origin allowlist.
+  return Response.json(data, { status });
 }
 
 function errRes(msg: string, status = 400): Response {
@@ -288,8 +312,15 @@ const LANG_NAMES: Record<number, string> = {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: CORS_HEADERS });
+      return new Response(null, { headers: corsHeaders(request) });
     }
+
+    // Request-scoped CORS + jsonRes shadow — every response below carries
+    // the origin-allowlisted headers (or none, for disallowed origins).
+    const CORS = corsHeaders(request);
+    const jsonRes = (data: unknown, status = 200): Response =>
+      Response.json(data, { status, headers: CORS });
+
     if (!authenticate(request, env)) return errRes('Unauthorized', 401);
 
     const url = new URL(request.url);
@@ -438,9 +469,9 @@ export default {
         });
 
         const doResponse = await stub.fetch(doRequest);
-        // Add CORS headers to DO response
+        // Add origin-allowlisted CORS headers to DO response
         const newHeaders = new Headers(doResponse.headers);
-        Object.entries(CORS_HEADERS).forEach(([k, v]) => newHeaders.set(k, v));
+        Object.entries(CORS).forEach(([k, v]) => newHeaders.set(k, v));
 
         return new Response(doResponse.body, {
           status: doResponse.status,

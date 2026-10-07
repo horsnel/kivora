@@ -67,6 +67,9 @@ jobs:
       - name: Build (next-on-pages)
         run: npx @cloudflare/next-on-pages@1
 
+      - name: Generate hash-based CSP for prerendered pages
+        run: node scripts/generate-csp.mjs
+
       - name: Deploy to Cloudflare Pages
         run: npx wrangler@3 pages deploy .vercel/output/static --project-name=kivora --branch=main --commit-dirty=true
         env:

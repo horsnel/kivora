@@ -14,14 +14,40 @@
 //   - Tech providers: GitHub repository search (free, rate-limited)
 // ══════════════════════════════════════════════════════════════════
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+// ── CORS: explicit origin allowlist (no wildcard) ────────────────
+// The worker is normally called server-side by the Kivora API routes
+// (server fetches ignore CORS entirely). Browser origins are allow-listed
+// so arbitrary websites can no longer make visitors' browsers burn our
+// LLM/search quotas (RedSentinel: "Overly permissive CORS").
+const ALLOWED_ORIGIN_RE = new RegExp(
+  [
+    '^https://([a-z0-9-]+\\.)?kivora\\.pages\\.dev$', // prod + deploy previews
+    '^https://(www\\.)?kivora\\.app$', // custom domain
+    '^http://localhost:(\\d+)$', // local development
+  ].join('|')
+);
+
+function corsHeaders(request) {
+  const base = {
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+  const origin = request.headers.get('Origin') || '';
+  if (origin && ALLOWED_ORIGIN_RE.test(origin)) {
+    return {
+      ...base,
+      'Access-Control-Allow-Origin': origin,
+      Vary: 'Origin',
+    };
+  }
+  // No allowlisted Origin → no ACAO header → browsers block the read.
+  return base;
+}
 
 function jsonRes(data, status = 200) {
-  return Response.json(data, { status, headers: CORS_HEADERS });
+  // Fallback WITHOUT ACAO (fail-closed). The fetch handler below shadows
+  // this with a request-scoped version that honors the origin allowlist.
+  return Response.json(data, { status });
 }
 
 // ── API Keys ──
@@ -2229,8 +2255,14 @@ FOLLOWUPS:
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: CORS_HEADERS });
+      return new Response(null, { headers: corsHeaders(request) });
     }
+
+    // Request-scoped CORS + jsonRes shadow — every response below carries
+    // the origin-allowlisted headers (or none, for disallowed origins).
+    const CORS = corsHeaders(request);
+    const jsonRes = (data, status = 200) =>
+      Response.json(data, { status, headers: CORS });
 
     const url = new URL(request.url);
 

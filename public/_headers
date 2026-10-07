@@ -1,12 +1,21 @@
 # ── Kivora security + caching headers ─────────────────────────────
 # Applied by Cloudflare Pages on every response.
 #
-# CSP notes (calibrated to real client usage — do not trim blindly):
-#   script-src  jsdelivr  → ArtifactViewer injects mermaid@10
-#   style/font-src googleapis/gstatic → layout preconnect + font stylesheet
-#   connect-src supabase  → browser-side auth + chat_sessions (RLS) + storage
-#   'unsafe-inline' on script/style → Next.js flight/bootstrap + Tailwind
-#   img-src https:        → research reports & community avatars (passive)
+# CSP is NOT set here anymore: it is minted per-request (nonce +
+# 'strict-dynamic') by middleware.js. A static CSP here would arrive as a
+# SECOND policy on HTML responses — browsers enforce every CSP header
+# simultaneously, so nonce'd scripts would have to satisfy both, and
+# scanners would still see the legacy 'unsafe-inline'. middleware.js is
+# the single source of truth for CSP (keep connect-src in sync there).
+#
+# This file still hardens the paths that bypass middleware (static
+# assets with a file extension): /favicon.svg, /images/*, /sw.js, etc.
+# NOTE: the line below overrides the platform-wide `access-control-allow-origin: *`
+# that the Cloudflare Pages asset layer adds to responses (RedSentinel CORS
+# finding). Nothing legitimately fetches our assets cross-origin with JS;
+# <img>/<link> embeds are not CORS-gated and keep working.
+# Verify after deploy: value must appear ONCE (if the platform appends
+# instead of replacing, remove this line again).
 /*
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
@@ -15,7 +24,11 @@
   Permissions-Policy: camera=(), microphone=(self), geolocation=(), payment=(), usb=(), interest-cohort=()
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: data: https:; connect-src 'self' https://asfzdbpfakwpiawhhrby.supabase.co wss://asfzdbpfakwpiawhhrby.supabase.co; frame-src 'self' blob: data:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+  Access-Control-Allow-Origin: https://kivora.pages.dev
+
+# Admin panel — never indexed (belt & suspenders; middleware also sets it)
+/admin*
+  X-Robots-Tag: noindex, nofollow
 
 # Immutable hashed assets
 /_next/static/*

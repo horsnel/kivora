@@ -60,13 +60,8 @@ export const metadata = {
     apple: '/apple-touch-icon.png',
   },
   manifest: '/manifest.webmanifest',
-  // Preconnect hints moved here from manual <head> to avoid hydration
-  // mismatches under Next.js 15 + React 19 (manual <head> children
-  // conflict with Next.js's managed <head>).
-  other: {
-    'preconnect:fonts-google': 'https://fonts.googleapis.com',
-    'preconnect:fonts-gstatic': 'https://fonts.gstatic.com',
-  },
+  // NOTE: no external font preconnects — fonts are self-hosted via
+  // next/font (Inter + JetBrains Mono), so no Google Fonts requests exist.
 }
 
 // Viewport / theme-color — exported separately per Next.js 15 convention
@@ -118,50 +113,16 @@ export default async function RootLayout({ children }) {
             <TourGuide />
           </LanguageProvider>
         </ProvidersErrorBoundary>
-        {/* Service worker registration — using next/script (strategy=afterInteractive)
-            to avoid inline dangerouslySetInnerHTML hydration mismatches under React 19. */}
-        <Script id="sw-register" strategy="afterInteractive">{`
-          if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-              navigator.serviceWorker.register('/sw.js').catch(function() {});
-            });
-          }
-        `}</Script>
-        {/* Transient error #300 suppressor for @cloudflare/next-on-pages + React 19.
-            The deprecated adapter sometimes produces raw RSC objects during client-side
-            navigation that React can't render. This patches console.error to downgrade
-            the known transient #300 errors from error to debug level, reducing noise
-            while the ProvidersErrorBoundary auto-retries and recovers. */}
-        <Script id="suppress-transient-300" strategy="afterInteractive">{`
-          (function() {
-            var origError = console.error;
-            var suppressUntil = 0;
-            var navStart = Date.now();
-
-            // Track navigation timing
-            var origPushState = history.pushState;
-            var origReplaceState = history.replaceState;
-            history.pushState = function() { navStart = Date.now(); return origPushState.apply(this, arguments); };
-            history.replaceState = function() { navStart = Date.now(); return origReplaceState.apply(this, arguments); };
-
-            // Also track popstate (back/forward)
-            window.addEventListener('popstate', function() { navStart = Date.now(); });
-
-            console.error = function() {
-              var msg = Array.prototype.slice.call(arguments).join(' ');
-              var isTransient300 = msg.indexOf('Objects are not valid as a React child') !== -1
-                || msg.indexOf('#300') !== -1;
-              var isDuringNav = (Date.now() - navStart) < 3000;
-
-              if (isTransient300 && isDuringNav) {
-                // Downgrade to debug during navigation — the error boundary handles recovery
-                if (console.debug) console.debug('[suppressed transient #300]', msg);
-                return;
-              }
-              return origError.apply(console, arguments);
-            };
-          })();
-        `}</Script>
+        {/* Service worker registration — external /sw-register.js (next/script,
+            strategy=afterInteractive). Kept as an external file so the
+            hash-based CSP on prerendered pages can allow it via script-src 'self'
+            (runtime-injected INLINE scripts would be blocked without a nonce). */}
+        <Script id="sw-register" src="/sw-register.js" strategy="afterInteractive" />
+        {/* Transient error #300 suppressor — external /suppress-300.js (same CSP
+            rationale as above). Patches console.error to downgrade the known
+            transient #300 errors during client-side navigation. */}
+        <Script id="suppress-transient-300" src="/suppress-300.js" strategy="afterInteractive" />
+        {/* (transient #300 suppressor moved to /suppress-300.js — see above) */}
       </body>
     </html>
   )
