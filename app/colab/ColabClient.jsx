@@ -1,5 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { authFetch } from '@/lib/authFetch'
+import UpgradeCard from '@/components/UpgradeCard'
 import {
   IconCode, IconPlay, IconClose, IconDownload, IconPlus, IconSpinner,
   IconCheck, IconFile, IconFolder, IconWarning, IconChevronDown,
@@ -180,6 +182,7 @@ export default function ColabClient() {
   const [toasts, setToasts] = useState([])
   const [fileDialog, setFileDialog] = useState(null) // { type: 'upload'|'download', sessionName: string }
   const [filePath, setFilePath] = useState('')
+  const [gate, setGate] = useState(null) // 403 plan-gate payload → UpgradeCard
 
   const textareaRef = useRef(null)
   const accelDropdownRef = useRef(null)
@@ -240,13 +243,19 @@ export default function ColabClient() {
   }
 
   // ── API helper ─────────────────────────────────────────────────────
+  // authFetch attaches the Supabase token so the server can verify the
+  // plan for Pro/Max-tier accelerators (L4/G4/TPU → Pro, A100/H100 → Max).
   async function colabApi(body) {
-    const res = await fetch('/api/colab', {
+    const res = await authFetch('/api/colab', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...body, accessToken }),
     })
-    return res.json()
+    const data = await res.json()
+    if (data.reason === 'upgrade_required' || data.reason === 'sign_in_required') {
+      setGate(data)
+    }
+    return data
   }
 
   // ── Auth flow ──────────────────────────────────────────────────────
@@ -699,6 +708,13 @@ export default function ColabClient() {
 
       {/* ── Main Content ─────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0">
+
+        {/* Plan-gate notice — shown when a Pro/Max-tier accelerator is rejected */}
+        {gate && (
+          <div className="px-6 pt-4 shrink-0">
+            <UpgradeCard gate={gate} onDismiss={() => setGate(null)} />
+          </div>
+        )}
 
         {/* ── Top Bar ────────────────────────────────────────────────── */}
         <header className="border-b border-[#141414] px-4 py-2.5 shrink-0 flex items-center gap-3">

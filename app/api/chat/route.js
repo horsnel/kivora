@@ -311,17 +311,18 @@ async function processChat(req, body, send) {
           : Math.floor(Math.random() * greetings.length)
         const reply = greetings[idx]
 
-        // Save session so the greeting shows up in history
-        if (userId && sessionId) {
+        // Save session so the greeting shows up in history.
+        // Identity comes from the verified JWT (chatUser), never the body.
+        if (chatUser?.id && sessionId) {
           try {
             const { data: session } = await admin
               .from('chat_sessions')
               .select('messages')
               .eq('id', sessionId)
-              .eq('user_id', userId)
+              .eq('user_id', chatUser.id)
               .single()
             await admin.from('chat_sessions').upsert({
-              id: sessionId, user_id: userId,
+              id: sessionId, user_id: chatUser.id,
               messages: [...(session?.messages || []), lastUserMsg, { role: 'assistant', content: reply }],
               updated_at: new Date().toISOString()
             }, { onConflict: 'id' })
@@ -594,19 +595,28 @@ async function processChat(req, body, send) {
         artifacts = extractArtifacts(reply)
       }
 
-      // Save session
-      if (userId && sessionId) {
+      // Save session. Identity comes from the verified JWT (chatUser),
+      // never the client-supplied body userId.
+      if (chatUser?.id && sessionId) {
         try {
           const { data: session } = await admin
             .from('chat_sessions')
             .select('messages')
             .eq('id', sessionId)
-            .eq('user_id', userId)
+            .eq('user_id', chatUser.id)
             .single()
 
-          const storedUserMsg = { ...messages.slice(-1)[0] }
+          // Mirror the normal path: store a filename-only image reference,
+          // not megabytes of base64, so history stays cheap to load.
+          let storedUserMsg = { ...messages.slice(-1)[0] }
+          if (hasImage) {
+            const imageFileName = lastUserMsg.content.match(/^\[Image: (.+?)\]/)?.[1] || 'image'
+            const textOnly = lastUserMsg.content.replace(/^\[Image: .+?\]\ndata:image\/[^;]+;base64,[\s\S]+$/, '').trim()
+            storedUserMsg = { role: 'user', content: `[Image: ${imageFileName}]${textOnly ? '\n' + textOnly : ''}` }
+          }
+
           await admin.from('chat_sessions').upsert({
-            id: sessionId, user_id: userId,
+            id: sessionId, user_id: chatUser.id,
             messages: [...(session?.messages || []), storedUserMsg, { role: 'assistant', content: reply }],
             updated_at: new Date().toISOString()
           }, { onConflict: 'id' })
@@ -711,14 +721,15 @@ async function processChat(req, body, send) {
     const reply = message.content
     const artifacts = extractArtifacts(reply)
 
-    // Save session
-    if (userId && sessionId) {
+    // Save session. Identity comes from the verified JWT (chatUser),
+    // never the client-supplied body userId.
+    if (chatUser?.id && sessionId) {
       try {
         const { data: session } = await admin
           .from('chat_sessions')
           .select('messages')
           .eq('id', sessionId)
-          .eq('user_id', userId)
+          .eq('user_id', chatUser.id)
           .single()
 
         let storedUserMsg = { ...messages.slice(-1)[0] }
@@ -729,7 +740,7 @@ async function processChat(req, body, send) {
         }
 
         await admin.from('chat_sessions').upsert({
-          id: sessionId, user_id: userId,
+          id: sessionId, user_id: chatUser.id,
           messages: [...(session?.messages || []), storedUserMsg, { role: 'assistant', content: reply }],
           updated_at: new Date().toISOString()
         }, { onConflict: 'id' })

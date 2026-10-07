@@ -4,7 +4,7 @@ import { mistralChat, mistralChatStream, MistralError, setMistralApiKeys } from 
 import { sseResponse } from '@/lib/sse'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit, getClientIP } from '@/lib/ratelimit'
-import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
+import { requireCredits, requireFeatureAccess, refundCredits, CREDIT_COSTS } from '@/lib/credits'
 import { resolveUserAndAdmin } from '@/lib/authUser'
 
 const PROMPTS = {
@@ -586,8 +586,13 @@ export async function POST(req) {
       return Response.json({ error: `Unknown tool: ${tool}` }, { status: 400 })
     }
 
-    // ── Charge 3 credits for DevTools ──
+    // ── Plan gate + credits: DevTools AI tools are Pro-only ──
+    // The plan gate applies to EVERYONE (anonymous included) — otherwise the
+    // Pro paywall could be bypassed by simply not signing in. Credits are
+    // then charged for signed-in users.
     const { user: devUser, admin: chargerAdmin } = await resolveUserAndAdmin(req)
+    const planGate = await requireFeatureAccess(chargerAdmin, devUser, 'deepResearch')
+    if (planGate) return planGate.response
     if (chargerAdmin && devUser?.id) {
       const creditCheck = await requireCredits(req, chargerAdmin, devUser, 'devtools', {
         description: `DevTools: ${tool}`,

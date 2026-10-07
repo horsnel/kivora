@@ -4,7 +4,7 @@ import { rateLimit, getClientIP } from '@/lib/ratelimit'
 import { getEnvVar } from '@/lib/cfEnv'
 import { getSupabaseAdmin } from '@/lib/supabase'
 import { createClient } from '@supabase/supabase-js'
-import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
+import { requireCredits, requireFeatureAccess, refundCredits, CREDIT_COSTS } from '@/lib/credits'
 
 // Kivora Research Worker endpoint (Cloudflare Worker)
 const RESEARCH_WORKER_URL = 'https://kivora-research.odehebuka48.workers.dev/research'
@@ -196,17 +196,32 @@ export async function POST(req) {
       } catch { /* anonymous */ }
     }
 
-    // ── Charge credits BEFORE doing the work ─────────────────────
-    // Deep mode requires Pro+ plan (feature gate). Image Intelligence (deep+image)
-    // requires Max+ plan.
+    // ── Plan gates BEFORE any work — enforced for EVERYONE ─────────
+    // Deep mode requires Pro+ ('deepResearch'). Image Intelligence
+    // (deep + image file) requires Max+ ('imageOsint'). Anonymous requests
+    // are gated too — otherwise the paywall is bypassable by not signing in.
     action = mode === 'deep' ? 'research_deep' : 'research_quick'
-    const featureGate = mode === 'deep' ? 'deepResearch' : null
     adminCharger = (supaUrl && serviceKey) ? createClient(supaUrl, serviceKey) : null
+
+    const gateFiles = Array.isArray(attachedFiles) && attachedFiles.length > 0
+      ? attachedFiles
+      : (attachedFile ? [attachedFile] : [])
+    const gateHasImage = gateFiles.some(f =>
+      f?.type?.startsWith('image/') ||
+      /\.(png|jpe?g|gif|webp)$/i.test(f?.name || '')
+    )
+    if (mode === 'deep' && gateHasImage) {
+      const imageGate = await requireFeatureAccess(adminCharger, user, 'imageOsint')
+      if (imageGate) return imageGate.response
+    }
+    if (mode === 'deep') {
+      const deepGate = await requireFeatureAccess(adminCharger, user, 'deepResearch')
+      if (deepGate) return deepGate.response
+    }
 
     if (adminCharger && user?.id) {
       const creditCheck = await requireCredits(req, adminCharger, user, action, {
         cost: CREDIT_COSTS[action],
-        feature: featureGate,
         description: `Research (${mode}): ${trimmedQuery.slice(0, 80)}`,
         metadata: { mode, apex_model, has_file: hasAnyFile },
       })

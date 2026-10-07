@@ -1,6 +1,8 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { authFetch } from '@/lib/authFetch'
+import UpgradeCard from '@/components/UpgradeCard'
 
 // ── Constants ──
 const STORAGE_KEY = 'kivora-research-history'
@@ -202,6 +204,7 @@ export default function ResearchClient() {
   const [newFolderName, setNewFolderName] = useState('')
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [error, setError] = useState('')
+  const [gate, setGate] = useState(null) // 403 plan-gate payload → UpgradeCard
   const [isResearching, setIsResearching] = useState(false)
   const [reportDisplay, setReportDisplay] = useState('') // for streaming effect
   const [sourcesVisible, setSourcesVisible] = useState(0) // for stagger animation
@@ -330,7 +333,7 @@ export default function ResearchClient() {
         requestBody.attachedFile = fileAttachment
       }
 
-      const res = await fetch('/api/research', {
+      const res = await authFetch('/api/research', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
@@ -343,6 +346,15 @@ export default function ResearchClient() {
       const data = await res.json()
 
       clearInterval(progressInterval)
+
+      // Plan gate — deep research requires Pro (server returns 403 + reason)
+      if (data.reason === 'upgrade_required' || data.reason === 'sign_in_required') {
+        setGate(data)
+        setError('')
+        setIsResearching(false)
+        setActiveResearch(null)
+        return
+      }
 
       if (data.error) {
         setError(data.error)
@@ -1447,6 +1459,14 @@ export default function ResearchClient() {
   // ── Main Render ──
   return (
     <div className="h-dvh flex bg-[#0a0a0a] text-white overflow-hidden">
+      {/* Plan gate — deep research requires Pro (or sign-in) */}
+      {gate && (
+        <div className="fixed inset-0 z-[95] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md">
+            <UpgradeCard gate={gate} onDismiss={() => setGate(null)} />
+          </div>
+        </div>
+      )}
       {renderSidebar()}
 
       {/* Main content area */}

@@ -2,6 +2,8 @@ export const runtime = 'edge'
 
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit, getClientIP } from '@/lib/ratelimit'
+import { resolveUserAndAdmin } from '@/lib/authUser'
+import { requireFeatureAccess } from '@/lib/credits'
 import { createClient } from '@supabase/supabase-js'
 import {
   setColabAccessToken,
@@ -25,6 +27,18 @@ import {
 // ── Colab API Route ──
 // Handles all Colab CLI operations from the frontend
 // Actions: auth-url, status, new, exec, run, stop, sessions, install, ls, download, upload, drivemount, accelerators
+
+// Accelerator → plan tier. Mirrors lib/colab.js getAcceleratorOptions():
+//   free    — CPU, T4
+//   pro     — L4, G4, all TPUs  → requires the Pro plan ('deepResearch')
+//   premium — A100, H100        → requires the Max plan ('priorityCompute')
+function acceleratorTier(gpu, tpu) {
+  if (tpu) return 'pro'
+  const g = (gpu || '').toString().toLowerCase()
+  if (!g || g === 'cpu' || g === 't4') return 'free'
+  if (g === 'l4' || g === 'g4') return 'pro'
+  return 'premium'
+}
 
 export async function POST(req) {
   const ip = getClientIP(req)
@@ -74,6 +88,20 @@ export async function POST(req) {
         error: 'Google account not connected. Connect your Google account to use Colab GPU/TPU.',
         needsAuth: true,
       }, { status: 401 })
+    }
+
+    // ── Plan gate on accelerator tier (session creation / one-shot runs) ──
+    // Pro-tier accelerators (L4, G4, TPUs) require the Pro plan; premium-tier
+    // (A100, H100) require Max. Free tier (CPU, T4) is open to everyone.
+    // The gate applies to EVERYONE — anonymous included.
+    if (action === 'new' || action === 'run') {
+      const tier = acceleratorTier(gpu, tpu)
+      const feature = tier === 'pro' ? 'deepResearch' : tier === 'premium' ? 'priorityCompute' : null
+      if (feature) {
+        const { user: colabUser, admin: colabAdmin } = await resolveUserAndAdmin(req)
+        const planGate = await requireFeatureAccess(colabAdmin, colabUser, feature)
+        if (planGate) return planGate.response
+      }
     }
 
     // ── Route to appropriate handler ──

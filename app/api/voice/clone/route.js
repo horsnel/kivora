@@ -2,6 +2,8 @@ export const runtime = 'edge'
 
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit, getClientIP } from '@/lib/ratelimit'
+import { resolveUserAndAdmin } from '@/lib/authUser'
+import { requireFeatureAccess } from '@/lib/credits'
 
 // ── Voice Server Fetch Helper ──
 async function voiceFetch(path, options = {}) {
@@ -18,6 +20,15 @@ export async function POST(req) {
   const ip = getClientIP(req)
   if (!rateLimit(ip, 4).ok) {
     return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
+  }
+
+  // ── Plan gate: Voice features are Max-only. Enforced for EVERYONE ──
+  // (anonymous included) — the Max paywall must not be bypassable by
+  // simply calling the API without signing in.
+  {
+    const { user: voiceUser, admin: voiceAdmin } = await resolveUserAndAdmin(req)
+    const planGate = await requireFeatureAccess(voiceAdmin, voiceUser, 'voice')
+    if (planGate) return planGate.response
   }
 
   try {

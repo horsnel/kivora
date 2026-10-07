@@ -4,7 +4,7 @@ import { mistralChat, mistralChatStream, MistralError, setMistralApiKeys } from 
 import { sseResponse } from '@/lib/sse'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit, getClientIP } from '@/lib/ratelimit'
-import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
+import { requireCredits, requireFeatureAccess, refundCredits, CREDIT_COSTS } from '@/lib/credits'
 import { resolveUserAndAdmin } from '@/lib/authUser'
 
 const PROMPTS = {
@@ -693,8 +693,13 @@ export async function POST(req) {
       return Response.json({ error: 'Invalid tool' }, { status: 400 })
     }
 
-    // ── Charge 4 credits for ReelPen ──
+    // ── Plan gate + credits: ReelPen AI tools are Pro-only ──
+    // The plan gate applies to EVERYONE (anonymous included) — otherwise the
+    // Pro paywall could be bypassed by simply not signing in. Credits are
+    // then charged for signed-in users.
     const { user: reelUser, admin: chargerAdmin } = await resolveUserAndAdmin(req)
+    const planGate = await requireFeatureAccess(chargerAdmin, reelUser, 'deepResearch')
+    if (planGate) return planGate.response
     if (chargerAdmin && reelUser?.id) {
       const creditCheck = await requireCredits(req, chargerAdmin, reelUser, 'reelpen', {
         description: `ReelPen: ${tool}`,

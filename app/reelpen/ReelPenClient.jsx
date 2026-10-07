@@ -8,6 +8,8 @@ import ThinkingState, { STAGE_CONFIGS } from '@/components/ThinkingState'
 import Select from '@/components/Select'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
+import { authFetch } from '@/lib/authFetch'
+import UpgradeCard from '@/components/UpgradeCard'
 
 /* ─── Icon Components ─────────────────────────────────────────── */
 
@@ -301,6 +303,7 @@ export default function ReelPenClient() {
   const [activeCat, setActiveCat] = useState('music')
   const [active, setActive] = useState('lyrics_writer')
   const [result, setResult] = useState('')
+  const [gate, setGate] = useState(null) // 403 plan-gate payload → UpgradeCard
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [validationError, setValidationError] = useState('')
@@ -387,11 +390,11 @@ export default function ReelPenClient() {
   async function run() {
     if (!validate()) return
     if (sessionRef.current) { endSession(sessionRef.current); sessionRef.current = null }
-    setLoading(true); setResult('')
+    setLoading(true); setResult(''); setGate(null)
     const inputSummary = form.lyricsTheme || form.artistName || form.epkArtistName || form.pressTitle || form.marketingAudience || form.socialInfo || form.beatVibe || form.sceneDesc || form.charName || form.plotPremise || form.pitchLogline || form.synopsisOutline || form.dialogueRaw || form.reviewText || form.castingCharacter || form.contractText || form.royaltyPlays || form.budgetNotes || form.distMarket || form.merchProject || null
     sessionRef.current = await startSession(`reelpen_${active}`, activeCat, inputSummary)
     try {
-      const res = await fetch('/api/reelpen', {
+      const res = await authFetch('/api/reelpen', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tool: active, payload: form, stream: true })
@@ -412,10 +415,18 @@ export default function ReelPenClient() {
           }
         })
         const data = finalEvent || {}
-        setResult(data.error || data.result || (data.error ? '' : acc) || t('common.error.general'))
+        if (data.reason === 'upgrade_required' || data.reason === 'sign_in_required') {
+          setGate(data); setResult('')
+        } else {
+          setResult(data.error || data.result || (data.error ? '' : acc) || t('common.error.general'))
+        }
       } else {
         const data = await res.json()
-        setResult(data.result || data.error || t('common.error.general'))
+        if (!res.ok && (data.reason === 'upgrade_required' || data.reason === 'sign_in_required')) {
+          setGate(data); setResult('')
+        } else {
+          setResult(data.result || data.error || t('common.error.general'))
+        }
       }
     } catch { setResult(t('common.error.network')) }
     setLoading(false)
@@ -432,6 +443,7 @@ export default function ReelPenClient() {
     setActive(toolId)
     setActiveCat(catId)
     setResult('')
+    setGate(null)
     setValidationError('')
     if (toolId === 'bpm_tapper') { setTapTimes([]); setBpmResult(null) }
   }
@@ -963,6 +975,8 @@ export default function ReelPenClient() {
                   <p className="text-muted2 text-sm text-center">Start tapping to detect the tempo</p>
                 )}
               </div>
+            ) : gate ? (
+              <UpgradeCard gate={gate} onDismiss={() => setGate(null)} />
             ) : result ? (
               <MarkdownRenderer content={result} className="flex-1 overflow-auto overscroll-behavior-contain" />
             ) : (

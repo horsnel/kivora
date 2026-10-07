@@ -11,6 +11,8 @@ import { useSessionTracker } from '@/lib/useSessionTracker'
 import { streamSSE } from '@/lib/sseClient'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
+import { authFetch } from '@/lib/authFetch'
+import UpgradeCard from '@/components/UpgradeCard'
 
 // ── Inline SVG icons for tools not in the main library ────────────────
 function Ico({ path, size = 16, className = '' }) {
@@ -114,6 +116,7 @@ export default function DevToolsClient() {
   const [activeCat, setActiveCat]   = useState('code')
   const [active, setActive]         = useState('code_explainer')
   const [result, setResult]         = useState('')
+  const [gate, setGate]             = useState(null) // 403 plan-gate payload → UpgradeCard
   const [loading, setLoading]       = useState(false)
   const [thinkingConfig, setThinkingConfig] = useState('devtools')
   const [copied, setCopied]         = useState(false)
@@ -282,7 +285,7 @@ export default function DevToolsClient() {
     if (!validate()) return
     // End previous session if exists
     if (sessionRef.current) { endSession(sessionRef.current); sessionRef.current = null }
-    setLoading(true); setResult(''); setDiffResult(null); setApiTestResult(null)
+    setLoading(true); setResult(''); setGate(null); setDiffResult(null); setApiTestResult(null)
     // Select thinking config based on category
     const catConfig = { code: 'devtoolsCode', data: 'devtoolsData', content: 'devtoolsContent', business: 'devtoolsContent', education: 'devtoolsCode' }
     setThinkingConfig(catConfig[activeCat] || 'devtools')
@@ -332,9 +335,9 @@ export default function DevToolsClient() {
       return
     }
 
-    // ── Server-side: AI tools ──────────────────────────────────
+    // ── Server-side: AI tools (Pro plan gate enforced server-side) ──
     try {
-      const res = await fetch('/api/devtools', {
+      const res = await authFetch('/api/devtools', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tool: active, payload: form, stream: true })
@@ -355,10 +358,18 @@ export default function DevToolsClient() {
           }
         })
         const data = finalEvent || {}
-        setResult(data.error || data.result || (data.error ? '' : acc) || t('common.error.general'))
+        if (data.reason === 'upgrade_required' || data.reason === 'sign_in_required') {
+          setGate(data); setResult('')
+        } else {
+          setResult(data.error || data.result || (data.error ? '' : acc) || t('common.error.general'))
+        }
       } else {
         const data = await res.json()
-        setResult(data.result || data.error || t('common.error.general'))
+        if (!res.ok && (data.reason === 'upgrade_required' || data.reason === 'sign_in_required')) {
+          setGate(data); setResult('')
+        } else {
+          setResult(data.result || data.error || t('common.error.general'))
+        }
       }
     } catch { setResult(t('common.error.network')) }
     setLoading(false)
@@ -375,6 +386,7 @@ export default function DevToolsClient() {
     setActive(toolId)
     setActiveCat(catId)
     setResult('')
+    setGate(null)
     setDiffResult(null)
     setApiTestResult(null)
     setValidationError('')
@@ -951,7 +963,9 @@ export default function DevToolsClient() {
               )}
             </div>
 
-            {result
+            {gate
+              ? <UpgradeCard gate={gate} onDismiss={() => setGate(null)} />
+              : result
               ? <MarkdownRenderer content={result} className="flex-1 overflow-auto overscroll-behavior-contain" />
               : diffResult
               ? (

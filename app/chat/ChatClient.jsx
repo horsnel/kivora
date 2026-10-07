@@ -276,13 +276,27 @@ export default function ChatClient() {
 
   async function loadHistory(userId) {
     try {
-      const { data } = await supabasePublic
-        .from('chat_sessions')
-        .select('id, messages, updated_at')
-        .eq('user_id', userId)
-        .order('updated_at', { ascending: false })
-        .limit(30)
-      if (data) setChatHistory(data)
+      // Paginate through ALL sessions — the old hard `.limit(30)` silently
+      // dropped every conversation past the 30 most recent, which read as
+      // "history is missing most of my chats".
+      const PAGE = 100
+      const MAX_SESSIONS = 300
+      let all = []
+      let anyPageOk = false
+      while (all.length < MAX_SESSIONS) {
+        const { data, error } = await supabasePublic
+          .from('chat_sessions')
+          .select('id, messages, updated_at')
+          .eq('user_id', userId)
+          .order('updated_at', { ascending: false })
+          .range(all.length, all.length + PAGE - 1)
+        if (error) break
+        anyPageOk = true
+        if (!data || data.length === 0) break
+        all = all.concat(data)
+        if (data.length < PAGE) break
+      }
+      if (anyPageOk) setChatHistory(all)
     } catch {}
   }
 
@@ -599,7 +613,15 @@ export default function ChatClient() {
 
     // Lazy-generate session ID on first send (avoids hydration mismatch
     // from generating it during render).
-    if (!sessionId) setSessionId(crypto.randomUUID())
+    // NOTE: read the id into a local — `setSessionId` alone would leave the
+    // closure's `sessionId` still '' for THIS fetch, so the very first
+    // message of every new conversation arrived at the API with
+    // sessionId:'' and was silently never saved to history.
+    let sid = sessionId
+    if (!sid) {
+      sid = crypto.randomUUID()
+      setSessionId(sid)
+    }
 
     // Build the message content with file attachment if present
     let messageContent = q
@@ -660,7 +682,7 @@ export default function ChatClient() {
         signal: controller.signal,
         body: JSON.stringify({
           messages: newMessages,
-          sessionId,
+          sessionId: sid,
           userId: user?.id || null,
           model: wasImage ? undefined : model, // Vision model is auto-selected by API
           systemPrompt: customSystemPrompt || undefined,
