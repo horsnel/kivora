@@ -1,6 +1,7 @@
 'use client'
 
 import { Component } from 'react'
+import { ExhaustedFallback, RETRY_LADDER_MS } from './BoundaryRecovery'
 
 /**
  * ProvidersErrorBoundary — wraps the context providers (CurrencyProvider,
@@ -13,16 +14,17 @@ import { Component } from 'react'
  * so users never see an error flash — the page just takes a moment to appear.
  *
  * Key design decisions:
- * - During retry, renders `null` (invisible) instead of error UI
- * - Uses more retries with shorter delays since error is very transient
- * - Only shows error UI after all retries exhausted
- * - Wraps children in a div with the correct background to prevent flash
+ * - During retry, renders an invisible shell instead of error UI (no flash)
+ * - Retries through a patient ladder (components/BoundaryRecovery.jsx) that
+ *   outlasts slow RSC-hydration windows during navigation
+ * - After all retries: ONE timestamp-guarded full reload (a fresh document
+ *   load reliably clears the race); only if that is blocked within a minute
+ *   does the manual "Refresh page" card appear
  */
 export default class ProvidersErrorBoundary extends Component {
   constructor(props) {
     super(props)
     this.state = { hasError: false, error: null, retryCount: 0 }
-    this.maxRetries = 5
     this.retryTimer = null
   }
 
@@ -49,12 +51,11 @@ export default class ProvidersErrorBoundary extends Component {
       })
     }
 
-    // Auto-retry — for transient #300 errors, use very short delays
-    if (this.state.retryCount < this.maxRetries) {
+    // Auto-retry through the shared ladder — fast ticks catch the common
+    // #300 blip, the long tail outlasts a slow RSC-hydration window
+    if (this.state.retryCount < RETRY_LADDER_MS.length) {
       if (this.retryTimer) clearTimeout(this.retryTimer)
-      const delay = isTransient300
-        ? 50 * (this.state.retryCount + 1)  // 50ms, 100ms, 150ms, 200ms, 250ms for #300
-        : 150 * (this.state.retryCount + 1)  // 150ms, 300ms, ... for other errors
+      const delay = RETRY_LADDER_MS[this.state.retryCount]
       this.retryTimer = setTimeout(() => {
         this.retryTimer = null
         this.setState(prev => ({ hasError: false, error: null, retryCount: prev.retryCount + 1 }))
@@ -64,49 +65,54 @@ export default class ProvidersErrorBoundary extends Component {
 
   render() {
     if (this.state.hasError) {
-      if (this.state.retryCount < this.maxRetries) {
-        // During retry: render INVISIBLE placeholder with matching background
-        // This prevents any visual flash — the page just appears after retry
-        return (
-          <div style={{
-            minHeight: '100vh',
-            background: '#0a0a0a',
-            color: 'transparent',
-          }} />
-        )
-      }
-      // After all retries exhausted: show error UI
-      return (
+      const waiting = (
         <div style={{
           minHeight: '100vh',
           background: '#0a0a0a',
-          color: '#fafafa',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '1rem',
-        }}>
-          <div style={{ textAlign: 'center', maxWidth: '24rem' }}>
-            <p style={{ color: '#737373', fontSize: '0.875rem', marginBottom: '1rem' }}>
-              Something went wrong. Please try refreshing the page.
-            </p>
-            <button
-              onClick={() => window.location.reload()}
-              style={{
-                background: '#dc2626',
-                color: 'white',
-                border: 'none',
-                padding: '0.5rem 1rem',
-                borderRadius: '0.5rem',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Refresh page
-            </button>
+          color: 'transparent',
+        }} />
+      )
+      if (this.state.retryCount < RETRY_LADDER_MS.length) {
+        // During retry: render INVISIBLE placeholder with matching background
+        // This prevents any visual flash — the page just appears after retry
+        return waiting
+      }
+      // After all retries exhausted: one timestamp-guarded auto-reload (a
+      // fresh document load reliably clears the failed-hydration race), and
+      // only if that is blocked (repeat within a minute) the manual card
+      return (
+        <ExhaustedFallback waiting={waiting}>
+          <div style={{
+            minHeight: '100vh',
+            background: '#0a0a0a',
+            color: '#fafafa',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+          }}>
+            <div style={{ textAlign: 'center', maxWidth: '24rem' }}>
+              <p style={{ color: '#737373', fontSize: '0.875rem', marginBottom: '1rem' }}>
+                Something went wrong. Please try refreshing the page.
+              </p>
+              <button
+                onClick={() => window.location.reload()}
+                style={{
+                  background: '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '0.5rem',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Refresh page
+              </button>
+            </div>
           </div>
-        </div>
+        </ExhaustedFallback>
       )
     }
     return this.props.children

@@ -3,10 +3,11 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabasePublic } from '@/lib/supabase'
 import { authFetch } from '@/lib/authFetch'
-import { IconBookmark, IconChat, IconTrash, IconArrowRight, IconUser, IconMail, IconClock, IconCode, IconBook, IconFlame, IconTarget, IconPlus, IconClose, IconCheck, IconSearch, IconStar, IconMoney, IconLightning, IconGlobe } from '@/components/Icons'
+import { IconBookmark, IconChat, IconTrash, IconArrowRight, IconMail, IconClock, IconCode, IconBook, IconFlame, IconTarget, IconPlus, IconClose, IconCheck, IconSearch, IconStar, IconMoney, IconLightning, IconGlobe, IconBulb } from '@/components/Icons'
 import { useTranslation } from '@/components/LanguageProvider'
 import CreditPill from '@/components/CreditPill'
 import InstallPrompt from '@/components/InstallPrompt'
+import UserAvatar from '@/components/UserAvatar'
 
 function IconActivity({ size = 16, className = '' }) {
   return (
@@ -493,10 +494,24 @@ export default function DashboardPage() {
             <h1 className="font-semibold text-headline tracking-tight">{t('dashboard.title')}</h1>
             <p className="text-muted text-caption">{user?.email}</p>
           </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="w-full sm:w-44"><CreditPill compact /></div>
-            <button onClick={() => router.push('/profile')} className="flex items-center gap-1.5 text-xs font-medium text-[#525252] hover:text-white px-3 py-2 rounded-lg hover:bg-[#141414] transition-colors">
-              <IconUser size={14} /> {t('dashboard.profile')}
+          <div className="flex items-center gap-1 flex-wrap justify-start sm:justify-end">
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('kivora:start-tour'))}
+              title={t('tour.replay')}
+              aria-label={t('tour.replay')}
+              className="flex items-center justify-center w-9 h-9 rounded-lg text-[#525252] hover:text-white hover:bg-[#141414] transition-colors"
+            >
+              <IconBulb size={16} />
+            </button>
+            <CreditPill icon />
+            <button
+              onClick={() => router.push('/profile')}
+              title={t('dashboard.profile')}
+              aria-label={t('dashboard.profile')}
+              className="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-[#141414] transition-colors"
+            >
+              <UserAvatar user={user} size={24} />
             </button>
           </div>
         </div>

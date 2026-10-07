@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { Component } from 'react'
+import { ExhaustedFallback, RETRY_LADDER_MS } from '@/components/BoundaryRecovery'
 
 // Full-viewport pages that manage their own scrolling — need h-full + overflow-hidden
 // on the wrapper so child <main className="h-full"> is locked to the viewport height
@@ -22,14 +23,15 @@ const FULL_VIEWPORT = ['/chat', '/research']
  * pathname changes, which keeps the boundary active at all times.
  *
  * Auto-retry: Known issue with React 19 + @cloudflare/next-on-pages (deprecated)
- * causes transient error #300 during RSC hydration. Auto-retry with INVISIBLE
- * fallback so users never see an error flash.
+ * causes transient error #300 during RSC hydration. Auto-retry through a
+ * patient ladder with INVISIBLE fallback so users never see an error flash;
+ * if every retry fails, one timestamp-guarded full reload runs automatically
+ * (see components/BoundaryRecovery.jsx) before any manual UI appears.
  */
 class PageErrorBoundary extends Component {
   constructor(props) {
     super(props)
     this.state = { hasError: false, error: null, retryCount: 0 }
-    this.maxRetries = 5
     this.retryTimer = null
   }
 
@@ -57,12 +59,11 @@ class PageErrorBoundary extends Component {
       })
     }
 
-    // Auto-retry with shorter delays for transient #300 errors
-    if (this.state.retryCount < this.maxRetries) {
+    // Auto-retry through the shared ladder — fast ticks catch the common
+    // #300 blip, the long tail outlasts a slow RSC-hydration window
+    if (this.state.retryCount < RETRY_LADDER_MS.length) {
       if (this.retryTimer) clearTimeout(this.retryTimer)
-      const delay = isTransient300
-        ? 50 * (this.state.retryCount + 1)   // 50ms, 100ms, 150ms, 200ms, 250ms
-        : 150 * (this.state.retryCount + 1)  // 150ms, 300ms, 450ms, 600ms, 750ms
+      const delay = RETRY_LADDER_MS[this.state.retryCount]
       this.retryTimer = setTimeout(() => {
         this.retryTimer = null
         this.setState(prev => ({ hasError: false, error: null, retryCount: prev.retryCount + 1 }))
@@ -84,27 +85,31 @@ class PageErrorBoundary extends Component {
 
   render() {
     if (this.state.hasError) {
-      if (this.state.retryCount < this.maxRetries) {
+      if (this.state.retryCount < RETRY_LADDER_MS.length) {
         // During retry: render INVISIBLE placeholder
         // The page just takes a moment to appear — no error flash
         return <div className="flex-1 min-h-[50vh]" />
       }
-      // After all retries exhausted: show error UI with retry button
+      // After all retries exhausted: one timestamp-guarded auto-reload (a
+      // fresh document load reliably clears the failed-hydration race), and
+      // only if that is blocked (repeat within a minute) the manual card
       return (
-        <div className="flex-1 flex items-center justify-center min-h-[50vh]">
-          <div className="text-center max-w-sm px-4">
-            <div className="w-10 h-10 bg-red-950/30 border border-red-900/30 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <span className="text-red-400 text-lg">!</span>
+        <ExhaustedFallback waiting={<div className="flex-1 min-h-[50vh]" />}>
+          <div className="flex-1 flex items-center justify-center min-h-[50vh]">
+            <div className="text-center max-w-sm px-4">
+              <div className="w-10 h-10 bg-red-950/30 border border-red-900/30 rounded-xl flex items-center justify-center mx-auto mb-4">
+                <span className="text-red-400 text-lg">!</span>
+              </div>
+              <p className="text-sm text-[#737373] mb-3">This page encountered an error.</p>
+              <button
+                onClick={() => this.setState({ hasError: false, error: null, retryCount: 0 })}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+              >
+                Try again
+              </button>
             </div>
-            <p className="text-sm text-[#737373] mb-3">This page encountered an error.</p>
-            <button
-              onClick={() => this.setState({ hasError: false, error: null, retryCount: 0 })}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-            >
-              Try again
-            </button>
           </div>
-        </div>
+        </ExhaustedFallback>
       )
     }
     return this.props.children

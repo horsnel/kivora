@@ -240,6 +240,10 @@ export default function ChatClient() {
 
 
   const bottomRef = useRef(null)
+  const scrollContainerRef = useRef(null)
+  // Whether the user is pinned to the bottom of the scroll area (drives
+  // auto-scroll — never yank the view if they scrolled up to read)
+  const pinnedToBottomRef = useRef(true)
   const textareaRef = useRef(null)
   const collapsedInputRef = useRef(null)
   const historyRef = useRef(null)
@@ -282,9 +286,12 @@ export default function ChatClient() {
     } catch {}
   }
 
-  // Debounced history reload — only when a new assistant message appears (prevents freezing)
+  // History reload — only after a reply has fully finished. During streaming
+  // the content prefix changes on nearly every token, so this effect must NOT
+  // key off raw content changes then (it used to fire a query per delta).
   const lastAssistantMsgId = useRef(null)
   useEffect(() => {
+    if (loading) return
     if (user && messages.length > 0 && messages[messages.length - 1].role === 'assistant') {
       const lastId = messages[messages.length - 1].content?.slice(0, 50)
       if (lastId !== lastAssistantMsgId.current) {
@@ -292,10 +299,14 @@ export default function ChatClient() {
         loadHistory(user.id)
       }
     }
-  }, [messages])
+  }, [messages, loading, user])
 
+  // Auto-scroll: instant follow while pinned (a smooth animation restarted
+  // per token is what made scrolling feel glitchy). Skipped when the user
+  // scrolled up so reading isn't interrupted.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (!pinnedToBottomRef.current) return
+    bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' })
   }, [messages])
 
   useEffect(() => {
@@ -710,25 +721,42 @@ export default function ChatClient() {
       const contentType = res.headers.get('content-type') || ''
 
       if (contentType.includes('text/event-stream') && res.body) {
-        // ── Streaming path — tokens render as they arrive ──
+        // ── Streaming path — buffered flushes keep rendering smooth ──
+        // Per-delta setState re-rendered the whole client and re-parsed the
+        // growing markdown per token (the streaming freeze/glitch). Deltas
+        // now accumulate and flush to state at ~10Hz instead.
         setMessages(prev => [...prev, { role: 'assistant', content: '' }])
         let acc = ''
         let finalEvent = null
-        await streamSSE(res, (evt) => {
-          if (evt.type === 'delta') {
-            acc += evt.v
-            setMessages(prev => {
-              const next = [...prev]
-              const last = next[next.length - 1]
-              if (last && last.role === 'assistant') next[next.length - 1] = { ...last, content: acc }
-              return next
-            })
-          } else if (evt.type === 'done') {
-            finalEvent = evt
-          } else if (evt.type === 'error') {
-            finalEvent = evt
-          }
-        })
+        let flushTimer = null
+        const flushNow = () => {
+          if (flushTimer) { clearTimeout(flushTimer); flushTimer = null }
+          setMessages(prev => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last && last.role === 'assistant') next[next.length - 1] = { ...last, content: acc }
+            return next
+          })
+        }
+        const scheduleFlush = () => {
+          if (flushTimer) return
+          flushTimer = setTimeout(flushNow, 90)
+        }
+        try {
+          await streamSSE(res, (evt) => {
+            if (evt.type === 'delta') {
+              acc += evt.v
+              scheduleFlush()
+            } else if (evt.type === 'done') {
+              finalEvent = evt
+            } else if (evt.type === 'error') {
+              finalEvent = evt
+            }
+          })
+        } finally {
+          // Land whatever remains buffered (also covers abort mid-stream)
+          flushNow()
+        }
         const data = finalEvent || {}
         const assistantMsg = { role: 'assistant', content: '' }
         if (data.error) {
@@ -1413,7 +1441,14 @@ export default function ChatClient() {
         </div>
 
         {/* Messages area — flex-1 + min-h-0 + overflow-y-auto for stable scrolling (research page pattern) */}
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-behavior-contain">
+        <div
+          ref={scrollContainerRef}
+          onScroll={(e) => {
+            const el = e.currentTarget
+            pinnedToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+          }}
+          className="flex-1 min-h-0 overflow-y-auto overscroll-behavior-contain"
+        >
           <div className="max-w-[960px] mx-auto px-[min(5vw,48px)] py-6 space-y-4">
             {messages.length === 0 && (
               <div className="flex flex-col items-center min-h-[65vh]">

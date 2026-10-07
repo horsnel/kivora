@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
-import { IconMenu, IconClose, IconDashboard, IconUser, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconVideo, IconEye, IconMicroscope, IconCommunity, IconOpportunity, IconBulb } from '@/components/Icons'
+import { IconMenu, IconClose, IconDashboard, IconUser, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconVideo, IconEye, IconMicroscope, IconCommunity, IconOpportunity } from '@/components/Icons'
 import { supabasePublic } from '@/lib/supabase'
 import UserAvatar from '@/components/UserAvatar'
 import { useCurrency } from '@/components/CurrencyToggle'
@@ -255,14 +255,6 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
       <div className="flex-1 overflow-y-auto overscroll-behavior-contain px-2.5 min-h-0">
         <div className="space-y-0.5">
           <NavLinks pathname={pathname} onClose={onClose} user={user} />
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent('kivora:start-tour'))}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#525252] hover:text-white hover:bg-[#141414] transition-colors font-medium"
-          >
-            <IconBulb size={14} className="shrink-0" />
-            {t('tour.replay')}
-          </button>
         </div>
       </div>
 

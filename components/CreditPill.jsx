@@ -15,7 +15,7 @@ import { IconLightning, IconChevronDown } from '@/components/Icons'
  * Hidden for anonymous users and on auth/chat/onboarding pages (matches
  * the Navbar's hideSidebar logic).
  */
-export default function CreditPill({ compact = false }) {
+export default function CreditPill({ compact = false, icon = false }) {
   const pathname = usePathname() ?? ''
   const [balance, setBalance] = useState(null)
   const [plan, setPlan] = useState(null)
@@ -94,16 +94,22 @@ export default function CreditPill({ compact = false }) {
         href="/pricing"
         onMouseEnter={() => setExpanded(true)}
         onMouseLeave={() => setExpanded(false)}
-        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-[#525252] hover:text-white hover:bg-[#141414]"
+        className={icon
+          ? 'flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold transition-colors text-[#525252] hover:text-white hover:bg-[#141414]'
+          : 'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-[#525252] hover:text-white hover:bg-[#141414]'}
       >
         <IconLightning size={14} className={isLow ? 'text-red-400' : 'text-red-500'} />
         <span className="font-semibold">{total}</span>
-        <span className="text-[10px] uppercase tracking-wide">credits</span>
-        <IconChevronDown size={10} className="ml-auto transition-transform duration-200" />
+        {!icon && (
+          <>
+            <span className="text-[10px] uppercase tracking-wide">credits</span>
+            <IconChevronDown size={10} className="ml-auto transition-transform duration-200" />
+          </>
+        )}
       </Link>
 
       {expanded && (
-        <div className="absolute top-full left-0 mt-1 w-full bg-[#141414] border border-[#262626] rounded-xl overflow-hidden shadow-2xl z-50">
+        <div className={`absolute top-full mt-1 w-48 bg-[#141414] border border-[#262626] rounded-xl overflow-hidden shadow-2xl z-50 ${icon ? 'right-0' : 'left-0 w-full'}`}>
           <div className="p-3 space-y-1.5 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-[#737373]">Plan</span>
