@@ -9,6 +9,7 @@ import MarkdownRenderer from '@/components/MarkdownRenderer'
 import DataTable from '@/components/DataTable'
 import { supabasePublic } from '@/lib/supabase'
 import { authFetch } from '@/lib/authFetch'
+import { normalizeExploreResult } from '@/lib/exploreSchema'
 import {
   IconMoney, IconLightning, IconTool, IconArrowLeft, IconCheck,
   IconShare, IconBookmark, IconBookmarkFill, IconVpn, IconCard,
@@ -52,7 +53,10 @@ export default function ExplorePage() {
       )
       const rows = await res.json()
       if (rows?.[0]) {
-        setData(rows[0].result)
+        // Normalize AI output — a single schema-drifted field (e.g.
+        // failure_reasons: [{reason}]) must never crash the whole guide
+        // (React #31 → "Something went wrong" boundary).
+        setData(normalizeExploreResult(rows[0].result))
         setStartCount(Math.floor((rows[0].views || 1) * 0.09))
       }
     } catch (_) {}

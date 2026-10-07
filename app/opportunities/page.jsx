@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useCurrency } from '@/components/CurrencyToggle'
 import { useTranslation } from '@/components/LanguageProvider'
 import { IconMoney, IconLightning, IconTool, IconSearch, IconFilter, IconEye, IconArrowRight, IconSpinner, IconPlus, IconCheck, IconClose, IconTrending, IconDownload } from '@/components/Icons'
+import { asText, asNumber } from '@/lib/exploreSchema'
 
 const CATEGORY_KEYS = ['all','automation','content','youtube','ecommerce','affiliate','freelance','saas','finance','education','africa','developer']
 
@@ -133,7 +134,7 @@ export default function OpportunitiesPage() {
   const actionPlanSteps = checklistOpp?.result?.action_plan
     ? (Array.isArray(checklistOpp.result.action_plan)
         ? checklistOpp.result.action_plan.map((s, i) =>
-            typeof s === 'string' ? { period: `Step ${i + 1}`, task: s } : { period: s.period || `Step ${i + 1}`, task: s.task || '' }
+            typeof s === 'string' ? { period: `Step ${i + 1}`, task: s } : { period: asText(s.period) || `Step ${i + 1}`, task: asText(s.task ?? s.action ?? s.description ?? s) }
           )
         : [])
     : []
@@ -177,13 +178,13 @@ export default function OpportunitiesPage() {
               onClick={async () => {
                 const { exportOpportunitiesAsCSV, downloadBlob } = await import('@/lib/fileExportClient')
                 const csvOpps = opps.map(o => ({
-                  title: o.result?.title || o.query || '',
-                  type: o.result?.type || o.category || '',
-                  income_min: o.result?.income_min || 0,
-                  income_max: o.result?.income_max || 0,
-                  income_period: o.result?.income_period || 'mo',
-                  start_days: o.result?.start_days || 0,
-                  monthly_cost: o.result?.monthly_cost || 0,
+                  title: asText(o.result?.title) || o.query || '',
+                  type: asText(o.result?.type) || o.category || '',
+                  income_min: asNumber(o.result?.income_min),
+                  income_max: asNumber(o.result?.income_max),
+                  income_period: asText(o.result?.income_period) || 'mo',
+                  start_days: asNumber(o.result?.start_days),
+                  monthly_cost: asNumber(o.result?.monthly_cost),
                 }))
                 const blob = exportOpportunitiesAsCSV(csvOpps)
                 downloadBlob(blob, `kivora-opportunities-${new Date().toISOString().split('T')[0]}.csv`)
@@ -270,12 +271,12 @@ export default function OpportunitiesPage() {
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-1.5 text-[#d4d4d4] text-body font-medium">
                           <IconMoney size={14} />
-                          {format(opp.result.income_min || 0)}–{format(opp.result.income_max || 0)}
+                          {format(asNumber(opp.result.income_min))}–{format(asNumber(opp.result.income_max))}
                           <span className="text-muted2 text-caption font-normal">/{opp.result.income_period || 'mo'}</span>
                         </div>
                         <div className="flex items-center gap-3 text-caption text-muted2">
-                          <span className="flex items-center gap-1"><IconLightning size={12} />{opp.result.start_days}d</span>
-                          <span className="flex items-center gap-1"><IconTool size={12} />{format(opp.result.monthly_cost || 0)}/mo</span>
+                          <span className="flex items-center gap-1"><IconLightning size={12} />{asNumber(opp.result.start_days)}d</span>
+                          <span className="flex items-center gap-1"><IconTool size={12} />{format(asNumber(opp.result.monthly_cost))}/mo</span>
                           <span className="flex items-center gap-1"><IconEye size={12} />{(opp.views || 0).toLocaleString()}</span>
                         </div>
                       </div>
@@ -444,7 +445,7 @@ export default function OpportunitiesPage() {
                     <td className="py-3 pr-4 text-caption text-muted2 font-medium flex items-center gap-1.5"><IconMoney size={12} /> {t('opportunities.income')}</td>
                     {compareOpps.map(opp => (
                       <td key={opp.slug} className="py-3 px-4 text-body text-white">
-                        {format(opp.result?.income_min || 0)} – {format(opp.result?.income_max || 0)}
+                        {format(asNumber(opp.result?.income_min))} – {format(asNumber(opp.result?.income_max))}
                         <span className="text-muted2 text-caption">/{opp.result?.income_period || 'mo'}</span>
                       </td>
                     ))}
@@ -454,7 +455,7 @@ export default function OpportunitiesPage() {
                     <td className="py-3 pr-4 text-caption text-muted2 font-medium flex items-center gap-1.5"><IconTool size={12} /> {t('opportunities.monthly_cost')}</td>
                     {compareOpps.map(opp => (
                       <td key={opp.slug} className="py-3 px-4 text-body text-white">
-                        {format(opp.result?.monthly_cost || 0)}<span className="text-muted2 text-caption">/mo</span>
+                        {format(asNumber(opp.result?.monthly_cost))}<span className="text-muted2 text-caption">/mo</span>
                       </td>
                     ))}
                   </tr>
@@ -463,7 +464,7 @@ export default function OpportunitiesPage() {
                     <td className="py-3 pr-4 text-caption text-muted2 font-medium flex items-center gap-1.5"><IconLightning size={12} /> {t('opportunities.start_time')}</td>
                     {compareOpps.map(opp => (
                       <td key={opp.slug} className="py-3 px-4 text-body text-white">
-                        {opp.result?.start_days || '?'} {t('opportunities.days')}
+                        {asNumber(opp.result?.start_days) || '?'} {t('opportunities.days')}
                       </td>
                     ))}
                   </tr>

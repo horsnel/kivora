@@ -6,6 +6,7 @@ import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit, anonymousRateLimit, anonymousDailyLimit, getClientIP } from '@/lib/ratelimit'
 import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
 import { resolveUserAndAdmin } from '@/lib/authUser'
+import { normalizeExploreResult } from '@/lib/exploreSchema'
 
 function slugify(text) {
   return text.toLowerCase()
@@ -257,12 +258,17 @@ Return a JSON object with EXACTLY this shape:
       return Response.json({ error: 'The AI returned a malformed response. Please try again — it usually works on the second attempt.' }, { status: 502 })
     }
 
+    // Normalize schema drift BEFORE caching — a drifted field (e.g.
+    // failure_reasons: [{reason}]) previously crashed the guide renderer
+    // with React #31 ("Something went wrong" boundary).
+    const normalized = normalizeExploreResult(result)
+
     // Cache result
     await admin.from('explore_cache').upsert({
       slug,
       query,
-      category: category || result.tags?.[0] || 'general',
-      result,
+      category: category || normalized.tags?.[0] || 'general',
+      result: normalized,
       views: 1,
       created_at: new Date().toISOString()
     }, { onConflict: 'slug' })
@@ -282,7 +288,7 @@ Return a JSON object with EXACTLY this shape:
       }).catch(() => {})
     }
 
-    return Response.json({ slug, result, cached: false })
+    return Response.json({ slug, result: normalized, cached: false })
   } catch (err) {
     console.error('[explore]', err)
     if (err instanceof GroqError && err.code === 'GROQ_QUOTA_EXCEEDED') {

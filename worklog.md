@@ -216,3 +216,30 @@ Work Log:
 Stage Summary:
 - All code-fixable scanner findings resolved and production-verified
 - Remaining (user/DNS side): SPF/DKIM/DMARC/DNSSEC/CAA records, Cloudflare Access for /admin, secret rotation
+
+---
+Task ID: chat-totp-1
+Agent: Main
+Task: Chat page fixes (something-went-wrong, pro badges, effort toggle, more-models), chat rate limits, admin TOTP, DMARC, full page QA
+
+Work Log:
+- Investigated user-reported chat failure: probed prod chat API across 12 payload shapes (plain/proMode/models/focus/tools/stream+json) — core pipeline healthy; identified empty-reply class (provider returns 200 + empty content → client generic fallback) as the "Something went wrong." cause
+- Discovered sandbox display layer strips ESC-CSI-like sequences (e.g. bracket-m) — repo files were NEVER corrupted; ground truth via node --check/eslint exit codes; verified write path intact with runtime test
+- lib/groq.js: +3 models (deepseek-r1, qwen-qwq, llama-3.2-3b) with pro flags; provider maps extended (siliconflow/openrouter/gemini/sambanova)
+- lib/plans.js: proModels feature flag (pro/max/team true, free false)
+- app/api/chat/route.js: pro-model gate (402 + upgrade_url for non-Pro incl. anonymous), effort param (low/medium/high → 2048/4096/8192 max_tokens), per-account burst limit (8/min keyed user:<id>), empty-reply retry-without-tools + honest fallback in both tool and normal paths
+- app/chat/ChatClient.jsx: ALL_MODELS with Pro badges + lock icons in chip dropdown, settings model page, more-models page; Pro toggle lock badge for non-Pro; effort real state (localStorage persisted, label from state, checkmark moves); upgrade popup; empty-response auto-retry once (same convo, no re-append) + friendly final fallback (replaces chat.error.general usage)
+- lib/totp.js: RFC 6238 TOTP (Web Crypto HMAC-SHA1, base32, ±1 step window); RFC vector test 94287082@T=59 PASS
+- app/api/admin/route.js: TOTP second factor when ADMIN_TOTP_SECRET set (uniform 403 shape — no factor oracle), day-scoped session token (HMAC password+date) for background refreshes
+- app/admin/page.jsx: 2FA code input (progressive), session token persistence, 403 → re-lock flow
+- ADMIN_TOTP_SECRET pushed to CF Pages (prod+preview) via API — merge verified (37 env vars intact)
+- app/3d/ThreeDClient.jsx: fixed cube-scene cleanup ReferenceError (orbitControls never declared — own pointer-orbit implementation) + 3 duplicate maxDistance keys
+- Local workerd smoke (wrangler@4 + nodejs_compat): 13/13 PASS (TOTP flows ×5, pro gates ×3, pages/CSP ×5)
+- CF token has NO zone access → DMARC/DNS changes CANNOT be pushed via API; paste-ready list handed to user
+
+Stage Summary:
+- Commit b443146 pushed to main (GitHub Actions deploys)
+- Chat: Pro badges + gating end-to-end, effort working, more-models connected to real provider models, rate limits: anon 5/day+burst, logged-in credits+8/min burst, pro models Pro-gated server-side
+- "Something went wrong" root-caused to empty provider replies; now retried once + honest fallback server-side AND client-side
+- Admin: TOTP live (secret ZXJCQ7H6ETWS3IV7SMJD2D23IFJVBWCF — user must add to authenticator)
+- DNS-side items (SPF/DKIM/DMARC p=quarantine/DNSSEC/CAA) remain user-dashboard actions
