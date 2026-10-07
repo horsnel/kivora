@@ -42,6 +42,7 @@ export default function HomePage() {
   const [suggestionIndex, setSuggestionIndex] = useState(0)
   const [displayText, setDisplayText] = useState('')
   const [dataLoading, setDataLoading] = useState(true)
+  const [searchError, setSearchError] = useState('')
   const inputRef = useRef(null)
 
   useEffect(() => { loadData() }, [])
@@ -77,15 +78,28 @@ export default function HomePage() {
     const q = (searchQuery || query).trim()
     if (!q || loading) return
     setLoading(true)
+    setSearchError('')
     try {
       const res = await authFetch('/api/explore', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: q })
       })
-      const data = await res.json()
-      if (data.slug) router.push(`/explore/${data.slug}`)
-    } catch (_) {}
+      const data = await res.json().catch(() => ({}))
+      if (data.slug) {
+        router.push(`/explore/${data.slug}`)
+      } else {
+        // The API failed — tell the user instead of silently doing nothing.
+        const friendly = res.status === 429
+          ? (data.error || 'Too many requests. Please slow down and try again shortly.')
+          : res.status === 402 || res.status >= 500
+            ? 'Our generation engine is temporarily out of capacity. Please try again in a few minutes.'
+            : (data.error || `Could not generate this exploration (${res.status}). Please try again.`)
+        setSearchError(friendly)
+      }
+    } catch (_) {
+      setSearchError('Network error. Please check your connection and try again.')
+    }
     setLoading(false)
   }
 
@@ -136,6 +150,17 @@ export default function HomePage() {
               {loading ? t('home.thinking') : t('home.explore')}
             </button>
           </div>
+
+          {/* Search error — surfaced instead of failing silently */}
+          {searchError && !loading && (
+            <div className="mt-4 mx-auto max-w-xl flex items-start gap-2 bg-red-950/40 border border-red-900/40 text-red-300 rounded-xl px-4 py-3 text-sm text-left">
+              <span className="mt-0.5 shrink-0">⚠</span>
+              <span className="flex-1">{searchError}</span>
+              <button onClick={() => setSearchError('')} className="text-red-400/60 hover:text-red-300 transition-colors shrink-0" aria-label="Dismiss">
+                <svg width={12} height={12} viewBox="0 0 12 12" fill="none"><path d="M2 2l8 8M10 2L2 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              </button>
+            </div>
+          )}
 
           <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2 mt-3 animate-fade-up animate-fade-up-4">
             {loading ? (

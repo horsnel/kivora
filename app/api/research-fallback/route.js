@@ -2,6 +2,9 @@ export const runtime = 'edge'
 
 import { rateLimit, getClientIP } from '@/lib/ratelimit'
 import { getEnvVar } from '@/lib/cfEnv'
+import { requireFeatureAccess } from '@/lib/credits'
+import { resolveUserAndAdmin } from '@/lib/authUser'
+import { MODEL as CHAT_MODEL, groqChat, getPrimaryClientAsync, getFallbackClientAsync, setCerebrasApiKey, setSambanovaApiKey, setSiliconflowApiKey, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
 
 // ══════════════════════════════════════════════════════════════════
 // FALLBACK RESEARCH API — Full pipeline: Search + LLM
@@ -131,15 +134,16 @@ async function openaiCompatChat(url, apiKey, model, messages, maxTokens, timeout
     if (!res.ok) {
       const text = await res.text().catch(() => '')
       console.error(`[fallback-llm] ${model} error ${res.status} in ${Date.now()-t0}ms:`, text.slice(0, 200))
-      return null
+      throw new Error(`HTTP ${res.status}`)
     }
     const data = await res.json()
     const content = data.choices?.[0]?.message?.content || ''
     console.log(`[fallback-llm] ${model} success in ${Date.now()-t0}ms, chars: ${content.length}`)
-    return content || null
+    if (!content) throw new Error('empty-content')
+    return content
   } catch (err) {
     console.error(`[fallback-llm] ${model} exception:`, err.message)
-    return null
+    throw err
   }
 }
 
@@ -171,16 +175,17 @@ async function geminiChat(messages, model = 'gemini-2.0-flash', maxTokens = 4096
     if (!res.ok) {
       const text = await res.text().catch(() => '')
       console.error(`[fallback-llm] Gemini ${model} error ${res.status} in ${Date.now()-t0}ms:`, text.slice(0, 200))
-      return null
+      throw new Error(`HTTP ${res.status}`)
     }
 
     const data = await res.json()
     const result = data.candidates?.[0]?.content?.parts?.[0]?.text || null
     console.log(`[fallback-llm] Gemini ${model} success in ${Date.now()-t0}ms, chars: ${result?.length || 0}`)
+    if (!result) throw new Error('empty-content')
     return result
   } catch (err) {
     console.error('[fallback-llm] Gemini exception:', err.message)
-    return null
+    throw err
   }
 }
 
@@ -217,13 +222,53 @@ async function generateWithFallback(messages, apexModel, mode = 'quick') {
   const maxTokens = apexModel === 'apex-premium' ? 8192 : 4096
   const errors = []
 
-  // Tighter per-provider timeouts for quick mode (deep mode keeps generous timeouts)
+  // Tighter per-provider timeouts for quick mode (deep mode keeps generous
+  // timeouts). Mistral needs the most headroom: the research prompt embeds
+  // search context and asks for 600-1,000+ words, which a small model can
+  // take 30-40s to produce.
   const t = isDeep
-    ? { mistral: 60000, groq: 45000, gemini: 25000, openrouter: 35000 }
-    : { mistral: 25000, groq: 15000, gemini: 15000, openrouter: 20000 }
+    ? { mistral: 90000, groq: 45000, gemini: 40000, openrouter: 60000 }
+    : { mistral: 40000, groq: 15000, gemini: 15000, openrouter: 25000 }
 
   // Build the list of provider call descriptors
   const calls = []
+
+  // 0. Kivora chat stack (same proven chain as /api/chat):
+  // SiliconFlow → SambaNova → Groq(via Vercel proxy) → Gemini → OpenRouter.
+  // These direct providers work from CF Pages — the previous chain here only
+  // used Mistral/Groq-direct/Gemini/OpenRouter, of which Groq-direct is
+  // IP-blocked (403) and the rest can all be down/quota-limited at once.
+  try {
+    const [siliconflowKey, sambanovaKey, cerebrasKey, groqKey, groqFallbackKey] = await Promise.all([
+      getEnvVar('SILICONFLOW_API_KEY'),
+      getEnvVar('SAMBANOVA_API_KEY'),
+      getEnvVar('CEREBRAS_API_KEY'),
+      getEnvVar('GROQ_API_KEY'),
+      getEnvVar('GROQ_API_KEY_FALLBACK'),
+    ])
+    setSiliconflowApiKey(siliconflowKey)
+    setSambanovaApiKey(sambanovaKey)
+    setCerebrasApiKey(cerebrasKey)
+    setGeminiApiKey(await getEnvVar('GEMINI_API_KEY'))
+    setOpenrouterApiKey(await getEnvVar('OPENROUTER_API_KEY'))
+    await getPrimaryClientAsync(groqKey)
+    if (groqFallbackKey) await getFallbackClientAsync(groqFallbackKey)
+
+    calls.push({
+      label: 'ChatStack/multi-provider',
+      run: async () => {
+        const chat = await groqChat({
+          model: CHAT_MODEL,
+          temperature: 0.3,
+          max_tokens: maxTokens,
+          messages,
+        })
+        return chat?.choices?.[0]?.message?.content || null
+      },
+    })
+  } catch (wireErr) {
+    errors.push(`ChatStack:${wireErr?.message || 'init failed'}`)
+  }
 
   // 1. Mistral
   const mistralKey = await getMistralKey()
@@ -295,14 +340,22 @@ async function generateWithFallback(messages, apexModel, mode = 'quick') {
   // Race them all in parallel — first valid output wins.
   // Each call's promise rejects if its output fails validation, so Promise.any
   // only resolves when at least one provider returned a usable report.
+  // Rejections carry the real failure reason (HTTP status / exception) so the
+  // aggregated error is diagnosable instead of a wall of ':null'.
   const racingPromises = calls.map(({ label, run }) =>
-    run().then(result => {
+    (async () => {
+      let result
+      try {
+        result = await run()
+      } catch (err) {
+        throw new Error(`${label}:${err?.message || 'failed'}`)
+      }
       if (!result || !validateOutput(result, mode)) {
         throw new Error(`${label}:${result ? 'bad-output' : 'null'}`)
       }
       const [provider, model] = label.split('/')
       return { report: result, provider: provider.toLowerCase(), model }
-    })
+    })()
   )
 
   try {
@@ -679,6 +732,17 @@ export async function POST(req) {
 
     if (query.length > 2000) {
       return Response.json({ error: 'Query too long (max 2000 characters)' }, { status: 400 })
+    }
+
+    // ── Plan gate BEFORE any work — defense-in-depth ──────────────────
+    // This endpoint previously had NO gate, which made it a paywall bypass:
+    // the client races it against /api/research, and it could also be called
+    // directly. Deep multi-phase research is a Pro feature — enforce it for
+    // everyone (signed-in and anonymous), same as the primary route.
+    if (mode === 'deep') {
+      const { user: gateUser, admin: gateAdmin } = await resolveUserAndAdmin(req)
+      const deepGate = await requireFeatureAccess(gateAdmin, gateUser, 'deepResearch')
+      if (deepGate) return deepGate.response
     }
 
     const t0 = Date.now()

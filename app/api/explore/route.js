@@ -1,6 +1,7 @@
 export const runtime = 'edge' 
 import { createClient } from '@supabase/supabase-js'
-import { groq, MODEL, groqChat, GroqError, getPrimaryClientAsync, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
+import { groq, MODEL, groqChat, GroqError, getPrimaryClientAsync, getFallbackClientAsync, setCerebrasApiKey, setSambanovaApiKey, setSiliconflowApiKey, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
+import { mistralChat, setMistralApiKeys, isMistralConfigured } from '@/lib/mistral'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit, anonymousRateLimit, anonymousDailyLimit, getClientIP } from '@/lib/ratelimit'
 import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
@@ -22,12 +23,28 @@ export async function POST(req) {
   }
 
   try {
+    // Wire the FULL multi-provider chain (same as /api/chat). Previously only
+    // Groq/Gemini/OpenRouter were wired here — SiliconFlow and SambaNova (the
+    // two most reliable direct providers) were never set, so when Groq hit its
+    // daily cap and OpenRouter ran out of credits, generation had nowhere to
+    // go and the Explore page silently produced nothing.
     const groqKey = await getEnvVar('GROQ_API_KEY')
+    const groqFallbackKey = await getEnvVar('GROQ_API_KEY_FALLBACK')
+    const cerebrasKey = await getEnvVar('CEREBRAS_API_KEY')
+    const sambanovaKey = await getEnvVar('SAMBANOVA_API_KEY')
+    const siliconflowKey = await getEnvVar('SILICONFLOW_API_KEY')
     const geminiKey = await getEnvVar('GEMINI_API_KEY')
-    setGeminiApiKey(geminiKey)
     const openrouterKey = await getEnvVar('OPENROUTER_API_KEY')
+    const mistralKey = await getEnvVar('MISTRAL_API_KEY')
+    const mistralFallbackKey = await getEnvVar('MISTRAL_API_KEY_FALLBACK')
+    setMistralApiKeys(mistralKey, mistralFallbackKey)
+    setCerebrasApiKey(cerebrasKey)
+    setSambanovaApiKey(sambanovaKey)
+    setSiliconflowApiKey(siliconflowKey)
+    setGeminiApiKey(geminiKey)
     setOpenrouterApiKey(openrouterKey)
     const groqClient = await getPrimaryClientAsync(groqKey)
+    if (groqFallbackKey) await getFallbackClientAsync(groqFallbackKey)
     const supaUrl = await getEnvVar('NEXT_PUBLIC_SUPABASE_URL')
     const supaKey = await getEnvVar('SUPABASE_SERVICE_ROLE_KEY')
     const admin = supaUrl && supaKey ? createClient(supaUrl, supaKey) : null
@@ -105,8 +122,9 @@ export async function POST(req) {
       }
     } catch (_) {}
 
-    // Generate with Groq
-    const chat = await groqChat({
+    // Generate: Mistral first (fast, proven in chat), then the full
+    // multi-provider chain via groqChat.
+    const genParams = {
       model: MODEL,
       temperature: 0.3,
       messages: [
@@ -164,18 +182,79 @@ Return a JSON object with EXACTLY this shape:
 }`
         }
       ]
-    })
+    }
 
-    let result
-    try {
-      const raw = chat.choices[0].message.content.trim()
+    let chat = null
+    if (isMistralConfigured()) {
+      try {
+        chat = await mistralChat({
+          model: 'mistral-small-latest',
+          messages: genParams.messages,
+          temperature: 0.3,
+          maxTokens: 4096,
+        })
+      } catch (mErr) {
+        console.warn(`[explore] mistral unavailable (${String(mErr?.message).slice(0, 80)}) — falling back to multi-provider chain`)
+      }
+    }
+    if (!chat) {
+      chat = await groqChat(genParams)
+    }
+
+    // ── Parse the model output as JSON, robustly ──────────────────────
+    // Models often wrap the JSON in prose ("Here is your guide...") or
+    // markdown fences even when told not to. Brace extraction handles that.
+    // If it still fails, ONE repair round-trip asks the model to fix it —
+    // cheaper for the user than a failed generation.
+    const extractJson = (text) => {
+      const cleaned = text.trim()
         .replace(/^```json\s*/i, '')
         .replace(/^```\s*/i, '')
         .replace(/\s*```$/i, '')
         .trim()
-      result = JSON.parse(raw)
-    } catch (e) {
-      return Response.json({ error: 'Failed to parse AI response. Try again.' }, { status: 500 })
+      try { return JSON.parse(cleaned) } catch { /* fall through */ }
+      const first = cleaned.indexOf('{')
+      const last = cleaned.lastIndexOf('}')
+      if (first !== -1 && last > first) {
+        try { return JSON.parse(cleaned.slice(first, last + 1)) } catch { /* fall through */ }
+      }
+      return null
+    }
+
+    let rawContent = chat?.choices?.[0]?.message?.content || ''
+    let result = extractJson(rawContent)
+
+    if (!result) {
+      // Repair round-trip: show the model its own broken output
+      console.log('[explore] JSON parse failed — attempting one repair round-trip')
+      try {
+        const repairParams = {
+          ...genParams,
+          messages: [
+            { role: 'system', content: 'You output ONLY valid JSON objects. No prose, no markdown fences, no explanation.' },
+            { role: 'user', content: `The following text was supposed to be a JSON object matching the schema I originally requested, but it is malformed. Return the corrected, complete, valid JSON object — nothing else.\n\n${rawContent.slice(0, 12000)}` },
+          ],
+        }
+        let repaired = null
+        if (isMistralConfigured()) {
+          try {
+            repaired = await mistralChat({
+              model: 'mistral-small-latest',
+              messages: repairParams.messages,
+              temperature: 0,
+              maxTokens: 4096,
+            })
+          } catch (_) { /* chain below */ }
+        }
+        if (!repaired) repaired = await groqChat(repairParams)
+        result = extractJson(repaired?.choices?.[0]?.message?.content || '')
+      } catch (repErr) {
+        console.warn('[explore] repair round-trip failed:', repErr?.message)
+      }
+    }
+
+    if (!result || typeof result !== 'object') {
+      return Response.json({ error: 'The AI returned a malformed response. Please try again — it usually works on the second attempt.' }, { status: 502 })
     }
 
     // Cache result

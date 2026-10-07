@@ -6,7 +6,9 @@ import dynamic from 'next/dynamic'
 import remarkGfm from 'remark-gfm'
 const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false })
 import { supabasePublic } from '@/lib/supabase'
-import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, IconRocket, IconHeart, IconMicroscope, IconWarning } from '@/components/Icons'
+import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, IconRocket, IconHeart, IconMicroscope, IconWarning, IconLock } from '@/components/Icons'
+import { usePlan } from '@/lib/usePlan'
+import UpgradeCard from '@/components/UpgradeCard'
 
 // ── File Upload Constants ──
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
@@ -377,6 +379,30 @@ function ResearchPageContent() {
   const typewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
   const collapsedTypewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
 
+  // ── Plan awareness: pre-click gating for Deep mode (Pro) ──────────
+  const { signedIn, allows } = usePlan()
+  const deepLocked = !allows('pro')
+  const [gate, setGate] = useState(null)
+
+  // Shared by all three Deep/Quick toggles (hero bar, chat bar, collapsed bar).
+  // Switching TO deep is blocked pre-click for non-Pro users — they see the
+  // upgrade card instead of a 403 after waiting for the request to fail.
+  function handleModeToggle() {
+    if (mode === 'deep') {
+      setMode('quick')
+      return
+    }
+    if (deepLocked) {
+      setGate({
+        reason: signedIn ? 'upgrade_required' : 'sign_in_required',
+        needed_plan: 'pro',
+        error: 'Deep multi-phase research is part of the Pro plan.',
+      })
+      return
+    }
+    setMode('deep')
+  }
+
   const hasActiveResearch = activeResearch !== null
   const hasInput = input.trim().length > 0 || attachedFiles.length > 0
 
@@ -546,6 +572,7 @@ function ResearchPageContent() {
     setActiveResearch(research)
     setIsResearching(true)
     setError('')
+    setGate(null)
     setReportDisplay('')
     setSourcesVisible(0)
     setProgress(0)
@@ -607,11 +634,13 @@ function ResearchPageContent() {
         f.type?.startsWith('image/') ||
         IMAGE_EXTENSIONS.includes((f.name.split('.').pop() || '').toLowerCase())
       )
-      // Base timeouts — deep mode gets 2 minutes, quick gets 30s.
-      // When an image is attached, the vision model needs extra time (up to
-      // 15s for image description) — extend by 30s.
-      const basePrimary = researchMode === 'deep' ? 120000 : 30000
-      const baseFallback = researchMode === 'deep' ? 90000 : 30000
+      // Base timeouts — deep gets ~3.5 min, quick gets 85s.
+      // Production timing: the worker needs ~48s for quick mode (search + LLM
+      // race), so the old 30s cap aborted valid work. The fixed fallback
+      // pipeline usually returns in 15-40s and wins the race when healthy.
+      // When an image is attached, the vision model needs extra time — add 30s.
+      const basePrimary = researchMode === 'deep' ? 205000 : 85000
+      const baseFallback = researchMode === 'deep' ? 160000 : 65000
       const primaryTimeout = setTimeout(() => primaryController.abort(), isImage ? basePrimary + 30000 : basePrimary)
       const fallbackTimeout = setTimeout(() => fallbackController.abort(), isImage ? baseFallback + 30000 : baseFallback)
 
@@ -622,18 +651,32 @@ function ResearchPageContent() {
       }
       const body = JSON.stringify(reqBody)
 
+      const parseResearchResponse = (r, label) => async (data) => {
+        if (!r.ok || data.error) {
+          if (r.status === 403 && data && (data.reason || data.needed_plan)) {
+            // Plan gate — carry the structured payload so the UI can show
+            // the upgrade card instead of a raw error string.
+            const e = new Error(data.error || `${label}_gated`)
+            e.isGate = true
+            e.body = data
+            throw e
+          }
+          throw new Error(data.error || `${label}_${r.status}`)
+        }
+        return data
+      }
+
       const primaryPromise = fetch('/api/research', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body,
         signal: primaryController.signal,
       }).then(async r => {
-        const data = await r.json()
-        if (!r.ok || data.error) {
-          throw new Error(data.error || `worker_${r.status}`)
-        }
-        return { data, usedFallback: false }
-      }).finally(() => clearTimeout(primaryTimeout))
+        const data = await r.json().catch(() => ({}))
+        return parseResearchResponse(r, 'worker')(data)
+      }).then(
+        data => ({ data, usedFallback: false })
+      ).finally(() => clearTimeout(primaryTimeout))
 
       // Skip fallback when a file is attached — the fallback endpoint doesn't
       // support vision/file analysis. Use a never-resolving promise so
@@ -646,12 +689,11 @@ function ResearchPageContent() {
             body,
             signal: fallbackController.signal,
           }).then(async r => {
-            const data = await r.json()
-            if (!r.ok || data.error) {
-              throw new Error(data.error || `fallback_${r.status}`)
-            }
-            return { data, usedFallback: true }
-          }).finally(() => clearTimeout(fallbackTimeout))
+            const data = await r.json().catch(() => ({}))
+            return parseResearchResponse(r, 'fallback')(data)
+          }).then(
+            data => ({ data, usedFallback: true })
+          ).finally(() => clearTimeout(fallbackTimeout))
 
       let data
       let usedFallback = false
@@ -664,12 +706,38 @@ function ResearchPageContent() {
         if (usedFallback) primaryController.abort()
         else fallbackController.abort()
       } catch (aggregateErr) {
-        // Both failed — fall through to error handling below
-        const tried = aggregateErr?.errors?.map(e => e.message).filter(Boolean).join(' | ') || 'all providers failed'
-        data = { error: tried }
-        // Make sure both timeouts are cleared
+        // Both failed — make sure both timeouts are cleared
         clearTimeout(primaryTimeout)
         clearTimeout(fallbackTimeout)
+        const errs = aggregateErr?.errors || []
+
+        // If either leg hit the plan gate, show the upgrade card instead of
+        // concatenating gate + provider errors (the old 'A | B' toast).
+        const gateErr = errs.find(e => e && e.isGate)
+        if (gateErr) {
+          clearInterval(progressRef.current)
+          progressRef.current = null
+          stageTimersRef.current.forEach(t => clearTimeout(t))
+          stageTimersRef.current = []
+          setAttachedFiles([])
+          setFileError('')
+          setGate(gateErr.body || {
+            reason: 'sign_in_required',
+            needed_plan: 'pro',
+            error: 'Deep multi-phase research is part of the Pro plan.',
+          })
+          setIsResearching(false)
+          setResearchStage('done')
+          setProgress(100)
+          return
+        }
+
+        // Prefer a real provider explanation over a bare timeout label —
+        // 'worker_504' alone tells the user nothing.
+        const msgs = errs.map(e => e?.message).filter(Boolean)
+        const best = msgs.find(m => !/^worker_\d+$/.test(m) && !/^fallback_\d+$/.test(m) && m !== 'Failed to fetch')
+        const tried = best || msgs[0] || 'all providers failed'
+        data = { error: tried }
       }
 
       // Clear the attachments after the request is sent
@@ -1077,7 +1145,7 @@ function ResearchPageContent() {
                     </button>
                   </div>
                   <button
-                    onClick={() => setMode(mode === 'quick' ? 'deep' : 'quick')}
+                    onClick={handleModeToggle}
                     className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ml-0.5 min-w-0 shrink ${
                       mode === 'deep'
                         ? 'bg-[rgba(168,85,247,0.12)] text-[#a855f7] border-[rgba(168,85,247,0.2)]'
@@ -1086,6 +1154,9 @@ function ResearchPageContent() {
                   >
                     <span className="mode-label-full">{mode === 'deep' ? 'Deep' : 'Quick'}</span>
                     <span className="mode-label-short">{mode === 'deep' ? 'D' : 'Q'}</span>
+                    {mode !== 'deep' && deepLocked && (
+                      <IconLock size={9} className="opacity-80 shrink-0" />
+                    )}
                   </button>
                 </div>
                 <div className="chat-toolbar-right">
@@ -1441,7 +1512,7 @@ function ResearchPageContent() {
                   </button>
                   {/* Mode chip */}
                   <button
-                    onClick={() => setMode(mode === 'quick' ? 'deep' : 'quick')}
+                    onClick={handleModeToggle}
                     className={`text-[10px] px-2 py-1 rounded-full transition-all duration-200 border min-w-0 shrink ${
                       mode === 'deep'
                         ? 'bg-[rgba(168,85,247,0.12)] text-[#a855f7] border-[rgba(168,85,247,0.2)]'
@@ -1450,6 +1521,9 @@ function ResearchPageContent() {
                   >
                     <span className="mode-label-full">{mode === 'deep' ? 'Deep' : 'Quick'}</span>
                     <span className="mode-label-short">{mode === 'deep' ? 'D' : 'Q'}</span>
+                    {mode !== 'deep' && deepLocked && (
+                      <IconLock size={9} className="opacity-80 shrink-0" />
+                    )}
                   </button>
 
                   {/* Send / Stop button */}
@@ -1564,7 +1638,7 @@ function ResearchPageContent() {
                         </button>
                       </div>
                       <button
-                        onClick={() => setMode(mode === 'quick' ? 'deep' : 'quick')}
+                        onClick={handleModeToggle}
                         className={`text-xs px-2.5 py-1 rounded-full transition-all duration-200 border ml-0.5 min-w-0 shrink ${
                           mode === 'deep'
                             ? 'bg-[rgba(168,85,247,0.12)] text-[#a855f7] border-[rgba(168,85,247,0.2)]'
@@ -1573,6 +1647,12 @@ function ResearchPageContent() {
                       >
                         <span className="mode-label-full">{mode === 'deep' ? 'Deep' : 'Quick'}</span>
                         <span className="mode-label-short">{mode === 'deep' ? 'D' : 'Q'}</span>
+                        {mode !== 'deep' && deepLocked && (
+                          <IconLock size={9} className="opacity-80 shrink-0" />
+                        )}
+                    {mode !== 'deep' && deepLocked && (
+                      <IconLock size={9} className="opacity-80 shrink-0" />
+                    )}
                       </button>
                     </div>
                     <div className="chat-toolbar-right">
@@ -1602,6 +1682,15 @@ function ResearchPageContent() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Plan gate — upgrade card (Deep mode requires Pro) */}
+      {gate && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setGate(null)}>
+          <div className="w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <UpgradeCard gate={gate} onDismiss={() => setGate(null)} />
+          </div>
+        </div>
       )}
 
       {/* Error toast */}

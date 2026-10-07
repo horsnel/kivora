@@ -4,7 +4,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { IconArrowRight, IconExternal } from '@/components/Icons'
 
-const BLOG_URL = '/blog'
+// All full articles live on the Kivora Blog site — cards here link out to
+// the matching post there, and cover images are served from the same site.
+const BLOG_BASE = 'https://kivorablog.pages.dev'
 
 const POSTS = [
   {
@@ -13,8 +15,9 @@ const POSTS = [
     category: 'Make Money',
     date: 'Apr 18, 2026',
     slug: 'whatsapp-bot-business-guide',
+    url: `${BLOG_BASE}/post/whatsapp-bot-business-3-days`,
     readTime: '8 min read',
-    image: '/blog/whatsapp-bot.jpg',
+    image: `${BLOG_BASE}/images/posts/whatsapp-bot-business-3-days-hero.png`,
     featured: true,
   },
   {
@@ -23,8 +26,9 @@ const POSTS = [
     category: 'YouTube',
     date: 'Apr 15, 2026',
     slug: 'faceless-youtube-real-costs',
+    url: `${BLOG_BASE}/post/faceless-youtube-real-costs`,
     readTime: '6 min read',
-    image: '/blog/youtube-costs.jpg',
+    image: `${BLOG_BASE}/images/posts/faceless-youtube-real-costs-hero.png`,
     featured: true,
   },
   {
@@ -33,8 +37,9 @@ const POSTS = [
     category: 'Automation',
     date: 'Apr 12, 2026',
     slug: 'ai-automation-failure-analysis',
+    url: `${BLOG_BASE}/post/ai-automation-failure-analysis`,
     readTime: '7 min read',
-    image: '/blog/automation-fail.jpg',
+    image: `${BLOG_BASE}/images/posts/ai-automation-failure-analysis-hero.png`,
     featured: true,
   },
   {
@@ -43,8 +48,9 @@ const POSTS = [
     category: 'Dev Tools',
     date: 'Apr 8, 2026',
     slug: 'free-dev-tools-replace-saas',
+    url: `${BLOG_BASE}/post/free-dev-tools-replace-saas`,
     readTime: '5 min read',
-    image: '/blog/dev-tools.jpg',
+    image: `${BLOG_BASE}/images/posts/free-dev-tools-replace-saas-hero.png`,
   },
   {
     title: 'How to Start a Tech Business in Nigeria With Less Than $50',
@@ -52,8 +58,9 @@ const POSTS = [
     category: 'Africa',
     date: 'Apr 5, 2026',
     slug: 'tech-business-nigeria-under-50',
+    url: `${BLOG_BASE}/post/tech-business-nigeria-under-50`,
     readTime: '9 min read',
-    image: '/blog/africa-tech.jpg',
+    image: `${BLOG_BASE}/images/posts/tech-business-nigeria-under-50-hero.png`,
   },
   {
     title: 'AI Study Tools That Actually Help You Learn Faster',
@@ -61,8 +68,9 @@ const POSTS = [
     category: 'Study & Learn',
     date: 'Apr 2, 2026',
     slug: 'ai-study-tools-learn-faster',
+    url: `${BLOG_BASE}/post/ai-study-tools-learn-faster`,
     readTime: '6 min read',
-    image: '/blog/study-learn.jpg',
+    image: `${BLOG_BASE}/images/posts/ai-study-tools-learn-faster-hero.png`,
   },
   {
     title: 'The Side Hustle Blueprint: From Zero to $500/Month With AI',
@@ -70,8 +78,9 @@ const POSTS = [
     category: 'Make Money',
     date: 'Mar 28, 2026',
     slug: 'side-hustle-blueprint-500-month',
+    url: `${BLOG_BASE}/post/side-hustle-blueprint-500-month`,
     readTime: '10 min read',
-    image: '/blog/make-money.jpg',
+    image: `${BLOG_BASE}/images/posts/side-hustle-blueprint-500-month-hero.png`,
   },
 ]
 
@@ -137,9 +146,12 @@ export default function BlogPage() {
         {featured.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             {featured.slice(0, 3).map((post, i) => (
-              <div
+              <a
                 key={post.slug}
-                className={`bg-[#141414] rounded-xl overflow-hidden transition-all group ${i === 0 ? 'md:col-span-2' : ''}`}
+                href={post.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`bg-[#141414] rounded-xl overflow-hidden transition-all group cursor-pointer ${i === 0 ? 'md:col-span-2' : ''}`}
               >
                 <div className={`relative overflow-hidden ${i === 0 ? 'h-48 md:h-52' : 'h-36 md:h-40'}`}>
                   <Image
@@ -160,11 +172,11 @@ export default function BlogPage() {
                   <div className="flex items-center justify-between mt-4">
                     <span className="text-[10px] text-muted2 font-mono">{post.date}</span>
                     <span className="flex items-center gap-1 text-[10px] text-muted2 group-hover:text-red-400 transition-colors">
-                      Read <IconArrowRight size={10} />
+                      Read on Kivora Blog <IconExternal size={10} />
                     </span>
                   </div>
                 </div>
-              </div>
+              </a>
             ))}
           </div>
         )}
@@ -173,9 +185,12 @@ export default function BlogPage() {
         {rest.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
             {rest.map(post => (
-              <div
+              <a
                 key={post.slug}
-                className="bg-[#141414] rounded-xl overflow-hidden transition-all group"
+                href={post.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-[#141414] rounded-xl overflow-hidden transition-all group cursor-pointer"
               >
                 <div className="relative h-36 overflow-hidden">
                   <Image
@@ -196,11 +211,11 @@ export default function BlogPage() {
                   <div className="flex items-center justify-between mt-4">
                     <span className="text-[10px] text-muted2 font-mono">{post.date}</span>
                     <span className="flex items-center gap-1 text-[10px] text-muted2 group-hover:text-red-400 transition-colors">
-                      Read <IconArrowRight size={10} />
+                      Read on Kivora Blog <IconExternal size={10} />
                     </span>
                   </div>
                 </div>
-              </div>
+              </a>
             ))}
           </div>
         )}
@@ -215,18 +230,20 @@ export default function BlogPage() {
           </div>
         )}
 
-        {/* View all CTA */}
+        {/* View all CTA — everything lives on the blog site */}
         <div className="text-center py-12 bg-[#0d0d0d] rounded-xl">
-          <h3 className="font-semibold text-lg tracking-tight mb-2 text-muted">More articles on Kivora</h3>
+          <h3 className="font-semibold text-lg tracking-tight mb-2 text-muted">More articles on the Kivora Blog</h3>
           <p className="text-muted text-sm mb-6 max-w-md mx-auto">
             Hundreds of articles covering AI tools, automation, business building, and opportunities for builders everywhere.
           </p>
-          <Link
-            href="/research"
+          <a
+            href={BLOG_BASE}
+            target="_blank"
+            rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl text-sm font-semibold transition-colors"
           >
-            Explore Kivora <IconArrowRight size={13} />
-          </Link>
+            Browse all articles <IconExternal size={13} />
+          </a>
         </div>
 
         <div className="mt-12 pt-8 border-t border-[#141414] flex flex-wrap gap-4 text-xs text-muted">

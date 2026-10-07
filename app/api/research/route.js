@@ -275,10 +275,11 @@ export async function POST(req) {
     const openrouterKey = await getEnvVar('OPENROUTER_API_KEY')
     const workerStartTime = Date.now()
 
-    // Deep mode with 16K token output can take up to 2 minutes.
-    // Quick mode gets 30s so the fallback chain (which now races in parallel
-    // and finishes in ~15-25s) has plenty of headroom under the frontend's
-    // overall 60s fallback timeout.
+    // Deep mode with 16K token output can take up to 2+ minutes.
+    // Quick mode: the worker's own fallback chain + generation measured ~48s
+    // in production (search + LLM race), so 30s aborted valid work mid-flight
+    // and produced spurious 504s. 80s gives it real headroom while staying
+    // well inside Cloudflare's edge limits.
     // When an image is attached, the vision model needs extra time (up to
     // 15s for image description) — extend the timeout by 30s in that case.
     const allFilesForImageCheck = Array.isArray(attachedFiles) && attachedFiles.length > 0
@@ -288,7 +289,7 @@ export async function POST(req) {
       f?.type?.startsWith('image/') ||
       /\.(png|jpe?g|gif|webp)$/i.test(f?.name || '')
     )
-    const baseTimeout = mode === 'deep' ? 120000 : 30000
+    const baseTimeout = mode === 'deep' ? 200000 : 80000
     const workerTimeout = hasImage ? baseTimeout + 30000 : baseTimeout
 
     const workerBody = {
