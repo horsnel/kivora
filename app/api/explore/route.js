@@ -193,7 +193,7 @@ Budgets: cost_breakdown 4-5 items, tool_stack 4-5 items, action_plan exactly 5 e
     // tokens, which the shared chain's 12s chat timeout would kill. A
     // dedicated 45s budget turns a ~60s mistral-small generation into
     // roughly 10-20s. Returns null on any failure → fall through.
-    if (sambaKey) {
+    if (sambanovaKey) {
       chat = await sambanovaChatLong({
         model: MODEL,
         temperature: 0.3,
