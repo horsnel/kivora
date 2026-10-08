@@ -308,3 +308,28 @@ Work Log:
 Stage Summary:
 - Commit a013981 deployed (d78f8db..a013981); remote == prod
 - All 3 user items closed: colours aligned, text-bar Pro badge removed (toggle kept), kebab export menu with CSV/PDF/Markdown shipped and verified end-to-end
+
+---
+Task ID: chat-crash-1
+Agent: Main
+Task: Root-cause and fix chat page crash "g.map is not a function" (error boundary: Something went wrong / Try again / Go to Research)
+
+Work Log:
+- Sandbox reset; repo re-cloned at 1407411; PAT recovered again via blind grep (display layer redacts ghp_ tokens)
+- Traced every .map in the chat render tree; only message-derived arrays can receive non-array data. Root causes:
+  1) loadSession hydrates chat_sessions.messages RAW -> messages.map crashes if the row is an object/string
+  2) applyChatMeta + render guards used ".length > 0" which non-empty STRINGS pass but strings have no .map (msg.artifacts / msg.opportunityCards)
+  3) server route spread '...(session?.messages || [])' at 3 upsert sites: a corrupted row poisons every future save (string spread -> per-char messages, object spread -> key messages)
+- Fixes (same defense-in-depth pattern as explore failure_reasons):
+  - ChatClient: normalizeMessage/normalizeMessages (content -> string; artifacts/opportunityCards JSON-string arrays recovered, other drift dropped); wired into loadSession
+  - applyChatMeta: Array.isArray guards; render guards at both chips/cards blocks now Array.isArray
+  - route.js: prevMessages() helper replaces 3 unsafe spreads
+  - ArtifactViewer: safeFiles coercion (files string/object drift) + Array.isArray on files iteration, iframe builder, deploy payload
+  - useVoiceTTS: Array.isArray on engines fetch (same drift class, forEach)
+- 18/18 unit tests on the extracted shipped functions (messages array/JSON-string/object/garbage, artifacts string/JSON/recovered, content coercion, server coercion)
+- Prod verify: new chunk 2855.07a12e8da60b0cc5.js live (Array.isArray x15), /opportunities regression pass (18 kebab buttons, no console errors), chat middleware intact
+- Anonymous repro impossible: /chat requires login (Skip link = /research redirect); user should retry their chat — corrupted history rows now render safely instead of crashing
+
+Stage Summary:
+- Commits ee6ba75 + a0dfdb2 deployed; remote == prod
+- Chat crash root-caused at 3 boundaries (server save, client ingest, render guard); all known g.map shapes covered by tests
