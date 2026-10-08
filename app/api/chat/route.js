@@ -12,6 +12,24 @@ import { requireCredits, requireFeatureAccess, refundCredits, CREDIT_COSTS } fro
 
 const ALLOWED_MODEL_IDS = ALLOWED_MODELS.map(m => m.id)
 
+// ── Session message history coercion ─────────────────────────────────────
+// chat_sessions.messages must ALWAYS be an array of {role, content} objects.
+// A legacy/corrupted row (object or JSON string) previously poisoned every
+// future save through the spread below (string -> per-character "messages",
+// object -> key "messages") and crashed the chat page on load with
+// "g.map is not a function". Coerce hard instead of trusting the column.
+function prevMessages(session) {
+  const m = session?.messages
+  if (Array.isArray(m)) return m
+  if (typeof m === 'string' && m.trim()) {
+    try {
+      const parsed = JSON.parse(m)
+      if (Array.isArray(parsed)) return parsed
+    } catch (_) {}
+  }
+  return []
+}
+
 // ── Artifact Extraction ──
 function extractArtifacts(text) {
   const artifacts = []
@@ -357,7 +375,7 @@ async function processChat(req, body, send) {
               .single()
             await admin.from('chat_sessions').upsert({
               id: sessionId, user_id: chatUser.id,
-              messages: [...(session?.messages || []), lastUserMsg, { role: 'assistant', content: reply }],
+              messages: [...prevMessages(session), lastUserMsg, { role: 'assistant', content: reply }],
               updated_at: new Date().toISOString()
             }, { onConflict: 'id' })
           } catch (_) {}
@@ -663,7 +681,7 @@ async function processChat(req, body, send) {
 
           await admin.from('chat_sessions').upsert({
             id: sessionId, user_id: chatUser.id,
-            messages: [...(session?.messages || []), storedUserMsg, { role: 'assistant', content: reply }],
+            messages: [...prevMessages(session), storedUserMsg, { role: 'assistant', content: reply }],
             updated_at: new Date().toISOString()
           }, { onConflict: 'id' })
         } catch (_) {}
@@ -809,7 +827,7 @@ async function processChat(req, body, send) {
 
         await admin.from('chat_sessions').upsert({
           id: sessionId, user_id: chatUser.id,
-          messages: [...(session?.messages || []), storedUserMsg, { role: 'assistant', content: reply }],
+          messages: [...prevMessages(session), storedUserMsg, { role: 'assistant', content: reply }],
           updated_at: new Date().toISOString()
         }, { onConflict: 'id' })
       } catch (_) {}

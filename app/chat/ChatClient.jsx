@@ -107,6 +107,46 @@ const PRO_MODES = [
   { id: 'prosearch', labelKey: 'chat.focus.prosearch', descKey: 'chat.focus.prosearch.desc' },
 ]
 
+// ── Message normalization (crash defense) ──
+// chat_sessions rows written by older/legacy code paths can carry messages
+// (or per-message artifacts / opportunityCards) as JSON strings or objects
+// instead of arrays. Rendering those crashed the whole chat page with
+// "g.map is not a function". Coerce every field to its render-safe shape.
+function normalizeMessage(m) {
+  if (!m || typeof m !== 'object' || Array.isArray(m)) return null
+  const msg = { ...m }
+  if (typeof msg.content !== 'string') {
+    if (msg.content == null) msg.content = ''
+    else if (typeof msg.content === 'object') {
+      try { msg.content = JSON.stringify(msg.content) } catch { msg.content = String(msg.content) }
+    } else msg.content = String(msg.content)
+  }
+  for (const key of ['artifacts', 'opportunityCards']) {
+    const v = msg[key]
+    if (v == null) { delete msg[key]; continue }
+    if (Array.isArray(v)) continue
+    if (typeof v === 'string' && v.trim()) {
+      try {
+        const parsed = JSON.parse(v)
+        if (Array.isArray(parsed)) { msg[key] = parsed; continue }
+      } catch {}
+    }
+    delete msg[key]
+  }
+  return msg
+}
+
+function normalizeMessages(list) {
+  if (Array.isArray(list)) return list.map(normalizeMessage).filter(Boolean)
+  if (typeof list === 'string' && list.trim()) {
+    try {
+      const parsed = JSON.parse(list)
+      if (Array.isArray(parsed)) return normalizeMessages(parsed)
+    } catch {}
+  }
+  return []
+}
+
 function groupByDate(sessions) {
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -523,7 +563,7 @@ export default function ChatClient() {
       studySessionRef.current = null
     }
     setSessionId(session.id)
-    setMessages(session.messages || [])
+    setMessages(normalizeMessages(session.messages))
     firstMessageSent.current = true
     setHistoryOpen(false)
     setAttachedFile(null)
@@ -799,8 +839,8 @@ export default function ChatClient() {
           msg.imageModel = 'flux'
           msg.imageSize = '1024x1024'
         }
-        if (data.artifacts && data.artifacts.length > 0) msg.artifacts = data.artifacts
-        if (data.opportunityCards && data.opportunityCards.length > 0) msg.opportunityCards = data.opportunityCards
+        if (Array.isArray(data.artifacts) && data.artifacts.length > 0) msg.artifacts = data.artifacts
+        if (Array.isArray(data.opportunityCards) && data.opportunityCards.length > 0) msg.opportunityCards = data.opportunityCards
         if (data.siteDeployed && data.deployUrl) {
           msg.siteDeployed = true
           msg.deployUrl = data.deployUrl
@@ -1735,7 +1775,7 @@ export default function ChatClient() {
                         <span className="text-[11px] text-[#60a5fa]/70">Read URL via {msg.urlReadSource || 'Jina'}</span>
                       </div>
                     )}
-                    {msg.role === 'assistant' && msg.artifacts && msg.artifacts.length > 0 && (
+                    {msg.role === 'assistant' && Array.isArray(msg.artifacts) && msg.artifacts.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mb-1.5">
                         {msg.artifacts.map((artifact, aIdx) => (
                           <button
@@ -1760,7 +1800,7 @@ export default function ChatClient() {
                         js={msg.deployJs}
                       />
                     )}
-                    {msg.role === 'assistant' && msg.opportunityCards && msg.opportunityCards.length > 0 && (
+                    {msg.role === 'assistant' && Array.isArray(msg.opportunityCards) && msg.opportunityCards.length > 0 && (
                       <div className="mt-2 space-y-1.5">
                         <p className="text-[10px] text-muted2 font-medium uppercase tracking-wider">Related Opportunities</p>
                         <div className="grid gap-1.5">

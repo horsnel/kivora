@@ -17,7 +17,7 @@ export default function ArtifactViewer({ artifact, onClose }) {
 
   // Set default active file for projects
   useEffect(() => {
-    if (isProject && artifact?.files?.length) {
+    if (isProject && Array.isArray(artifact?.files) && artifact.files.length) {
       if (!activeFile || !artifact.files.find(f => f.path === activeFile)) {
         setActiveFile(artifact.files[0]?.path)
       }
@@ -70,7 +70,7 @@ export default function ArtifactViewer({ artifact, onClose }) {
 
   // Build iframe content for project type (inline all CSS/JS)
   const projectIframeSrc = useMemo(() => {
-    if (!isProject || !artifact?.files?.length) return null
+    if (!isProject || !Array.isArray(artifact?.files) || !artifact.files.length) return null
     const indexFile = artifact.files.find(f => f.path === 'index.html' || f.path.endsWith('/index.html'))
     if (!indexFile) return null
 
@@ -134,7 +134,7 @@ export default function ArtifactViewer({ artifact, onClose }) {
     try {
       let files
       if (isProject) {
-        files = artifact.files
+        files = Array.isArray(artifact.files) ? artifact.files : []
       } else {
         files = [{ path: 'index.html', content: artifact.code }]
       }
@@ -156,7 +156,14 @@ export default function ArtifactViewer({ artifact, onClose }) {
   if (!artifact) return null
 
   const { type, title, code, files } = artifact
-  const activeFileData = isProject ? files?.find(f => f.path === activeFile) : null
+  // Drifted/legacy artifacts can carry files as a string or object — coerce
+  // once here so every downstream .find/.map/for-of stays array-safe.
+  const safeFiles = Array.isArray(files)
+    ? files
+    : (typeof files === 'string' && files.trim()
+        ? (() => { try { const p = JSON.parse(files); return Array.isArray(p) ? p : [] } catch { return [] } })()
+        : [])
+  const activeFileData = isProject ? safeFiles.find(f => f.path === activeFile) : null
   const showIframe = activeTab === 'preview' && (type === 'html' || type === 'svg' || type === 'markdown' || type === 'mermaid' || type === 'project')
 
   return (
@@ -171,7 +178,7 @@ export default function ArtifactViewer({ artifact, onClose }) {
             {type === 'markdown' && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>}
           </div>
           <h3 className="text-sm font-medium text-white/90 truncate">{title || 'Untitled Artifact'}</h3>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-[#525252] uppercase tracking-wider font-medium">{type === 'project' ? `${files?.length || 0} files` : type}</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-[#525252] uppercase tracking-wider font-medium">{type === 'project' ? `${safeFiles.length} files` : type}</span>
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
@@ -276,7 +283,7 @@ export default function ArtifactViewer({ artifact, onClose }) {
         {isProject && (
           <div className="w-48 shrink-0 border-r border-[#181818] overflow-y-auto">
             <div className="px-3 py-2 text-[10px] font-semibold text-[#525252] uppercase tracking-wider">Files</div>
-            {files?.map(file => (
+            {safeFiles.map(file => (
               <button
                 key={file.path}
                 onClick={() => setActiveFile(file.path)}
