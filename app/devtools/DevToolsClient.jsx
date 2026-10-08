@@ -501,11 +501,6 @@ export default function DevToolsClient() {
             <span>
               {t('devtools.title').slice(0, parseInt(t('devtools.split')))}<span className="text-red-500">{t('devtools.title').slice(parseInt(t('devtools.split')))}</span>
             </span>
-            {usage && !usage.unlimited && (
-              <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-[#141414] border border-[#262626] text-muted whitespace-nowrap">
-                {t('usage.header_free', { n: Math.max(0, usage.remaining), limit: usage.limit })}
-              </span>
-            )}
           </h1>
           <p className="text-muted text-body-sm mt-0.5">
             {t('devtools.subtitle')}

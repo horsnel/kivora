@@ -2109,9 +2109,6 @@ export default function ChatClient() {
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10A15 15 0 0 1 12 2z"/></svg>
                         <span>{currentModel.short}</span>
-                        {currentModel.pro && (
-                          <span className="text-[8px] font-bold tracking-[0.5px] px-[4px] py-[1px] rounded-[3px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.15)]">Pro</span>
-                        )}
                         <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M3 5l3 3 3-3"/></svg>
                       </button>
 

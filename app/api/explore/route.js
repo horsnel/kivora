@@ -1,6 +1,6 @@
 export const runtime = 'edge' 
 import { createClient } from '@supabase/supabase-js'
-import { groq, MODEL, groqChat, GroqError, getPrimaryClientAsync, getFallbackClientAsync, setCerebrasApiKey, setSambanovaApiKey, setSiliconflowApiKey, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
+import { groq, MODEL, groqChat, GroqError, getPrimaryClientAsync, getFallbackClientAsync, setCerebrasApiKey, setSambanovaApiKey, setSiliconflowApiKey, setGeminiApiKey, setOpenrouterApiKey, sambanovaChatLong } from '@/lib/groq'
 import { mistralChat, setMistralApiKeys, isMistralConfigured } from '@/lib/mistral'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit, anonymousRateLimit, anonymousDailyLimit, getClientIP } from '@/lib/ratelimit'
@@ -143,7 +143,7 @@ Respond ONLY with valid JSON — no markdown fences, no explanation, just the JS
           content: `Query: "${query}"
 Category: ${category || 'general'}
 
-Return a JSON object with EXACTLY this shape:
+Return a JSON object with EXACTLY this shape — keep it compact, no extra fields, no commentary:
 {
   "title": "Compelling title for this opportunity",
   "tagline": "One punchy sentence hook",
@@ -152,7 +152,7 @@ Return a JSON object with EXACTLY this shape:
   "income_period": "month",
   "start_days": 3,
   "monthly_cost": 20,
-  "overview": "3-4 paragraph honest overview of this opportunity, why it works, who it's for, and why now",
+  "overview": "2 short paragraphs (4-6 sentences total) — why it works, who it's for, why now",
   "cost_breakdown": [
     { "tool": "Tool Name", "cost": 0, "note": "what it does" }
   ],
@@ -168,7 +168,7 @@ Return a JSON object with EXACTLY this shape:
       "works_without_vpn": true,
       "accepts_local_payment": true,
       "url": "https://example.com",
-      "use": "What you use it for"
+      "use": "One line — what you use it for"
     }
   ],
   "action_plan": [
@@ -178,15 +178,31 @@ Return a JSON object with EXACTLY this shape:
     { "period": "Month 1", "task": "Specific actionable task" },
     { "period": "Month 3", "task": "Specific milestone or goal" }
   ],
-  "works_in": ["Nigeria", "Kenya", "Ghana", "UK", "USA", "Canada", "Remote"],
-  "tags": ["tag1", "tag2", "tag3"]
-}`
+  "works_in": ["Nigeria", "Kenya", "UK", "USA", "Remote"],
+  "tags": ["tag1", "tag2", "tag3", "tag4"]
+}
+
+Budgets: cost_breakdown 4-5 items, tool_stack 4-5 items, action_plan exactly 5 entries, works_in max 6, tags max 4, failure_reasons exactly 3. Every string tight and concrete.`
         }
       ]
     }
 
     let chat = null
-    if (isMistralConfigured()) {
+    // ── Fast path: SambaNova Llama-3.3-70B with a long budget ──
+    // High-throughput provider; structured JSON guides emit ~2K output
+    // tokens, which the shared chain's 12s chat timeout would kill. A
+    // dedicated 45s budget turns a ~60s mistral-small generation into
+    // roughly 10-20s. Returns null on any failure → fall through.
+    if (sambaKey) {
+      chat = await sambanovaChatLong({
+        model: MODEL,
+        temperature: 0.3,
+        max_tokens: 3500,
+        messages: genParams.messages,
+      }, 45_000)
+      if (!chat) console.warn('[explore] sambanova fast path unavailable — falling back')
+    }
+    if (!chat && isMistralConfigured()) {
       try {
         chat = await mistralChat({
           model: 'mistral-small-latest',

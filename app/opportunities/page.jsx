@@ -68,6 +68,18 @@ export default function OpportunitiesPage() {
   useEffect(() => { load() }, [])
   useEffect(() => { filter() }, [opps, cat, search])
 
+  // Refetch when the user comes back to this page (browser back from a guide,
+  // or returning to the tab) so freshly generated results are never stale.
+  useEffect(() => {
+    const refetch = () => { if (document.visibilityState === 'visible') load() }
+    window.addEventListener('popstate', refetch)
+    document.addEventListener('visibilitychange', refetch)
+    return () => {
+      window.removeEventListener('popstate', refetch)
+      document.removeEventListener('visibilitychange', refetch)
+    }
+  }, [])
+
   // Load checklist state from localStorage
   useEffect(() => {
     try {
@@ -124,9 +136,37 @@ export default function OpportunitiesPage() {
         body: JSON.stringify({ query: genQuery.trim() })
       })
       const data = await res.json()
-      if (data.slug) router.push(`/explore/${data.slug}`)
+      if (data.slug) {
+        // Optimistically add the fresh guide to the grid so it's here the
+        // moment the user returns from the guide page (the App Router
+        // restores this page's state on back-navigation, which previously
+        // made the new result look like it was never saved).
+        if (data.result) {
+          setOpps(prev => [
+            { slug: data.slug, query: genQuery.trim(), category: data.result.tags?.[0] || 'general', result: data.result, views: 1, created_at: new Date().toISOString() },
+            ...prev.filter(o => o.slug !== data.slug)
+          ])
+        }
+        router.push(`/explore/${data.slug}`)
+      }
     } catch (_) {}
     setGenerating(false)
+  }
+
+  // Per-card CSV export — one row for this opportunity
+  async function exportOneCSV(opp) {
+    const { exportOpportunitiesAsCSV, downloadBlob } = await import('@/lib/fileExportClient')
+    const csvOpp = {
+      title: asText(opp.result?.title) || opp.query || '',
+      type: asText(opp.result?.type) || opp.category || '',
+      income_min: asNumber(opp.result?.income_min),
+      income_max: asNumber(opp.result?.income_max),
+      income_period: asText(opp.result?.income_period) || 'mo',
+      start_days: asNumber(opp.result?.start_days),
+      monthly_cost: asNumber(opp.result?.monthly_cost),
+    }
+    const blob = exportOpportunitiesAsCSV([csvOpp])
+    downloadBlob(blob, `kivora-opportunity-${opp.slug}.csv`)
   }
 
   // ── Checklist helpers ──
@@ -173,27 +213,6 @@ export default function OpportunitiesPage() {
         <div className="mb-6 animate-fade-up">
           <h1 className="text-display font-semibold mb-2 tracking-tight">{t('opportunities.title').slice(0, parseInt(t('opportunities.split')))}<span className="text-red-500">{t('opportunities.title').slice(parseInt(t('opportunities.split')))}</span></h1>
           <p className="text-muted text-body-sm mt-0.5">{t('opportunities.browse', { count: opps.length })}</p>
-          {opps.length > 0 && (
-            <button
-              onClick={async () => {
-                const { exportOpportunitiesAsCSV, downloadBlob } = await import('@/lib/fileExportClient')
-                const csvOpps = opps.map(o => ({
-                  title: asText(o.result?.title) || o.query || '',
-                  type: asText(o.result?.type) || o.category || '',
-                  income_min: asNumber(o.result?.income_min),
-                  income_max: asNumber(o.result?.income_max),
-                  income_period: asText(o.result?.income_period) || 'mo',
-                  start_days: asNumber(o.result?.start_days),
-                  monthly_cost: asNumber(o.result?.monthly_cost),
-                }))
-                const blob = exportOpportunitiesAsCSV(csvOpps)
-                downloadBlob(blob, `kivora-opportunities-${new Date().toISOString().split('T')[0]}.csv`)
-              }}
-              className="mt-2 flex items-center gap-1.5 text-[11px] text-muted hover:text-white transition-colors"
-            >
-              <IconDownload size={12} /> Export as CSV
-            </button>
-          )}
         </div>
 
         {/* Generate new */}
@@ -290,7 +309,7 @@ export default function OpportunitiesPage() {
                   </div>
 
                   {/* Action buttons row */}
-                  <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-white/[0.04]">
+                  <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-white/[0.04]">
                     {/* Open checklist */}
                     <button onClick={(e) => { e.stopPropagation(); setChecklistSlug(opp.slug) }}
                       className="flex items-center gap-1 px-2 py-1 rounded-md text-caption text-muted2 hover:text-white hover:bg-[#0a0a0a] transition-colors"
@@ -307,6 +326,14 @@ export default function OpportunitiesPage() {
                       title={isComparing ? 'Remove from comparison' : 'Add to comparison'}>
                       <IconCompare size={12} />
                       <span>{isComparing ? t('opportunities.added') : t('opportunities.compare_short')}</span>
+                    </button>
+
+                    {/* Export this opportunity as CSV */}
+                    <button onClick={(e) => { e.stopPropagation(); exportOneCSV(opp) }}
+                      className="flex items-center gap-1 px-2 py-1 rounded-md text-caption text-muted2 hover:text-white hover:bg-[#0a0a0a] transition-colors ml-auto"
+                      title="Export as CSV">
+                      <IconDownload size={12} />
+                      <span>CSV</span>
                     </button>
                   </div>
                 </div>
@@ -330,9 +357,9 @@ export default function OpportunitiesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setChecklistSlug(null)}>
           <div className="bg-[#141414] border border-[#262626] rounded-xl w-full max-w-lg max-h-[85vh] flex flex-col animate-scale-in" onClick={e => e.stopPropagation()}>
             {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
-              <div>
-                <h3 className="font-semibold text-sm tracking-tight line-clamp-1 text-muted">{checklistOpp.result?.title || checklistOpp.query}</h3>
+            <div className="flex items-center justify-between gap-2 p-5 border-b border-white/[0.06]">
+              <div className="min-w-0">
+                <h3 className="font-semibold text-sm tracking-tight line-clamp-2 text-muted">{checklistOpp.result?.title || checklistOpp.query}</h3>
                 <p className="text-caption text-muted2 mt-0.5">{t('opportunities.action_plan')}</p>
               </div>
               <button onClick={() => setChecklistSlug(null)} className="text-muted2 hover:text-white transition-colors p-1">
@@ -380,17 +407,17 @@ export default function OpportunitiesPage() {
             </div>
 
             {/* Add custom step */}
-            <div className="p-5 border-t border-white/[0.06]">
+            <div className="p-4 sm:p-5 border-t border-white/[0.06]">
               <div className="flex gap-2">
                 <input
-                  className="flex-1 bg-[#0a0a0a] border border-[#262626] rounded-lg px-3 py-2 text-body text-white placeholder-muted2 focus:outline-none transition-colors"
+                  className="flex-1 min-w-0 bg-[#0a0a0a] border border-[#262626] rounded-lg px-3 py-2 text-body text-white placeholder-muted2 focus:outline-none transition-colors"
                   placeholder={t('opportunities.add_step')}
                   value={newStepText}
                   onChange={e => setNewStepText(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && addCustomStep()}
                 />
                 <button onClick={addCustomStep} disabled={!newStepText.trim()}
-                  className="bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5">
+                  className="shrink-0 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5">
                   <IconPlus size={12} />
                   <span className="text-caption font-semibold">{t('opportunities.add')}</span>
                 </button>
