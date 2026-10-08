@@ -100,7 +100,7 @@ export function useVoiceTTS() {
               const engRes = await fetch('/api/voice/engines', { signal: AbortSignal.timeout(3000) })
               if (engRes.ok) {
                 const engData = await engRes.json()
-                if (engData.engines && engData.engines.length > 0) {
+                if (Array.isArray(engData.engines) && engData.engines.length > 0) {
                   setEngines(prev => {
                     // Merge server engines, avoiding duplicates
                     const existing = new Set(prev.map(e => e.id))
