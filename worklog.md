@@ -268,3 +268,24 @@ Stage Summary:
 - All 7 requested pages QA'd with real AI generation where quota allowed
 - Explore "Something went wrong" root-caused and fixed at both layers
 - Remaining for user: DNS/CF dashboard items (DMARC p=quarantine, SPF/DKIM, DNSSEC, CAA, CF Access), TOTP secret enrollment, secret rotation
+
+---
+Task ID: ux-polish-3
+Agent: Main
+Task: 6-item UX fix round (Pro badge placement, header usage pills, opportunities CSV/speed/caching, checklist mobile overflow, settings card colour check)
+
+Work Log:
+- Repo re-cloned at b22bd6f after sandbox reset
+- ChatClient: removed Pro badge from input-bar model chip (kept in model dropdown + Pro toggle lock)
+- DevTools/ReelPen: removed "15/15 TODAY" usage pill next to page title (limits + countdown button untouched; deployed chunks verified: usage.header_free = 0)
+- Opportunities: page-level "Export as CSV" removed; per-card CSV export added (action row: Plan / Compare / CSV, row now flex-wrap)
+- Opportunities caching complaint root-cause: server cache WORKS (anon REST 200, 16 rows, cache-hit 0.5-1.2s); real bug was stale grid after generate->guide->back (App Router restores old client state on back-nav, useEffect didn't rerun). Fixed with optimistic prepend of fresh result + popstate/visibilitychange refetch
+- Explore generation speed: 63.5s -> 24.8s fresh (2.6x). SambaNova Llama-3.3-70B fast path with dedicated 45s budget (sambanovaChatLong in lib/groq.js, directChat timeoutMs override) tried before mistral-small; JSON schema prompt trimmed (2-para overview, budgets line). Verified in prod: fresh 24.8s complete result, cache hit 0.5s
+- Regression caught in QA: first deploy referenced sambaKey (undefined) -> 500; fixed to sambanovaKey (3c45dc8)
+- Checklist modal mobile: input min-w-0 + button shrink-0 + p-4 sm:p-5 footer; header title line-clamp-2; verified at 375px AND 320px (add button inside dialog, no overflow)
+- SETTINGS CARD COLOUR CHECK (report only, no change per user): chat settings sheet uses a different palette family than the platform's cards. Platform cards (about/opportunities/explore/devtools): #141414 cards on #0a0a0a, icon chips #1a1a1a, borders white/[0.06] or #262626, accent #dc2626 (red-600). Chat settings sheet: #1a1a1a sheet, option cards #242424 (lighter than any platform card), selection accent #c45c4a (warm rust, not brand red), icon tiles rgba(115,115,115,0.1)/#737373 (gray, not brand). Recommendation if user wants alignment: sheet #141414, option cards #1a1a1a, accent red-600, icon tiles keep neutral
+
+Stage Summary:
+- Commits da29e85 + 3c45dc8 deployed; remote HEAD == prod
+- All 6 items addressed (5 fixed, 1 diagnosis-only as requested)
+- Fresh explore generation 2.6x faster; grid no longer looks uncached after generation
