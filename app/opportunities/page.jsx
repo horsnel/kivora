@@ -33,6 +33,17 @@ function IconCompare({ size = 16, className = '' }) {
   )
 }
 
+// Inline icon: Kebab (3 dots vertical)
+function IconKebab({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <circle cx="8" cy="3" r="1.4" fill="currentColor"/>
+      <circle cx="8" cy="8" r="1.4" fill="currentColor"/>
+      <circle cx="8" cy="13" r="1.4" fill="currentColor"/>
+    </svg>
+  )
+}
+
 // Inline icon: Add step
 function IconAddStep({ size = 16, className = '' }) {
   return (
@@ -64,6 +75,16 @@ export default function OpportunitiesPage() {
   // ── Feature 3: Comparison ──
   const [compareSlugs, setCompareSlugs] = useState([])
   const [showCompare, setShowCompare] = useState(false)
+
+  // ── Per-card export menu (CSV / PDF / Markdown) ──
+  const [menuSlug, setMenuSlug] = useState(null)
+
+  useEffect(() => {
+    if (!menuSlug) return
+    const close = () => setMenuSlug(null)
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [menuSlug])
 
   useEffect(() => { load() }, [])
   useEffect(() => { filter() }, [opps, cat, search])
@@ -167,6 +188,23 @@ export default function OpportunitiesPage() {
     }
     const blob = exportOpportunitiesAsCSV([csvOpp])
     downloadBlob(blob, `kivora-opportunity-${opp.slug}.csv`)
+  }
+
+  // Per-card PDF export — styled A4 sheet via jspdf (dynamic import)
+  async function exportOnePDF(opp) {
+    const [{ exportOpportunityAsPDF }, { downloadBlob }] = await Promise.all([
+      import('@/lib/fileExportHeavy'),
+      import('@/lib/fileExportClient'),
+    ])
+    const blob = await exportOpportunityAsPDF(opp)
+    downloadBlob(blob, `kivora-opportunity-${opp.slug}.pdf`)
+  }
+
+  // Per-card Markdown export
+  async function exportOneMarkdown(opp) {
+    const { exportOpportunityAsMarkdown, downloadBlob } = await import('@/lib/fileExportClient')
+    const blob = exportOpportunityAsMarkdown(opp)
+    downloadBlob(blob, `kivora-opportunity-${opp.slug}.md`)
   }
 
   // ── Checklist helpers ──
@@ -280,7 +318,7 @@ export default function OpportunitiesPage() {
                 <div key={opp.slug}
                   className={`opportunity-card bg-[#141414] border border-white/[0.06] rounded-xl p-5 sm:p-6 text-left transition-all group hover:-translate-y-0.5 hover:bg-[#161616] relative ${
                     isComparing ? '!border-red-500/50' : ''
-                  }`}>
+                  } ${menuSlug === opp.slug ? 'z-30' : ''}`}>
                   {/* Card main area - clickable */}
                   <button onClick={() => router.push(`/explore/${opp.slug}`)} className="w-full text-left">
                     <h3 className="font-semibold text-sm mb-2 group-hover:text-red-400 transition-colors line-clamp-2 leading-snug tracking-tight text-muted">
@@ -328,13 +366,40 @@ export default function OpportunitiesPage() {
                       <span>{isComparing ? t('opportunities.added') : t('opportunities.compare_short')}</span>
                     </button>
 
-                    {/* Export this opportunity as CSV */}
-                    <button onClick={(e) => { e.stopPropagation(); exportOneCSV(opp) }}
-                      className="flex items-center gap-1 px-2 py-1 rounded-md text-caption text-muted2 hover:text-white hover:bg-[#0a0a0a] transition-colors ml-auto"
-                      title="Export as CSV">
-                      <IconDownload size={12} />
-                      <span>CSV</span>
-                    </button>
+                    {/* Export menu — CSV / PDF / Markdown */}
+                    <div className="relative ml-auto">
+                      <button onClick={(e) => { e.stopPropagation(); setMenuSlug(menuSlug === opp.slug ? null : opp.slug) }}
+                        className={`flex items-center justify-center w-7 h-7 rounded-md text-caption transition-colors ${
+                          menuSlug === opp.slug ? 'text-white bg-[#0a0a0a]' : 'text-muted2 hover:text-white hover:bg-[#0a0a0a]'
+                        }`}
+                        title="Export options"
+                        aria-label="Export options">
+                        <IconKebab size={14} />
+                      </button>
+                      {menuSlug === opp.slug && (
+                        <div
+                          className="absolute bottom-full right-0 mb-1.5 w-48 bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl shadow-2xl py-1.5 z-30 animate-scale-in"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <p className="px-3 pt-0.5 pb-1.5 mb-1 text-caption text-muted2 font-medium border-b border-white/[0.06]">Export</p>
+                          <button onClick={() => { setMenuSlug(null); exportOneCSV(opp) }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-body text-[#d4d4d4] hover:text-white hover:bg-white/[0.05] transition-colors text-left">
+                            <IconDownload size={13} className="shrink-0" />
+                            <span>Export as CSV file</span>
+                          </button>
+                          <button onClick={() => { setMenuSlug(null); exportOnePDF(opp) }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-body text-[#d4d4d4] hover:text-white hover:bg-white/[0.05] transition-colors text-left">
+                            <IconDownload size={13} className="shrink-0" />
+                            <span>Export as PDF</span>
+                          </button>
+                          <button onClick={() => { setMenuSlug(null); exportOneMarkdown(opp) }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-body text-[#d4d4d4] hover:text-white hover:bg-white/[0.05] transition-colors text-left">
+                            <IconDownload size={13} className="shrink-0" />
+                            <span>Export as Markdown</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )

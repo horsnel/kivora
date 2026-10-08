@@ -1245,7 +1245,7 @@ export default function ChatClient() {
           onClick={() => { setSettingsOpen(false); settingsReset() }}
         >
           <div
-            className="absolute bottom-0 left-0 right-0 h-[92vh] bg-[#1a1a1a] rounded-t-[24px] flex flex-col overflow-hidden animate-slide-up"
+            className="absolute bottom-0 left-0 right-0 h-[92vh] bg-[#0a0a0a] rounded-t-[24px] flex flex-col overflow-hidden animate-slide-up"
             onClick={e => e.stopPropagation()}
           >
             {/* Handle bar */}
@@ -1299,7 +1299,7 @@ export default function ChatClient() {
                       onClick={() => settingsPush('model')}
                       className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
                     >
-                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(115,115,115,0.1)] flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-[11px] bg-[#141414] border border-[#262626] flex items-center justify-center shrink-0">
                         <IconLightning size={18} className="text-[#737373]" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1314,7 +1314,7 @@ export default function ChatClient() {
                       onClick={() => settingsPush('voice')}
                       className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
                     >
-                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(115,115,115,0.1)] flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-[11px] bg-[#141414] border border-[#262626] flex items-center justify-center shrink-0">
                         <IconSpeaker size={18} className="text-[#737373]" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1334,7 +1334,7 @@ export default function ChatClient() {
                       onClick={() => settingsPush('prompt')}
                       className="w-full flex items-center gap-3.5 py-3.5 text-left active:opacity-60 transition-opacity"
                     >
-                      <div className="w-10 h-10 rounded-[11px] bg-[rgba(115,115,115,0.1)] flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-[11px] bg-[#141414] border border-[#262626] flex items-center justify-center shrink-0">
                         <IconSliders size={18} className="text-[#737373]" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1350,7 +1350,7 @@ export default function ChatClient() {
                     <div className="pt-4">
                       <button
                       onClick={() => { setSettingsOpen(false); settingsReset(); setComingSoonFeature('Voice Settings') }}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[rgba(115,115,115,0.1)] text-[#737373] active:bg-[rgba(115,115,115,0.18)] transition-colors"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[#141414] text-[#737373] active:bg-[#1c1c1c] transition-colors"
                       >
                         <IconSpeaker size={16} /> Full Voice Settings Panel
                       </button>
@@ -1374,7 +1374,7 @@ export default function ChatClient() {
                         className="w-full py-4 text-left active:opacity-60 transition-opacity"
                       >
                         <div className="flex items-center gap-2.5 mb-1">
-                          <span className={`text-[17px] font-medium ${model === m.id ? 'text-[#4a9fd1]' : 'text-white'}`}>{m.name}</span>
+                          <span className={`text-[17px] font-medium ${model === m.id ? 'text-[#dc2626]' : 'text-white'}`}>{m.name}</span>
                           {m.pro && (
                             <span className="flex items-center gap-1 text-[10px] font-bold tracking-[0.5px] px-[7px] py-[2px] rounded-[5px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.12)]">
                               {!modelAllowed(m) && <IconLock size={9} />}
@@ -1393,7 +1393,7 @@ export default function ChatClient() {
                             </span>
                           )}
                         </div>
-                        <div className={`text-[14px] flex items-center justify-between ${model === m.id ? 'text-[#4a9fd1]' : 'text-[#888]'}`}>
+                        <div className={`text-[14px] flex items-center justify-between ${model === m.id ? 'text-[#dc2626]' : 'text-[#888]'}`}>
                           <span>{m.id}</span>
                           {model === m.id && <span className="text-[20px]">✓</span>}
                         </div>
@@ -1440,13 +1440,13 @@ export default function ChatClient() {
                           }}
                           className={`w-full px-4 py-[18px] rounded-[14px] text-left transition-all active:scale-[0.98] ${
                             selected
-                              ? 'bg-[rgba(196,92,74,0.08)] border-2 border-[#c45c4a]'
-                              : 'bg-[#242424] border-2 border-transparent'
+                              ? 'bg-[rgba(220,38,38,0.08)] border-2 border-[#dc2626]'
+                              : 'bg-[#141414] border-2 border-transparent'
                           }`}
                         >
                           <div className="flex items-center justify-between">
                             <span className="text-[16px] font-medium text-white">{opt.label}</span>
-                            <span className={`text-[20px] text-[#c45c4a] transition-opacity ${selected ? 'opacity-100' : 'opacity-0'}`}>✓</span>
+                            <span className={`text-[20px] text-[#dc2626] transition-opacity ${selected ? 'opacity-100' : 'opacity-0'}`}>✓</span>
                           </div>
                           <div className="text-[13px] text-[#888] mt-0.5">{opt.desc}</div>
                         </button>
@@ -1471,7 +1471,7 @@ export default function ChatClient() {
                         className="w-full py-4 text-left active:opacity-60 transition-opacity"
                       >
                         <div className="flex items-center gap-2.5">
-                          <span className={`text-[17px] font-medium ${model === m.id ? 'text-[#4a9fd1]' : 'text-white'}`}>{m.name}</span>
+                          <span className={`text-[17px] font-medium ${model === m.id ? 'text-[#dc2626]' : 'text-white'}`}>{m.name}</span>
                           {m.pro && (
                             <span className="flex items-center gap-1 text-[10px] font-bold tracking-[0.5px] px-[7px] py-[2px] rounded-[5px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.12)]">
                               {!modelAllowed(m) && <IconLock size={9} />}
@@ -1479,7 +1479,7 @@ export default function ChatClient() {
                             </span>
                           )}
                         </div>
-                        <div className={`text-[14px] flex items-center justify-between mt-1 ${model === m.id ? 'text-[#4a9fd1]' : 'text-[#888]'}`}>
+                        <div className={`text-[14px] flex items-center justify-between mt-1 ${model === m.id ? 'text-[#dc2626]' : 'text-[#888]'}`}>
                           <span>{m.id}</span>
                           {model === m.id && <span className="text-[20px]">✓</span>}
                         </div>
@@ -1501,7 +1501,7 @@ export default function ChatClient() {
                     </p>
                     <button
                       onClick={() => setSettingsOpen(false)}
-                      className="px-4 py-2 bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-white rounded-xl text-sm font-medium transition-colors"
+                      className="px-4 py-2 bg-[#141414] border border-[#262626] hover:border-[#3a3a3a] text-white rounded-xl text-sm font-medium transition-colors"
                     >
                       Close
                     </button>
@@ -1514,7 +1514,7 @@ export default function ChatClient() {
                     <div className="text-[13px] text-[#888] mb-3">Current prompt</div>
                     <textarea
                       rows={6}
-                      className="w-full bg-[#242424] border border-[#2a2a2a] rounded-[12px] px-4 py-3.5 text-[14px] text-white placeholder-[#3a3a3a] resize-vertical outline-none focus:border-[#3a3a3a] transition-colors font-[inherit] leading-relaxed"
+                      className="w-full bg-[#141414] border border-[#2a2a2a] rounded-[12px] px-4 py-3.5 text-[14px] text-white placeholder-[#3a3a3a] resize-vertical outline-none focus:border-[#3a3a3a] transition-colors font-[inherit] leading-relaxed"
                       placeholder="Enter system prompt..."
                       value={customSystemPrompt}
                       onChange={e => {
@@ -2156,12 +2156,6 @@ export default function ChatClient() {
                       <div className="chat-pro-toggle">
                         <span className="chat-pro-label flex items-center gap-1">
                           Pro
-                          {!planAllows('pro') && (
-                            <span className="flex items-center gap-0.5 text-[8px] font-bold tracking-[0.5px] px-[4px] py-[1px] rounded-[3px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.15)]">
-                              <IconLock size={8} />
-                              Pro
-                            </span>
-                          )}
                         </span>
                         <label className="chat-switch">
                           <input
@@ -2259,7 +2253,7 @@ export default function ChatClient() {
               Upgrade to unlock deeper thinking, longer responses and priority compute.
             </p>
             <div className="flex gap-2.5">
-              <Link href="/pricing" className="flex-1 text-center py-2.5 rounded-[10px] bg-[#c45c4a] hover:bg-[#d06a58] text-white text-[14px] font-medium transition-colors">
+              <Link href="/pricing" className="flex-1 text-center py-2.5 rounded-[10px] bg-red-600 hover:bg-red-500 text-white text-[14px] font-medium transition-colors">
                 Upgrade to Pro
               </Link>
               <button
