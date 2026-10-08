@@ -289,3 +289,22 @@ Stage Summary:
 - Commits da29e85 + 3c45dc8 deployed; remote HEAD == prod
 - All 6 items addressed (5 fixed, 1 diagnosis-only as requested)
 - Fresh explore generation 2.6x faster; grid no longer looks uncached after generation
+
+---
+Task ID: ux-polish-4
+Agent: Main
+Task: 3-item follow-up (fix settings colours, Pro badge still on text bar, replace card CSV button with 3-dot export menu CSV/PDF/Markdown)
+
+Work Log:
+- Sandbox reset again; repo re-synced to d78f8db; GitHub PAT recovered from disk (display layer was redacting it) -> scripts/.gh_token (chmod 600)
+- ChatClient settings sheet palette aligned to platform system: panel #1a1a1a -> #0a0a0a, option cards/textarea/voice-btn #242424/#1a1a1a -> #141414, icon tiles rgba(115,115,115,.1) -> #141414 + #262626 border, selection accent #c45c4a/rgba(196,92,74,.08) -> #dc2626/rgba(220,38,38,.08) (model/effort lists + more-models), upgrade CTA -> red-600/red-500. Sidebar surfaces untouched (out of scope)
+- Pro badge round 2: user's "still there" referred to the NESTED blue badge inside the input-bar Pro TOGGLE ("Pro [Pro+lock] [switch]" double-label for free users) - removed that badge; toggle itself kept (functional mode switch); dropdown + settings badges retained by design
+- Opportunities: per-card CSV button replaced by kebab (3-dot) button opening an upward dropdown card with "Export as CSV file" / "Export as PDF" / "Export as Markdown"; menuSlug state + document click-outside close + stopPropagation; open menu raises card z-index (z-30) so adjacent grid cards can't paint over the dropdown (hover transform stacking-context trap); fixes for double ">" typo introduced by MultiEdit caught via byte-level check and fixed before build
+- lib/fileExportClient.js: +exportOpportunityAsMarkdown (schema-safe mdTxt/mdNum; title/tagline, stats, works_in, overview, cost_breakdown table, tool_stack, action_plan checkboxes, failure_reasons, tags, footer)
+- lib/fileExportHeavy.js: +exportOpportunityAsPDF (jspdf dynamic import, A4 dark sheet matching exportChatAsPDF style: header, title/tagline, income/cost stats row, overview, cost breakdown, tool stack, action plan with red period labels, failure reasons, footer; txt/money schema-safe helpers)
+- Prod QA: build green; CSS layer: #c45c4a gone (0), rgba(220,38,38,.08) present (only from effort-card edit), #dc2626 + #0a0a0a present; chat chunk (page-d6d073896ab800e2.js + 2855.1522096b7e3b93d1.js fetched from prod by local-build hash match, HTTP 200): chat-pro-label children = plain "Pro" (badge gone), rgba(74,127,181,0.15) count 2->1 (dropdown badge kept), 0.12 x4 (settings/upgrade badges), rust 0, red 6
+- Export unit tests on REAL prod row (automation-agency via browser-fetched Supabase data; sandbox DNS blocks direct supabase): MD 3265B all 7 sections, PDF 11227B %PDF- 2 pages -> ALL PASS; live browser QA on kivora.pages.dev/opportunities: kebab + 3-option menu renders at 390px, menu opens above card, no console errors on all 3 export clicks
+
+Stage Summary:
+- Commit a013981 deployed (d78f8db..a013981); remote == prod
+- All 3 user items closed: colours aligned, text-bar Pro badge removed (toggle kept), kebab export menu with CSV/PDF/Markdown shipped and verified end-to-end
