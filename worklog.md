@@ -406,3 +406,21 @@ Work Log:
 
 Stage Summary:
 - ROOT CAUSE of the entire 4-round saga: onClick={send} handler-reference (777b6c0). Poisoning vector eliminated at the source, guarded at send(), validated at the API, and the catch path now reports. Deployed eac291e, verified in production.
+
+---
+Task ID: chat-crash-5 / explore-capacity
+Agent: Super Z (main)
+Task: Diagnose "I couldn't generate a response for that." (chat) + "engine out of capacity" (explore); APK ads question; push everything.
+
+Work Log:
+- Forensics: no new client-error reports (symptom is a valid-response path, not an exception)
+- Server hardening audit: every server path guarantees non-empty reply — so the CLIENT fallback meant an event-less stream. Found it: processChat runs INSIDE sseResponse; bare `return <Response>` after stream open is silently discarded by ReadableStream.start(). Credits 402 (line 315), pro-model gate 403 (335), IP rate-limit 429 (197) all took that path
+- /chat requires auth -> user always hits credits gate -> 402 discarded -> empty stream twice (auto-retry) -> client fallback. Explore: 402 mapped to misleading "out of capacity" copy. ONE account state (credits exhausted) + two UX bugs = both symptoms
+- Verified /api/explore works anonymously (200, 15s) — failure is account-level, not provider outage
+- Audited study/reelpen/devtools (gate BEFORE stream, self-contained callbacks) and research/explore (non-streaming) — no same-class breaks; chat was the only one
+- Fixes (commit 264438f, amended cdd880e): 3 gate paths -> stream-aware json() helper (in-band error events); ChatClient appends upgrade nudge on upgrade_url payloads (stream + legacy paths); explore 402/403 surfaces the server reason, engine copy reserved for 5xx
+- tests/test_gate_errors.mjs 13/13 incl. behavioral ReadableStream.start() discard repro; build clean; deploy success; production: SSE error events verified, valid generation verified
+- docs/APK_ADS_GUIDE.md: Capacitor+AdMob (TWA cannot host ads; AdSense-in-WebView policy-risky), rewarded-ad-to-credits integration, UMP consent, direct-download + social-share checklist
+
+Stage Summary:
+- Both symptoms were the same server gate failure (likely credits exhausted) being hidden by broken stream error delivery. Errors now arrive in-band with real reasons. If the user is NOT out of credits, the next failure will display its true cause instead of a generic fallback.
