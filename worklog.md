@@ -368,3 +368,24 @@ Work Log:
 Stage Summary:
 - Commits: <this> — crash reports now reach the server; next user crash yields exact stack via GET /api/client-errors
 - User guidance: incognito test discriminates staleness vs real bug; close all tabs / hard refresh; report back after next crash so stack can be pulled
+
+---
+Task ID: chat-crash-4
+Agent: Super Z (main)
+Task: Forensics paid off — pull real stacks, identify + neutralize the invisible messages-state corruptor
+
+Work Log:
+- GET /api/client-errors returned 3 real crash reports on prod chunk 2855.2380e8e66165c3d8:
+  * g.map is not a function @ 1:75396 = the messages.map render — messages STATE is non-array
+  * e is not iterable @ 1:53361 = the network-error updater [...prev] — same poisoned state, different shape
+- Byte-offset archaeology of prod chunk: decoded send() (t$), all 4 call sites (safe), all direct setters y([])/y(a)/y(e) (safe), loadSession IIFE normalizeMessages (safe), voices eS IIFE hook (unconditional, legal), chatTitle (e.messages||[]).find — hardened now
+- No conditional hooks found; hook-slot crossing unlikely (React would #300)
+- Conclusion: an invisible writer sets messages to non-array → shipped instrumented self-healing setter:
+  * makeSafeMessagesSetter wraps the raw useState setter: direct writes coerced to [] if non-array; updater form guards BOTH prev (repairs poison) and returned next
+  * reportMessagesPoison posts writer-stack + value snippet to /api/client-errors once per shape — next occurrence names the culprit call site
+  * user no longer sees the crash regardless of source
+- chatTitle hardened: Array.isArray(session?.messages) gate before .find
+- Tests: scripts/test_safe_setter.mjs 15/15; suites 29/29 + 18/18 still green
+
+Stage Summary:
+- Commit <this>: crash now impossible + forensics name the writer; if reports arrive, next fix is surgical

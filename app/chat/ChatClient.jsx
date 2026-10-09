@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings, IconCopy as IconClipboard, IconWrite, IconFilter, IconRobot, IconTarget, IconDatabase, IconStack, IconSpeaker, IconArrowLeft, IconArrowRight, IconCube, IconLink } from '@/components/Icons'
@@ -17,6 +17,7 @@ import VoiceSettings from '@/components/VoiceSettings'
 import { useVoiceTTS } from '@/hooks/useVoiceTTS'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
+import { reportClientError } from '@/lib/reportClientError'
 import ComingSoonPopup from '@/components/ComingSoonPopup'
 
 
@@ -203,10 +204,71 @@ function groupByDate(sessions) {
   return result
 }
 
+// ── Instrumented messages-state writer ─────────────────────────
+// Three rounds of static analysis proved every setMessages site produces
+// an array, yet production still crashed with "g.map is not a function" /
+// "e is not iterable" — meaning the messages state slot itself received a
+// non-array from somewhere invisible. This wrapper does two things:
+//   1. SELF-HEALS: any non-array value written to the messages state
+//      (direct or returned from an updater, including a poisoned `prev`
+//      handed back by React) is coerced to [] — the crash becomes
+//      impossible regardless of the source.
+//   2. NAMES THE CULPRIT: the writer's captured stack + a snippet of the
+//      poisoned value is posted to /api/client-errors (once per shape),
+//      so the exact offending call site lands on the server.
+const POISON_REPORTED = new Set()
+
+function reportMessagesPoison(value, via, writerStack) {
+  try {
+    const shape = Object.prototype.toString.call(value)
+    if (POISON_REPORTED.has(shape + via)) return
+    POISON_REPORTED.add(shape + via)
+    let snippet = ''
+    try { snippet = JSON.stringify(value)?.slice(0, 500) || String(value).slice(0, 500) } catch { snippet = String(value).slice(0, 500) }
+    reportClientError({
+      message: `messages-state-poison via=${via} shape=${shape}`,
+      stack: `writer-stack:\n${writerStack || 'n/a'}\n\npoison-value: ${snippet}`,
+    })
+  } catch {}
+}
+
+function makeSafeMessagesSetter(rawSet) {
+  return function setMessages(value) {
+    const writerStack = new Error('setMessages writer').stack
+    if (typeof value === 'function') {
+      // Updater form — guard both the incoming prev and the returned next
+      rawSet((prev) => {
+        if (!Array.isArray(prev)) {
+          reportMessagesPoison(prev, 'updater-prev', writerStack)
+          prev = []
+        }
+        let next
+        try { next = value(prev) } catch (err) {
+          reportMessagesPoison({ threw: String(err?.message) }, 'updater-threw', writerStack)
+          throw err
+        }
+        if (!Array.isArray(next)) {
+          reportMessagesPoison(next, 'updater-out', writerStack)
+          return []
+        }
+        return next
+      })
+      return
+    }
+    if (!Array.isArray(value)) {
+      reportMessagesPoison(value, 'direct', writerStack)
+      rawSet([])
+      return
+    }
+    rawSet(value)
+  }
+}
+
 export default function ChatClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [messages, setMessages] = useState([])
+  const [messages, setMessagesRaw] = useState([])
+  const setMessages = useMemo(() => makeSafeMessagesSetter(setMessagesRaw), [setMessagesRaw])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   // Session ID is generated client-side only (in send()) — initializing
@@ -1128,8 +1190,10 @@ export default function ChatClient() {
     : historyGroups
 
   function chatTitle(session) {
-    const msgs = session.messages || []
-    const first = msgs.find(m => m.role === 'user')
+    // rows can carry messages as strings/objects from legacy writes —
+    // only array shapes are safe to .find() over
+    const msgs = Array.isArray(session?.messages) ? session.messages : []
+    const first = msgs.find(m => m?.role === 'user')
     return first?.content?.slice(0, 40) || t('chat.new')
   }
 
