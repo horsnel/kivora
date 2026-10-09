@@ -112,6 +112,34 @@ const PRO_MODES = [
 // (or per-message artifacts / opportunityCards) as JSON strings or objects
 // instead of arrays. Rendering those crashed the whole chat page with
 // "g.map is not a function". Coerce every field to its render-safe shape.
+//
+// Item-level defense: even a VALID array can carry garbage items (e.g.
+// artifacts: [null, "leak"]) — the render path calls artifact.type.toUpperCase()
+// and reads opp.url, which throws on non-objects. Filter to clean objects.
+function sanitizeArtifactsList(v) {
+  if (!Array.isArray(v)) return null
+  const out = v
+    .filter(a => a && typeof a === 'object' && !Array.isArray(a))
+    .map(a => ({
+      ...a,
+      type: typeof a.type === 'string' ? a.type : 'unknown',
+      title: typeof a.title === 'string' ? a.title : '',
+    }))
+  return out.length ? out : null
+}
+
+function sanitizeOpportunityCardsList(v) {
+  if (!Array.isArray(v)) return null
+  const out = v
+    .filter(o => o && typeof o === 'object' && !Array.isArray(o))
+    .map(o => ({
+      ...o,
+      title: typeof o.title === 'string' ? o.title : '',
+      url: typeof o.url === 'string' ? o.url : '#',
+    }))
+  return out.length ? out : null
+}
+
 function normalizeMessage(m) {
   if (!m || typeof m !== 'object' || Array.isArray(m)) return null
   const msg = { ...m }
@@ -124,14 +152,18 @@ function normalizeMessage(m) {
   for (const key of ['artifacts', 'opportunityCards']) {
     const v = msg[key]
     if (v == null) { delete msg[key]; continue }
-    if (Array.isArray(v)) continue
-    if (typeof v === 'string' && v.trim()) {
-      try {
-        const parsed = JSON.parse(v)
-        if (Array.isArray(parsed)) { msg[key] = parsed; continue }
-      } catch {}
+    let arr = v
+    if (!Array.isArray(v)) {
+      // Legacy rows sometimes stored the array as a JSON string — repair it
+      let parsed = null
+      if (typeof v === 'string' && v.trim()) {
+        try { parsed = JSON.parse(v) } catch {}
+      }
+      arr = Array.isArray(parsed) ? parsed : null
     }
-    delete msg[key]
+    const clean = key === 'artifacts' ? sanitizeArtifactsList(arr) : sanitizeOpportunityCardsList(arr)
+    if (clean) msg[key] = clean
+    else delete msg[key]
   }
   return msg
 }
@@ -839,8 +871,10 @@ export default function ChatClient() {
           msg.imageModel = 'flux'
           msg.imageSize = '1024x1024'
         }
-        if (Array.isArray(data.artifacts) && data.artifacts.length > 0) msg.artifacts = data.artifacts
-        if (Array.isArray(data.opportunityCards) && data.opportunityCards.length > 0) msg.opportunityCards = data.opportunityCards
+        const liveArtifacts = sanitizeArtifactsList(data.artifacts)
+        if (liveArtifacts) msg.artifacts = liveArtifacts
+        const liveCards = sanitizeOpportunityCardsList(data.opportunityCards)
+        if (liveCards) msg.opportunityCards = liveCards
         if (data.siteDeployed && data.deployUrl) {
           msg.siteDeployed = true
           msg.deployUrl = data.deployUrl

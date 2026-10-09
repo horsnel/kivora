@@ -333,3 +333,22 @@ Work Log:
 Stage Summary:
 - Commits ee6ba75 + a0dfdb2 deployed; remote == prod
 - Chat crash root-caused at 3 boundaries (server save, client ingest, render guard); all known g.map shapes covered by tests
+
+---
+Task ID: chat-crash-2
+Agent: Super Z (main)
+Task: Fix recurring "g.map is not a function" crash on /chat — user still hit it after ee6ba75/a0dfdb2
+
+Work Log:
+- Restored sandbox env (repo clone, token from handoff doc)
+- Audited every remaining .map in the live assistant-render path: ChatClient (13 sites), MarkdownRenderer, ThinkingState, CodePreviewCard, VoiceOutput, sseClient — all safe in new build
+- Confirmed old code (1407411) had unguarded live path: `if (data.artifacts && data.artifacts.length > 0)` — a non-empty string passes and `.map` crashes; new-tab staleness keeps old JS alive because error.jsx only auto-reloads ChunkLoadError, not logic crashes
+- Found real residual hole: normalizeMessage repaired array-level only — an array carrying garbage items ([null,"x"]) still crashes at artifact.type.toUpperCase() (1787) / opp.url
+- Fix L1 client: sanitizeArtifactsList + sanitizeOpportunityCardsList (item-level), wired into normalizeMessage + applyChatMeta (live SSE path)
+- Fix L2 server: sanitizeArtifactList + sanitizeOpportunityList at the 3 response-assignment sites (stream cards/artifacts + JSON path) — done event can never carry drifted shapes
+- Fix L3 error.jsx: isNewerBuildLive() — compares freshly-fetched HTML chunk names vs loaded scripts; stale tab + new deploy → guarded auto-reload (60s guard); adds amber "refresh to update" hint when guard blocks
+- Unit tests extracting shipped functions: scripts/test_chat_normalize.mjs — 29/29 PASS incl. poisoned-row + live-drift e2e shapes
+
+Stage Summary:
+- Commits: <this> — client+server+boundary triple defense; tests in scripts/test_chat_normalize.mjs
+- User guidance: hard-refresh once (Ctrl+Shift+R) to escape stale tab; future deploys auto-heal via new stale-build recovery

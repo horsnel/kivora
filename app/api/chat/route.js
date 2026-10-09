@@ -58,6 +58,24 @@ function extractArtifacts(text) {
   return artifacts
 }
 
+// ── Response payload schema guards ─────────────────────────────
+// The client renders artifacts via artifact.type.toUpperCase() and cards via
+// opp.url — a non-array or a non-object item crashes the whole chat page
+// ("g.map is not a function" family). Normalize at the API boundary so the
+// SSE done event / JSON response can never carry a drifted shape, no matter
+// what a tool implementation returns in the future.
+function sanitizeArtifactList(list) {
+  if (!Array.isArray(list)) return []
+  return list.filter(a => a && typeof a === 'object' && !Array.isArray(a))
+}
+
+function sanitizeOpportunityList(list) {
+  if (!Array.isArray(list)) return []
+  return list
+    .filter(o => o && typeof o === 'object' && !Array.isArray(o))
+    .map(o => ({ ...o, url: typeof o.url === 'string' ? o.url : '#' }))
+}
+
 // ── Wiki Ingest (non-blocking) ──────────────────────────────────
 // After a substantive assistant reply, fire a background wiki ingest
 // so future queries can use the knowledge. We extract entities and
@@ -750,8 +768,9 @@ async function processChat(req, body, send) {
         if (name === 'recommend_opportunities') {
           try {
             const oppResult = JSON.parse(toolResults[toolCall.id])
-            if (oppResult.opportunities && oppResult.opportunities.length > 0) {
-              response.opportunityCards = oppResult.opportunities
+            const cleanOpps = sanitizeOpportunityList(oppResult.opportunities)
+            if (cleanOpps.length > 0) {
+              response.opportunityCards = cleanOpps
             }
           } catch {}
         }
@@ -771,7 +790,8 @@ async function processChat(req, body, send) {
           } catch {}
         }
       }
-      if (artifacts.length > 0) response.artifacts = artifacts
+      const cleanArtifacts = sanitizeArtifactList(artifacts)
+      if (cleanArtifacts.length > 0) response.artifacts = cleanArtifacts
       // Background wiki ingest (non-blocking — fire and forget)
       ingestToWiki(admin, { userMessage: lastUserMsg.content, assistantReply: reply, userId })
       if (send) {
@@ -834,7 +854,8 @@ async function processChat(req, body, send) {
     }
 
     const response = { reply, model, searchUsed: false }
-    if (artifacts.length > 0) response.artifacts = artifacts
+    const cleanArtifactsJson = sanitizeArtifactList(artifacts)
+    if (cleanArtifactsJson.length > 0) response.artifacts = cleanArtifactsJson
     // Background wiki ingest (non-blocking — fire and forget)
     ingestToWiki(admin, { userMessage: lastUserMsg.content, assistantReply: reply, userId })
     if (send) {
