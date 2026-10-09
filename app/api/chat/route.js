@@ -241,7 +241,10 @@ async function processChat(req, body, send) {
       return json({ error: 'No LLM providers configured' }, 503)
     }
     const { messages, sessionId, userId, model: requestedModel, systemPrompt, focusMode, proMode, proModeType, effort: requestedEffort } = body
-    if (!messages?.length) {
+    // Strict array validation — a client bug once stringified a SyntheticEvent
+    // into this field ({} after JSON round-trip). `!messages?.length` let
+    // strings and other non-arrays slip through and crash the provider call.
+    if (!Array.isArray(messages) || !messages.length) {
       return json({ error: 'messages required' }, 400)
     }
 

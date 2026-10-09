@@ -795,6 +795,14 @@ export default function ChatClient() {
   }
 
   async function send(retryConvo) {
+    // ⚠️ Handler-reference guard: if send ever gets wired directly as an event
+    // handler (onClick={send}), React passes the SyntheticEvent as retryConvo.
+    // An event object would poison the messages state (the historic
+    // "g.map is not a function" crash class) AND JSON.stringify(event) throws
+    // "Converting circular structure to JSON", which surfaces as a bogus
+    // "Network error" bubble before the fetch even fires. Treat any truthy
+    // non-array retryConvo as a normal (non-retry) send instead.
+    if (retryConvo && !Array.isArray(retryConvo)) retryConvo = null
     const q = input.trim()
     if (loading) return
     if (!retryConvo && !q && !attachedFile) return
@@ -1028,6 +1036,9 @@ export default function ChatClient() {
           return next
         })
       } else {
+        // Feed the forensics pipeline so real network/API failures arrive with
+        // a full stack instead of being indistinguishable from silent bugs.
+        reportClientError(err)
         setMessages(prev => [...prev, { role: 'assistant', content: t('chat.error.network') }])
       }
     }
@@ -2151,7 +2162,7 @@ export default function ChatClient() {
                   </button>
                 ) : (
                   <button
-                    onClick={send}
+                    onClick={() => send()}
                     disabled={!hasInput}
                     className={`chat-collapsed-send ${hasInput ? 'chat-collapsed-send-active' : ''}`}
                     aria-label="Send message"
@@ -2346,7 +2357,7 @@ export default function ChatClient() {
                       </button>
                     ) : (
                       <button
-                        onClick={send}
+                        onClick={() => send()}
                         disabled={!hasInput}
                         className={`chat-submit-btn ${hasInput ? 'chat-submit-btn-active' : ''}`}
                         aria-label="Send message"
