@@ -352,3 +352,19 @@ Work Log:
 Stage Summary:
 - Commits: <this> — client+server+boundary triple defense; tests in scripts/test_chat_normalize.mjs
 - User guidance: hard-refresh once (Ctrl+Shift+R) to escape stale tab; future deploys auto-heal via new stale-build recovery
+
+---
+Task ID: chat-crash-3
+Agent: Super Z (main)
+Task: User STILL sees "g.map is not a function" after 541187b — third report. Get ground truth + close remaining staleness vectors.
+
+Work Log:
+- Confirmed 541187b deployed & verified (chunk anchors) — so crash is either user-side staleness or a hole static analysis missed
+- Audited LAST unchecked leads: PWA service worker (sw.js v13 policy is network-first HTML + hashed-assets cache-first = safe, BUT v8-v9 history had stale-HTML bugs → zombie SW can pin a device across refreshes), _headers had no no-cache for /sw.js, displayContent (string ops, safe), chatHistory/loadHistory chain (always array, safe), line 217 "syntax error" was display-layer distortion
+- Static analysis exhausted → built crash-forensics pipeline: /api/client-errors (edge, POST=fire-and-forget report upload to private `client-error-reports` storage bucket created on first use; GET=latest 20 reports) + lib/reportClientError.js wired into app/error.jsx AND app/global-error.jsx (keepalive POST, never throws, token-shaped strings scrubbed, sizes capped)
+- SW v13→v14 policy-identical bump to force-retire any zombie worker via skipWaiting+clients.claim+cache purge; _headers: no-cache for /sw.js + /sw-register.js
+- Tests: scripts/test_error_reporter.mjs 18/18 (scrub/clamp/reporter incl. never-throw guarantees) + chat normalize 29/29 still green
+
+Stage Summary:
+- Commits: <this> — crash reports now reach the server; next user crash yields exact stack via GET /api/client-errors
+- User guidance: incognito test discriminates staleness vs real bug; close all tabs / hard refresh; report back after next crash so stack can be pulled

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { reportClientError } from '@/lib/reportClientError'
 
 const CHUNK_RELOAD_KEY = '__kivora_chunk_reload_at'
 
@@ -66,6 +67,9 @@ export default function Error({ error, reset }) {
       return
     }
     console.error('[ErrorBoundary]', error?.message || error, error?.stack || '')
+    // Crash forensics — send the full trace so the exact crashing
+    // file/function can be pulled from the server instead of guessed.
+    reportClientError(error)
     let cancelled = false
     const guardOk = Date.now() - Number(sessionStorage.getItem(CHUNK_RELOAD_KEY) || 0) > 60_000
     isNewerBuildLive().then((newer) => {

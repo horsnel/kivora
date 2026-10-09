@@ -34,3 +34,11 @@
 /_next/static/*
   Cache-Control: public,max-age=31536000,immutable
   X-Content-Type-Options: nosniff
+
+# Service worker + registration must ALWAYS revalidate — the browser's
+# worker update check goes through the HTTP cache, and a stale sw.js pins
+# a device to a dead worker (the v8 zombie-worker class of bugs).
+/sw.js
+  Cache-Control: no-cache
+/sw-register.js
+  Cache-Control: no-cache

@@ -1,8 +1,13 @@
-// Kivora Service Worker v13 — MINIMAL-RISK CACHING
+// Kivora Service Worker v14 — MINIMAL-RISK CACHING
 //
 // History: v8–v9 had caching bugs (undefined respondWith crashes, stale HTML
 // referencing old chunk hashes after deploys) → v10–v12 went full no-op.
-// v13 reintroduces caching with a strictly additive, provably-safe policy:
+// v13 reintroduced caching with a strictly additive, provably-safe policy.
+// v14 is a policy-identical version bump whose ONLY job is to guarantee
+// every client swaps onto the current worker: the install → skipWaiting →
+// activate → clients.claim → purge-foreign-caches chain forcibly retires
+// any zombie v8/v9 worker a device may still be running (those served
+// stale HTML that pinned users to dead builds across refreshes).
 //
 //   1. /_next/static/*        → cache-first. These URLs are content-hashed
 //                               and served immutable (see public/_headers),
@@ -19,7 +24,7 @@
 // Every respondWith() path resolves to a concrete Response — this worker can
 // never crash by resolving undefined (the v8 failure mode).
 
-const VERSION = 'kivora-v13'
+const VERSION = 'kivora-v14'
 const STATIC_CACHE = `${VERSION}-static`
 const PRECACHE = ['/offline.html']
 
