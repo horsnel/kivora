@@ -389,3 +389,20 @@ Work Log:
 
 Stage Summary:
 - Commit <this>: crash now impossible + forensics name the writer; if reports arrive, next fix is surgical
+
+---
+Task ID: chat-crash-4 (final)
+Agent: Super Z (main)
+Task: Fix "e is not iterable" follow-up — user reported AI responding "Network error. Please try again."
+
+Work Log:
+- Pulled forensics from /api/client-errors: TWO poison reports (08:22, 08:55 UTC, mobile UA) — `messages-state-poison via=direct shape=[object Object]`, writer stack: wrapper(2855:1:40031) <- tJ(2855:1:51524) <- i4 <- se/cs/cu (React event dispatch chain in 4bd1b696)
+- Decoded deployed chunk 2855.9350bfcb at 1:51524 → `e?(Y(!0),k(e)):Y(!0)` = retry branch `setMessages(retryConvo)`; i4 decoded in React chunk = invokeListener inside DOM event dispatch → send() invoked synchronously by a CLICK handler with the SyntheticEvent as retryConvo
+- Grep for handler-reference wiring found: `onClick={send}` on BOTH send buttons (lines 2154/2349, introduced 777b6c0 "expandable chat bar"); clearChat()/removeAttachment() take no params (harmless)
+- Full mechanism: button tap → send(SyntheticEvent) → truthy retryConvo skips normal-send block → setMessages(event) poisons state (guard intercepts + reports) → JSON.stringify({messages: event}) throws "Converting circular structure to JSON" (nativeEvent→DOM cycles) → catch shows t('chat.error.network') "Network error. Please try again." — fetch never fires. Explains ALL FOUR rounds: mobile users always tap the button (Enter-key send() is arg-less → desktop unaffected); g.map crash was render over the poisoned state
+- Fixes (commit eac291e): both buttons → onClick={() => send()}; send() top-guard `if (retryConvo && !Array.isArray(retryConvo)) retryConvo = null`; send's catch now calls reportClientError(err) (AbortError excluded); /api/chat strict `Array.isArray(messages)` validation replacing `!messages?.length`
+- Tests: scripts/test_send_button_fix.mjs 21/21 (incl. behavioral replay of SyntheticEvent poison shapes + JSON.stringify circular repro); local next build clean
+- Production verify (2855.bfd94c5845e209f4): Array.isArray ×22, /api/client-errors bundled in chat chunk, send button decoded as `onClick:()=>tq()`; POST messages:{} → 400, messages:"hi" → 400, valid array → 200 greeting
+
+Stage Summary:
+- ROOT CAUSE of the entire 4-round saga: onClick={send} handler-reference (777b6c0). Poisoning vector eliminated at the source, guarded at send(), validated at the API, and the catch path now reports. Deployed eac291e, verified in production.
