@@ -90,11 +90,17 @@ export default function HomePage() {
         router.push(`/explore/${data.slug}`)
       } else {
         // The API failed — tell the user instead of silently doing nothing.
+        // 402/403 are credit/plan gates and the server sends a specific,
+        // friendly reason — surface it verbatim. The generic "engine at
+        // capacity" copy is reserved for real 5xx engine failures; mapping
+        // 402 onto it previously masked "out of credits" as an outage.
         const friendly = res.status === 429
           ? (data.error || 'Too many requests. Please slow down and try again shortly.')
-          : res.status === 402 || res.status >= 500
-            ? 'Our generation engine is temporarily out of capacity. Please try again in a few minutes.'
-            : (data.error || `Could not generate this exploration (${res.status}). Please try again.`)
+          : res.status === 402 || res.status === 403
+            ? (data.error || 'This feature needs more credits or a plan upgrade.')
+            : res.status >= 500
+              ? 'Our generation engine is temporarily out of capacity. Please try again in a few minutes.'
+              : (data.error || `Could not generate this exploration (${res.status}). Please try again.`)
         setSearchError(friendly)
       }
     } catch (_) {

@@ -1010,7 +1010,10 @@ export default function ChatClient() {
         }
         const assistantMsg = { role: 'assistant', content: '' }
         if (data.error) {
-          assistantMsg.content = data.error
+          // Server error payloads are user-facing copy — surface verbatim.
+          // 402/403 gate payloads carry upgrade_url; add the nudge inline so
+          // the user knows the way out instead of a dead-end error.
+          assistantMsg.content = data.error + (data.upgrade_url ? ' Upgrade your plan to keep going.' : '')
         } else {
           // `done` is authoritative — replaces the live buffer (covers forced
           // tool retries where the model streamed discardable preamble text)
@@ -1021,7 +1024,7 @@ export default function ChatClient() {
       } else {
         // ── Legacy JSON path (server without stream support / error JSON) ──
         const data = await res.json()
-        const assistantMsg = { role: 'assistant', content: data.reply || data.error || "I couldn't generate a response for that. Please try sending it again." }
+        const assistantMsg = { role: 'assistant', content: (data.reply || data.error || "I couldn't generate a response for that. Please try sending it again.") + (data.upgrade_url ? ' Upgrade your plan to keep going.' : '') }
         applyChatMeta(assistantMsg, data)
         setMessages(prev => [...prev, assistantMsg])
       }

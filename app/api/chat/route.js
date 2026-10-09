@@ -194,7 +194,10 @@ async function processChat(req, body, send) {
   }
   const ip = getClientIP(req)
   if (!rateLimit(ip).ok) {
-    return Response.json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, { status: 429 })
+    // Stream-aware: in SSE mode this travels as an in-band error event, not a
+    // bare Response (a Response returned after the stream opened is silently
+    // discarded and the client sees a truncated stream with no explanation).
+    return json({ error: "You're sending requests too quickly. Slow down and try again shortly." }, 429)
   }
 
   // Hoisted so the catch block can refund on failure
@@ -312,7 +315,16 @@ async function processChat(req, body, send) {
           message_count: messages.length,
         },
       })
-      if (!creditCheck.ok) return creditCheck.response
+      // Stream-aware failure: creditCheck.response is a bare 402 Response —
+      // returning it after the SSE stream opened gets it silently DISCARDED
+      // (ReadableStream.start() ignores return values), leaving the client
+      // with an event-less stream it renders as "I couldn't generate a
+      // response for that." Route the real reason through the error event.
+      if (!creditCheck.ok) {
+        const gateRes = creditCheck.response
+        const gatePayload = await gateRes.json().catch(() => ({ error: 'Request blocked by your plan or credit balance.' }))
+        return json(gatePayload, gateRes.status)
+      }
     }
 
     let model = MODEL
@@ -332,7 +344,13 @@ async function processChat(req, body, send) {
         }, 402)
       }
       const proGate = await requireFeatureAccess(admin, chatUser, 'proModels')
-      if (proGate) return proGate.response
+      // Same stream-aware treatment as the credits gate above — a bare
+      // Response return mid-stream is discarded and the user sees nothing.
+      if (proGate) {
+        const gateRes = proGate.response
+        const gatePayload = await gateRes.json().catch(() => ({ error: 'This feature needs a plan upgrade.' }))
+        return json(gatePayload, gateRes.status)
+      }
     }
 
     // ── Effort level — controls how much the model is allowed to generate ──
