@@ -19,6 +19,7 @@ import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
 import { reportClientError } from '@/lib/reportClientError'
 import ComingSoonPopup from '@/components/ComingSoonPopup'
+import ChatNoticeCard from '@/components/ChatNoticeCard'
 
 
 
@@ -910,10 +911,19 @@ export default function ChatClient() {
       // Shared post-processing: maps a final payload (done event or legacy
       // JSON) onto the assistant message. Runs once per reply.
       const applyChatMeta = (msg, data) => {
-        // Treat both 429 (quota) and 503 (all providers failed) as a "service
-        // temporarily limited" state — shows the friendly amber error card.
-        if (data.quotaExceeded || (data.status && data.status >= 400 && data.error) || (!res.ok && res.status === 503)) {
-          msg.quotaExceeded = true
+        // Classify gate/failure payloads into a notice kind so the renderer
+        // can show the dedicated ChatNoticeCard variant (upgrade / quota /
+        // daily-limit / rate-limit / error) instead of a generic bubble.
+        const errStatus = data.status || (!res.ok && res.status >= 400 ? res.status : null)
+        if (data.error && (errStatus || data.quotaExceeded)) {
+          msg.quotaExceeded = true // legacy flag — keeps restored history rendering as a notice
+          if (data.upgrade_url) msg.upgradeUrl = data.upgrade_url
+          if (errStatus === 403 || (errStatus === 402 && data.needed_plan)) msg.notice = 'upgrade'
+          else if (errStatus === 402 || data.anonLimitReached) {
+            msg.notice = 'quota'
+            if (data.anonLimitReached) msg.anonLimitReached = true
+          } else if (errStatus === 429) msg.notice = 'rate'
+          else msg.notice = 'error'
         }
         if (data.searchUsed) {
           msg.searchUsed = true
@@ -1010,21 +1020,24 @@ export default function ChatClient() {
         }
         const assistantMsg = { role: 'assistant', content: '' }
         if (data.error) {
-          // Server error payloads are user-facing copy — surface verbatim.
-          // 402/403 gate payloads carry upgrade_url; add the nudge inline so
-          // the user knows the way out instead of a dead-end error.
-          assistantMsg.content = data.error + (data.upgrade_url ? ' Upgrade your plan to keep going.' : '')
+          // Server error payloads are user-facing copy — surface verbatim on
+          // the notice card; the action button (driven by upgrade_url) is the
+          // way out instead of an appended text nudge.
+          assistantMsg.content = data.error
         } else {
           // `done` is authoritative — replaces the live buffer (covers forced
           // tool retries where the model streamed discardable preamble text)
           assistantMsg.content = data.reply || acc || "I couldn't generate a response for that. Please try sending it again."
+          if (!data.reply && !acc.trim()) assistantMsg.isError = true
         }
         applyChatMeta(assistantMsg, data)
         setMessages(prev => { const next = [...prev]; next[next.length - 1] = assistantMsg; return next })
       } else {
         // ── Legacy JSON path (server without stream support / error JSON) ──
         const data = await res.json()
-        const assistantMsg = { role: 'assistant', content: (data.reply || data.error || "I couldn't generate a response for that. Please try sending it again.") + (data.upgrade_url ? ' Upgrade your plan to keep going.' : '') }
+        const fellBack = !data.reply && !data.error
+        const assistantMsg = { role: 'assistant', content: data.reply || data.error || "I couldn't generate a response for that. Please try sending it again." }
+        if (fellBack) assistantMsg.isError = true
         applyChatMeta(assistantMsg, data)
         setMessages(prev => [...prev, assistantMsg])
       }
@@ -1042,7 +1055,7 @@ export default function ChatClient() {
         // Feed the forensics pipeline so real network/API failures arrive with
         // a full stack instead of being indistinguishable from silent bugs.
         reportClientError(err)
-        setMessages(prev => [...prev, { role: 'assistant', content: t('chat.error.network') }])
+        setMessages(prev => [...prev, { role: 'assistant', content: t('chat.error.network'), isError: true }])
       }
     }
     abortRef.current = null
@@ -1052,6 +1065,33 @@ export default function ChatClient() {
   // Stop button — aborts the streaming request, keeping partial output
   function stopGeneration() {
     abortRef.current?.abort()
+  }
+
+  // ── Notice-card resolution ──────────────────────────────────────
+  // Maps an assistant message's gate/failure metadata onto a ChatNoticeCard
+  // variant, matching the ComingSoonPopup card design language. Falls back
+  // to the legacy amber quota card for restored history that only carries
+  // the old quotaExceeded flag.
+  const noticeFor = (msg, i) => {
+    if (msg.role !== 'assistant') return null
+    if (msg.notice === 'upgrade') {
+      return { tone: 'upgrade', icon: 'bolt', title: 'Upgrade to continue', body: msg.content, actionLabel: 'Upgrade plan →', actionHref: msg.upgradeUrl || '/pricing' }
+    }
+    if (msg.notice === 'quota') {
+      return msg.anonLimitReached
+        ? { tone: 'quota', icon: 'hourglass', title: 'Daily limit reached', body: msg.content, actionLabel: 'Sign in for more →', actionHref: msg.upgradeUrl || '/auth' }
+        : { tone: 'quota', icon: 'alert', title: user ? 'Credits used up' : 'Free usage limit reached', body: msg.content, actionLabel: 'Upgrade plan →', actionHref: msg.upgradeUrl || '/pricing' }
+    }
+    if (msg.notice === 'rate') {
+      return { tone: 'quota', icon: 'clock', title: 'Slow down a moment', body: msg.content, actionLabel: msg.upgradeUrl ? 'Sign in for more →' : null, actionHref: msg.upgradeUrl || null }
+    }
+    if (msg.notice === 'error' || msg.isError) {
+      return { tone: 'error', icon: 'warning', title: 'Something went wrong', body: msg.content, actionLabel: 'Try again', onAction: () => send(messages.slice(0, i)) }
+    }
+    if (msg.quotaExceeded) {
+      return { tone: 'quota', icon: 'alert', title: user ? 'Credits used up' : 'Free usage limit reached', body: msg.content, actionLabel: user ? 'Upgrade plan →' : 'Sign in for more →', actionHref: msg.upgradeUrl || (user ? '/pricing' : '/auth') }
+    }
+    return null
   }
 
 
@@ -1318,7 +1358,7 @@ export default function ChatClient() {
                     {group.sessions.map(s => (
                       <div
                         key={s.id}
-                        className={`group relative flex items-center rounded-lg transition-colors ${
+                        className={`group relative flex items-center rounded-full transition-colors ${
                           s.id === sessionId ? 'bg-[#1a1a1a]' : 'hover:bg-[#141414]'
                         }`}
                       >
@@ -1336,7 +1376,7 @@ export default function ChatClient() {
                           onClick={e => { e.stopPropagation(); deleteSession(s.id) }}
                           title={t('chat.history.delete') || 'Delete conversation'}
                           aria-label={t('chat.history.delete') || 'Delete conversation'}
-                          className="shrink-0 mr-1.5 p-1 rounded-md text-[#525252] opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-[#1f1f1f] focus:opacity-100 transition-all"
+                          className="shrink-0 mr-1.5 p-1 rounded-full text-[#525252] opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-[#1f1f1f] focus:opacity-100 transition-all"
                         >
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
@@ -1762,6 +1802,7 @@ export default function ChatClient() {
             )}
 
             {messages.map((msg, i) => {
+              const notice = noticeFor(msg, i)
               // For display: strip [File: ...] prefix but keep text, show [Image: ...] as label
               let displayContent = msg.content
               let hasFileAttachment = false
@@ -1936,24 +1977,8 @@ export default function ChatClient() {
                       </div>
                     )}
                     {msg.role === 'assistant' ? (
-                      msg.quotaExceeded ? (
-                        <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-xl px-4 py-3 max-w-md">
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                            </svg>
-                            <span className="text-[13px] font-medium text-amber-300">
-                              {user ? 'Credits used up' : 'Free usage limit reached'}
-                            </span>
-                          </div>
-                          <p className="text-[12px] text-amber-200/70 leading-relaxed mb-2">{msg.content}</p>
-                          <Link
-                            href={user ? '/pricing' : '/auth'}
-                            className="inline-flex items-center gap-1 text-[12px] font-semibold text-amber-300 hover:text-amber-200 transition-colors"
-                          >
-                            {user ? 'Upgrade plan →' : 'Sign in for more →'}
-                          </Link>
-                        </div>
+                      notice ? (
+                        <ChatNoticeCard {...notice} />
                       ) : msg.isImage && msg.imageData ? (
                         <div className="space-y-2">
                           <div className="rounded-xl overflow-hidden border border-white/[0.06] max-w-md">
@@ -2390,27 +2415,24 @@ export default function ChatClient() {
       {showUpgrade && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4" onClick={() => setShowUpgrade(null)}>
           <div
-            className="w-full max-w-[380px] bg-[#161616] border border-[rgba(74,127,181,0.25)] rounded-[18px] p-6 shadow-2xl"
+            className="w-full max-w-[380px] bg-[#111] border border-[#262626] rounded-2xl p-6 sm:p-8 shadow-2xl text-center"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center gap-2 mb-3">
-              <span className="flex items-center gap-1 text-[10px] font-bold tracking-[0.5px] px-[7px] py-[2px] rounded-[5px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.12)]">
-                <IconLock size={9} />
-                Pro
-              </span>
+            <div className="w-12 h-12 bg-[rgba(74,127,181,0.12)] border border-[rgba(74,127,181,0.25)] rounded-xl flex items-center justify-center mx-auto mb-4 text-[#4a7fb5]">
+              <IconLock size={20} />
             </div>
-            <h3 className="text-white font-semibold text-[18px] mb-2">{showUpgrade.name} is a Pro model</h3>
-            <p className="text-[14px] text-[#a3a3a3] leading-relaxed mb-5">
+            <h3 className="text-white font-bold text-lg mb-2">{showUpgrade.name} is a Pro model</h3>
+            <p className="text-sm text-[#a3a3a3] leading-relaxed mb-5">
               DeepSeek R1 and Qwen QwQ are advanced reasoning models reserved for the Pro plan and above.
               Upgrade to unlock deeper thinking, longer responses and priority compute.
             </p>
             <div className="flex gap-2.5">
-              <Link href="/pricing" className="flex-1 text-center py-2.5 rounded-[10px] bg-red-600 hover:bg-red-500 text-white text-[14px] font-medium transition-colors">
+              <Link href="/pricing" className="flex-1 text-center py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors">
                 Upgrade to Pro
               </Link>
               <button
                 onClick={() => setShowUpgrade(null)}
-                className="px-4 py-2.5 rounded-[10px] bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.1)] text-[#ccc] text-[14px] transition-colors"
+                className="px-4 py-2.5 rounded-xl bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-[#ccc] text-sm transition-colors"
               >
                 Later
               </button>
