@@ -424,3 +424,21 @@ Work Log:
 
 Stage Summary:
 - Both symptoms were the same server gate failure (likely credits exhausted) being hidden by broken stream error delivery. Errors now arrive in-band with real reasons. If the user is NOT out of credits, the next failure will display its true cause instead of a generic fallback.
+
+---
+Task ID: chat-ui-notice-cards
+Agent: main
+Task: Pill-shaped recent chats + unified notification cards styled like the ComingSoonPopup card
+
+Work Log:
+- Located sidebar conversation list (ChatClient 1318-1345) and the ComingSoonPopup design tokens (bg-[#111]/border-[#262626]/rounded-2xl, centered tinted icon badge, bold title, muted body, full-width dark button)
+- Mapped server gate/failure taxonomy: 402 credits + 403/anon-pro gates + anon daily limit (anonLimitReached) + burst/GROQ 429s + 5xx + client-side network/empty-reply fallbacks
+- New components/ChatNoticeCard.jsx (tones upgrade/quota/error, icons bolt/alert/hourglass/clock/warning, data-chat-notice marker)
+- applyChatMeta classifies payloads into msg.notice = upgrade|quota|rate|error + upgradeUrl + anonLimitReached; legacy quotaExceeded kept for restored history
+- noticeFor(msg,i) resolver renders per-variant cards; error cards get working "Try again" (send(messages.slice(0,i))); removed appended "Upgrade your plan..." text nudge (button replaces it)
+- Sidebar rows + delete buttons rounded-lg → rounded-full (pills)
+- Pro-model gate popup restyled to the same centered card language
+- scripts/test_notice_cards.mjs: 40/40; test_send_button_fix.mjs 21/21; build clean
+
+Stage Summary:
+- Deployed db09a66, verified in production chunk 2713.e8315f843110088c (all 5 card titles + pill class + old amber card gone) and /api/chat healthy
