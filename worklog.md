@@ -442,3 +442,24 @@ Work Log:
 
 Stage Summary:
 - Deployed db09a66, verified in production chunk 2713.e8315f843110088c (all 5 card titles + pill class + old amber card gone) and /api/chat healthy
+
+---
+Task ID: chat-streaming-polish
+Agent: Super Z (main)
+Task: Shorten rate/error card copy, remove upgrade-card arrow, cleaner message + picture streaming in /chat
+
+Work Log:
+- noticeFor copy: rate card now "Slow down there" + fixed short body ("Too many requests in a row — try again in a few seconds."); error card keeps "Something went wrong" + "We hit a snag. Give it another try." (verbatim server payloads no longer surfaced in these two cards)
+- Removed '→' from ALL notice-card action labels (Upgrade plan / Sign in for more) — zero arrow glyphs left in ChatClient
+- Message streaming: MarkdownRenderer gains `streaming` prop → .md-streaming class; CSS ::after blinking caret (▍, brand red, caretBlink) scoped to the last text block (p/ul/ol/table) so it never lands inside code blocks; thinking orb now hidden once streamed text is flowing (orb no longer trails growing text)
+- Picture streaming: /api/chat emits {type:'status', tool:'generate_image'} SSE event before running the tool (guarded `if (send)`); client ImageGeneratingCard shimmer (image-gen-shimmer + image-gen-pulse) replaces the orb during generation; generated images render in a data-image-card with imageIn fade+scale reveal, prompt caption footer, and a Download button that works on data-URL-only images (href = imageUrl || imageData)
+- streaming/imageGenerating state cleared on all exits (post-stream, catch/abort)
+- Tests: test_notice_cards.mjs extended to 74/74 (copy, no-arrow, caret, status event, shimmer, image card); test_send_button_fix.mjs 21/21
+- GitHub push FAILED (PAT redacted/expired everywhere; remote has empty x-access-token) — commit 9dc3fcc is local-only
+- Deployed directly via scripts/deploy-direct.sh mirroring deploy.yml exactly: CF API env fetch (account 9bd9a7308b74fc0440c7e6cd601f6eef) → next-on-pages with NEXT_PUBLIC_* baked → generate-csp.mjs → wrangler@3 pages deploy → https://62ef272b.kivora.pages.dev
+
+Stage Summary:
+- Production serving new build: chunk 2713.7b659e90e73dba52 (all new copy markers, arrow-free), chunk 9308 (md-streaming), css 2d57e5384888a665 (caretBlink/imageIn/image-gen-*)
+- Browser-verified end-to-end on live /chat (mock QA session + scenario override): caret live mid-stream + cleanup, orb hidden while streaming, rate/upgrade/error cards pixel-correct (no arrows), Try again re-fires (log chat:error ×2), status→shimmer→image card with caption + working Download
+- 9 evidence screenshots in /home/z/my-project/download/verify-*.png
+- PENDING: GitHub sync blocked — needs fresh PAT from user (commit 9dc3fcc + worklog commit ready to push)
