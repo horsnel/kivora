@@ -1134,7 +1134,7 @@ export default function ChatClient() {
       return { tone: 'quota', icon: 'clock', title: 'Slow down there', body: 'Too many requests in a row — try again in a few seconds.', actionLabel: msg.upgradeUrl ? 'Sign in for more' : null, actionHref: msg.upgradeUrl || null }
     }
     if (msg.notice === 'error' || msg.isError) {
-      return { tone: 'error', icon: 'warning', title: 'Something went wrong', body: 'We hit a snag. Give it another try.', actionLabel: 'Try again', onAction: () => send(messages.slice(0, i)) }
+      return { tone: 'error', icon: 'warning', title: 'Something went wrong', body: 'Give it another try.', actionLabel: 'Try again', onAction: () => send(messages.slice(0, i)) }
     }
     if (msg.quotaExceeded) {
       return { tone: 'quota', icon: 'alert', title: user ? 'Credits used up' : 'Free usage limit reached', body: msg.content, actionLabel: user ? 'Upgrade plan' : 'Sign in for more', actionHref: msg.upgradeUrl || (user ? '/pricing' : '/auth') }

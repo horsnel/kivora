@@ -64,10 +64,13 @@ console.log('── behavioral: ReadableStream.start() discards return values �
 }
 
 console.log('── chat client: gate errors surface with upgrade nudge ──')
-t('stream path appends upgrade hint when payload carries upgrade_url',
-  (chatClient.match(/data\.error \+ \(data\.upgrade_url \? ' Upgrade your plan to keep going\.' : ''\)/g) || []).length >= 1)
-t('legacy JSON path appends the same hint',
-  /data\.reply \|\| data\.error \|\| "I couldn't generate a response[^"]+"\) \+ \(data\.upgrade_url/.test(chatClient))
+t('stream path stores upgrade_url on the message',
+  (chatClient.match(/if \(data\.upgrade_url\) msg\.upgradeUrl = data\.upgrade_url/g) || []).length >= 1)
+t('error payload surfaces verbatim + quota card action drives the upgrade path',
+  chatClient.includes('assistantMsg.content = data.error') &&
+  /actionLabel: 'Upgrade plan', actionHref: msg\.upgradeUrl \|\| '\/pricing'/.test(chatClient))
+t('appended-text nudge intentionally retired (replaced by card action)',
+  !chatClient.includes('Upgrade your plan to keep going.'))
 
 console.log('── explore page: 402/403 show the real reason, 5xx keep engine copy ──')
 t('402/403 branch exists and surfaces server error verbatim',
