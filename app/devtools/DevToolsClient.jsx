@@ -1001,10 +1001,10 @@ export default function DevToolsClient() {
             {gate
               ? <UpgradeCard gate={gate} onDismiss={() => setGate(null)} />
               : result
-              ? <MarkdownRenderer content={result} className="flex-1 overflow-auto overscroll-behavior-contain" />
+              ? <MarkdownRenderer content={result} className="flex-1 min-h-0 overflow-auto overscroll-behavior-contain max-h-[min(600px,72dvh)]" />
               : diffResult
               ? (
-                <div className="flex-1 overflow-auto">
+                <div className="flex-1 min-h-0 overflow-auto overscroll-behavior-contain max-h-[min(600px,72dvh)]">
                   <div className="space-y-0.5 font-mono text-xs">
                     {diffResult.map((line, i) => (
                       <div key={i} className={`px-3 py-0.5 ${
@@ -1030,7 +1030,7 @@ export default function DevToolsClient() {
               )
               : apiTestResult
               ? (
-                <div className="flex-1 overflow-auto space-y-4">
+                <div className="flex-1 min-h-0 overflow-auto overscroll-behavior-contain space-y-4 max-h-[min(600px,72dvh)]">
                   {apiTestResult.error ? (
                     <div className="bg-red-950/20 border border-red-900/30 rounded-lg px-3 py-2 text-xs text-red-400">{apiTestResult.error}</div>
                   ) : (

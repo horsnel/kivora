@@ -1016,7 +1016,7 @@ export default function ReelPenClient() {
             ) : gate ? (
               <UpgradeCard gate={gate} onDismiss={() => setGate(null)} />
             ) : result ? (
-              <MarkdownRenderer content={result} className="flex-1 overflow-auto overscroll-behavior-contain" />
+              <MarkdownRenderer content={result} className="flex-1 min-h-0 overflow-auto overscroll-behavior-contain max-h-[min(600px,72dvh)]" />
             ) : (
               <div className="flex-1 flex items-center justify-center">
                 {loading ? (
