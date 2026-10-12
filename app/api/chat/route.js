@@ -626,6 +626,14 @@ async function processChat(req, body, send) {
 
       // Execute all tool calls
       for (const toolCall of message.tool_calls) {
+        // Tell SSE clients what is running before it starts — image
+        // generation takes 5-15s and a status event lets the client swap
+        // the generic thinking indicator for a dedicated shimmer card.
+        // Non-streaming requests have no `send`; legacy clients ignore
+        // unknown event types.
+        if (send) {
+          try { send({ type: 'status', tool: toolCall.function.name }) } catch {}
+        }
         const handler = toolHandlers[toolCall.function.name]
         if (handler) {
           try {

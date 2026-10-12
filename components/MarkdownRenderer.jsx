@@ -556,11 +556,11 @@ function CodeBlock({ langLabel, codeText, codeClassName }) {
 // Without memo, ReactMarkdown re-parses EVERY historical message on EVERY
 // token — long conversations visibly stutter ("streaming glitch"). Completed
 // messages have stable props, so memo skips their entire subtree.
-function MarkdownRenderer({ content, className = '' }) {
+function MarkdownRenderer({ content, className = '', streaming = false }) {
   if (!content) return null
 
   return (
-    <div className={`prose-kivora ${className}`}>
+    <div className={`prose-kivora ${className}${streaming ? ' md-streaming' : ''}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{

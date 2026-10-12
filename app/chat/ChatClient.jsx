@@ -265,6 +265,35 @@ function makeSafeMessagesSetter(rawSet) {
   }
 }
 
+// ── Image generation placeholder ───────────────────────────────
+// Shown while the server runs the generate_image tool (status SSE event).
+// Replaces the generic thinking orb with a branded shimmer card so image
+// requests have a purpose-built loading surface instead of a text wait.
+function ImageGeneratingCard() {
+  return (
+    <div className="flex justify-start">
+      <div
+        className="image-gen-shimmer w-full max-w-md rounded-2xl border border-white/[0.06] px-6 py-10 flex flex-col items-center justify-center gap-3"
+        data-image-generating="true"
+      >
+        <div className="w-11 h-11 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center">
+          <svg
+            width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+            className="image-gen-pulse"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <path d="M21 15l-5-5L5 21" />
+          </svg>
+        </div>
+        <p className="text-[13px] font-medium text-white">Creating your image</p>
+        <p className="text-[11px] text-[#737373]">This usually takes a few seconds</p>
+      </div>
+    </div>
+  )
+}
+
 export default function ChatClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -342,6 +371,13 @@ export default function ChatClient() {
   const [settingsExported, setSettingsExported] = useState(false)
   const [msgMenuOpen, setMsgMenuOpen] = useState(null) // index of message with open 3-dot menu
   const msgMenuRef = useRef(null)
+
+  // ── Streaming presentation state ──
+  // streaming: a reply is actively receiving SSE deltas (drives the typing
+  // caret on the last message). imageGenerating: the server reported it is
+  // running the generate_image tool (drives the shimmer placeholder card).
+  const [streaming, setStreaming] = useState(false)
+  const [imageGenerating, setImageGenerating] = useState(false)
 
   // Settings navigation helpers with slide direction
   const settingsPush = useCallback((page) => {
@@ -974,6 +1010,7 @@ export default function ChatClient() {
         // growing markdown per token (the streaming freeze/glitch). Deltas
         // now accumulate and flush to state at ~10Hz instead.
         setMessages(prev => [...prev, { role: 'assistant', content: '' }])
+        setStreaming(true)
         let acc = ''
         let finalEvent = null
         let flushTimer = null
@@ -999,12 +1036,18 @@ export default function ChatClient() {
               finalEvent = evt
             } else if (evt.type === 'error') {
               finalEvent = evt
+            } else if (evt.type === 'status' && evt.tool === 'generate_image') {
+              // Server started the image tool — swap the generic thinking
+              // indicator for a dedicated shimmer card.
+              setImageGenerating(true)
             }
           })
         } finally {
           // Land whatever remains buffered (also covers abort mid-stream)
           flushNow()
         }
+        setStreaming(false)
+        setImageGenerating(false)
         const data = finalEvent || {}
 
         // ── Empty-response auto-retry ──
@@ -1042,6 +1085,8 @@ export default function ChatClient() {
         setMessages(prev => [...prev, assistantMsg])
       }
     } catch (err) {
+      setStreaming(false)
+      setImageGenerating(false)
       if (err?.name === 'AbortError') {
         // User pressed stop — keep whatever already streamed. If nothing
         // arrived yet, drop the empty assistant bubble instead of showing it.
@@ -1074,22 +1119,25 @@ export default function ChatClient() {
   // the old quotaExceeded flag.
   const noticeFor = (msg, i) => {
     if (msg.role !== 'assistant') return null
+    // Body copy for the transient failure cards is deliberately short and
+    // fixed — verbatim server payloads read as technical chatter inside a
+    // compact card. The cards below use tight, professional, human copy.
     if (msg.notice === 'upgrade') {
-      return { tone: 'upgrade', icon: 'bolt', title: 'Upgrade to continue', body: msg.content, actionLabel: 'Upgrade plan →', actionHref: msg.upgradeUrl || '/pricing' }
+      return { tone: 'upgrade', icon: 'bolt', title: 'Upgrade to continue', body: msg.content, actionLabel: 'Upgrade plan', actionHref: msg.upgradeUrl || '/pricing' }
     }
     if (msg.notice === 'quota') {
       return msg.anonLimitReached
-        ? { tone: 'quota', icon: 'hourglass', title: 'Daily limit reached', body: msg.content, actionLabel: 'Sign in for more →', actionHref: msg.upgradeUrl || '/auth' }
-        : { tone: 'quota', icon: 'alert', title: user ? 'Credits used up' : 'Free usage limit reached', body: msg.content, actionLabel: 'Upgrade plan →', actionHref: msg.upgradeUrl || '/pricing' }
+        ? { tone: 'quota', icon: 'hourglass', title: 'Daily limit reached', body: msg.content, actionLabel: 'Sign in for more', actionHref: msg.upgradeUrl || '/auth' }
+        : { tone: 'quota', icon: 'alert', title: user ? 'Credits used up' : 'Free usage limit reached', body: msg.content, actionLabel: 'Upgrade plan', actionHref: msg.upgradeUrl || '/pricing' }
     }
     if (msg.notice === 'rate') {
-      return { tone: 'quota', icon: 'clock', title: 'Slow down a moment', body: msg.content, actionLabel: msg.upgradeUrl ? 'Sign in for more →' : null, actionHref: msg.upgradeUrl || null }
+      return { tone: 'quota', icon: 'clock', title: 'Slow down there', body: 'Too many requests in a row — try again in a few seconds.', actionLabel: msg.upgradeUrl ? 'Sign in for more' : null, actionHref: msg.upgradeUrl || null }
     }
     if (msg.notice === 'error' || msg.isError) {
-      return { tone: 'error', icon: 'warning', title: 'Something went wrong', body: msg.content, actionLabel: 'Try again', onAction: () => send(messages.slice(0, i)) }
+      return { tone: 'error', icon: 'warning', title: 'Something went wrong', body: 'We hit a snag. Give it another try.', actionLabel: 'Try again', onAction: () => send(messages.slice(0, i)) }
     }
     if (msg.quotaExceeded) {
-      return { tone: 'quota', icon: 'alert', title: user ? 'Credits used up' : 'Free usage limit reached', body: msg.content, actionLabel: user ? 'Upgrade plan →' : 'Sign in for more →', actionHref: msg.upgradeUrl || (user ? '/pricing' : '/auth') }
+      return { tone: 'quota', icon: 'alert', title: user ? 'Credits used up' : 'Free usage limit reached', body: msg.content, actionLabel: user ? 'Upgrade plan' : 'Sign in for more', actionHref: msg.upgradeUrl || (user ? '/pricing' : '/auth') }
     }
     return null
   }
@@ -1980,26 +2028,29 @@ export default function ChatClient() {
                       notice ? (
                         <ChatNoticeCard {...notice} />
                       ) : msg.isImage && msg.imageData ? (
-                        <div className="space-y-2">
-                          <div className="rounded-xl overflow-hidden border border-white/[0.06] max-w-md">
+                        <div className="max-w-md" data-image-card="true">
+                          <div className="image-reveal rounded-2xl overflow-hidden border border-white/[0.06] bg-[#111]">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={msg.imageData} alt="AI Generated" className="w-full h-auto" />
+                            <img src={msg.imageData} alt={msg.imagePrompt || 'AI Generated'} className="w-full h-auto" />
+                            <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 border-t border-white/[0.06]">
+                              <p className="text-[11px] text-[#737373] truncate min-w-0">
+                                {msg.imagePrompt || 'AI generated image'}
+                              </p>
+                              <a
+                                href={msg.imageUrl || msg.imageData}
+                                target={msg.imageUrl ? '_blank' : undefined}
+                                rel="noopener noreferrer"
+                                download
+                                className="inline-flex items-center gap-1.5 shrink-0 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/[0.12] rounded-lg px-2.5 py-1.5 text-[11px] text-[#e2e2e2] transition-colors"
+                              >
+                                <IconDownload size={11} />
+                                Download
+                              </a>
+                            </div>
                           </div>
-                          {msg.imageUrl && (
-                            <a
-                              href={msg.imageUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              download
-                              className="inline-flex items-center gap-1 text-[10px] text-red-400 hover:text-red-300 transition-colors"
-                            >
-                              <IconDownload size={10} />
-                              Download Full Resolution
-                            </a>
-                          )}
                         </div>
                       ) : (
-                        <MarkdownRenderer content={msg.content} />
+                        <MarkdownRenderer content={msg.content} streaming={streaming && i === messages.length - 1} />
                       )
                     ) : (
                       <div className="flex flex-col items-end gap-1.5">
@@ -2060,7 +2111,13 @@ export default function ChatClient() {
               )
             })}
 
-            {loading && (
+            {loading && imageGenerating ? (
+              <ImageGeneratingCard />
+            ) : loading && !(
+              messages.length > 0 &&
+              messages[messages.length - 1].role === 'assistant' &&
+              String(messages[messages.length - 1].content || '').trim()
+            ) && (
               <div className="flex justify-start">
                 <div className="ai-thinking-indicator">
                   <div className="ai-thinking-orb">

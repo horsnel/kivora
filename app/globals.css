@@ -1831,3 +1831,58 @@ input, textarea, select {
 .tour-open-link:active {
   transform: scale(0.97);
 }
+
+/* ── Chat streaming caret ────────────────────────────────────────
+   While a reply is streaming, MarkdownRenderer adds .md-streaming to the
+   prose wrapper and a blinking caret rides inline at the end of the last
+   text block (paragraph / list). Scoped to text containers only so it
+   never lands inside a code block header or breaks flex layouts. */
+@keyframes caretBlink {
+  0%, 45% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.md-streaming > p:last-child::after,
+.md-streaming > ul:last-child::after,
+.md-streaming > ol:last-child::after,
+.md-streaming > table:last-child::after {
+  content: '▍';
+  display: inline-block;
+  margin-left: 2px;
+  color: #ef4444;
+  font-size: 0.95em;
+  line-height: 1;
+  vertical-align: -0.05em;
+  animation: caretBlink 1s steps(1) infinite;
+}
+/* List caret sits after the final item, not on its own line */
+.md-streaming > ul:last-child::after,
+.md-streaming > ol:last-child::after {
+  display: inline;
+}
+
+/* ── Generated image reveal ──────────────────────────────────────
+   Image replies fade+scale in instead of popping abruptly when the
+   generate_image tool finishes. */
+@keyframes imageIn {
+  from { opacity: 0; transform: scale(0.975) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.image-reveal {
+  animation: imageIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Image generation shimmer card ───────────────────────────────
+   Placeholder surface while the server runs the generate_image tool
+   (driven by the SSE status event). Soft neutral shimmer, brand-dark. */
+.image-gen-shimmer {
+  background: linear-gradient(110deg, #111111 30%, #1d1d1d 46%, #111111 62%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+@keyframes imageGenPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(0.92); }
+}
+.image-gen-pulse {
+  animation: imageGenPulse 1.8s ease-in-out infinite;
+}
