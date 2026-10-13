@@ -490,3 +490,25 @@ Stage Summary:
 - Production chain verified end-to-end: browser → /api/research → worker → 600+ token deltas starting ~4s
 - User-facing note: hard-reload /research once (old cached chunk predates streaming client); OpenRouter top-up still recommended (adds premium model quality, not needed for streaming anymore)
 - Test suites: 213/213 (research_stream 92 + send_button 21 + notice_cards 75 + gate_errors 14 + output_scroll 11)
+
+---
+Task ID: research-premium-citations
+Agent: Super Z (main)
+Task: Premium citation layer + streaming policy (deep-only) + quick-mode speed
+
+Work Log:
+- ENV RESET HIT MID-ROUND: local repo rolled back to stale 831fd13 with churn; scripts/ wiped. Recovered: git reset --hard origin/main (all prior commits safe on origin), CF token re-extracted from upload/KIVORA_PROJECT_HANDOFF (2).md → scripts/.cf_token. LESSON: after any env reset, FIRST check `git log -1` vs origin before touching anything
+- Built lib/citations.js: extractIdentifiers (DOI/PMID/NCT/PMC from URLs), buildReferences (n=index+1 = [N] marker contract, as-of date, databases), parseCitationMarker (bracket authoritative; paren drift validated against source count — "(2024)" never eaten), faviconUrl (Google s2)
+- page.jsx: CiteLogo (Google s2 → DDG → letter fallback) — citations render as the SOURCE'S OWN LOGO click-linked to the source; buildMarkdownComponents(sources) via useMemo; SourceLogo tier-ring logos replace dots in sources list; ReferencesBlock (numbered, identifier-linked, as-of + databases) after report; stream gated to deep only (stream: researchMode === 'deep'); CSS for chips/logos/references
+- Worker: prompts now demand bracket citations + named/yeared attribution + dated stats (all 4: quick/deep/part1/part2); quick output budget 450-650 words + max_tokens 2048
+- MEASURED bottleneck after 54.5s regression report: WorkersAI llama-3.1-8b = 47.6s for 616 words (~13 tok/s). Benchmarked candidates via AI REST API: qwen3-30b-a3b-fp8 10.4s/~99tok/s (3.5× faster, structure+citations intact), llama-3.2-3b FAILED (empty), mistral-24b 25s
+- v5.3.1: qwen-first in llmApexFree/llmApexPremium/llmQuick WAI legs; normalizeCitations() deterministic paren→bracket (valid N only, idempotent) wired into quick + deep sections; exported for tests
+- Tests: test_research_citations.mjs 62/62 (identifiers, references model, marker grammar, normalizer, prompt discipline, qwen order, client wiring); all six suites 275/275; build clean
+- Shipped: worker 2f9e82ef, commits 49aa9d7 + 0d32298, CI + Pages green
+- PRODUCTION VERIFIED: quick 12.5s / 542 words / 34 [N] / 0 paren drift (was 44-54s); deep SSE 21.4s total, first delta 5.8s, 2801 deltas, 67 [N], out-of-order part_done handled (was 60-107s)
+
+Stage Summary:
+- Streaming: DEEP only, token-level, no buffering (quick = plain JSON for fastest E2E)
+- Quick 3.8× faster, deep 3-5× faster with live text from ~6s
+- Premium checklist addressed: click-through logo citations, references with DOI/PMID/NCT, as-of stamp, databases line, named+yeared attribution (prompt + deterministic normalizer)
+- Next candidates: verification grid (3), agentic search loop (2), semantic cache + permalinks (5)
