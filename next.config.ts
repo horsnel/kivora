@@ -55,17 +55,12 @@ const nextConfig: NextConfig = {
         stream: false,
         zlib: false,
       }
-      config.externals = config.externals || []
-      if (Array.isArray(config.externals)) {
-        config.externals.push({
-          pptxgenjs: 'commonjs pptxgenjs',
-          jspdf: 'commonjs jspdf',
-          docx: 'commonjs docx',
-          jszip: 'commonjs jszip',
-          '@e2b/code-interpreter': 'commonjs @e2b/code-interpreter',
-          'e2b': 'commonjs e2b',
-        })
-      }
+      // v5.6 fix: client-side 'commonjs X' externals for jspdf/docx/jszip/
+      // pptxgenjs emitted bare require() in the browser → ReferenceError on
+      // every client PDF/DOCX/ZIP export (chat exports included). These libs
+      // are browser-ready ESM bundles; let webpack bundle them lazily — the
+      // dynamic imports keep them out of the first-load JS. Server-side
+      // externals remain handled by serverExternalPackages above.
     }
     return config
   },
