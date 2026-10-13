@@ -512,3 +512,30 @@ Stage Summary:
 - Quick 3.8× faster, deep 3-5× faster with live text from ~6s
 - Premium checklist addressed: click-through logo citations, references with DOI/PMID/NCT, as-of stamp, databases line, named+yeared attribution (prompt + deterministic normalizer)
 - Next candidates: verification grid (3), agentic search loop (2), semantic cache + permalinks (5)
+
+---
+Task ID: export-fixes-subq-v56
+Agent: Super Z (main)
+Task: Fix PDF/chat export failures + research dropdown overlay; improved download icon + reelpen box already shipped in cc35cc8 (verified); ship sub-question decomposition (roadmap) in worker
+
+Work Log:
+- ENV check: HEAD==origin/main, clean tree, CF token in place; CI/Pages green on 3debd45 (export round's require() fix was deployed but never verified — worklog had no entry for it)
+- DIAGNOSIS via live headless browser + chunk forensics:
+  * Chunk 404 theory DISPROVED (webpack runtime renames chunk 3930→file 164f4fb6.*, 5033→2f0b94e8.*; all jspdf chunks HTTP 200 on prod)
+  * Fresh local build reproduced runtime maps; exporters byte-validated in Node (PDF %PDF-/%%EOF, DOCX PK zip magic — all 4 exporters PASS)
+  * CHAT EXPORT: real failure captured in browser — 'TypeError: i is not a function' @ chunk 2713. Root cause: ChatClient exportChat destructured downloadBlob from fileExportHeavy, which does NOT export it (lives in fileExportClient) → undefined for ALL formats since 17bdffc
+  * STUDY/DEVTOOLS/REELPEN PDF: wiring correct; live PDF E2E on current build PASSES (study + research + reelpen re-verified post-ship) — user's report matches the pre-3debd45 window (17:49→18:02 UTC) when cc35cc8 shipped with the bare-require bug
+  * RESEARCH DROPDOWN OVERLAY: globals.css .animate-fade-* carry will-change: opacity,transform + research-scoped fade-in uses forwards fill → meta row (holds ExportMenu) AND report body are permanent stacking contexts; DOM-later report body painted over the trapped z-50 dropdown
+- FIXES: ChatClient imports downloadBlob from fileExportClient; research query-header row elevated relative z-20 (comment documents the stacking-context trap); reelpen min-h-[500px] lg:min-h-[560px] p-6 + IconDownloadReport verified already live from cc35cc8
+- WORKER v5.6 sub-question decomposition: decomposeSubQuestions (pure heuristic, zero latency) — 3 shapes: vs/versus + colon qualifier + preposition tail; compare/difference-between with qualifier distribution; conjunction chains (2+ ' and ', ≥60 chars). Cap 3 facets, min 2 words each, dedupe, inert ([]) on single-facet/ambiguous. Wired in deepResearch AFTER initial search BEFORE corrective loop (corrective evaluates enriched pool): ≤3 parallel Tavily 'advanced' sub-searches merged via mergeCorrectiveResults cap 24; decomposed phase event carries subQuestions; REPORT FACETS line injected into write-phase contextBlock (both parts)
+- Tests: citations suite +23 (decomposition: shapes, guards, wiring order, quick-mode purity, v5.6 bump) → 103/103; export suite +13 (chat fix regression tripwires incl. 'heavy lib really does not export downloadBlob', overlay z-elevation) → 103/103; FULL battery 483/483 across 8 suites; build clean
+- Shipped: commit 09023ab (CI+Pages green), worker version cf4a17be
+- LIVE VERIFIED (worker): multi-facet query 'solar vs nuclear vs wind for baseload power in developing countries' → decomposed:true, 3 exact facets, 3 search phases, 18-source merged pool, 3122 deltas, done.data 15,224-char report with 58 [N] markers + confidence tail
+- LIVE VERIFIED (browser, production pages): chat Export Chat → ZERO console errors (was TypeError); research dropdown open → screenshot shows card floating fully above report body; research PDF + reelpen PDF clicked → all jspdf chunks 200, zero errors, menus closed on success; reelpen output panel measured 560px (minHeight computed)
+- Screenshots: /home/z/my-project/download/verify-research-dropdown-open.png, verify-reelpen-export-open.png
+
+Stage Summary:
+- All five user complaints resolved: chat export works, PDF works everywhere (live-proven on current build), dropdown overlay fixed, improved multi-format SVG icon + reelpen box parity confirmed live, sub-question decomposition live in deep mode
+- Deep pipeline order now: search → decompose-sub-searches (multi-facet only) → corrective tier check → tier-prioritized reads → faceted write
+- Quick mode untouched (12s budget sacred); no protocol breaks (decomposed event keys are inert extras on the existing phase event)
+- Next candidates per roadmap: semantic cache + permalinks; multi-image research (vision input for charts); citation preview cards on hover
