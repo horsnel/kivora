@@ -1,5 +1,13 @@
 // ══════════════════════════════════════════════════════════════════
-// KIVORA RESEARCH WORKER — Cloudflare Worker (v5.1.0)
+// KIVORA RESEARCH WORKER — Cloudflare Worker (v5.2.0)
+// v5.2.0 additions (strictly additive — non-stream JSON behavior unchanged):
+//   - True streaming: POST /research with body { stream: true } returns SSE
+//     (phase → sources → delta → part_done → done|error). Without the flag,
+//     the response is byte-compatible JSON exactly as v5.1.0.
+//   - Freshness routing: detectRecency() extracts an explicit time axis from
+//     the query and threads time filters into Tavily (time_range), Brave
+//     (freshness), Firecrawl (tbs), Semantic Scholar (year) and Crossref
+//     (from-pub-date). Neutral queries are untouched.
 // Target: Quick ~8-12s, Deep ~25-45s (with 16K+ token output)
 // Key optimizations:
 //   - Quick mode: fast search (Tavily basic + Firecrawl), fast LLM (4K tokens)
@@ -231,12 +239,73 @@ function classifyQuery(query) {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// FRESHNESS ROUTING (v5.2.0)
+// Orthogonal to topic classification: detects an EXPLICIT recency signal
+// in the query and returns a coarse range ('day'|'week'|'month'|'year').
+// Neutral queries → { range: null } → zero behavior change downstream.
+// ══════════════════════════════════════════════════════════════════
+
+const RECENCY_LABELS = {
+  day: 'past 24 hours',
+  week: 'past week',
+  month: 'past month',
+  year: 'past year',
+};
+
+// Ordered strongest → weakest: the first bucket that matches wins, so
+// "breaking news today" lands in 'day' even though 'news' hints 'month'.
+const RECENCY_PATTERNS = [
+  { range: 'day', re: /\b(today|yesterday|tonight|breaking|just (happened|announced|released|dropped)|last 24 ?h(ours)?|past 24 ?h(ours)?|as of (today|now)|right now)\b/i },
+  { range: 'week', re: /\b(this week|past week|last week|last 7 days|past 7 days)\b/i },
+  { range: 'year', re: /\b(this year|past year|last 12 months|last year)\b|\b20(2[5-9])\b/ },
+  { range: 'month', re: /\b(latest|newest|recent(ly)?|current(ly)?|up[- ]to[- ]date|this month|past month|last 30 days|just (released|launched))\b/i },
+];
+
+/**
+ * Detect an explicit recency axis in a query.
+ * @param {string} query
+ * @returns {{ range: 'day'|'week'|'month'|'year'|null, label: string|null }}
+ */
+function detectRecency(query) {
+  if (!query || typeof query !== 'string') return { range: null, label: null };
+  for (const { range, re } of RECENCY_PATTERNS) {
+    if (re.test(query)) {
+      return { range, label: RECENCY_LABELS[range] };
+    }
+  }
+  return { range: null, label: null };
+}
+
+// ── Provider-specific time-filter mappers (pure — unit tested) ──
+function tavilyTimeRange(recency) {
+  return ['day', 'week', 'month', 'year'].includes(recency) ? recency : undefined;
+}
+function braveFreshness(recency) {
+  return { day: 'pd', week: 'pw', month: 'pm', year: 'py' }[recency] || undefined;
+}
+function firecrawlTbs(recency) {
+  return { day: 'qdr:d', week: 'qdr:w', month: 'qdr:m', year: 'qdr:y' }[recency] || undefined;
+}
+// Semantic Scholar accepts a year or range like "2025-2026"
+function s2YearFilter(recency, now = new Date()) {
+  if (recency === 'year' || recency === 'month') return `${now.getFullYear() - 1}-${now.getFullYear()}`;
+  return undefined;
+}
+// Crossref from-pub-date filter — only for explicit year intent (a month
+// window would over-restrict scholarly results)
+function crossrefFromDate(recency, now = new Date()) {
+  if (recency !== 'year') return undefined;
+  return `${now.getFullYear() - 1}-01-01`;
+}
+
+// ══════════════════════════════════════════════════════════════════
 // SEARCH PROVIDERS
 // ══════════════════════════════════════════════════════════════════
 
 // Tavily — primary search (basic = ~1.4s, advanced = ~2.2s)
-async function searchTavily(query, env, maxResults = 8, depth = 'basic') {
+async function searchTavily(query, env, maxResults = 8, depth = 'basic', recency = null) {
   try {
+    const timeRange = tavilyTimeRange(recency);
     const res = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: {
@@ -249,6 +318,7 @@ async function searchTavily(query, env, maxResults = 8, depth = 'basic') {
         include_answer: false, // skip answer to save time
         max_results: maxResults,
         include_raw_content: false,
+        ...(timeRange ? { time_range: timeRange } : {}),
       }),
       signal: AbortSignal.timeout(8000),
     });
@@ -266,11 +336,13 @@ async function searchTavily(query, env, maxResults = 8, depth = 'basic') {
 }
 
 // Brave — optional, requires key
-async function searchBrave(query, env, count = 8) {
+async function searchBrave(query, env, count = 8, recency = null) {
   const key = getBraveKey(env);
   if (!key) return [];
   try {
-    const res = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${count}`, {
+    const freshness = braveFreshness(recency);
+    const freshnessQ = freshness ? `&freshness=${freshness}` : '';
+    const res = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${count}${freshnessQ}`, {
       headers: { 'X-Subscription-Token': key, 'Accept': 'application/json' },
       signal: AbortSignal.timeout(6000),
     });
@@ -293,17 +365,18 @@ async function searchBrave(query, env, count = 8) {
 }
 
 // Firecrawl Search — ~1.7s, high quality results
-async function searchFirecrawl(query, env, limit = 8) {
+async function searchFirecrawl(query, env, limit = 8, recency = null) {
   const key = getFirecrawlKey(env);
   if (!key) return [];
   try {
+    const tbs = firecrawlTbs(recency);
     const res = await fetch('https://api.firecrawl.dev/v1/search', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${key}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ query, limit }),
+      body: JSON.stringify({ query, limit, ...(tbs ? { tbs } : {}) }),
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) return [];
@@ -323,10 +396,12 @@ async function searchFirecrawl(query, env, limit = 8) {
 // ── Academic Search Providers ──
 
 // Semantic Scholar — free academic search API
-async function searchSemanticScholar(query, limit = 5) {
+async function searchSemanticScholar(query, limit = 5, recency = null) {
   try {
+    const yearFilter = s2YearFilter(recency);
+    const yearQ = yearFilter ? `&year=${encodeURIComponent(yearFilter)}` : '';
     const res = await fetch(
-      `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=${limit}&fields=title,url,abstract,year,citationCount,authors,externalIds`,
+      `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=${limit}${yearQ}&fields=title,url,abstract,year,citationCount,authors,externalIds`,
       { signal: AbortSignal.timeout(8000) },
     );
     if (!res.ok) return [];
@@ -348,10 +423,12 @@ async function searchSemanticScholar(query, limit = 5) {
 }
 
 // Crossref — free scholarly metadata API (no API key needed)
-async function searchCrossref(query, rows = 5) {
+async function searchCrossref(query, rows = 5, recency = null) {
   try {
+    const fromDate = crossrefFromDate(recency);
+    const filterQ = fromDate ? `&filter=from-pub-date:${fromDate}` : '';
     const res = await fetch(
-      `https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=${rows}`,
+      `https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=${rows}${filterQ}`,
       { signal: AbortSignal.timeout(8000) },
     );
     if (!res.ok) return [];
@@ -442,17 +519,17 @@ async function searchGitHub(query, perPage = 5) {
 }
 
 // ── Fast search for quick mode (2 providers + classified extras, ~2-3s total) ──
-async function searchQuick(query, env, maxSources = 10, classification = 'general') {
+async function searchQuick(query, env, maxSources = 10, classification = 'general', recency = null) {
   // Base providers always run
   const basePromises = [
-    searchTavily(query, env, 8, 'basic'),  // ~1.4s
-    searchFirecrawl(query, env, 6),         // ~1.7s
+    searchTavily(query, env, 8, 'basic', recency),  // ~1.4s
+    searchFirecrawl(query, env, 6, recency),         // ~1.7s
   ];
 
   // Add classified search providers
   if (classification === 'academic' || classification === 'biomedical') {
-    basePromises.push(searchSemanticScholar(query, 5));
-    basePromises.push(searchCrossref(query, 5));
+    basePromises.push(searchSemanticScholar(query, 5, recency));
+    basePromises.push(searchCrossref(query, 5, recency));
     if (classification === 'biomedical') {
       basePromises.push(searchPubMed(query, 5));
     }
@@ -487,18 +564,18 @@ async function searchQuick(query, env, maxSources = 10, classification = 'genera
 }
 
 // ── Full search for deep mode (3+ providers + classified extras, ~2.5-4s total) ──
-async function searchDeep(query, env, maxSources = 15, classification = 'general') {
+async function searchDeep(query, env, maxSources = 15, classification = 'general', recency = null) {
   // Base providers always run
   const basePromises = [
-    searchTavily(query, env, 10, 'advanced'), // ~2.2s
-    searchBrave(query, env, 8),                // ~skip if no key
-    searchFirecrawl(query, env, 8),            // ~1.7s
+    searchTavily(query, env, 10, 'advanced', recency), // ~2.2s
+    searchBrave(query, env, 8, recency),                // ~skip if no key
+    searchFirecrawl(query, env, 8, recency),            // ~1.7s
   ];
 
   // Add classified search providers
   if (classification === 'academic' || classification === 'biomedical') {
-    basePromises.push(searchSemanticScholar(query, 5));
-    basePromises.push(searchCrossref(query, 5));
+    basePromises.push(searchSemanticScholar(query, 5, recency));
+    basePromises.push(searchCrossref(query, 5, recency));
     if (classification === 'biomedical') {
       basePromises.push(searchPubMed(query, 5));
     }
@@ -597,6 +674,95 @@ async function openrouterChat(env, messages, model = 'meta-llama/llama-4-maveric
   } catch (err) {
     console.error('[OpenRouter] exception:', err.message);
     return null;
+  }
+}
+
+// ── OpenRouter streaming variant (v5.2.0) ──
+// Same request as openrouterChat but with stream:true; parses the provider's
+// SSE frames and forwards content deltas to onDelta(chunk) as they arrive.
+// Returns the FULL text on success (caller still runs validateOutput), or
+// null on any failure — the caller then falls back to the buffered chain.
+// Deltas may already have been emitted when a failure happens; callers use
+// onReset() to tell the client to discard the partial buffer.
+async function openrouterChatStream(env, messages, model, maxTokens = 4096, timeout = 20000, onDelta = null) {
+  const apiKey = getOpenRouterKey(env);
+  if (!apiKey || typeof onDelta !== 'function') return null;
+
+  // Idle watchdog: abort if no bytes arrive for 25s (stalled provider).
+  // Hard cap is generous (timeout×4, min 60s) since a healthy stream keeps
+  // producing bytes well past the buffered path's single-shot timeout.
+  const hardCapMs = Math.max(timeout * 4, 60000);
+  const controller = new AbortController();
+  const hardTimer = setTimeout(() => controller.abort(), hardCapMs);
+  let idleTimer = null;
+  const armIdle = () => {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => controller.abort(), 25000);
+  };
+
+  try {
+    const t0 = Date.now();
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://kivora.pages.dev',
+        'X-Title': 'Kivora Research',
+      },
+      body: JSON.stringify({ model, messages, temperature: 0.3, max_tokens: maxTokens, stream: true }),
+      signal: controller.signal,
+    });
+    if (!res.ok || !res.body) {
+      const text = await res.text().catch(() => '');
+      console.error(`[OpenRouter-stream] ${model} error ${res.status} in ${Date.now() - t0}ms:`, text.slice(0, 300));
+      return null;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    let full = '';
+
+    armIdle();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      armIdle();
+      buf += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line || line.startsWith(':')) continue; // comments / keep-alives
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if (payload === '[DONE]') continue;
+        try {
+          const evt = JSON.parse(payload);
+          const piece = evt.choices?.[0]?.delta?.content || '';
+          if (piece) {
+            full += piece;
+            try { onDelta(piece); } catch { /* consumer died — keep reading */ }
+          }
+          const errPayload = evt.error?.message || evt.choices?.[0]?.error?.message;
+          if (errPayload) {
+            console.error(`[OpenRouter-stream] ${model} in-stream error:`, String(errPayload).slice(0, 200));
+            return null;
+          }
+        } catch { // partial JSON across chunks — tolerated by line framing
+        }
+      }
+    }
+
+    console.log(`[OpenRouter-stream] ${model} streamed ${full.length} chars in ${Date.now() - t0}ms`);
+    return full.length > 0 ? full : null;
+  } catch (err) {
+    console.error('[OpenRouter-stream] exception:', err.message);
+    return null;
+  } finally {
+    clearTimeout(hardTimer);
+    if (idleTimer) clearTimeout(idleTimer);
   }
 }
 
@@ -918,8 +1084,15 @@ function validateOutput(text, mode = 'quick') {
 }
 
 // Apex 1.7 — Free tier model routing (OpenRouter → Workers AI → Gemini → Pollinations)
-async function llmApexFree(env, messages, maxTokens = 4096, mode = 'quick') {
+// stream (v5.2.0, optional): { onDelta(chunk), onReset(part), part } — when
+// present, OpenRouter attempts use the streaming variant and deltas are
+// forwarded live; buffered providers emit one delta with the full text.
+// Absent (default) → byte-identical behavior to v5.1.0.
+async function llmApexFree(env, messages, maxTokens = 4096, mode = 'quick', stream = null) {
   const errors = [];
+  const canStream = !!(stream && typeof stream.onDelta === 'function');
+  const emitBuffered = (text) => { if (canStream) stream.onDelta(text); };
+  const resetPartial = () => { if (canStream && stream.onReset) stream.onReset(stream.part); };
 
   // 1. OpenRouter — fastest when credits available
   if (getOpenRouterKey(env)) {
@@ -928,6 +1101,13 @@ async function llmApexFree(env, messages, maxTokens = 4096, mode = 'quick') {
       { model: 'meta-llama/llama-4-maverick', timeout: 15000, maxTokens: Math.min(maxTokens, 2000) },
     ];
     for (const { model, timeout, maxTokens: mt } of orModels) {
+      if (canStream) {
+        const result = await openrouterChatStream(env, messages, model, mt, timeout, stream.onDelta);
+        if (result && validateOutput(result, mode)) return result;
+        resetPartial(); // discard any partial deltas the client already rendered
+        errors.push(`OR-stream:${model}:${result ? 'bad-output' : 'null'}`);
+        continue;
+      }
       const result = await openrouterChat(env, messages, model, mt, timeout);
       if (result && validateOutput(result, mode)) return result;
       if (result) errors.push(`OR:${model}:bad-output`);
@@ -945,7 +1125,7 @@ async function llmApexFree(env, messages, maxTokens = 4096, mode = 'quick') {
     ];
     for (const m of workersAiModels) {
       const result = await workersAiChat(env, messages, m, Math.min(maxTokens, 4096));
-      if (result && validateOutput(result, mode)) return result;
+      if (result && validateOutput(result, mode)) { emitBuffered(result); return result; }
       if (result) errors.push(`WAI:${m}:bad-output`);
       else errors.push(`WAI:${m}:null`);
     }
@@ -959,7 +1139,7 @@ async function llmApexFree(env, messages, maxTokens = 4096, mode = 'quick') {
     ];
     for (const { model, timeout } of geminiModels) {
       const result = await geminiChat(env, messages, model, maxTokens, timeout);
-      if (result && validateOutput(result, mode)) return result;
+      if (result && validateOutput(result, mode)) { emitBuffered(result); return result; }
       if (result) errors.push(`Gemini:${model}:bad-output`);
       else errors.push(`Gemini:${model}:null`);
     }
@@ -969,7 +1149,7 @@ async function llmApexFree(env, messages, maxTokens = 4096, mode = 'quick') {
   const pollModels = ['openai', 'mistral'];
   for (const model of pollModels) {
     const result = await pollinationsChat(messages, model, maxTokens, 8000);
-    if (result && validateOutput(result, mode)) return result;
+    if (result && validateOutput(result, mode)) { emitBuffered(result); return result; }
     if (result) errors.push(`Poll:${model}:bad-output`);
     else errors.push(`Poll:${model}:null`);
   }
@@ -978,8 +1158,12 @@ async function llmApexFree(env, messages, maxTokens = 4096, mode = 'quick') {
 }
 
 // Apex 2.3 — Premium tier model routing (OpenRouter → Gemini → Workers AI → Pollinations)
-async function llmApexPremium(env, messages, maxTokens = 4096, mode = 'quick') {
+// stream param: same contract as llmApexFree (v5.2.0)
+async function llmApexPremium(env, messages, maxTokens = 4096, mode = 'quick', stream = null) {
   const errors = [];
+  const canStream = !!(stream && typeof stream.onDelta === 'function');
+  const emitBuffered = (text) => { if (canStream) stream.onDelta(text); };
+  const resetPartial = () => { if (canStream && stream.onReset) stream.onReset(stream.part); };
 
   // 1. OpenRouter — premium models first
   if (getOpenRouterKey(env)) {
@@ -989,6 +1173,13 @@ async function llmApexPremium(env, messages, maxTokens = 4096, mode = 'quick') {
       { model: 'qwen/qwen3-235b-a22b', timeout: 30000 },
     ];
     for (const { model, timeout } of orModels) {
+      if (canStream) {
+        const result = await openrouterChatStream(env, messages, model, maxTokens, timeout, stream.onDelta);
+        if (result && validateOutput(result, mode)) return result;
+        resetPartial();
+        errors.push(`OR-stream:${model}:${result ? 'bad-output' : 'null'}`);
+        continue;
+      }
       const result = await openrouterChat(env, messages, model, maxTokens, timeout);
       if (result && validateOutput(result, mode)) return result;
       if (result) errors.push(`OR:${model}:bad-output`);
@@ -1004,7 +1195,7 @@ async function llmApexPremium(env, messages, maxTokens = 4096, mode = 'quick') {
     ];
     for (const { model, timeout } of geminiModels) {
       const result = await geminiChat(env, messages, model, maxTokens, timeout);
-      if (result && validateOutput(result, mode)) return result;
+      if (result && validateOutput(result, mode)) { emitBuffered(result); return result; }
       if (result) errors.push(`Gemini:${model}:bad-output`);
       else errors.push(`Gemini:${model}:null`);
     }
@@ -1019,7 +1210,7 @@ async function llmApexPremium(env, messages, maxTokens = 4096, mode = 'quick') {
     ];
     for (const m of workersAiModels) {
       const result = await workersAiChat(env, messages, m, Math.min(maxTokens, 4096));
-      if (result && validateOutput(result, mode)) return result;
+      if (result && validateOutput(result, mode)) { emitBuffered(result); return result; }
       if (result) errors.push(`WAI:${m}:bad-output`);
       else errors.push(`WAI:${m}:null`);
     }
@@ -1029,7 +1220,7 @@ async function llmApexPremium(env, messages, maxTokens = 4096, mode = 'quick') {
   const pollModels = ['openai', 'mistral'];
   for (const model of pollModels) {
     const result = await pollinationsChat(messages, model, maxTokens, 30000);
-    if (result && validateOutput(result, mode)) return result;
+    if (result && validateOutput(result, mode)) { emitBuffered(result); return result; }
     if (result) errors.push(`Poll:${model}:bad-output`);
     else errors.push(`Poll:${model}:null`);
   }
@@ -1928,12 +2119,49 @@ Produce the intelligence report now. Cross-reference the image content against t
 // ══════════════════════════════════════════════════════════════════
 
 // Standardized response shape (Fix #25)
-function makeResponse({ sources, report, title, followups, mode, classification }) {
-  return { sources, report, title, followups, mode, classification };
+function makeResponse({ sources, report, title, followups, mode, classification, recency }) {
+  // recency is additive (v5.2.0): { range, label } when an explicit time axis
+  // was detected, absent otherwise — older clients ignore unknown fields.
+  return { sources, report, title, followups, mode, classification, ...(recency ? { recency } : {}) };
 }
 
-async function quickResearch(query, env, apexModel = 'apex-free', searchQueryOverride = null) {
+// ── Source mapping (shared by quick/deep/stream paths) ──
+// Shapes a raw search hit into the canonical source object the client renders.
+function mapSource(s, i, status = 'loaded') {
+  const sourceObj = {
+    id: i,
+    url: s.url,
+    title: s.title || `Source ${i + 1}`,
+    snippet: s.snippet?.slice(0, 200) || '',
+    favicon: '',
+    status,
+    tier: s.tier || 'UNV',
+    tierLabel: s.tierLabel || 'UNV — Unverified',
+  };
+  // Add enhanced metadata for academic sources
+  if (s.source === 'semantic-scholar' || s.source === 'crossref' || s.source === 'pubmed') {
+    sourceObj.authors = s.authors || [];
+    sourceObj.year = s.year || null;
+    sourceObj.citations = s.citations || 0;
+    sourceObj.doi = s.doi || '';
+    sourceObj.sourceType = s.source;
+  }
+  if (s.source === 'github') {
+    sourceObj.authors = s.authors || [];
+    sourceObj.year = s.year || null;
+    sourceObj.sourceType = 'github';
+  }
+  return sourceObj;
+}
+
+// SSE frame encoder (v5.2.0) — single source of truth for the wire format
+function sseFrame(event) {
+  return `data: ${JSON.stringify(event)}\n\n`;
+}
+
+async function quickResearch(query, env, apexModel = 'apex-free', searchQueryOverride = null, streamCb = null) {
   const t0 = Date.now();
+  const emit = (event) => { if (typeof streamCb === 'function') { try { streamCb(event); } catch {} } };
 
   // The search query is separate from the LLM context query. When an image
   // is attached, the LLM gets the full image description + user query, but
@@ -1941,13 +2169,16 @@ async function quickResearch(query, env, apexModel = 'apex-free', searchQueryOve
   // to avoid sending a 1600+ char blob to Tavily (which returns no results).
   const searchQuery = searchQueryOverride || query;
 
-  // Step 0: Classify the query for search routing
+  // Step 0: Classify the query for search routing + detect explicit recency
   const classification = classifyQuery(searchQuery);
-  console.log(`[Quick] Query classified as: ${classification}`);
+  const recency = detectRecency(searchQuery);
+  emit({ type: 'phase', phase: 'classify', classification, recency });
+  console.log(`[Quick] Query classified as: ${classification}, recency: ${recency.range || 'none'}`);
 
   // Step 1: Fast search (2 providers + classified extras, ~2-3s)
+  emit({ type: 'phase', phase: 'search' });
   console.log('[Quick] Searching...');
-  const searchResults = await searchQuick(searchQuery, env, 10, classification);
+  const searchResults = await searchQuick(searchQuery, env, 10, classification, recency.range);
 
   if (searchResults.length === 0) {
     return { error: 'No sources found. Please try a different query.' };
@@ -1955,26 +2186,38 @@ async function quickResearch(query, env, apexModel = 'apex-free', searchQueryOve
 
   console.log(`[Quick] Found ${searchResults.length} sources in ${Date.now() - t0}ms`);
 
+  // Sources are known NOW — emit early so the client can render them while
+  // the report is still being written (stream mode only; cheap no-op otherwise)
+  const sources = searchResults.map((s, i) => mapSource(s, i));
+  emit({ type: 'sources', sources });
+
   // Step 2: Format sources for the LLM
   const sourcesContext = searchResults.map((s, i) =>
     `[${i + 1}] ${s.title}\n${s.snippet}`
   ).join('\n\n');
 
   // Step 3: Generate report with Apex model routing
+  emit({ type: 'phase', phase: 'write', part: 'report' });
   console.log('[Quick] Generating report...');
   const userContent = `Research query: "${query}"\n\nSources:\n${sourcesContext}`;
+
+  const streamCtx = streamCb ? {
+    part: 'report',
+    onDelta: (v) => { try { streamCb({ type: 'delta', part: 'report', v }); } catch {} },
+    onReset: () => { try { streamCb({ type: 'phase', phase: 'write', part: 'report', reset: true }); } catch {} },
+  } : null;
 
   let rawReport;
   if (apexModel === 'apex-premium') {
     rawReport = await llmApexPremium(env, [
       { role: 'system', content: QUICK_SYSTEM_PROMPT },
       { role: 'user', content: userContent },
-    ], 4096, 'quick');
+    ], 4096, 'quick', streamCtx);
   } else {
     rawReport = await llmApexFree(env, [
       { role: 'system', content: QUICK_SYSTEM_PROMPT },
       { role: 'user', content: userContent },
-    ], 4096, 'quick');
+    ], 4096, 'quick', streamCtx);
   }
 
   console.log(`[Quick] Report generated in ${Date.now() - t0}ms`);
@@ -1987,39 +2230,13 @@ async function quickResearch(query, env, apexModel = 'apex-free', searchQueryOve
   const titleMatch = report.match(/^##\s+(.+)$/m) || report.match(/^#\s+(.+)$/m);
   const title = titleMatch ? titleMatch[1].replace(/[*_]/g, '') : query;
 
-  const sources = searchResults.map((s, i) => {
-    const sourceObj = {
-      id: i,
-      url: s.url,
-      title: s.title || `Source ${i + 1}`,
-      snippet: s.snippet?.slice(0, 200) || '',
-      favicon: '',
-      status: 'loaded',
-      tier: s.tier || 'UNV',
-      tierLabel: s.tierLabel || 'UNV — Unverified',
-    };
-    // Add enhanced metadata for academic sources
-    if (s.source === 'semantic-scholar' || s.source === 'crossref' || s.source === 'pubmed') {
-      sourceObj.authors = s.authors || [];
-      sourceObj.year = s.year || null;
-      sourceObj.citations = s.citations || 0;
-      sourceObj.doi = s.doi || '';
-      sourceObj.sourceType = s.source;
-    }
-    if (s.source === 'github') {
-      sourceObj.authors = s.authors || [];
-      sourceObj.year = s.year || null;
-      sourceObj.sourceType = 'github';
-    }
-    return sourceObj;
-  });
-
   // Fix #25: Standardized response shape — no content field
-  return makeResponse({ sources, report, title, followups, mode: 'quick', classification });
+  return makeResponse({ sources, report, title, followups, mode: 'quick', classification, recency: recency.range ? recency : null });
 }
 
-async function deepResearch(query, env, apexModel = 'apex-free', searchQueryOverride = null) {
+async function deepResearch(query, env, apexModel = 'apex-free', searchQueryOverride = null, streamCb = null) {
   const t0 = Date.now();
+  const emit = (event) => { if (typeof streamCb === 'function') { try { streamCb(event); } catch {} } };
 
   // The search query is separate from the LLM context query. When an image
   // is attached, the LLM gets the full image description + user query, but
@@ -2027,19 +2244,28 @@ async function deepResearch(query, env, apexModel = 'apex-free', searchQueryOver
   // to avoid sending a 1600+ char blob to Tavily (which returns no results).
   const searchQuery = searchQueryOverride || query;
 
-  // ── PHASE 0: Classify the query for search routing ──
+  // ── PHASE 0: Classify the query for search routing + explicit recency ──
   const classification = classifyQuery(searchQuery);
-  console.log(`[Deep] Query classified as: ${classification}`);
+  const recency = detectRecency(searchQuery);
+  emit({ type: 'phase', phase: 'classify', classification, recency });
+  console.log(`[Deep] Query classified as: ${classification}, recency: ${recency.range || 'none'}`);
 
   // ── PHASE 1: Search (3+ providers + classified extras, ~2.5-4s) ──
+  emit({ type: 'phase', phase: 'search' });
   console.log('[Deep] Phase 1: Searching...');
-  const searchResults = await searchDeep(searchQuery, env, 15, classification);
+  const searchResults = await searchDeep(searchQuery, env, 15, classification, recency.range);
 
   if (searchResults.length === 0) {
     return { error: 'No sources found. Please try a different query.' };
   }
 
+  // Sources are known NOW — emit early so the client renders them during the
+  // (longer) read + write phases. Final 'done' carries the definitive set
+  // with deep-read statuses.
+  emit({ type: 'sources', sources: searchResults.map((s, i) => mapSource(s, i)) });
+
   // ── PHASE 2: Deep read top 5 URLs (more content = richer report) ──
+  emit({ type: 'phase', phase: 'read', count: Math.min(5, searchResults.length) });
   console.log('[Deep] Phase 2: Reading sources...');
 
   const topUrls = searchResults
@@ -2054,32 +2280,9 @@ async function deepResearch(query, env, apexModel = 'apex-free', searchQueryOver
   console.log(`[Deep] Phase 2 done in ${Date.now() - t0}ms, read ${deepContents.length} URLs`);
 
   // Mark deep-read sources
-  const sources = searchResults.map((s, i) => {
-    const sourceObj = {
-      id: i,
-      url: s.url,
-      title: s.title || `Source ${i + 1}`,
-      snippet: s.snippet?.slice(0, 200) || '',
-      favicon: '',
-      status: deepContents.some(dc => dc.url === s.url) ? 'deep' : 'loaded',
-      tier: s.tier || 'UNV',
-      tierLabel: s.tierLabel || 'UNV — Unverified',
-    };
-    // Add enhanced metadata for academic sources
-    if (s.source === 'semantic-scholar' || s.source === 'crossref' || s.source === 'pubmed') {
-      sourceObj.authors = s.authors || [];
-      sourceObj.year = s.year || null;
-      sourceObj.citations = s.citations || 0;
-      sourceObj.doi = s.doi || '';
-      sourceObj.sourceType = s.source;
-    }
-    if (s.source === 'github') {
-      sourceObj.authors = s.authors || [];
-      sourceObj.year = s.year || null;
-      sourceObj.sourceType = 'github';
-    }
-    return sourceObj;
-  });
+  const sources = searchResults.map((s, i) =>
+    mapSource(s, i, deepContents.some(dc => dc.url === s.url) ? 'deep' : 'loaded')
+  );
 
   // ── PHASE 3: Multi-section report generation ──
   // 2 parallel LLM calls with Apex model routing
@@ -2218,14 +2421,25 @@ FOLLOWUPS:
     },
   ];
 
-  // Generate both parts in parallel for speed
+  // Generate both parts in parallel for speed. In stream mode each part
+  // forwards its own deltas via a per-part streamCtx (parts interleave on the
+  // wire but carry a `part` tag — the client buffers per part and renders
+  // part1 → part2 in reading order).
+  const mkStreamCtx = (part) => streamCb ? {
+    part,
+    onDelta: (v) => { try { streamCb({ type: 'delta', part, v }); } catch {} },
+    onReset: () => { try { streamCb({ type: 'phase', phase: 'write', part, reset: true }); } catch {} },
+  } : null;
+
   const sectionPromises = sections.map(async (section) => {
     const sectionT0 = Date.now();
+    emit({ type: 'phase', phase: 'write', part: section.name });
     const result = await llmFn(env, [
       { role: 'system', content: section.prompt },
       { role: 'user', content: contextBlock },
-    ], effectiveMaxTokens, 'deep');
+    ], effectiveMaxTokens, 'deep', mkStreamCtx(section.name));
     console.log(`[Deep] Section '${section.name}' done in ${Date.now() - sectionT0}ms, ${result?.length || 0} chars`);
+    emit({ type: 'part_done', part: section.name });
     return { name: section.name, content: result || '' };
   });
   const sectionResults = await Promise.all(sectionPromises);
@@ -2245,7 +2459,7 @@ FOLLOWUPS:
   const title = titleMatch ? titleMatch[1].replace(/[*_]/g, '') : query;
 
   // Fix #25: Standardized response shape
-  return makeResponse({ sources, report, title, followups, mode: 'deep', classification });
+  return makeResponse({ sources, report, title, followups, mode: 'deep', classification, recency: recency.range ? recency : null });
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -2388,7 +2602,7 @@ export default {
     if (url.pathname === '/research' && request.method === 'POST') {
       try {
         const body = await request.json();
-        const { query, mode = 'quick', openrouter_key = '', mistral_key = '', apex_model = 'apex-free', attachedFile, attachedFiles } = body;
+        const { query, mode = 'quick', openrouter_key = '', mistral_key = '', apex_model = 'apex-free', attachedFile, attachedFiles, stream = false } = body;
 
         // Normalize: support both `attachedFile` (single, legacy) and
         // `attachedFiles` (array, multi-upload). Merge into one array.
@@ -2420,125 +2634,187 @@ export default {
           env.MISTRAL_API_KEY = mistral_key;
         }
 
-        // ── Process attached files ──
-        // Images are described via a vision model (in parallel when multiple);
-        // text files have their content inlined; binary documents are noted by
-        // name+size. Multi-image: all descriptions are concatenated.
-        let fileContext = '';
-        let hasImage = false;
-        let imageDescription = '';
-        const imageFileNames = [];
+        // ── File size validation (both transports — 400 before any work) ──
         const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-
-        if (allFiles.length > 0) {
-          // Validate sizes first
-          for (const f of allFiles) {
-            const sz = f.size || 0;
-            if (sz > MAX_FILE_SIZE) {
-              return jsonRes({ error: `File too large (max ${MAX_FILE_SIZE / 1024 / 1024}MB): ${f.name || 'attachment'}` }, 400);
-            }
-          }
-
-          // Process images in parallel for speed; text/binary sequentially (cheap)
-          const imageFiles = allFiles.filter(f => (f.type || '').startsWith('image/'));
-          const nonImageFiles = allFiles.filter(f => !(f.type || '').startsWith('image/'));
-
-          if (imageFiles.length > 0) {
-            hasImage = true;
-            console.log(`[Research] ${imageFiles.length} image(s) detected — calling vision models in parallel...`);
-            const t_v0 = Date.now();
-            const descriptions = await Promise.all(
-              imageFiles.map(f => describeImage(env, f.content, f.type || 'image/png').then(d => ({ name: f.name || 'image', desc: d })))
-            );
-            console.log(`[Research] Vision parallel done in ${Date.now()-t_v0}ms for ${imageFiles.length} image(s)`);
-            const validDescs = descriptions.filter(d => d.desc);
-            if (validDescs.length > 0) {
-              imageDescription = validDescs.map(d => `=== ${d.name} ===\n${d.desc}`).join('\n\n');
-              imageFileNames.push(...validDescs.map(d => d.name));
-              fileContext = `[User attached ${validDescs.length} image(s): ${imageFileNames.join(', ')}]\nImage description(s):\n${imageDescription}\n\n`;
-            } else {
-              fileContext = `[User attached ${imageFiles.length} image(s) — vision analysis unavailable]\n\n`;
-              console.error('[Research] All image descriptions failed');
-            }
-          }
-
-          for (const f of nonImageFiles) {
-            const fileName = f.name || 'attachment';
-            const fileType = f.type || 'application/octet-stream';
-            const fileSize = f.size || 0;
-            if (isTextLikeFile(fileName, fileType)) {
-              const textContent = f.content.startsWith('data:')
-                ? decodeURIComponent(atob(f.content.split(',')[1] || ''))
-                : f.content;
-              const truncated = textContent.slice(0, 4000);
-              fileContext += `[User attached a text file: ${fileName}]\nFile content:\n${truncated}${textContent.length > 4000 ? '\n... (truncated)' : ''}\n\n`;
-              console.log(`[Research] Text file inlined: ${truncated.length} chars (${fileName})`);
-            } else {
-              fileContext += `[User attached a document: ${fileName} (${fileType}, ${fileSize} bytes) — content not extracted]\n\n`;
-              console.log(`[Research] Binary document noted: ${fileName}`);
-            }
+        for (const f of allFiles) {
+          const sz = f.size || 0;
+          if (sz > MAX_FILE_SIZE) {
+            return jsonRes({ error: `File too large (max ${MAX_FILE_SIZE / 1024 / 1024}MB): ${f.name || 'attachment'}` }, 400);
           }
         }
 
-        // ── Image Intelligence Pipeline ──
-        // When at least one image is attached, route through the multi-pass
-        // OSINT pipeline: vision → entity extraction → multi-query search →
-        // final report with inline cross-reference.
-        if (hasImage && imageDescription) {
-          console.log('[Research] Routing to Image Intelligence pipeline...');
-          const t_e0 = Date.now();
-          const entities = await extractImageEntities(env, imageDescription, safeQuery);
-          console.log(`[Research] Entities extracted in ${Date.now()-t_e0}ms — brands=${(entities.brand_names||[]).length}, queries=${(entities.search_queries||[]).length}, category=${entities.topic_category}`);
+        // ── Process attached files + run the pipeline ────────────
+        // v5.2.0: the execution flow is wrapped in runPipeline(send) so the
+        // SAME code serves both transports:
+        //   JSON (default) — runPipeline(null) → jsonRes, byte-identical to
+        //                    v5.1.0.
+        //   SSE (stream:true) — runPipeline(send) streams phase/delta events,
+        //                    then one terminal done|error event carrying the
+        //                    same payload the JSON path would have returned.
+        const runPipeline = async (streamCb) => {
+          const emit = (event) => { if (typeof streamCb === 'function') { try { streamCb(event); } catch {} } };
 
-          const result = await imageIntelligenceResearch({
-            userQuery: safeQuery,
-            env,
-            apexModel: apex_model,
-            imageDescription,
-            fileName: imageFileNames.length > 0 ? imageFileNames.join(', ') : 'image(s)',
-            entities,
-            mode,
-          });
+          // ── Process attached files ──
+          // Images are described via a vision model (in parallel when multiple);
+          // text files have their content inlined; binary documents are noted by
+          // name+size. Multi-image: all descriptions are concatenated.
+          let fileContext = '';
+          let hasImage = false;
+          let imageDescription = '';
+          const imageFileNames = [];
+
+          if (allFiles.length > 0) {
+            // Process images in parallel for speed; text/binary sequentially (cheap)
+            const imageFiles = allFiles.filter(f => (f.type || '').startsWith('image/'));
+            const nonImageFiles = allFiles.filter(f => !(f.type || '').startsWith('image/'));
+
+            if (imageFiles.length > 0) {
+              hasImage = true;
+              emit({ type: 'phase', phase: 'vision', count: imageFiles.length });
+              console.log(`[Research] ${imageFiles.length} image(s) detected — calling vision models in parallel...`);
+              const t_v0 = Date.now();
+              const descriptions = await Promise.all(
+                imageFiles.map(f => describeImage(env, f.content, f.type || 'image/png').then(d => ({ name: f.name || 'image', desc: d })))
+              );
+              console.log(`[Research] Vision parallel done in ${Date.now()-t_v0}ms for ${imageFiles.length} image(s)`);
+              const validDescs = descriptions.filter(d => d.desc);
+              if (validDescs.length > 0) {
+                imageDescription = validDescs.map(d => `=== ${d.name} ===\n${d.desc}`).join('\n\n');
+                imageFileNames.push(...validDescs.map(d => d.name));
+                fileContext = `[User attached ${validDescs.length} image(s): ${imageFileNames.join(', ')}]\nImage description(s):\n${imageDescription}\n\n`;
+              } else {
+                fileContext = `[User attached ${imageFiles.length} image(s) — vision analysis unavailable]\n\n`;
+                console.error('[Research] All image descriptions failed');
+              }
+            }
+
+            for (const f of nonImageFiles) {
+              const fileName = f.name || 'attachment';
+              const fileType = f.type || 'application/octet-stream';
+              const fileSize = f.size || 0;
+              if (isTextLikeFile(fileName, fileType)) {
+                const textContent = f.content.startsWith('data:')
+                  ? decodeURIComponent(atob(f.content.split(',')[1] || ''))
+                  : f.content;
+                const truncated = textContent.slice(0, 4000);
+                fileContext += `[User attached a text file: ${fileName}]\nFile content:\n${truncated}${textContent.length > 4000 ? '\n... (truncated)' : ''}\n\n`;
+                console.log(`[Research] Text file inlined: ${truncated.length} chars (${fileName})`);
+              } else {
+                fileContext += `[User attached a document: ${fileName} (${fileType}, ${fileSize} bytes) — content not extracted]\n\n`;
+                console.log(`[Research] Binary document noted: ${fileName}`);
+              }
+            }
+          }
+
+          // ── Image Intelligence Pipeline ──
+          // When at least one image is attached, route through the multi-pass
+          // OSINT pipeline: vision → entity extraction → multi-query search →
+          // final report with inline cross-reference. (Phases only — the
+          // OSINT pipeline itself is not delta-streamed.)
+          if (hasImage && imageDescription) {
+            emit({ type: 'phase', phase: 'osint' });
+            console.log('[Research] Routing to Image Intelligence pipeline...');
+            const t_e0 = Date.now();
+            const entities = await extractImageEntities(env, imageDescription, safeQuery);
+            console.log(`[Research] Entities extracted in ${Date.now()-t_e0}ms — brands=${(entities.brand_names||[]).length}, queries=${(entities.search_queries||[]).length}, category=${entities.topic_category}`);
+
+            const result = await imageIntelligenceResearch({
+              userQuery: safeQuery,
+              env,
+              apexModel: apex_model,
+              imageDescription,
+              fileName: imageFileNames.length > 0 ? imageFileNames.join(', ') : 'image(s)',
+              entities,
+              mode,
+            });
+
+            if (result.error) {
+              return { status: 500, payload: result };
+            }
+            return { status: 200, payload: result };
+          }
+
+          // ── Standard research pipeline (text-only or text-attached file) ──
+          const effectiveQuery = fileContext + (safeQuery || '(Analyze the attached file and provide insights.)');
+
+          // Build a SEPARATE short search query for web search.
+          let searchQuery = safeQuery;
+          if (!searchQuery && allFiles.length > 0) {
+            const firstTextFile = allFiles.find(f => isTextLikeFile(f.name || '', f.type || ''));
+            if (firstTextFile) {
+              // Use first 200 chars of text content as search query
+              const textContent = firstTextFile.content.startsWith('data:')
+                ? decodeURIComponent(atob(firstTextFile.content.split(',')[1] || ''))
+                : firstTextFile.content;
+              searchQuery = textContent.slice(0, 200).replace(/\s+/g, ' ').trim();
+            } else {
+              searchQuery = 'document analysis methodology';
+            }
+            console.log(`[Research] Derived search query from file: "${searchQuery.slice(0, 100)}"`);
+          }
+          if (!searchQuery) searchQuery = 'research analysis';
+
+          console.log(`[Research] ${mode} mode: "${safeQuery || '(file only)'}", files: ${allFiles.length}, image: ${hasImage}, apex: ${apex_model}`);
+          console.log(`[Research] Search query: "${searchQuery.slice(0, 150)}"`);
+          console.log(`[Research] LLM context: ${effectiveQuery.length} chars`);
+
+          const result = mode === 'deep'
+            ? await deepResearch(effectiveQuery, env, apex_model, searchQuery, streamCb)
+            : await quickResearch(effectiveQuery, env, apex_model, searchQuery, streamCb);
 
           if (result.error) {
-            return jsonRes(result, 500);
+            return { status: 500, payload: result };
           }
-          return jsonRes(result);
+          return { status: 200, payload: result };
+        };
+
+        // ── Transport dispatch ──
+        if (stream === true) {
+          const enc = new TextEncoder();
+          let controllerRef = null;
+          const sse = new ReadableStream({
+            start(controller) { controllerRef = controller; },
+          });
+          const send = (event) => {
+            if (!controllerRef) return;
+            try { controllerRef.enqueue(enc.encode(sseFrame(event))); } catch {}
+          };
+          const closeOut = () => {
+            if (!controllerRef) return;
+            try { controllerRef.close(); } catch {}
+            controllerRef = null;
+          };
+
+          // Run the pipeline once the Response head is flushed — events flow
+          // to the client from the first phase onward (no dead air).
+          (async () => {
+            try {
+              const { status, payload } = await runPipeline(send);
+              if (status !== 200 || payload.error) {
+                send({ type: 'error', error: payload.error || 'Research failed' });
+              } else {
+                send({ type: 'done', data: payload });
+              }
+            } catch (err) {
+              console.error('[Research] stream error:', err);
+              send({ type: 'error', error: err?.message || 'Research failed' });
+            } finally {
+              closeOut();
+            }
+          })();
+
+          return new Response(sse, {
+            headers: {
+              'Content-Type': 'text/event-stream; charset=utf-8',
+              'Cache-Control': 'no-cache, no-transform',
+              'X-Accel-Buffering': 'no',
+              ...corsHeaders(request),
+            },
+          });
         }
 
-        // ── Standard research pipeline (text-only or text-attached file) ──
-        const effectiveQuery = fileContext + (safeQuery || '(Analyze the attached file and provide insights.)');
-
-        // Build a SEPARATE short search query for web search.
-        let searchQuery = safeQuery;
-        if (!searchQuery && allFiles.length > 0) {
-          const firstTextFile = allFiles.find(f => isTextLikeFile(f.name || '', f.type || ''));
-          if (firstTextFile) {
-            // Use first 200 chars of text content as search query
-            const textContent = firstTextFile.content.startsWith('data:')
-              ? decodeURIComponent(atob(firstTextFile.content.split(',')[1] || ''))
-              : firstTextFile.content;
-            searchQuery = textContent.slice(0, 200).replace(/\s+/g, ' ').trim();
-          } else {
-            searchQuery = 'document analysis methodology';
-          }
-          console.log(`[Research] Derived search query from file: "${searchQuery.slice(0, 100)}"`);
-        }
-        if (!searchQuery) searchQuery = 'research analysis';
-
-        console.log(`[Research] ${mode} mode: "${safeQuery || '(file only)'}", files: ${allFiles.length}, image: ${hasImage}, apex: ${apex_model}`);
-        console.log(`[Research] Search query: "${searchQuery.slice(0, 150)}"`);
-        console.log(`[Research] LLM context: ${effectiveQuery.length} chars`);
-
-        const result = mode === 'deep'
-          ? await deepResearch(effectiveQuery, env, apex_model, searchQuery)
-          : await quickResearch(effectiveQuery, env, apex_model, searchQuery);
-
-        if (result.error) {
-          return jsonRes(result, 500);
-        }
-
-        return jsonRes(result);
+        const { status, payload } = await runPipeline(null);
+        return jsonRes(payload, status);
       } catch (err) {
         console.error('[Research] Error:', err);
         return jsonRes({ error: err.message || 'Research failed' }, 500);
@@ -2662,3 +2938,22 @@ async function runMonthlyReset(env) {
   console.log('[cron] monthly reset OK:', data);
   return data;
 }
+
+// ── Named exports (v5.2.0) ──
+// Pure helpers exposed for the regression suite (scripts/test_research_stream.mjs).
+// Wrangler/esbuild keeps them tree-shaken out of the deployed bundle — the
+// default export (fetch + scheduled) is the only thing the runtime binds.
+export {
+  openrouterChatStream,
+  classifyQuery,
+  detectRecency,
+  tavilyTimeRange,
+  braveFreshness,
+  firecrawlTbs,
+  s2YearFilter,
+  crossrefFromDate,
+  mapSource,
+  makeResponse,
+  sseFrame,
+  validateOutput,
+};

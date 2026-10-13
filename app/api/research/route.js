@@ -5,6 +5,7 @@ import { getEnvVar } from '@/lib/cfEnv'
 import { getSupabaseAdmin } from '@/lib/supabase'
 import { createClient } from '@supabase/supabase-js'
 import { requireCredits, requireFeatureAccess, refundCredits, CREDIT_COSTS } from '@/lib/credits'
+import { SSE_HEADERS, sseResponse } from '@/lib/sse'
 
 // Kivora Research Worker endpoint (Cloudflare Worker)
 const RESEARCH_WORKER_URL = 'https://kivora-research.odehebuka48.workers.dev/research'
@@ -153,7 +154,7 @@ export async function POST(req) {
 
   try {
     const body = await req.json()
-    const { query, mode = 'quick', apex_model = 'apex-free', attachedFile, attachedFiles } = body
+    const { query, mode = 'quick', apex_model = 'apex-free', attachedFile, attachedFiles, stream = false } = body
 
     // Normalize: accept both legacy single `attachedFile` and array `attachedFiles`.
     // Forward both to the worker — the worker handles whichever is present.
@@ -171,6 +172,14 @@ export async function POST(req) {
 
     const normalized = trimmedQuery.toLowerCase().trim()
     const apexTier = apex_model
+
+    // ── v5.2.0 streaming: opt-in via body.stream ─────────────────
+    // stream:false (default) → the JSON path below is byte-identical to the
+    // previous release. stream:true → SSE (phase → sources → delta →
+    // part_done → done|error). Gates/credits/cache behave identically on
+    // both transports — every non-SSE response (gates, 4xx, 5xx) is JSON so
+    // the client falls back transparently.
+    const wantsStream = stream === true
 
     // ── Skip cache when any file is attached ─────────────────────
     // File-bearing queries are inherently unique (the file content is part of
@@ -252,7 +261,7 @@ export async function POST(req) {
           // Fetch wiki metadata if linked
           const wikiMeta = await getWikiMeta(admin, cached.wiki_page_id)
 
-          return Response.json({
+          const cachedPayload = {
             report: cached.report,
             sources: cached.sources,
             followups: cached.followups,
@@ -263,7 +272,17 @@ export async function POST(req) {
             wikiLifecycle: wikiMeta?.wikiLifecycle || null,
             wikiSlug: wikiMeta?.wikiSlug || null,
             wikiVersion: wikiMeta?.wikiVersion || null,
-          })
+          }
+
+          // Stream mode: burst the cached payload instantly (⚡ no typewriter)
+          if (wantsStream) {
+            return sseResponse(async (send) => {
+              send({ type: 'phase', phase: 'cache' })
+              send({ type: 'done', data: cachedPayload })
+            })
+          }
+
+          return Response.json(cachedPayload)
         }
       } catch (cacheErr) {
         // Graceful degradation — log and continue to Worker
@@ -298,6 +317,9 @@ export async function POST(req) {
       apex_model,
       openrouter_key: openrouterKey || '',
     }
+    if (wantsStream) {
+      workerBody.stream = true
+    }
     if (attachedFile) {
       workerBody.attachedFile = attachedFile
     }
@@ -326,6 +348,124 @@ export async function POST(req) {
         { status: workerRes.status }
       )
     }
+
+    // ── Stream mode: pipe worker SSE → client, tee for cache store ──
+    // Forward phase/sources/delta/part_done frames untouched; hold back the
+    // worker's done frame, store the cache, then emit ONE enriched done.
+    // If the worker (or this pipe) fails mid-stream, emit an error event and
+    // refund — same refund policy as the JSON path.
+    if (wantsStream && (workerRes.headers.get('content-type') || '').includes('text/event-stream')) {
+      const enc = new TextEncoder()
+      const upstreamReader = workerRes.body.getReader()
+      const dec = new TextDecoder()
+
+      return new Response(new ReadableStream({
+        async start(controller) {
+          let closed = false
+          const send = (event) => {
+            if (closed) return
+            try { controller.enqueue(enc.encode(`data: ${JSON.stringify(event)}\n\n`)) }
+            catch { closed = true }
+          }
+
+          let acc = ''
+          let finalData = null
+          let sawError = false
+          try {
+            while (true) {
+              const { done, value } = await upstreamReader.read()
+              if (done) break
+              acc += dec.decode(value, { stream: true })
+              let idx
+              while ((idx = acc.indexOf('\n\n')) >= 0) {
+                const frame = acc.slice(0, idx)
+                acc = acc.slice(idx + 2)
+                const line = frame.split('\n').find((l) => l.startsWith('data:'))
+                if (!line) continue
+                let evt
+                try { evt = JSON.parse(line.slice(5)) } catch { continue }
+                if (evt.type === 'done') {
+                  finalData = evt.data // held back — enriched below
+                } else {
+                  if (evt.type === 'error') sawError = true
+                  send(evt)
+                }
+              }
+            }
+
+            if (finalData && !sawError) {
+              const latencyMs = Date.now() - workerStartTime
+
+              // ── Store result in cache (same as JSON path) ──────────
+              let cacheId = null
+              let wikiPageId = finalData.wikiPageId || null
+              let wikiLifecycle = null
+              let wikiSlug = null
+              let wikiVersion = null
+
+              if (admin && queryHash && !skipCache) {
+                try {
+                  cacheId = await storeCacheResult(admin, queryHash, trimmedQuery, normalized, mode, apexTier, finalData, latencyMs)
+                } catch (storeErr) {
+                  console.error('[research] Cache store error:', storeErr?.message || storeErr)
+                }
+                if (wikiPageId) {
+                  const wikiMeta = await getWikiMeta(admin, wikiPageId)
+                  if (wikiMeta) {
+                    wikiLifecycle = wikiMeta.wikiLifecycle
+                    wikiSlug = wikiMeta.wikiSlug
+                    wikiVersion = wikiMeta.wikiVersion
+                  }
+                }
+              }
+
+              send({
+                type: 'done',
+                data: {
+                  ...finalData,
+                  fromCache: false,
+                  cacheId,
+                  wikiPageId,
+                  wikiLifecycle,
+                  wikiSlug,
+                  wikiVersion,
+                },
+              })
+            } else if (!sawError) {
+              // Truncated stream without done/error — treat as failure
+              console.error('[research] worker stream ended without done event')
+              send({ type: 'error', error: 'Research stream ended unexpectedly. Please try again.' })
+              if (adminCharger && user?.id) {
+                await refundCredits(adminCharger, user.id, CREDIT_COSTS[action], action, 'stream truncated')
+              }
+            } else {
+              // error event already forwarded — refund credits
+              if (adminCharger && user?.id) {
+                await refundCredits(adminCharger, user.id, CREDIT_COSTS[action], action, 'worker stream error')
+              }
+            }
+          } catch (err) {
+            console.error('[research] stream pipe error:', err?.message || err)
+            send({ type: 'error', error: 'Research stream failed. Please try again.' })
+            if (adminCharger && user?.id) {
+              await refundCredits(adminCharger, user.id, CREDIT_COSTS[action], action, `pipe: ${err?.name || 'unknown'}`)
+            }
+          } finally {
+            try { controller.close() } catch {}
+          }
+        },
+        async cancel() {
+          // Client disconnected — stop reading upstream, refund best-effort
+          try { await upstreamReader.cancel() } catch {}
+          if (adminCharger && user?.id) {
+            await refundCredits(adminCharger, user.id, CREDIT_COSTS[action], action, 'client disconnected mid-stream')
+          }
+        },
+      }), { headers: SSE_HEADERS })
+    }
+    // wantsStream but worker answered JSON (old worker, gate payloads) →
+    // fall through to the JSON path below; the client detects content-type
+    // and handles it with the legacy renderer.
 
     const data = await workerRes.json()
 

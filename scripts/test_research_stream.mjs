@@ -1,0 +1,174 @@
+#!/usr/bin/env node
+/**
+ * Research engine v5.2.0 regression — true streaming + freshness routing.
+ *
+ * Guards the "don't break the current engine" contract:
+ *   1. Freshness routing: detectRecency buckets + provider time-filter
+ *      mappers (Tavily time_range, Brave freshness, Firecrawl tbs, Semantic
+ *      Scholar year, Crossref from-pub-date) — neutral queries map to NO
+ *      filter anywhere.
+ *   2. Streaming transport: OpenRouter SSE delta parser (mocked fetch),
+ *      client-side streamSSE protocol ordering, worker sseFrame wire format.
+ *   3. Backward compat: makeResponse keeps the exact v5.1.0 key set with
+ *      recency purely additive; classification unchanged.
+ */
+import { readFileSync } from 'node:fs'
+
+const workerPath = new URL('../research-worker/src/index.js', import.meta.url)
+const workerHref = 'file://' + workerPath.pathname.replace(/^\/?/, '/')
+const worker = await import(workerHref + '?cachebust=' + Date.now())
+const { readFileSync: rf } = await import('node:fs')
+
+let pass = 0, fail = 0
+function t(name, cond) {
+  if (cond) { pass++; console.log('  PASS', name) }
+  else { fail++; console.log('  FAIL', name) }
+}
+
+// ══════════════════════════════════════════════════════════════════
+console.log('── 1. detectRecency buckets (strongest match wins) ──')
+const R = (q) => worker.detectRecency(q)
+t('"breaking news" → day', R('breaking news in AI').range === 'day')
+t('"won yesterday" → day', R('who won the match yesterday').range === 'day')
+t('"stock prices today" → day', R('stock prices today').range === 'day')
+t('"this week" → week', R('AI releases this week').range === 'week')
+t('"past 7 days" → week', R('earthquakes past 7 days').range === 'week')
+t('"latest" → month', R('what is the latest on quantum computing').range === 'month')
+t('"recently" → month', R('models released recently').range === 'month')
+t('"current inflation" → month', R('current inflation rate').range === 'month')
+t('"2026" → year', R('best AI models 2026').range === 'year')
+t('"this year" → year', R('space launches this year').range === 'year')
+t('"day beats month": "latest news today" → day', R('latest news today').range === 'day')
+t('neutral query → null', R('how does photosynthesis work').range === null)
+t('neutral query label → null', R('history of the roman empire').label === null)
+t('empty/undefined → null', R('').range === null && R(undefined).range === null)
+t('2024 (past year) NOT matched', R('2024 election results').range === null)
+
+console.log('── 2. provider time-filter mappers ──')
+t('tavilyTimeRange(month) = month', worker.tavilyTimeRange('month') === 'month')
+t('tavilyTimeRange(null) = undefined', worker.tavilyTimeRange(null) === undefined)
+t('braveFreshness(day) = pd', worker.braveFreshness('day') === 'pd')
+t('braveFreshness(week) = pw', worker.braveFreshness('week') === 'pw')
+t('braveFreshness(month) = pm', worker.braveFreshness('month') === 'pm')
+t('braveFreshness(year) = py', worker.braveFreshness('year') === 'py')
+t('braveFreshness(null) = undefined', worker.braveFreshness(null) === undefined)
+t('firecrawlTbs(day) = qdr:d', worker.firecrawlTbs('day') === 'qdr:d')
+t('firecrawlTbs(year) = qdr:y', worker.firecrawlTbs('year') === 'qdr:y')
+t('firecrawlTbs(null) = undefined', worker.firecrawlTbs(null) === undefined)
+const yr = new Date().getFullYear()
+t('s2YearFilter(year) = "<yr-1>-<yr>"', worker.s2YearFilter('year') === `${yr - 1}-${yr}`)
+t('s2YearFilter(month) also applies', worker.s2YearFilter('month') === `${yr - 1}-${yr}`)
+t('s2YearFilter(day) = undefined', worker.s2YearFilter('day') === undefined)
+t('crossrefFromDate(year) = "<yr-1>-01-01"', worker.crossrefFromDate('year') === `${yr - 1}-01-01`)
+t('crossrefFromDate(week) = undefined', worker.crossrefFromDate('week') === undefined)
+
+console.log('── 3. search sources carry recency (static wiring check) ──')
+const workerSrc = rf(workerPath, 'utf8')
+t('searchTavily threads time_range', workerSrc.includes("...(timeRange ? { time_range: timeRange } : {}),"))
+t('searchBrave threads freshness', workerSrc.includes('freshness ? `&freshness=${freshness}`'))
+t('searchFirecrawl threads tbs', workerSrc.includes("...(tbs ? { tbs } : {})"))
+t('searchSemanticScholar threads year', workerSrc.includes('yearQ'))
+t('searchCrossref threads from-pub-date', workerSrc.includes('from-pub-date:${fromDate}'))
+t('searchQuick receives recency param', workerSrc.includes("async function searchQuick(query, env, maxSources = 10, classification = 'general', recency = null)"))
+t('searchDeep receives recency param', workerSrc.includes("async function searchDeep(query, env, maxSources = 15, classification = 'general', recency = null)"))
+t('quickResearch passes recency.range to searchQuick', workerSrc.includes('await searchQuick(searchQuery, env, 10, classification, recency.range)'))
+t('deepResearch passes recency.range to searchDeep', workerSrc.includes('await searchDeep(searchQuery, env, 15, classification, recency.range)'))
+
+console.log('── 4. classifyQuery regression (unchanged) ──')
+t('clinical trial → biomedical', worker.classifyQuery('clinical trial results for a new drug') === 'biomedical')
+t('react framework → tech', worker.classifyQuery('react framework comparison') === 'tech')
+t('stock market → finance', worker.classifyQuery('stock market outlook') === 'finance')
+t('plain question → general', worker.classifyQuery('how does photosynthesis work') === 'general')
+
+console.log('── 5. OpenRouter stream parser (mocked fetch) ──')
+const CHUNKS = [
+  'data: {"choices":[{"delta":{"content":"Hello "}}]}\n\n',
+  ': OPENROUTER PROCESSING\n\n', // keep-alive comment must be ignored
+  'data: {"choices":[{"delta":{"content":"streamed "}}]}\n\ndata: {"choices":[{"delta":{"content":"world"}}]}\n\n',
+  'data: [DONE]\n\n',
+]
+let mockFetchCount = 0
+globalThis.fetch = async () => {
+  mockFetchCount++
+  const enc = new TextEncoder()
+  const stream = new ReadableStream({
+    start(c) { for (const ch of CHUNKS) c.enqueue(enc.encode(ch)); c.close() },
+  })
+  return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } })
+}
+const fakeEnv = { OPENROUTER_API_KEY: 'sk-or-test' }
+const got = []
+const full = await worker.openrouterChatStream(fakeEnv, [{ role: 'user', content: 'hi' }], 'test/model', 100, 5000, (d) => got.push(d))
+t('returns full text', full === 'Hello streamed world')
+t('onDelta fired per token', JSON.stringify(got) === JSON.stringify(['Hello ', 'streamed ', 'world']))
+
+// failure case → null (caller falls back to buffered chain)
+globalThis.fetch = async () => new Response('{"error":"boom"}', { status: 402 })
+const failed = await worker.openrouterChatStream(fakeEnv, [], 'test/model', 100, 5000, (d) => got.push(d))
+t('provider error → null (fallback signal)', failed === null)
+
+console.log('── 6. client streamSSE protocol ordering ──')
+const sseClient = await import(new URL('../lib/sseClient.js', import.meta.url).href)
+const wire = [
+  worker.sseFrame({ type: 'phase', phase: 'classify', classification: 'tech', recency: { range: 'month', label: 'past month' } }),
+  worker.sseFrame({ type: 'phase', phase: 'search' }),
+  worker.sseFrame({ type: 'sources', sources: [{ id: 0, url: 'https://x.dev', title: 'X' }] }),
+  worker.sseFrame({ type: 'delta', part: 'part1', v: 'alpha ' }),
+  worker.sseFrame({ type: 'delta', part: 'part1', v: 'beta' }),
+  worker.sseFrame({ type: 'phase', phase: 'write', part: 'part1', reset: true }),
+  worker.sseFrame({ type: 'delta', part: 'part1', v: 'gamma' }),
+  worker.sseFrame({ type: 'part_done', part: 'part1' }),
+  worker.sseFrame({ type: 'delta', part: 'part2', v: 'delta-part2' }),
+  worker.sseFrame({ type: 'part_done', part: 'part2' }),
+  worker.sseFrame({ type: 'done', data: { report: 'gamma', mode: 'deep' } }),
+].join('')
+const events = []
+await sseClient.streamSSE(new Response(wire), (e) => events.push(e))
+t('event count', events.length === 11)
+t('first event = classify phase', events[0].type === 'phase' && events[0].phase === 'classify')
+t('recency rides the classify event', events[0].recency?.range === 'month')
+t('sources event before deltas', events.findIndex(e => e.type === 'sources') < events.findIndex(e => e.type === 'delta'))
+t('reset event present with part tag', events.some(e => e.type === 'phase' && e.reset && e.part === 'part1'))
+t('part_done events for both parts', events.filter(e => e.type === 'part_done').length === 2)
+t('terminal done carries data', events.at(-1).type === 'done' && events.at(-1).data.report === 'gamma')
+const joined = events.filter(e => e.type === 'delta' && e.part === 'part1').map(e => e.v).join('')
+t('deltas arrive in order on the wire', joined === 'alpha betagamma')
+// Client-side replay: apply reset semantics the way handleResearchStream does
+let buf = ''
+for (const e of events) {
+  if (e.type === 'delta' && e.part === 'part1') buf += e.v
+  if (e.type === 'phase' && e.reset && e.part === 'part1') buf = ''
+}
+t('client replay: reset discards partial buffer → only gamma remains', buf === 'gamma')
+
+console.log('── 7. wire format + backward compat ──')
+t('sseFrame exact format', worker.sseFrame({ type: 'done' }) === 'data: {"type":"done"}\n\n')
+const base = { sources: [1], report: 'r', title: 't', followups: [], mode: 'quick', classification: 'tech' }
+const noRecency = worker.makeResponse(base)
+t('makeResponse without recency → exact v5.1.0 key set', JSON.stringify(Object.keys(noRecency).sort()) === JSON.stringify(['classification', 'followups', 'mode', 'report', 'sources', 'title']))
+const withRecency = worker.makeResponse({ ...base, recency: { range: 'week', label: 'past week' } })
+t('makeResponse with recency → additive key only', JSON.stringify(Object.keys(withRecency).sort()) === JSON.stringify(['classification', 'followups', 'mode', 'recency', 'report', 'sources', 'title']))
+const s = worker.mapSource({ url: 'https://pubmed.ncbi.nlm.nih.gov/1/', title: 'A study', snippet: 'x', tier: 'P1', tierLabel: 'P1 — Academic', source: 'pubmed', year: 2025, authors: ['Doe'] }, 0, 'deep')
+t('mapSource preserves tier from search merge + academic meta', s.id === 0 && s.status === 'deep' && s.tier === 'P1' && s.sourceType === 'pubmed' && s.year === 2025)
+t('mapSource: tier assigned by search merge layer, not mapSource (raw hit stays UNV)', worker.mapSource({ url: 'https://pubmed.ncbi.nlm.nih.gov/1/', title: 'A' }, 0).tier === 'UNV')
+t('mapSource neutral hit → UNV loaded', worker.mapSource({ url: 'https://example.com/a', title: 'E' }, 3).tier === 'UNV')
+
+console.log('── 8. route + client wiring (static) ──')
+const routeSrc = readFileSync(new URL('../app/api/research/route.js', import.meta.url), 'utf8')
+t('route parses stream flag', routeSrc.includes('stream = false } = body'))
+t('route forwards stream:true to worker', routeSrc.includes('workerBody.stream = true'))
+t('route guards on event-stream content-type', routeSrc.includes("includes('text/event-stream')"))
+t('route holds worker done + stores cache', routeSrc.includes('finalData = evt.data // held back'))
+t('route refunds on truncated stream', routeSrc.includes("'stream truncated'"))
+t('route refunds on client disconnect', routeSrc.includes("'client disconnected mid-stream'"))
+t('route bursts cached hits over SSE', routeSrc.includes("send({ type: 'phase', phase: 'cache' })"))
+t('route JSON path untouched for non-stream', routeSrc.includes('const data = await workerRes.json()'))
+const clientSrc = readFileSync(new URL('../app/research/ResearchClient.jsx', import.meta.url), 'utf8')
+t('client requests stream:true', clientSrc.includes("stream: true }"))
+t('client falls back to JSON renderer on non-SSE', clientSrc.includes("resContentType.includes('text/event-stream')"))
+t('client buffers deep parts separately', clientSrc.includes("partsDone.has('part1')"))
+t('client clears fake timers on stream start', clientSrc.includes('stageTimers.forEach(clearTimeout)'))
+t('client renders recency chip', clientSrc.includes('activeResearch?.recency?.label'))
+
+console.log(`\n${pass}/${pass + fail} assertions passed`)
+process.exit(fail > 0 ? 1 : 0)

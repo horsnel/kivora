@@ -6,6 +6,7 @@ import UpgradeCard from '@/components/UpgradeCard'
 import { usePlan } from '@/lib/usePlan'
 import { IconLock } from '@/components/Icons'
 import { sanitizeHtml } from '@/lib/sanitizeHtml'
+import { streamSSE } from '@/lib/sseClient'
 
 // ── Constants ──
 const STORAGE_KEY = 'kivora-research-history'
@@ -321,28 +322,30 @@ export default function ResearchClient() {
       ? { search: 15, analyzing: 50, writing: 75, done: 100 }
       : { search: 25, writing: 60, done: 100 }
 
-    // Simulate progress while waiting
+    // Simulate progress while waiting (legacy/fallback seasoning — the SSE
+    // path clears all fake timers the moment the first real event arrives)
     let fakeProgress = 0
     const progressInterval = setInterval(() => {
       fakeProgress += Math.random() * 3
       if (fakeProgress > 90) fakeProgress = 90
       setActiveResearch(prev => prev ? { ...prev, progress: Math.min(fakeProgress, prev.stage === 'done' ? 100 : fakeProgress) } : prev)
     }, 500)
+    const stageTimers = []
 
     try {
       // Simulate stage transitions
-      setTimeout(() => {
+      stageTimers.push(setTimeout(() => {
         setActiveResearch(prev => prev ? { ...prev, stage: researchMode === 'deep' ? 'analyzing' : 'writing' } : prev)
-      }, 2000)
+      }, 2000))
 
       if (researchMode === 'deep') {
-        setTimeout(() => {
+        stageTimers.push(setTimeout(() => {
           setActiveResearch(prev => prev ? { ...prev, stage: 'writing' } : prev)
-        }, 5000)
+        }, 5000))
       }
 
       const isImage = fileAttachment && (fileAttachment.type?.startsWith('image/') || IMAGE_EXTENSIONS.includes((fileAttachment.name.split('.').pop() || '').toLowerCase()))
-      const requestBody = { query: query.trim(), mode: researchMode }
+      const requestBody = { query: query.trim(), mode: researchMode, stream: true }
       if (fileAttachment) {
         requestBody.attachedFile = fileAttachment
       }
@@ -356,6 +359,19 @@ export default function ResearchClient() {
       // Clear the attachment after the request is sent
       setAttachedFile(null)
       setFileError('')
+
+      // ── v5.2.0: SSE streaming path ──
+      // Real phases drive the progress bar, sources render before the
+      // report, and report text arrives as live deltas. Anything that isn't
+      // SSE (plan gates, 4xx/5xx JSON, old worker) falls through to the
+      // legacy JSON renderer below — zero behavior change for those cases.
+      const resContentType = res.headers?.get?.('content-type') || ''
+      if (resContentType.includes('text/event-stream')) {
+        clearInterval(progressInterval)
+        stageTimers.forEach(clearTimeout)
+        await handleResearchStream(res, { id, query: query.trim(), mode: researchMode })
+        return
+      }
 
       const data = await res.json()
 
@@ -441,6 +457,123 @@ export default function ResearchClient() {
         setReportDisplay(fullText.slice(0, idx))
       }
     }, 16)
+  }
+
+  // ── Research SSE stream consumer (v5.2.0) ──
+  // Real phase events drive the progress pipeline, sources render the moment
+  // they're known, and report text arrives as live deltas (no fake typewriter
+  // over a finished payload). Deep mode buffers the two streamed parts
+  // separately and renders them in reading order (part1 → --- → part2)
+  // regardless of which finishes first. Cache hits burst as an instant
+  // phase+done pair — no typewriter at all.
+  async function handleResearchStream(res, meta) {
+    const { id, query, mode } = meta
+    const parts = {} // part name → accumulated delta text
+    const partsDone = new Set()
+    let sourcesStaggered = false
+
+    const renderParts = () => {
+      if (mode === 'deep') {
+        const p1 = parts.part1 || ''
+        const p2 = partsDone.has('part1') ? '\n\n---\n\n' + (parts.part2 || '') : ''
+        setReportDisplay(p1 + p2)
+      } else {
+        setReportDisplay(parts.report || '')
+      }
+    }
+
+    const bumpProgress = (progress, stage) => {
+      setActiveResearch(prev => prev ? {
+        ...prev,
+        progress: Math.max(prev.progress || 0, progress),
+        ...(stage ? { stage } : {}),
+      } : prev)
+    }
+
+    const fail = (message) => {
+      setError(message || 'Research failed. Please try again.')
+      setIsResearching(false)
+      setActiveResearch(prev => prev ? { ...prev, stage: 'done', progress: 100 } : prev)
+    }
+
+    const finish = (data) => {
+      const completed = {
+        id,
+        query,
+        mode,
+        sources: data.sources || [],
+        report: data.report || '',
+        // Sanitize before state — this HTML is rendered via dangerouslySetInnerHTML
+        content: sanitizeHtml(data.content || ''),
+        title: data.title || query,
+        followups: data.followups || [],
+        data: data.data || null,
+        progress: 100,
+        stage: 'done',
+        timestamp: Date.now(),
+        fromCache: data.fromCache || false,
+        cacheId: data.cacheId || null,
+        wikiPageId: data.wikiPageId || null,
+        wikiLifecycle: data.wikiLifecycle || null,
+        wikiSlug: data.wikiSlug || null,
+        wikiVersion: data.wikiVersion || null,
+        recency: data.recency || null,
+      }
+      setActiveResearch(completed)
+      setReportDisplay(completed.report)
+      setIsResearching(false)
+      if (!sourcesStaggered && completed.sources.length > 0) {
+        staggerSources(completed.sources.length)
+      }
+      // Save to history
+      const newHistory = [completed, ...loadHistory()].slice(0, MAX_HISTORY)
+      setHistory(newHistory)
+      saveHistory(newHistory)
+    }
+
+    try {
+      await streamSSE(res, (evt) => {
+        if (evt.type === 'phase') {
+          if (evt.reset) {
+            // A streamed provider attempt failed validation — discard the
+            // partial buffer the client already rendered for that part
+            if (evt.part) { parts[evt.part] = ''; renderParts() }
+            return
+          }
+          if (evt.phase === 'classify') bumpProgress(8, 'search')
+          else if (evt.phase === 'search') bumpProgress(20, 'search')
+          else if (evt.phase === 'cache') bumpProgress(50, 'writing')
+          else if (evt.phase === 'vision') bumpProgress(30, 'analyzing')
+          else if (evt.phase === 'osint') bumpProgress(45, 'analyzing')
+          else if (evt.phase === 'read') bumpProgress(48, 'analyzing')
+          else if (evt.phase === 'write') {
+            const target = mode === 'deep' ? (evt.part === 'part2' ? 78 : 62) : 60
+            bumpProgress(target, 'writing')
+          }
+        } else if (evt.type === 'sources') {
+          if (Array.isArray(evt.sources) && evt.sources.length > 0) {
+            setActiveResearch(prev => prev ? { ...prev, sources: evt.sources } : prev)
+            staggerSources(evt.sources.length)
+            sourcesStaggered = true
+            bumpProgress(30)
+          }
+        } else if (evt.type === 'delta') {
+          parts[evt.part] = (parts[evt.part] || '') + (evt.v || '')
+          renderParts()
+        } else if (evt.type === 'part_done') {
+          partsDone.add(evt.part)
+          bumpProgress(evt.part === 'part2' ? 88 : 74)
+          renderParts()
+        } else if (evt.type === 'done') {
+          finish(evt.data || {})
+        } else if (evt.type === 'error') {
+          fail(evt.error)
+        }
+      })
+    } catch (err) {
+      // Truncated / broken stream — surface like any other failure
+      fail(err.message)
+    }
   }
 
   // ── Stagger Sources Animation ──
@@ -824,6 +957,14 @@ export default function ResearchClient() {
                 {activeResearch?.fromCache && (
                   <span className="text-[9px] font-medium px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">
                     Cached
+                  </span>
+                )}
+                {activeResearch?.recency?.label && (
+                  <span className="text-[9px] font-medium px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-1">
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                    </svg>
+                    {activeResearch.recency.label}
                   </span>
                 )}
                 {activeResearch?.wikiLifecycle && (
