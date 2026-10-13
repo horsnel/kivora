@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic'
 import remarkGfm from 'remark-gfm'
 const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false })
 import { supabasePublic } from '@/lib/supabase'
+import { streamSSE } from '@/lib/sseClient'
 import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, IconRocket, IconHeart, IconMicroscope, IconWarning, IconLock } from '@/components/Icons'
 import { usePlan } from '@/lib/usePlan'
 import UpgradeCard from '@/components/UpgradeCard'
@@ -370,6 +371,11 @@ function ResearchPageContent() {
   const primaryAbortRef = useRef(null)
   const fallbackAbortRef = useRef(null)
   const userStoppedRef = useRef(false)
+  // v5.2.0: set true the moment the primary /api/research stream produces its
+  // first SSE event. While streaming, the fallback leg discards its result —
+  // otherwise Promise.any would let the fallback's FULL (but different)
+  // report replace the partially-streamed one mid-read.
+  const streamActiveRef = useRef(false)
 
   const chatBarRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -647,7 +653,7 @@ function ResearchPageContent() {
       const fallbackTimeout = setTimeout(() => fallbackController.abort(), isImage ? baseFallback + 30000 : baseFallback)
 
       // Build request body — include attachedFiles (array) if present
-      const reqBody = { query: query.trim(), mode: researchMode, apex_model: apexModel }
+      const reqBody = { query: query.trim(), mode: researchMode, apex_model: apexModel, stream: true }
       if (fileAttachments.length > 0) {
         reqBody.attachedFiles = fileAttachments
       }
@@ -674,6 +680,16 @@ function ResearchPageContent() {
         body,
         signal: primaryController.signal,
       }).then(async r => {
+        const ct = r.headers?.get?.('content-type') || ''
+        // v5.2.0: SSE primary — consume the stream (phases drive the progress
+        // bar, sources render early, report arrives as live deltas) and
+        // resolve with the terminal done payload so the shared completion
+        // path below (history, Supabase save, wiki fields) runs unchanged.
+        // Any stream failure REJECTS → Promise.any can still hand the race
+        // to the JSON fallback → same resilience as before.
+        if (ct.includes('text/event-stream') && r.body) {
+          return await consumeResearchStream(r)
+        }
         const data = await r.json().catch(() => ({}))
         return parseResearchResponse(r, 'worker')(data)
       }).then(
@@ -692,6 +708,14 @@ function ResearchPageContent() {
             signal: fallbackController.signal,
           }).then(async r => {
             const data = await r.json().catch(() => ({}))
+            // Streaming already took over — discard the fallback's report so
+            // the user isn't shown two different reports for one query.
+            // (If the stream later dies, Promise.any surfaces the error and
+            // the user retries — rarer and less jarring than a mid-read
+            // report swap.)
+            if (streamActiveRef.current && data && !data.error) {
+              throw new Error('stream_active')
+            }
             return parseResearchResponse(r, 'fallback')(data)
           }).then(
             data => ({ data, usedFallback: true })
@@ -735,9 +759,11 @@ function ResearchPageContent() {
         }
 
         // Prefer a real provider explanation over a bare timeout label —
-        // 'worker_504' alone tells the user nothing.
+        // 'worker_504' alone tells the user nothing. 'stream_active' means
+        // the fallback leg was discarded because streaming took over — it
+        // isn't a real failure and must never surface as the error message.
         const msgs = errs.map(e => e?.message).filter(Boolean)
-        const best = msgs.find(m => !/^worker_\d+$/.test(m) && !/^fallback_\d+$/.test(m) && m !== 'Failed to fetch')
+        const best = msgs.find(m => !/^worker_\d+$/.test(m) && !/^fallback_\d+$/.test(m) && m !== 'Failed to fetch' && m !== 'stream_active')
         const tried = best || msgs[0] || 'all providers failed'
         data = { error: tried }
       }
@@ -790,6 +816,8 @@ function ResearchPageContent() {
         wikiSlug: data.wiki_slug || data.wikiSlug || '',
         wikiVersion: data.wiki_version || data.wikiVersion || 0,
         fromCache: data.from_cache || data.fromCache || false,
+        // v5.2.0: freshness routing — explicit time axis detected in the query
+        recency: data.recency || null,
       }
 
       setActiveResearch(completed)
@@ -858,6 +886,78 @@ function ResearchPageContent() {
     const q = input.trim()
     if ((!q && attachedFiles.length === 0) || isResearching) return
     startResearch(q, mode)
+  }
+
+  // ── Research SSE stream consumer (v5.2.0) ──
+  // Consumes the primary /api/research event stream and resolves with the
+  // terminal done payload so the shared completion path (history, Supabase
+  // save, wiki fields) runs unchanged. Phases drive the REAL progress bar
+  // (fake timers are cleared on open), sources render the moment they're
+  // known, and report text arrives as live deltas. Deep mode buffers the two
+  // streamed parts separately and renders them in reading order
+  // (part1 → --- → part2) regardless of which finishes first.
+  async function consumeResearchStream(res) {
+    const parts = {} // part name → accumulated delta text
+    const partsDone = new Set()
+
+    // Real timeline takes over — stop the fake-progress seasoning
+    if (progressRef.current) { clearInterval(progressRef.current); progressRef.current = null }
+    stageTimersRef.current.forEach(t => clearTimeout(t))
+    stageTimersRef.current = []
+
+    const renderParts = () => {
+      if (mode === 'deep') {
+        const p1 = parts.part1 || ''
+        const p2 = partsDone.has('part1') ? '\n\n---\n\n' + (parts.part2 || '') : ''
+        setReportDisplay(p1 + p2)
+      } else {
+        setReportDisplay(parts.report || '')
+      }
+    }
+
+    return new Promise((resolve, reject) => {
+      streamSSE(res, (evt) => {
+        streamActiveRef.current = true
+        if (evt.type === 'phase') {
+          if (evt.reset) {
+            // A streamed provider attempt failed validation — discard the
+            // partial buffer already rendered for that part
+            if (evt.part) { parts[evt.part] = ''; renderParts() }
+            return
+          }
+          if (evt.phase === 'classify') { setProgress(p => Math.max(p, 8)); setResearchStage('search') }
+          else if (evt.phase === 'search') setProgress(p => Math.max(p, 20))
+          else if (evt.phase === 'cache') { setProgress(p => Math.max(p, 60)); setResearchStage('writing') }
+          else if (evt.phase === 'vision') { setProgress(p => Math.max(p, 30)); setResearchStage('analyzing') }
+          else if (evt.phase === 'osint') { setProgress(p => Math.max(p, 45)); setResearchStage('analyzing') }
+          else if (evt.phase === 'read') { setProgress(p => Math.max(p, 48)); setResearchStage('analyzing') }
+          else if (evt.phase === 'write') {
+            setProgress(p => Math.max(p, mode === 'deep' && evt.part === 'part2' ? 78 : 62))
+            setResearchStage('writing')
+          }
+        } else if (evt.type === 'sources') {
+          if (Array.isArray(evt.sources) && evt.sources.length > 0) {
+            setActiveResearch(prev => prev ? { ...prev, sources: evt.sources } : prev)
+            setSourcesVisible(evt.sources.length)
+          }
+        } else if (evt.type === 'delta') {
+          parts[evt.part] = (parts[evt.part] || '') + (evt.v || '')
+          renderParts()
+        } else if (evt.type === 'part_done') {
+          partsDone.add(evt.part)
+          setProgress(p => Math.max(p, evt.part === 'part2' ? 88 : 74))
+          renderParts()
+        } else if (evt.type === 'done') {
+          resolve(evt.data || {})
+        } else if (evt.type === 'error') {
+          reject(new Error(evt.error || 'research stream error'))
+        }
+      }).then(() => {
+        // Stream ended — resolve() already fired if done arrived; otherwise
+        // reject so Promise.any can hand the race to the JSON fallback
+        reject(new Error('research stream ended without result'))
+      }).catch(err => reject(err))
+    })
   }
 
   // ── Stop button — cancels both raced research requests ──
@@ -1269,6 +1369,15 @@ function ResearchPageContent() {
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                       activeResearch.mode === 'deep' ? 'bg-red-500 text-white' : 'bg-[#1f1f1f] text-red-400 border border-red-500/30'
                     }`}>{activeResearch.mode === 'deep' ? 'Deep' : 'Quick'} · {activeResearch.apexModel === 'apex-premium' ? 'Apex 2.3' : 'Apex 1.7'}</span>
+                    {/* v5.2.0 freshness routing — explicit time axis detected in the query */}
+                    {activeResearch.recency?.label && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-blue-500/10 text-blue-400 border border-blue-500/30 flex items-center gap-1 shrink-0">
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                        </svg>
+                        {activeResearch.recency.label}
+                      </span>
+                    )}
                     {/* APEX 2.0 Wiki badge only — no "Cached" badge (cached reports look identical to fresh ones) */}
                     {activeResearch.wikiLifecycle && activeResearch.wikiLifecycle !== 'draft' && (
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
