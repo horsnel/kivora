@@ -164,7 +164,7 @@ t('route refunds on client disconnect', routeSrc.includes("'client disconnected 
 t('route bursts cached hits over SSE', routeSrc.includes("send({ type: 'phase', phase: 'cache' })"))
 t('route JSON path untouched for non-stream', routeSrc.includes('const data = await workerRes.json()'))
 const clientSrc = readFileSync(new URL('../app/research/page.jsx', import.meta.url), 'utf8')
-t('client requests stream:true', clientSrc.includes('stream: true }'))
+t('client requests stream only for deep mode (v5.3 policy)', clientSrc.includes("stream: researchMode === 'deep'"))
 t('client consumes primary SSE stream', clientSrc.includes('return await consumeResearchStream(r)'))
 t('client falls back to JSON parse on non-SSE', clientSrc.includes("ct.includes('text/event-stream')"))
 t('client buffers deep parts separately', clientSrc.includes("partsDone.has('part1')"))

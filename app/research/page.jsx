@@ -10,6 +10,7 @@ import { streamSSE } from '@/lib/sseClient'
 import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, IconRocket, IconHeart, IconMicroscope, IconWarning, IconLock } from '@/components/Icons'
 import { usePlan } from '@/lib/usePlan'
 import UpgradeCard from '@/components/UpgradeCard'
+import { parseCitationMarker, faviconUrl, domainOf, buildReferences } from '@/lib/citations'
 
 // ── File Upload Constants ──
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
@@ -44,24 +45,72 @@ function stripInlineMarkdown(text) {
     .trim()
 }
 
-// ── Replace [N] / [N,M] / [N-M] citation markers in a string with styled <sup> elements ──
-// ReactMarkdown renders [N] as plain text because it isn't a real markdown link.
-// We split the string on the citation pattern and wrap matches in a <sup> with
-// the .citation-number class so they appear as small superscript references
-// instead of inline bracketed text.
-const CITATION_RE = /(\[\d+(?:\s*[-,]\s*\d+)*\])/g
-function renderTextWithCitations(text, keyPrefix = '') {
+// ── Citation rendering (v5.3): source-logo chips + traceable references ──
+// [N] markers — and paren-drift (N), validated against the source count —
+// render as the SOURCE'S OWN LOGO, linked to the source. Every claim becomes
+// click-through-able (the "premium checklist" traceability fix). Markers that
+// can't resolve (no sources yet, out of range like "(2024)") stay untouched
+// as plain text or legacy quiet-red superscripts.
+
+function CiteLogo({ source, n }) {
+  const [stage, setStage] = useState(0) // 0 google s2 → 1 duckduckgo → 2 letter
+  const domain = domainOf(source?.url)
+  if (!domain || stage >= 2) return <span className="cite-fallback">{n}</span>
+  const src = stage === 0
+    ? faviconUrl(source.url, 64)
+    : `https://icons.duckduckgo.com/ip3/${domain}.ico`
+  return (
+    <a
+      className="cite-chip"
+      href={source.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`[${n}] ${source.title || domain} · ${domain}`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <img src={src} alt="" width="14" height="14" loading="lazy" onError={() => setStage(s => s + 1)} />
+    </a>
+  )
+}
+
+// One citation marker → sequence of logo chips. Returns null when the marker
+// isn't a resolvable citation so the caller keeps the original text.
+function renderCitationMarker(marker, sources, keyPrefix, i) {
+  const parsed = parseCitationMarker(marker, sources?.length || 0)
+  if (!parsed) return null
+  const chips = parsed.nums.map((n, j) => {
+    const source = sources[n - 1]
+    if (!source?.url) return null
+    return <CiteLogo key={j} source={source} n={n} />
+  }).filter(Boolean)
+  if (chips.length === 0) return null
+  return (
+    <sup key={`${keyPrefix}-cite-${i}`} className="citation-number citation-chips">
+      {chips}
+    </sup>
+  )
+}
+
+function renderTextWithCitations(text, sources, keyPrefix = '') {
   if (typeof text !== 'string') return text
-  const parts = text.split(CITATION_RE)
+  const hasSources = Array.isArray(sources) && sources.length > 0
+  const parts = text.split(/([\[(]\d+(?:\s*[-,]\s*\d+)*[\])])/g)
   return parts.map((part, i) => {
-    if (/^\[\d+(?:\s*[-,]\s*\d+)*\]$/.test(part)) {
-      return (
-        <sup key={`${keyPrefix}-cite-${i}`} className="citation-number">
-          {part}
-        </sup>
-      )
+    if (!/^[\[(]\d+(?:\s*[-,]\s*\d+)*[\])]$/.test(part)) {
+      return part ? <Fragment key={`${keyPrefix}-txt-${i}`}>{part}</Fragment> : null
     }
-    return part ? <Fragment key={`${keyPrefix}-txt-${i}`}>{part}</Fragment> : null
+    // Resolvable marker → logo chips
+    if (hasSources) {
+      const chips = renderCitationMarker(part, sources, keyPrefix, i)
+      if (chips) return chips
+      return <Fragment key={`${keyPrefix}-txt-${i}`}>{part}</Fragment>
+    }
+    // No sources yet (mid-stream) — legacy look, bracket style only so a
+    // paren year like "(2024)" never renders as a fake citation.
+    if (/^\[\d+(?:\s*[-,]\s*\d+)*\]$/.test(part)) {
+      return <sup key={`${keyPrefix}-cite-${i}`} className="citation-number">{part}</sup>
+    }
+    return <Fragment key={`${keyPrefix}-txt-${i}`}>{part}</Fragment>
   })
 }
 
@@ -69,29 +118,105 @@ function renderTextWithCitations(text, keyPrefix = '') {
 // Non-string children (e.g. <strong>, <a>) are preserved as-is. Their own
 // string children will be processed when ReactMarkdown recurses into them
 // via the corresponding component override (strong, a, etc.).
-function processChildrenWithCitations(children, keyPrefix = '') {
+function processChildrenWithCitations(children, sources, keyPrefix = '') {
   return Children.map(children, (child) => {
     if (typeof child === 'string') {
-      return renderTextWithCitations(child, keyPrefix)
+      return renderTextWithCitations(child, sources, keyPrefix)
     }
     return child
   })
 }
 
-// Custom ReactMarkdown component overrides — wrap text in <sup class="citation-number">
-// for [N] patterns so citations render as small red superscripts.
-const markdownComponents = {
-  p: ({ children }) => <p>{processChildrenWithCitations(children, 'p')}</p>,
-  li: ({ children }) => <li>{processChildrenWithCitations(children, 'li')}</li>,
-  td: ({ children }) => <td>{processChildrenWithCitations(children, 'td')}</td>,
-  th: ({ children }) => <th>{processChildrenWithCitations(children, 'th')}</th>,
-  h1: ({ children }) => <h1>{processChildrenWithCitations(children, 'h1')}</h1>,
-  h2: ({ children }) => <h2>{processChildrenWithCitations(children, 'h2')}</h2>,
-  h3: ({ children }) => <h3>{processChildrenWithCitations(children, 'h3')}</h3>,
-  strong: ({ children }) => <strong>{processChildrenWithCitations(children, 'strong')}</strong>,
-  em: ({ children }) => <em>{processChildrenWithCitations(children, 'em')}</em>,
+// ReactMarkdown component overrides, built against the CURRENT sources array
+// (useMemo'd in the component) so citation chips always resolve live.
+function buildMarkdownComponents(sources) {
+  const wrap = (Tag, key) => ({ children }) => (
+    <Tag>{processChildrenWithCitations(children, sources, key)}</Tag>
+  )
+  return {
+    p: wrap('p', 'p'),
+    li: wrap('li', 'li'),
+    td: wrap('td', 'td'),
+    th: wrap('th', 'th'),
+    h1: wrap('h1', 'h1'),
+    h2: wrap('h2', 'h2'),
+    h3: wrap('h3', 'h3'),
+    strong: wrap('strong', 'strong'),
+    em: wrap('em', 'em'),
+  }
 }
 
+// ── Source logo with tier ring (sources list rows + references) ──
+// Replaces the old colored dot + optional favicon: the platform logo IS the
+// identity, the ring color carries the P1/P2/P3/UNV tier.
+function SourceLogo({ source, size = 20 }) {
+  const [stage, setStage] = useState(0)
+  const domain = domainOf(source?.url)
+  const tierColor = source?.tier === 'P1' ? '#34d399' : source?.tier === 'P2' ? '#60a5fa' : source?.tier === 'P3' ? '#fbbf24' : '#3f3f46'
+  if (!domain || stage >= 2 || !faviconUrl(source.url, 64)) {
+    return (
+      <div className="source-logo source-logo-fallback" style={{ width: size, height: size, borderColor: tierColor }}>
+        {(domain || '?').charAt(0).toUpperCase()}
+      </div>
+    )
+  }
+  const src = stage === 0
+    ? faviconUrl(source.url, 64)
+    : `https://icons.duckduckgo.com/ip3/${domain}.ico`
+  return (
+    <div className="source-logo" style={{ width: size, height: size, borderColor: tierColor }}>
+      <img
+        src={src}
+        alt=""
+        width={Math.max(size - 8, 8)}
+        height={Math.max(size - 8, 8)}
+        loading="lazy"
+        onError={() => setStage(s => s + 1)}
+      />
+    </div>
+  )
+}
+
+
+// ── References block (v5.3) — deterministic, client-derived ──
+// The "premium checklist" fix: numbered references with DOI / PMID / NCT / PMC
+// links extracted from source URLs, a retrieval date stamp, and the databases
+// that were searched. Built from the enriched sources array — works identically
+// on fresh and cache-hit results.
+function ReferencesBlock({ sources }) {
+  const refs = useMemo(() => buildReferences(sources), [sources])
+  if (!refs.refs.length) return null
+  return (
+    <div className="references-block animate-fade-in">
+      <div className="references-header">
+        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400/70">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+          </svg>
+          References
+        </h3>
+        <span className="references-meta">
+          as of {refs.asOf} · {refs.refs.length} sources{refs.databases.length > 0 ? ` · via ${refs.databases.join(', ')}` : ''}
+        </span>
+      </div>
+      <ol className="references-list">
+        {refs.refs.map((r) => (
+          <li key={r.n} className="reference-item">
+            <span className="ref-n">[{r.n}]</span>
+            <SourceLogo source={{ url: r.url, tier: r.tier }} size={16} />
+            <a href={r.url} target="_blank" rel="noopener noreferrer" className="ref-title">{r.title}</a>
+            <span className="ref-domain">{r.domain}</span>
+            {r.year ? <span className="ref-year">{r.year}</span> : null}
+            {r.doi ? <a className="ref-id" href={`https://doi.org/${r.doi}`} target="_blank" rel="noopener noreferrer">DOI</a> : null}
+            {r.pmid ? <a className="ref-id" href={`https://pubmed.ncbi.nlm.nih.gov/${r.pmid}/`} target="_blank" rel="noopener noreferrer">PMID:{r.pmid}</a> : null}
+            {r.nct ? <a className="ref-id" href={`https://clinicaltrials.gov/study/${r.nct}`} target="_blank" rel="noopener noreferrer">{r.nct}</a> : null}
+            {r.pmc ? <a className="ref-id" href={`https://www.ncbi.nlm.nih.gov/pmc/articles/${r.pmc}/`} target="_blank" rel="noopener noreferrer">{r.pmc}</a> : null}
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
 
 // ── Constants ──
 const STORAGE_KEY = 'kivora-research-history'
@@ -652,8 +777,11 @@ function ResearchPageContent() {
       const primaryTimeout = setTimeout(() => primaryController.abort(), isImage ? basePrimary + 30000 : basePrimary)
       const fallbackTimeout = setTimeout(() => fallbackController.abort(), isImage ? baseFallback + 30000 : baseFallback)
 
-      // Build request body — include attachedFiles (array) if present
-      const reqBody = { query: query.trim(), mode: researchMode, apex_model: apexModel, stream: true }
+      // Build request body — include attachedFiles (array) if present.
+      // v5.3 streaming policy: DEEP streams token-by-token (premium live feel);
+      // QUICK stays plain JSON so it returns the moment generation finishes —
+      // no transport overhead, fastest possible end-to-end path.
+      const reqBody = { query: query.trim(), mode: researchMode, apex_model: apexModel, stream: researchMode === 'deep' }
       if (fileAttachments.length > 0) {
         reqBody.attachedFiles = fileAttachments
       }
@@ -1116,6 +1244,9 @@ function ResearchPageContent() {
   const currentPipelineIdx = pipelineStages.findIndex(s => s.id === researchStage)
   const progressPercent = progress
   const sources = activeResearch?.sources || []
+  // Citation chips resolve against the CURRENT sources — rebuilt when sources
+  // arrive (stream) or change (cache hit / history load).
+  const markdownComponents = useMemo(() => buildMarkdownComponents(sources), [sources])
   const reportText = reportDisplay || activeResearch?.report || ''
   // Fix #12: No more client-side markdownToHtml — ReactMarkdown handles rendering
 
@@ -1435,13 +1566,9 @@ function ResearchPageContent() {
                               idx < sourcesVisible ? 'source-visible' : 'source-hidden'
                             }`}
                           >
-                            <div className="mt-1.5 shrink-0">
-                              <div className={`w-2 h-2 rounded-full ${
-                                source.tier === 'P1' ? 'bg-emerald-400' :
-                                source.tier === 'P2' ? 'bg-blue-400' :
-                                source.tier === 'P3' ? 'bg-yellow-400/70' :
-                                'bg-gray-500/50'
-                              }`} />
+                            <div className="mt-0.5 shrink-0">
+                              {/* v5.3: platform logo IS the identity — tier ring carries P1/P2/P3/UNV */}
+                              <SourceLogo source={source} size={20} />
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-0.5">
@@ -1449,7 +1576,6 @@ function ResearchPageContent() {
                                 <span className="text-[9px] font-mono font-semibold text-red-400/80 bg-red-500/5 border border-red-500/10 rounded px-1 py-0 shrink-0">
                                   [{idx + 1}]
                                 </span>
-                                {source.favicon && <img src={source.favicon} alt="" className="w-3.5 h-3.5 rounded" />}
                                 <span className="text-[10px] text-[#525252] truncate">{getDomain(source.url)}</span>
                                 {source.tier && (
                                   <span className={`text-[8px] px-1 py-0 rounded font-medium ${
@@ -1489,6 +1615,11 @@ function ResearchPageContent() {
                   <div className="flex flex-col items-center justify-center py-12 animate-fade-in">
                     <p className="text-xs text-[#525252]">No report generated yet</p>
                   </div>
+                )}
+
+                {/* References (v5.3) — numbered, identifier-linked (DOI/PMID/NCT), dated */}
+                {researchStage === 'done' && sources.length > 0 && (
+                  <ReferencesBlock sources={sources} />
                 )}
 
                 {/* Follow-up Questions */}
@@ -2129,6 +2260,136 @@ function ResearchPageContent() {
         }
         .citation-number:hover,
         .report-body sup.citation-number:hover { color: #fca5a5; }
+
+        /* ─── v5.3 citation chips — source logo IS the citation marker ─── */
+        .citation-chips {
+          display: inline-flex;
+          align-items: center;
+          gap: 2px;
+          margin-left: 3px;
+          vertical-align: baseline;
+        }
+        .cite-chip {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 15px;
+          height: 15px;
+          border-radius: 4px;
+          background: #181818;
+          border: 1px solid #2a2a2a;
+          overflow: hidden;
+          transition: border-color 0.15s, transform 0.15s, background 0.15s;
+        }
+        .cite-chip:hover {
+          border-color: #f87171;
+          background: #1f1414;
+          transform: translateY(-1px);
+        }
+        .cite-chip img {
+          width: 11px;
+          height: 11px;
+          border-radius: 2px;
+          object-fit: contain;
+        }
+        .cite-fallback {
+          color: #f87171;
+          font-size: 0.72em;
+          font-weight: 600;
+          padding: 0 1px;
+        }
+
+        /* ─── v5.3 source logos (list rows + references) ─── */
+        .source-logo {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 6px;
+          background: #181818;
+          border: 1.5px solid #2a2a2a;
+          overflow: hidden;
+          flex-shrink: 0;
+        }
+        .source-logo img { object-fit: contain; border-radius: 3px; }
+        .source-logo-fallback {
+          color: #737373;
+          font-size: 10px;
+          font-weight: 700;
+          line-height: 1;
+        }
+
+        /* ─── v5.3 references block ─── */
+        .references-block {
+          border: 1px solid #1a1a1a;
+          background: #0d0d0d;
+          border-radius: 12px;
+          padding: 12px 16px;
+        }
+        .references-header {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-bottom: 10px;
+        }
+        .references-meta {
+          font-size: 10px;
+          color: #525252;
+          font-weight: 400;
+        }
+        .references-list {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 7px;
+          max-height: 260px;
+          overflow-y: auto;
+        }
+        .reference-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 11px;
+          line-height: 1.5;
+          min-width: 0;
+        }
+        .ref-n {
+          font-family: ui-monospace, monospace;
+          font-size: 9px;
+          font-weight: 600;
+          color: #f87171;
+          flex-shrink: 0;
+          min-width: 22px;
+        }
+        .ref-title {
+          color: #c0c0c0;
+          font-weight: 500;
+          text-decoration: none;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          min-width: 0;
+        }
+        .ref-title:hover { color: #fff; text-decoration: underline; text-underline-offset: 2px; }
+        .ref-domain { color: #525252; font-size: 10px; flex-shrink: 0; }
+        .ref-year { color: #525252; font-size: 10px; flex-shrink: 0; }
+        .ref-id {
+          flex-shrink: 0;
+          font-size: 9px;
+          font-weight: 600;
+          font-family: ui-monospace, monospace;
+          color: #60a5fa;
+          background: rgba(96, 165, 250, 0.08);
+          border: 1px solid rgba(96, 165, 250, 0.2);
+          border-radius: 4px;
+          padding: 0 4px;
+          text-decoration: none;
+          transition: background 0.15s;
+        }
+        .ref-id:hover { background: rgba(96, 165, 250, 0.16); text-decoration: none; }
 
         .report-content h1 { font-size: 1.25rem; font-weight: 700; color: #fff; margin-top: 1rem; margin-bottom: 0.75rem; }
         .report-content h2 { font-size: 1.1rem; font-weight: 600; color: #fff; margin-top: 1.25rem; margin-bottom: 0.5rem; }
