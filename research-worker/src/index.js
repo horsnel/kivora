@@ -1,5 +1,12 @@
 // ══════════════════════════════════════════════════════════════════
-// KIVORA RESEARCH WORKER — Cloudflare Worker (v5.5)
+// KIVORA RESEARCH WORKER — Cloudflare Worker (v5.6)
+// v5.6 sub-question decomposition (deep mode only; quick untouched):
+// multi-facet queries ("A vs B for X", "compare X and Y", conjunction
+// chains) are deterministically split into ≤3 focused sub-questions, each
+// searched via Tavily in parallel, merged into the source pool (cap 24),
+// and surfaced to the write-phase prompts as REPORT FACETS so every facet
+// gets explicit coverage. Pure heuristic — zero added latency before the
+// first search, inert ([] return) on ambiguous or single-facet queries.
 // v5.5 agentic search loop (deep mode only; quick speed budget untouched):
 //   - After the initial multi-provider search, a tier census decides whether
 //     the source base is strong enough. If < 40% P1/P2, two deterministic
@@ -665,6 +672,121 @@ function buildCorrectiveQueries(query) {
     `${q} peer-reviewed study analysis`,
     `${q} official report statistics ${year}`,
   ];
+}
+
+// ── SUB-QUESTION DECOMPOSITION (v5.6) ──
+// Multi-facet queries ("A vs B vs C for X", "compare X and Y", long
+// conjunction chains) under-cover with a single blended search: provider
+// ranking mixes every facet and the top-15 pool skews toward whichever
+// facet scored best. Deterministic decomposition splits those shapes into
+// focused sub-questions, each searched independently, then merged into the
+// pool. Pure heuristic (zero LLM latency before the first search), deep
+// mode only. Conservative by design: when the shape is ambiguous, return
+// [] and the pipeline behaves exactly as before.
+
+const SUBQ_MAX_FACETS = 3;
+const SUBQ_MIN_QUERY_LEN = 24;   // shorter queries are single-facet by definition
+const SUBQ_MIN_FACET_WORDS = 2;  // a 1-word facet searches too generically
+
+// Shared qualifier extraction from the LAST comparator part: "wind for
+// baseload power in developing countries" → core "wind", tail "for baseload
+// power in developing countries". Only splits when the core is facet-shaped
+// (≤ 3 words) and the tail is substantive (≥ 3 words) — this avoids eating
+// qualifiers that belong to the facet itself ("nuclear: which is cheaper for
+// homes" keeps its tail because the core is 4+ words).
+function splitFacetTail(segment) {
+  const m = segment.match(/\s+(for|in|under|during|across|within|given|among)\s+(.+)$/i);
+  if (!m) return { core: segment.trim(), tail: '' };
+  const core = segment.slice(0, m.index).trim();
+  const tail = segment.slice(m.index).trim();
+  const coreWords = core.split(/\s+/).filter(Boolean).length;
+  const tailWords = tail.split(/\s+/).filter(Boolean).length;
+  if (coreWords <= 3 && tailWords >= 3) return { core, tail };
+  return { core: segment.trim(), tail: '' };
+}
+
+// Dedupe (case-insensitive), enforce minimum facet word count, cap at 3.
+// Returns [] when fewer than 2 valid facets survive — feature inert.
+function finalizeFacets(parts) {
+  const seen = new Set();
+  const out = [];
+  for (const p of parts) {
+    const facet = String(p || '').replace(/\s+/g, ' ').trim().replace(/^[-–—:;,.\s]+|[-–—:;,\s]+$/g, '');
+    if (!facet) continue;
+    const key = facet.toLowerCase();
+    if (seen.has(key)) continue;
+    if (facet.split(/\s+/).length < SUBQ_MIN_FACET_WORDS) continue;
+    seen.add(key);
+    out.push(facet);
+    if (out.length >= SUBQ_MAX_FACETS) break;
+  }
+  return out.length >= 2 ? out : [];
+}
+
+function decomposeSubQuestions(query) {
+  const q = String(query || '').replace(/\s+/g, ' ').trim();
+  if (q.length < SUBQ_MIN_QUERY_LEN) return [];
+
+  // Shape 1 — explicit comparators: "A vs B vs C [for tail]"
+  if (/\bvs\.?\b|\bversus\b/i.test(q)) {
+    const parts = q.split(/\bvs\.?\b|\bversus\b/i).map(s => s.trim()).filter(Boolean);
+    if (parts.length >= 2 && parts.length <= 4) {
+      // Colon shape: "solar vs nuclear: which is cheaper for homes in 2026" —
+      // the text after the colon is a comparison-wide qualifier shared by all
+      // facets, not part of the last facet.
+      const colonM = parts[parts.length - 1].match(/^([^:]{1,40}):\s*(.+)$/);
+      if (colonM) {
+        const head = colonM[1].trim();
+        const qual = colonM[2].trim();
+        const headWords = head.split(/\s+/).filter(Boolean).length;
+        const qualWords = qual.split(/\s+/).filter(Boolean).length;
+        if (headWords >= 1 && headWords <= 3 && qualWords >= 3) {
+          return finalizeFacets([...parts.slice(0, -1), head].map(f => `${f} ${qual}`));
+        }
+      }
+      const { core, tail } = splitFacetTail(parts[parts.length - 1]);
+      const facets = parts.map((p, i) => (i === parts.length - 1 ? core : p));
+      const enriched = tail
+        ? facets.map(f => `${f} ${tail}`)
+        : facets;
+      return finalizeFacets(enriched);
+    }
+    return [];
+  }
+
+  // Shape 2 — compare/contrast with a shared qualifier:
+  // "compare solar and nuclear energy costs" → ["solar energy costs", "nuclear energy costs"]
+  const compareM = q.match(/^(?:compare|contrast|difference between|differences between)\s+(.+?)$/i);
+  if (compareM) {
+    const body = compareM[1].trim();
+    const andParts = body.split(/\s+and\s+/i).map(s => s.trim()).filter(Boolean);
+    if (andParts.length === 2) {
+      const [a, b] = andParts;
+      const aWords = a.split(/\s+/).length;
+      const bWords = b.split(/\s+/).length;
+      if (aWords <= 3 && bWords >= 2 && bWords <= 5) {
+        const bTokens = b.split(/\s+/);
+        const tail = bTokens.slice(1).join(' ');  // qualifier after the second facet's head word
+        return finalizeFacets([tail ? `${a} ${tail}` : a, b]);
+      }
+    }
+    return [];
+  }
+
+  // Shape 3 — conjunction chains (2+ " and " connectors, long query):
+  // "how do rates affect housing and how does inflation affect savings and what should investors do"
+  const andCount = (q.match(/\s+and\s+/gi) || []).length;
+  if (andCount >= 2 && q.length >= 60) {
+    const parts = q.split(/\s+and\s+/i).map(s => s.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      const enriched = parts.length <= 4
+        ? parts
+        : [parts[0], parts[1], parts.slice(2).join(' and ')];
+      return finalizeFacets(enriched);
+    }
+  }
+
+  return [];
 }
 
 // Merge corrective hits into the base set: dedupe by normalized URL, base
@@ -2452,6 +2574,23 @@ async function deepResearch(query, env, apexModel = 'apex-free', searchQueryOver
     return { error: 'No sources found. Please try a different query.' };
   }
 
+  // ── SUB-QUESTION DECOMPOSITION (v5.6): multi-facet queries under-cover with
+  // one blended search. Split deterministic facets and search each in
+  // parallel; the merged pool feeds the same tier/corrective machinery below
+  // (the corrective threshold evaluates the ENRICHED pool). Quick mode never
+  // runs this (its 12s budget is sacred); deep mode has the headroom. ──
+  const subQuestions = decomposeSubQuestions(searchQuery);
+  if (subQuestions.length >= 2) {
+    console.log(`[Deep] Multi-facet query → ${subQuestions.length} sub-questions: ${subQuestions.join(' | ')}`);
+    emit({ type: 'phase', phase: 'search', decomposed: true, subQuestions });
+    const subHits = (await Promise.all(
+      subQuestions.map(sq => searchTavily(sq, env, 5, 'advanced', recency.range).catch(() => []))
+    )).flat();
+    const before = searchResults.length;
+    searchResults = mergeCorrectiveResults(searchResults, subHits, 24);
+    console.log(`[Deep] Sub-question search: ${before} → ${searchResults.length} sources`);
+  }
+
   // ── AGENTIC LOOP (v5.5): if the source base came back weak (< 40% P1/P2),
   // run two deterministic corrective searches — academic angle via Semantic
   // Scholar, official-statistics angle via Tavily — and merge the stronger
@@ -2510,7 +2649,13 @@ async function deepResearch(query, env, apexModel = 'apex-free', searchQueryOver
     `--- FULL CONTENT FROM ${dc.url} ---\n${dc.content.slice(0, 6000)}`
   ).join('\n\n');
 
-  const contextBlock = `Research query: "${query}"\n\nSOURCES:\n${allSourcesContext}\n\nDEEP CONTENT:\n${deepContent}`;
+  // v5.6 sub-question decomposition: when the query was multi-facet, tell
+  // both parts explicitly so the analysis covers every facet systematically
+  // instead of blending them into generic prose.
+  const facetLine = subQuestions.length >= 2
+    ? `\n\nREPORT FACETS (this query has distinct sub-questions — the analysis must address each one explicitly, with its own evidence): ${subQuestions.map((sq, i) => `(${i + 1}) ${sq}`).join('; ')}`
+    : '';
+  const contextBlock = `Research query: "${query}"${facetLine}\n\nSOURCES:\n${allSourcesContext}\n\nDEEP CONTENT:\n${deepContent}`;
 
   const llmFn = apexModel === 'apex-premium' ? llmApexPremium : llmApexFree;
   const effectiveMaxTokens = apexModel === 'apex-premium' ? 8192 : 6000;
@@ -3184,6 +3329,7 @@ export {
   countTiers,
   shouldCorrectiveSearch,
   buildCorrectiveQueries,
+  decomposeSubQuestions,
   mergeCorrectiveResults,
   tierPrioritizeReads,
 };

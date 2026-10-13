@@ -162,5 +162,48 @@ t('quick pipeline: NO corrective loop (speed budget sacred)', (() => {
   return !quickBody.includes('shouldCorrectiveSearch') && !quickBody.includes('tierPrioritizeReads')
 })())
 
+console.log('── 10. sub-question decomposition (v5.6 — multi-facet deep queries) ──')
+t('decomposeSubQuestions exported', typeof worker.decomposeSubQuestions === 'function')
+// Shape 1 — comparators with shared qualifier tail
+const _vs3 = worker.decomposeSubQuestions('solar vs nuclear vs wind for baseload power in developing countries')
+t('vs-shape: 3 facets, tail shared by all', _vs3.length === 3 && _vs3.every(f => f.endsWith('for baseload power in developing countries')))
+t('vs-shape: facet heads preserved', _vs3[0].startsWith('solar') && _vs3[1].startsWith('nuclear') && _vs3[2].startsWith('wind'))
+const _vs2 = worker.decomposeSubQuestions('React versus Svelte for a design system')
+t('versus spelling handled', _vs2.length === 2 && _vs2[0] === 'React for a design system' && _vs2[1] === 'Svelte for a design system')
+const _colon = worker.decomposeSubQuestions('solar vs nuclear: which is cheaper for homes in 2026')
+t('colon qualifier shared across facets', _colon.length === 2 && _colon[0] === 'solar which is cheaper for homes in 2026' && _colon[1] === 'nuclear which is cheaper for homes in 2026')
+const _cap4 = worker.decomposeSubQuestions('machine learning vs deep learning vs neural networks vs transformers compared')
+t('vs-shape: capped at 3 facets', _cap4.length === 3)
+// Shape 2 — compare/contrast
+const _cmp = worker.decomposeSubQuestions('compare solar and nuclear energy costs')
+t('compare-shape: qualifier distributed', _cmp.length === 2 && _cmp[0] === 'solar energy costs' && _cmp[1] === 'nuclear energy costs')
+const _diff = worker.decomposeSubQuestions('difference between CREB and BDNF in memory consolidation research')
+t('difference-between shape handled', _diff.length === 2 && _diff[0].startsWith('CREB') && _diff[1].startsWith('BDNF'))
+// Shape 3 — conjunction chains
+const _chain = worker.decomposeSubQuestions('how do interest rates affect housing and how does inflation affect savings and what should investors do now')
+t('conjunction chain: 3 clauses split verbatim', _chain.length === 3 && _chain[0] === 'how do interest rates affect housing' && _chain[2] === 'what should investors do now')
+// Inert guards — single-facet and ambiguous queries return []
+t('single-facet: simple question inert', worker.decomposeSubQuestions('What is CRISPR?').length === 0)
+t('single-facet: short query inert', worker.decomposeSubQuestions('photosynthesis').length === 0)
+t('single-facet: no comparator, no chain inert', worker.decomposeSubQuestions('best budgeting apps for freelancers').length === 0)
+t('empty/null query inert', worker.decomposeSubQuestions('').length === 0 && worker.decomposeSubQuestions(null).length === 0)
+t('1-word facets rejected (too generic to search)', worker.decomposeSubQuestions('solar vs wind power').length === 0)
+t('duplicate facets deduped', worker.decomposeSubQuestions('solar energy vs solar energy vs wind power for homes').length === 2)
+// Pipeline wiring — deep only, quick untouched
+t('deep pipeline: decomposition wired before corrective loop', (() => {
+  const deepBody = workerSrc.slice(workerSrc.indexOf('async function deepResearch'))
+  const subIdx = deepBody.indexOf('decomposeSubQuestions(searchQuery)')
+  const corrIdx = deepBody.indexOf('shouldCorrectiveSearch(initialTierCounts, searchResults.length)')
+  return subIdx > -1 && corrIdx > subIdx
+})())
+t('deep pipeline: sub-searches merged into pool with cap 24', workerSrc.includes('mergeCorrectiveResults(searchResults, subHits, 24)'))
+t('deep pipeline: decomposed phase emitted with sub-questions', workerSrc.includes("emit({ type: 'phase', phase: 'search', decomposed: true, subQuestions })"))
+t('deep pipeline: facet guidance injected into write context', workerSrc.includes('REPORT FACETS') && workerSrc.includes('${facetLine}'))
+t('quick pipeline: NO decomposition (speed budget sacred)', (() => {
+  const quickBody = workerSrc.slice(workerSrc.indexOf('async function quickResearch'), workerSrc.indexOf('async function deepResearch'))
+  return !quickBody.includes('decomposeSubQuestions')
+})())
+t('worker version bumped to v5.6', workerSrc.includes('Cloudflare Worker (v5.6)'))
+
 console.log(`\n${pass}/${pass + fail} assertions passed`)
 process.exit(fail > 0 ? 1 : 0)

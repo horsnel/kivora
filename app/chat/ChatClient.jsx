@@ -783,8 +783,11 @@ export default function ChatClient() {
     const modelName = currentModel?.name || model
 
     try {
-      const { exportChatAsPDF, exportChatAsDOCX, downloadBlob } = await import('@/lib/fileExportHeavy')
-      const { exportChatAsHTML } = await import('@/lib/fileExportClient')
+      // downloadBlob lives in fileExportClient (browser-safe lib) — it was
+      // wrongly destructured from fileExportHeavy (which does not export it),
+      // so EVERY chat export died with "TypeError: i is not a function".
+      const { exportChatAsPDF, exportChatAsDOCX } = await import('@/lib/fileExportHeavy')
+      const { exportChatAsHTML, downloadBlob } = await import('@/lib/fileExportClient')
 
       if (format === 'pdf') {
         const blob = await exportChatAsPDF(messages, modelName)

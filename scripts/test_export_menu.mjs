@@ -178,6 +178,33 @@ for (const key of ['export.report', 'export.failed', 'export.md', 'export.pdf', 
   t(`en.json has "${key}"`, typeof en[key] === 'string' && en[key].length > 0)
 }
 
+// ── 7. chat export fix (user-reported: export chat button not working) ──
+console.log('── 7. chat export fix (v5.6) ──')
+const chatSrc = read('../app/chat/ChatClient.jsx')
+t('chat: downloadBlob imported from fileExportClient (NOT heavy — heavy does not export it)',
+  !chatSrc.includes('{ exportChatAsPDF, exportChatAsDOCX, downloadBlob }')
+  && /import\('@\/lib\/fileExportClient'\)/.test(chatSrc.split('async function exportChat')[1]?.split('} catch')[0] || '')
+  && (chatSrc.match(/const \{ exportChatAsHTML, downloadBlob \} = await import\('@\/lib\/fileExportClient'\)/) || []).length === 1)
+t('chat: heavy import no longer destructures downloadBlob',
+  (chatSrc.match(/const \{ exportChatAsPDF, exportChatAsDOCX \} = await import\('@\/lib\/fileExportHeavy'\)/) || []).length === 1)
+t('chat: heavy lib really does not export downloadBlob (regression tripwire)',
+  !read('../lib/fileExportHeavy.js').match(/export\s+(async\s+)?function\s+downloadBlob|export\s*\{[^}]*downloadBlob/))
+t('chat: exportChat guards empty thread', /if \(messages\.length === 0\) return/.test(chatSrc))
+t('chat: 3-dot Export Chat item wired to md', chatSrc.includes("exportChat('md')"))
+
+// ── 8. research dropdown overlay fix (user-reported: dropdown card overlaid by report body) ──
+console.log('── 8. research dropdown overlay fix (v5.6) ──')
+const researchPageSrc = read('../app/research/page.jsx')
+t('research: query header row elevated (relative z-20)', researchPageSrc.includes('relative z-20 flex items-center gap-3 pt-3 animate-fade-in'))
+t('research: ExportMenu rendered inside the elevated header row', (() => {
+  const rowStart = researchPageSrc.indexOf('relative z-20 flex items-center gap-3 pt-3 animate-fade-in')
+  const menuIdx = researchPageSrc.indexOf('<ExportMenu', rowStart)
+  return rowStart > -1 && menuIdx > rowStart && menuIdx < rowStart + 4000
+})())
+t('research: root cause marker — animate-fade-in still carries will-change (documented trap)',
+  read('../app/globals.css').includes('.animate-fade-in,'))
+t('research: ExportMenu dropdown is z-50 inside elevated row', read('../components/ExportMenu.jsx').includes('z-50 animate-scale-in'))
+
 console.log(`\n════════════════════════════════════`)
 console.log(`  export suite: ${pass} pass, ${fail} fail`)
 console.log(`════════════════════════════════════`)

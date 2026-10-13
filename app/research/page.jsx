@@ -1612,9 +1612,13 @@ function ResearchPageContent() {
             <div ref={reportRef} className="px-4 pb-4">
               <div className="max-w-4xl mx-auto space-y-4">
 
-                {/* Query header */}
+                {/* Query header — relative z-20 keeps the ExportMenu dropdown
+                    above the report body: animate-fade-in carries will-change +
+                    forwards fill, so this row and the report body are BOTH
+                    permanent stacking contexts, and the DOM-later report body
+                    otherwise paints over the trapped z-50 dropdown card. */}
                 {researchStage === 'done' && (
-                  <div className="flex items-center gap-3 pt-3 animate-fade-in">
+                  <div className="relative z-20 flex items-center gap-3 pt-3 animate-fade-in">
                     <IconMicroscope size={18} className="shrink-0 text-red-400" />
                     <h2 className="text-lg font-semibold text-white truncate flex-1">{activeResearch.query}</h2>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
