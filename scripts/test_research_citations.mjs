@@ -119,5 +119,48 @@ t('old dot-based source marker removed', !clientSrc.includes("{source.favicon &&
 t('cite chips CSS present', clientSrc.includes('.cite-chip') && clientSrc.includes('.references-block'))
 t('paren drift handled in renderer', clientSrc.includes('/^\\[\\[\\d+') === false && clientSrc.includes("parseCitationMarker"))
 
+console.log('── 9. agentic search loop (v5.5 — assess → correct → prioritize) ──')
+t('countTiers exported', typeof worker.countTiers === 'function')
+t('shouldCorrectiveSearch exported', typeof worker.shouldCorrectiveSearch === 'function')
+t('buildCorrectiveQueries exported', typeof worker.buildCorrectiveQueries === 'function')
+t('mergeCorrectiveResults exported', typeof worker.mergeCorrectiveResults === 'function')
+t('tierPrioritizeReads exported', typeof worker.tierPrioritizeReads === 'function')
+const _counts = worker.countTiers([
+  { url: 'https://a', tier: 'P1' }, { url: 'https://b', tier: 'P3' },
+  { url: 'https://c', tier: 'P3' }, { url: 'https://d' },
+])
+t('countTiers: missing tier counts as UNV', _counts.P1 === 1 && _counts.P3 === 2 && _counts.UNV === 1)
+t('corrective fires below 40% strong', worker.shouldCorrectiveSearch(_counts, 4) === true)
+const _strong = worker.countTiers([{ tier: 'P1' }, { tier: 'P1' }, { tier: 'P2' }, { tier: 'P3' }])
+t('corrective stays quiet at 75% strong', worker.shouldCorrectiveSearch(_strong, 4) === false)
+t('corrective stays quiet on tiny sets', worker.shouldCorrectiveSearch(worker.countTiers([{ tier: 'UNV' }]), 1) === false)
+const _cq = worker.buildCorrectiveQueries('publication bias')
+t('corrective queries: academic + authority angles', _cq.length === 2 && _cq[0].includes('peer-reviewed study') && _cq[1].includes('official report statistics') && /\d{4}/.test(_cq[1]))
+const _merged = worker.mergeCorrectiveResults(
+  [{ url: 'https://x/1', tier: 'P3' }, { url: 'https://x/2', tier: 'UNV' }],
+  [{ url: 'https://x/1/', title: 'trailing-slash dup' }, { url: 'https://nature.com/3' }, { url: 'https://x/4' }],
+  18
+)
+t('merge: dedupes by normalized URL, base first', _merged.length === 4 && _merged[0].url === 'https://x/1' && _merged[2].url === 'https://nature.com/3')
+t('merge: tier-enforces unclassified corrective hits', _merged[3].tier === 'UNV' && !!_merged[3].tierLabel)
+t('merge: cap enforced', worker.mergeCorrectiveResults([{ url: 'https://a' }, { url: 'https://b' }], [], 1).length === 1)
+const _reads = worker.tierPrioritizeReads([
+  { url: 'https://u1', tier: 'UNV' }, { url: 'https://u2', tier: 'P1' },
+  { url: 'https://u3', tier: 'P3' }, { url: 'https://u4', tier: 'P2' },
+  { url: 'https://u5', tier: 'P3' }, { url: 'https://u6', tier: 'P1' },
+], 3)
+t('reads: strongest tiers first (P1, P1, P2)', _reads.map(s => s.url).join(' ') === 'https://u2 https://u6 https://u4')
+t('reads: stable within tier band', worker.tierPrioritizeReads([
+  { url: 'https://a', tier: 'P3' }, { url: 'https://b', tier: 'P3' }, { url: 'https://c', tier: 'P1' },
+], 2).map(s => s.url).join(' ') === 'https://c https://a')
+t('deep pipeline: corrective loop wired', workerSrc.includes('shouldCorrectiveSearch(initialTierCounts, searchResults.length)'))
+t('deep pipeline: corrective search emitted as search phase', workerSrc.includes("emit({ type: 'phase', phase: 'search', corrective: true })"))
+t('deep pipeline: reads tier-prioritized', workerSrc.includes('tierPrioritizeReads(') && workerSrc.includes("searchResults.filter(s => s.url && s.url.startsWith('http')),\n    5"))
+t('deep pipeline: tier snapshot injected into part2 confidence prompt', workerSrc.includes('${tierSnapshot}') && workerSrc.includes('EVIDENCE-BASED CONFIDENCE INPUT'))
+t('quick pipeline: NO corrective loop (speed budget sacred)', (() => {
+  const quickBody = workerSrc.slice(workerSrc.indexOf('async function quickResearch'), workerSrc.indexOf('async function deepResearch'))
+  return !quickBody.includes('shouldCorrectiveSearch') && !quickBody.includes('tierPrioritizeReads')
+})())
+
 console.log(`\n${pass}/${pass + fail} assertions passed`)
 process.exit(fail > 0 ? 1 : 0)

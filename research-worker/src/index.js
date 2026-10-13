@@ -1,5 +1,15 @@
 // ══════════════════════════════════════════════════════════════════
-// KIVORA RESEARCH WORKER — Cloudflare Worker (v5.2.1)
+// KIVORA RESEARCH WORKER — Cloudflare Worker (v5.5)
+// v5.5 agentic search loop (deep mode only; quick speed budget untouched):
+//   - After the initial multi-provider search, a tier census decides whether
+//     the source base is strong enough. If < 40% P1/P2, two deterministic
+//     corrective searches (Semantic Scholar academic angle + Tavily authority
+//     angle) run in parallel and stronger hits are merged (dedupe + cap).
+//   - Deep-read budget is spent tier-first: P1 → P2 → P3 → UNV (stable within
+//     band), so the 5 full-content reads go to the most credible sources.
+//   - The REAL tier distribution is injected into part2's Confidence
+//     Assessment prompt — the report's confidence section is now grounded in
+//     measured evidence, not model vibes.
 // v5.2.1 fix ("results not streaming / taking forever"):
 //   - Workers AI leg of llmApexFree/llmApexPremium now streams via
 //     workersAiChatStream() when a stream consumer is attached. Previously,
@@ -613,6 +623,80 @@ async function searchDeep(query, env, maxSources = 15, classification = 'general
     }
   }
   return all.slice(0, maxSources);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// AGENTIC SEARCH LOOP (v5.5) — assess → correct → prioritize
+// ══════════════════════════════════════════════════════════════════
+// Deep-mode loop: after the initial multi-provider search, the tier census
+// decides whether the source base is strong enough. If < 40% of results are
+// P1/P2, two deterministic corrective searches (academic + authority angles,
+// no LLM call — zero prompt-drift risk) run in parallel and the stronger
+// hits are merged. The deep-read budget is then spent on the strongest
+// sources first, and the real tier distribution is injected into the
+// Confidence Assessment prompt so the report's confidence section is
+// evidence-based instead of vibes.
+
+// Tier census of search results.
+function countTiers(results) {
+  const counts = { P1: 0, P2: 0, P3: 0, UNV: 0 };
+  for (const r of results || []) {
+    const t = r?.tier || 'UNV';
+    counts[t] = (counts[t] || 0) + 1;
+  }
+  return counts;
+}
+
+// Corrective search triggers when the strong-tier share is below 40% with a
+// meaningful result set (tiny sets are noise — don't chase them).
+function shouldCorrectiveSearch(counts, total) {
+  if (!counts || !Number.isFinite(total) || total < 4) return false;
+  const strong = (counts.P1 || 0) + (counts.P2 || 0);
+  return strong / total < 0.4;
+}
+
+// Two deterministic corrective variants. Angle 1 pushes toward the academic
+// literature (paired with Semantic Scholar); angle 2 toward official
+// statistics (paired with Tavily). Current year keeps the authority leg fresh.
+function buildCorrectiveQueries(query) {
+  const year = new Date().getFullYear();
+  const q = String(query || '').slice(0, 180).trim();
+  return [
+    `${q} peer-reviewed study analysis`,
+    `${q} official report statistics ${year}`,
+  ];
+}
+
+// Merge corrective hits into the base set: dedupe by normalized URL, base
+// results keep their positions, corrective fill the tail, cap enforced.
+// Applies tier enforcement to unclassified hits (same rule as searchQuick/Deep).
+function mergeCorrectiveResults(base, corrective, maxSources = 18) {
+  const seen = new Set();
+  const out = [];
+  for (const r of [...(base || []), ...(corrective || [])]) {
+    if (!r?.url) continue;
+    const key = r.url.toLowerCase().replace(/\/+$/, '');
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    if (!r.tier) {
+      const { tier, tierLabel } = enforceSourceTier(r.url);
+      r.tier = tier;
+      r.tierLabel = tierLabel;
+    }
+    out.push(r);
+  }
+  return out.slice(0, maxSources);
+}
+
+// Deep-read budget goes to the strongest sources: P1 → P2 → P3 → UNV,
+// stable within tier (original order preserved inside each tier band).
+function tierPrioritizeReads(results, cap = 5) {
+  const rank = { P1: 0, P2: 1, P3: 2, UNV: 3 };
+  return (results || [])
+    .map((r, i) => ({ r, i }))
+    .sort((a, b) => ((rank[a.r?.tier || 'UNV'] - rank[b.r?.tier || 'UNV']) || (a.i - b.i)))
+    .slice(0, cap)
+    .map((x) => x.r);
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -2362,10 +2446,29 @@ async function deepResearch(query, env, apexModel = 'apex-free', searchQueryOver
   // ── PHASE 1: Search (3+ providers + classified extras, ~2.5-4s) ──
   emit({ type: 'phase', phase: 'search' });
   console.log('[Deep] Phase 1: Searching...');
-  const searchResults = await searchDeep(searchQuery, env, 15, classification, recency.range);
+  let searchResults = await searchDeep(searchQuery, env, 15, classification, recency.range);
 
   if (searchResults.length === 0) {
     return { error: 'No sources found. Please try a different query.' };
+  }
+
+  // ── AGENTIC LOOP (v5.5): if the source base came back weak (< 40% P1/P2),
+  // run two deterministic corrective searches — academic angle via Semantic
+  // Scholar, official-statistics angle via Tavily — and merge the stronger
+  // hits in before reading or writing anything. Quick mode never does this
+  // (its 12s budget is sacred); deep mode has the headroom. ──
+  const initialTierCounts = countTiers(searchResults);
+  if (shouldCorrectiveSearch(initialTierCounts, searchResults.length)) {
+    console.log(`[Deep] Weak source base (P1+P2=${initialTierCounts.P1 + initialTierCounts.P2}/${searchResults.length}) — corrective search`);
+    emit({ type: 'phase', phase: 'search', corrective: true });
+    const [academicQ, authorityQ] = buildCorrectiveQueries(searchQuery);
+    const corrective = (await Promise.all([
+      searchSemanticScholar(academicQ, 5, recency.range).catch(() => []),
+      searchTavily(authorityQ, env, 6, 'advanced', recency.range).catch(() => []),
+    ])).flat();
+    const before = searchResults.length;
+    searchResults = mergeCorrectiveResults(searchResults, corrective, 18);
+    console.log(`[Deep] Corrective search: ${before} → ${searchResults.length} sources`);
   }
 
   // Sources are known NOW — emit early so the client renders them during the
@@ -2373,14 +2476,16 @@ async function deepResearch(query, env, apexModel = 'apex-free', searchQueryOver
   // with deep-read statuses.
   emit({ type: 'sources', sources: searchResults.map((s, i) => mapSource(s, i)) });
 
-  // ── PHASE 2: Deep read top 5 URLs (more content = richer report) ──
+  // ── PHASE 2: Deep read top 5 URLs — AGENTIC ORDER (v5.5): the read budget
+  // goes to the strongest tiers first, not to whichever provider returned
+  // first. P1 academic sources get read before community/unverified ones. ──
   emit({ type: 'phase', phase: 'read', count: Math.min(5, searchResults.length) });
   console.log('[Deep] Phase 2: Reading sources...');
 
-  const topUrls = searchResults
-    .filter(s => s.url && s.url.startsWith('http'))
-    .slice(0, 5)
-    .map(s => s.url);
+  const topUrls = tierPrioritizeReads(
+    searchResults.filter(s => s.url && s.url.startsWith('http')),
+    5
+  ).map(s => s.url);
 
   const [deepContents] = await Promise.all([
     readUrlsParallel(topUrls, 5),
@@ -2409,6 +2514,12 @@ async function deepResearch(query, env, apexModel = 'apex-free', searchQueryOver
 
   const llmFn = apexModel === 'apex-premium' ? llmApexPremium : llmApexFree;
   const effectiveMaxTokens = apexModel === 'apex-premium' ? 8192 : 6000;
+
+  // v5.5 agentic loop: the REAL tier distribution of the actual source base,
+  // injected into part2's Confidence Assessment so the report's confidence
+  // section is grounded in evidence the pipeline measured, not model vibes.
+  const _finalTiers = countTiers(sources);
+  const tierSnapshot = `EVIDENCE-BASED CONFIDENCE INPUT — SOURCE VERIFICATION SNAPSHOT (computed from the actual retrieved sources of this report): ${_finalTiers.P1} P1-academic, ${_finalTiers.P2} P2-professional, ${_finalTiers.P3} P3-community, ${_finalTiers.UNV} unverified. Weigh this distribution when rating overall confidence, and explicitly name which claims rest on the weakest (P3-community or unverified) sources.`;
 
   // Section prompts — 2 parallel LLM calls for credit efficiency
   // Each part targets ~1,500 words; concatenated report lands at 2,500-3,500.
@@ -2522,6 +2633,7 @@ Then 2-3 short paragraphs framing the risk/opportunity landscape. Include 1 tabl
 
 ## Confidence Assessment
 Overall: High / Moderate / Low. Biggest uncertainty: ...
+${tierSnapshot}
 
 Do NOT include a Sources section — the sources list is shown separately in the UI. Keep [N] citations inline only.
 
@@ -3069,4 +3181,9 @@ export {
   makeResponse,
   sseFrame,
   validateOutput,
+  countTiers,
+  shouldCorrectiveSearch,
+  buildCorrectiveQueries,
+  mergeCorrectiveResults,
+  tierPrioritizeReads,
 };
