@@ -10,6 +10,7 @@ import { streamSSE } from '@/lib/sseClient'
 import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, IconRocket, IconHeart, IconMicroscope, IconWarning, IconLock } from '@/components/Icons'
 import { usePlan } from '@/lib/usePlan'
 import UpgradeCard from '@/components/UpgradeCard'
+import ExportMenu from '@/components/ExportMenu'
 import { parseCitationMarker, faviconUrl, domainOf, buildReferences, computeVerificationGrid, verificationStatusFor, VERIFICATION_VERDICTS } from '@/lib/citations'
 
 // ── File Upload Constants ──
@@ -1329,6 +1330,46 @@ function ResearchPageContent() {
   const reportText = reportDisplay || activeResearch?.report || ''
   // Fix #12: No more client-side markdownToHtml — ReactMarkdown handles rendering
 
+  // ── v5.6 report export (MD / PDF / DOCX / HTML) ──
+  const exportReport = async (format) => {
+    const r = activeResearch
+    if (!r || !reportText) return
+    const title = r.title || r.query || 'Research Report'
+    const payload = {
+      title,
+      subtitle: r.query ? `Query: ${r.query}` : '',
+      meta: `${r.mode === 'deep' ? 'Deep Research' : 'Quick Research'} · ${sources.length} source${sources.length === 1 ? '' : 's'}`,
+      body: reportText,
+      sources,
+    }
+    if (format === 'md') {
+      const { exportReportAsMarkdown, buildReportFilename, downloadBlob } = await import('@/lib/fileExportClient')
+      downloadBlob(exportReportAsMarkdown(payload), buildReportFilename(title, 'md'))
+    } else if (format === 'pdf') {
+      const [{ exportReportAsPDF }, { buildReportFilename, downloadBlob }] = await Promise.all([
+        import('@/lib/fileExportHeavy'),
+        import('@/lib/fileExportClient'),
+      ])
+      downloadBlob(await exportReportAsPDF(payload), buildReportFilename(title, 'pdf'))
+    } else if (format === 'docx') {
+      const [{ exportReportAsDOCX }, { buildReportFilename, downloadBlob }] = await Promise.all([
+        import('@/lib/fileExportHeavy'),
+        import('@/lib/fileExportClient'),
+      ])
+      downloadBlob(await exportReportAsDOCX(payload), buildReportFilename(title, 'docx'))
+    } else if (format === 'html') {
+      const { exportReportAsHTML, buildReportFilename, downloadBlob } = await import('@/lib/fileExportClient')
+      downloadBlob(exportReportAsHTML(payload), buildReportFilename(title, 'html'))
+    }
+  }
+  const reportExportFormats = useMemo(() => [
+    { id: 'md', badge: 'MD', label: t('export.md'), run: () => exportReport('md') },
+    { id: 'pdf', badge: 'PDF', label: t('export.pdf'), run: () => exportReport('pdf') },
+    { id: 'docx', badge: 'DOCX', label: t('export.docx'), run: () => exportReport('docx') },
+    { id: 'html', badge: 'HTML', label: t('export.html'), run: () => exportReport('html') },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [activeResearch, reportText, sources, t])
+
   // ── Render ──
   return (
     <main className="h-full flex flex-col bg-[#0a0a0a] text-white overflow-hidden">
@@ -1609,6 +1650,14 @@ function ResearchPageContent() {
                         </svg>
                         Copy
                       </button>
+                    )}
+                    {/* v5.6 — download report in different formats */}
+                    {reportText && !isResearching && (
+                      <ExportMenu
+                        formats={reportExportFormats}
+                        label={t('export.report')}
+                        errorText={t('export.failed')}
+                      />
                     )}
                   </div>
                 )}

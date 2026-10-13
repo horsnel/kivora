@@ -10,6 +10,7 @@ import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
 import { authFetch } from '@/lib/authFetch'
 import UpgradeCard from '@/components/UpgradeCard'
+import ExportMenu from '@/components/ExportMenu'
 import UsageTimerButton from '@/components/UsageTimerButton'
 
 /* ─── Icon Components ─────────────────────────────────────────── */
@@ -460,6 +461,31 @@ export default function ReelPenClient() {
     setTimeout(() => setCopied(false), 2000)
     if (sessionRef.current) markCopied(sessionRef.current)
   }
+
+  // ── v5.6 report export (MD / TXT / PDF) ──
+  async function exportReport(format) {
+    if (!result) return
+    const title = t(currentTool.labelKey) || active
+    const payload = { title, subtitle: 'ReelPen', body: result }
+    if (format === 'md') {
+      const { exportReportAsMarkdown, buildReportFilename, downloadBlob } = await import('@/lib/fileExportClient')
+      downloadBlob(exportReportAsMarkdown(payload), buildReportFilename(title, 'md'))
+    } else if (format === 'txt') {
+      const { exportReportAsText, buildReportFilename, downloadBlob } = await import('@/lib/fileExportClient')
+      downloadBlob(exportReportAsText(payload), buildReportFilename(title, 'txt'))
+    } else if (format === 'pdf') {
+      const [{ exportReportAsPDF }, { buildReportFilename, downloadBlob }] = await Promise.all([
+        import('@/lib/fileExportHeavy'),
+        import('@/lib/fileExportClient'),
+      ])
+      downloadBlob(await exportReportAsPDF(payload), buildReportFilename(title, 'pdf'))
+    }
+  }
+  const exportFormats = [
+    { id: 'md', badge: 'MD', label: t('export.md'), run: () => exportReport('md') },
+    { id: 'txt', badge: 'TXT', label: t('export.txt'), run: () => exportReport('txt') },
+    { id: 'pdf', badge: 'PDF', label: t('export.pdf'), run: () => exportReport('pdf') },
+  ]
 
   function selectTool(toolId, catId) {
     setActive(toolId)
@@ -972,16 +998,29 @@ export default function ReelPenClient() {
           </div>
 
           {/* ── Output Panel ─────────────────────────────────── */}
-          <div className="bg-[#141414] rounded-xl p-4 sm:p-6 flex flex-col min-h-[300px] sm:min-h-[500px]">
+          {/* v5.6: min-height + padding matched to devtools (560px desktop) and
+             study (500px) — was min-h-[300px] sm:min-h-[500px], which read as
+             "small and cut short" next to those pages */}
+          <div className="bg-[#141414] rounded-xl p-6 flex flex-col min-h-[500px] lg:min-h-[560px]">
             <div className="flex items-center justify-between mb-4 shrink-0">
               <h2 className="font-semibold text-sm tracking-tight text-muted">
                 {active === 'bpm_tapper' ? 'BPM Detector' : t('reelpen.output')}
               </h2>
-              {result && active !== 'bpm_tapper' && (
-                <button onClick={copy} className="flex items-center gap-1 text-xs text-muted hover:text-white transition-colors">
-                  {copied ? <><IconCheck size={11} className="text-emerald-400" /> {t('common.copied')}</> : <><IconCopy size={11} /> {t('common.copy')}</>}
-                </button>
-              )}
+              <div className="flex items-center gap-3">
+                {result && active !== 'bpm_tapper' && (
+                  <button onClick={copy} className="flex items-center gap-1 text-xs text-muted hover:text-white transition-colors">
+                    {copied ? <><IconCheck size={11} className="text-emerald-400" /> {t('common.copied')}</> : <><IconCopy size={11} /> {t('common.copy')}</>}
+                  </button>
+                )}
+                {/* v5.6 — download generated report (MD / TXT / PDF) */}
+                {result && active !== 'bpm_tapper' && (
+                  <ExportMenu
+                    formats={exportFormats}
+                    label={t('export.report')}
+                    errorText={t('export.failed')}
+                  />
+                )}
+              </div>
             </div>
 
             {active === 'bpm_tapper' ? (

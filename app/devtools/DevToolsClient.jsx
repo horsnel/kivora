@@ -12,6 +12,7 @@ import { streamSSE } from '@/lib/sseClient'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
 import { authFetch } from '@/lib/authFetch'
+import ExportMenu from '@/components/ExportMenu'
 import UpgradeCard from '@/components/UpgradeCard'
 import UsageTimerButton from '@/components/UsageTimerButton'
 
@@ -402,6 +403,31 @@ export default function DevToolsClient() {
     setTimeout(() => setCopied(false), 2000)
     if (sessionRef.current) markCopied(sessionRef.current)
   }
+
+  // ── v5.6 report export (MD / TXT) — markdown tool outputs only ──
+  async function exportReport(format) {
+    if (!result) return
+    const title = t(currentTool?.labelKey) || active
+    const payload = { title, subtitle: 'DevTools', body: result }
+    if (format === 'md') {
+      const { exportReportAsMarkdown, buildReportFilename, downloadBlob } = await import('@/lib/fileExportClient')
+      downloadBlob(exportReportAsMarkdown(payload), buildReportFilename(title, 'md'))
+    } else if (format === 'txt') {
+      const { exportReportAsText, buildReportFilename, downloadBlob } = await import('@/lib/fileExportClient')
+      downloadBlob(exportReportAsText(payload), buildReportFilename(title, 'txt'))
+    } else if (format === 'pdf') {
+      const [{ exportReportAsPDF }, { buildReportFilename, downloadBlob }] = await Promise.all([
+        import('@/lib/fileExportHeavy'),
+        import('@/lib/fileExportClient'),
+      ])
+      downloadBlob(await exportReportAsPDF(payload), buildReportFilename(title, 'pdf'))
+    }
+  }
+  const devExportFormats = [
+    { id: 'md', badge: 'MD', label: t('export.md'), run: () => exportReport('md') },
+    { id: 'txt', badge: 'TXT', label: t('export.txt'), run: () => exportReport('txt') },
+    { id: 'pdf', badge: 'PDF', label: t('export.pdf'), run: () => exportReport('pdf') },
+  ]
 
   function selectTool(toolId, catId) {
     setActive(toolId)
@@ -989,13 +1015,23 @@ export default function DevToolsClient() {
           <div className="bg-[#141414] rounded-xl p-6 flex flex-col min-h-[560px]">
             <div className="flex items-center justify-between mb-4 shrink-0">
               <h2 className="font-semibold text-sm text-muted">{t('devtools.output')}</h2>
-              {result && (
-                <button onClick={copy} className="flex items-center gap-1.5 text-xs text-muted hover:text-white transition-colors">
-                  {copied
-                    ? <><IconCheck size={11} className="text-emerald-400" /> {t('common.copied')}</>
-                    : <><IconCopy size={11} /> {t('common.copy')}</>}
-                </button>
-              )}
+              <div className="flex items-center gap-3">
+                {result && (
+                  <button onClick={copy} className="flex items-center gap-1.5 text-xs text-muted hover:text-white transition-colors">
+                    {copied
+                      ? <><IconCheck size={11} className="text-emerald-400" /> {t('common.copied')}</>
+                      : <><IconCopy size={11} /> {t('common.copy')}</>}
+                  </button>
+                )}
+                {/* v5.6 — download tool output (MD / TXT / PDF) */}
+                {result && (
+                  <ExportMenu
+                    formats={devExportFormats}
+                    label={t('export.report')}
+                    errorText={t('export.failed')}
+                  />
+                )}
+              </div>
             </div>
 
             {gate

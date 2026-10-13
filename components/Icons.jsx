@@ -450,6 +450,20 @@ export function IconDownload({ size = 16, className = '' }) {
   )
 }
 
+// v5.6: report-export glyph — document sheet with dog-eared corner + centered
+// download arrow. Reads as "download this document/report", distinct from the
+// generic IconDownload tray-arrow. Same 16-grid / 1.25 stroke family style.
+export function IconDownloadReport({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+      <path d="M9 2v4h4" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+      <path d="M8 7v4.25" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <path d="M6.1 9.6L8 11.5l1.9-1.9" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 export function IconLock({ size = 16, className = '' }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>

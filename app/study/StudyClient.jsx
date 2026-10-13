@@ -8,6 +8,7 @@ import ThinkingState, { STAGE_CONFIGS } from '@/components/ThinkingState'
 import Select from '@/components/Select'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
+import ExportMenu from '@/components/ExportMenu'
 
 /* ─── Icon Components ─────────────────────────────────────────── */
 
@@ -329,6 +330,31 @@ export default function StudyClient() {
     if (sessionRef.current) markCopied(sessionRef.current)
   }
 
+  // ── v5.6 report export (MD / TXT / PDF) — markdown study materials only ──
+  async function exportReport(format) {
+    if (!result) return
+    const title = t(meta?.labelKey) || active
+    const payload = { title, subtitle: 'Study Desk', body: result }
+    if (format === 'md') {
+      const { exportReportAsMarkdown, buildReportFilename, downloadBlob } = await import('@/lib/fileExportClient')
+      downloadBlob(exportReportAsMarkdown(payload), buildReportFilename(title, 'md'))
+    } else if (format === 'txt') {
+      const { exportReportAsText, buildReportFilename, downloadBlob } = await import('@/lib/fileExportClient')
+      downloadBlob(exportReportAsText(payload), buildReportFilename(title, 'txt'))
+    } else if (format === 'pdf') {
+      const [{ exportReportAsPDF }, { buildReportFilename, downloadBlob }] = await Promise.all([
+        import('@/lib/fileExportHeavy'),
+        import('@/lib/fileExportClient'),
+      ])
+      downloadBlob(await exportReportAsPDF(payload), buildReportFilename(title, 'pdf'))
+    }
+  }
+  const studyExportFormats = [
+    { id: 'md', badge: 'MD', label: t('export.md'), run: () => exportReport('md') },
+    { id: 'txt', badge: 'TXT', label: t('export.txt'), run: () => exportReport('txt') },
+    { id: 'pdf', badge: 'PDF', label: t('export.pdf'), run: () => exportReport('pdf') },
+  ]
+
   // Pomodoro handlers
   async function startPomodoro() {
     if (isRunning) { setIsRunning(false); return }
@@ -498,11 +524,21 @@ export default function StudyClient() {
               <h2 className="font-semibold text-sm tracking-tight text-muted">
                 {active === 'pomodoro' ? t('study.timer') : active === 'quiz' && quizQuestions.length > 0 ? 'Quiz' : t('study.output')}
               </h2>
-              {result && active !== 'pomodoro' && !(active === 'quiz' && quizQuestions.length > 0) && (
-                <button onClick={copy} className="flex items-center gap-1 text-xs text-muted hover:text-white transition-colors">
-                  {copied ? <><IconCheck size={11} className="text-emerald-400" /> {t('common.copied')}</> : <><IconCopy size={11} /> {t('common.copy')}</>}
-                </button>
-              )}
+              <div className="flex items-center gap-3">
+                {result && active !== 'pomodoro' && !(active === 'quiz' && quizQuestions.length > 0) && (
+                  <button onClick={copy} className="flex items-center gap-1 text-xs text-muted hover:text-white transition-colors">
+                    {copied ? <><IconCheck size={11} className="text-emerald-400" /> {t('common.copied')}</> : <><IconCopy size={11} /> {t('common.copy')}</>}
+                  </button>
+                )}
+                {/* v5.6 — download study material (MD / TXT / PDF) */}
+                {result && active !== 'pomodoro' && !(active === 'quiz' && quizQuestions.length > 0) && (
+                  <ExportMenu
+                    formats={studyExportFormats}
+                    label={t('export.report')}
+                    errorText={t('export.failed')}
+                  />
+                )}
+              </div>
             </div>
 
             {/* Pomodoro Timer Display */}
