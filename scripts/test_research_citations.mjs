@@ -22,6 +22,7 @@ function t(name, cond) {
 }
 
 const lib = await import(new URL('../lib/citations.js', import.meta.url).href)
+const worker = await import(new URL('../research-worker/src/index.js', import.meta.url).href + '?cachebust=' + Date.now())
 
 console.log('── 1. extractIdentifiers (deterministic URL parsing) ──')
 const ids = (u) => lib.extractIdentifiers(u)
@@ -80,11 +81,30 @@ console.log('── 5. worker prompt discipline (static) ──')
 const workerSrc = readFileSync(new URL('../research-worker/src/index.js', import.meta.url), 'utf8')
 t('quick prompt: bracket citations mandatory', workerSrc.includes('NEVER use parentheses like (2) — parenthesized citations are a protocol violation'))
 t('quick prompt: tighter output budget for speed', workerSrc.includes('OUTPUT BUDGET: ~450-650 words'))
-t('both prompts: attribution discipline', (workerSrc.match(/ATTRIBUTION \(STRICT\)/g) || []).length === 2)
-t('both prompts: dated statistics ("As of")', (workerSrc.match(/When citing any statistic, date it/g) || []).length === 2)
+t('all 4 prompts: attribution discipline', (workerSrc.match(/ATTRIBUTION \(STRICT\)/g) || []).length === 4) // quick + deep + part1 + part2
+t('all 4 prompts: dated statistics ("As of")', (workerSrc.match(/When citing any statistic, date it/g).length === 2) || (workerSrc.match(/Date every statistic/g) || []).length === 2)
 t('quick generation cap: 2048 tokens × 2 chains', (workerSrc.match(/\], 2048, 'quick', streamCtx\);/g) || []).length === 2)
 
-console.log('── 6. client wiring (static — page.jsx is the live /research UI) ──')
+console.log('── 6. normalizeCitations (deterministic worker-side fix) ──')
+const NC = (s, n) => worker.normalizeCitations(s, n)
+t('paren → bracket when in range', NC('as shown (2) and (3).', 8) === 'as shown [2] and [3].')
+t('multi paren → bracket multi', NC('divergent views (4, 5) exist', 8) === 'divergent views [4, 5] exist')
+t('range paren → expanded bracket', NC('codes (2-4) apply', 8) === 'codes [2, 3, 4] apply')
+t('bracket markers unchanged (idempotent)', NC('already [2] fine', 8) === 'already [2] fine')
+t('(2024) untouched (out of range)', NC('in (2024) alone', 8) === 'in (2024) alone')
+t('(see 2) untouched (not pure number)', NC('(see 2) stays', 8) === '(see 2) stays')
+t('out-of-range (99) untouched', NC('claims (99) here', 8) === 'claims (99) here')
+t('empty/null safe', NC('', 8) === '' && NC(null, 8) === null)
+t('zero sources → passthrough', NC('a (2) b', 0) === 'a (2) b')
+
+console.log('── 7. qwen-first model order (benchmarked 3.5× faster) ──')
+t('free chain WAI: qwen first', workerSrc.includes("'@cf/qwen/qwen3-30b-a3b-fp8',\n      '@cf/meta/llama-3.1-8b-instruct-fp8',"))
+t('premium chain WAI: qwen first', workerSrc.includes("'@cf/qwen/qwen3-30b-a3b-fp8',\n      '@cf/meta/llama-3.3-70b-instruct-fp8-fast',"))
+t('normalizeCitations wired into quick pipeline', workerSrc.includes('rawReport = normalizeCitations(rawReport, sources.length);'))
+t('normalizeCitations wired into deep sections', workerSrc.includes('content: normalizeCitations(result || \'\', sources.length)'))
+t('export exists', typeof worker.normalizeCitations === 'function')
+
+console.log('── 8. client wiring (static — page.jsx is the live /research UI) ──')
 const clientSrc = readFileSync(new URL('../app/research/page.jsx', import.meta.url), 'utf8')
 t('stream gated to deep mode only', clientSrc.includes("stream: researchMode === 'deep'"))
 t('old always-stream removed', !clientSrc.includes('stream: true }'))

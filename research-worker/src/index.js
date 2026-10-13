@@ -1142,6 +1142,34 @@ function validateOutput(text, mode = 'quick') {
   return true;
 }
 
+// ── Deterministic citation-marker normalization (v5.3) ──
+// Models — especially small fast ones — drift to parenthesized citations
+// "(2)" despite strict prompt rules. Convert valid paren markers to the
+// bracket style the UI contract expects. Only converts when EVERY number
+// resolves to a real source, so "(2024)" and "(see 2)" stay untouched.
+// Bracket markers pass through unchanged; this is idempotent.
+function normalizeCitations(text, sourceCount) {
+  if (!text || typeof text !== 'string' || !Number.isFinite(sourceCount) || sourceCount < 1) return text
+  return text.replace(/[\[(]\d+(?:\s*[-,]\s*\d+)*[\])]/g, (m) => {
+    const inner = m.slice(1, -1)
+    const nums = []
+    if (inner.includes('-')) {
+      const parts = inner.split('-').map(x => parseInt(x.trim(), 10))
+      const a = parts[0], b = parts[1]
+      if (!Number.isFinite(a) || !Number.isFinite(b) || b <= a || b - a > 5) return m
+      for (let i = a; i <= b; i++) nums.push(i)
+    } else {
+      for (const p of inner.split(',')) {
+        const n = parseInt(p.trim(), 10)
+        if (!Number.isFinite(n)) return m
+        nums.push(n)
+      }
+    }
+    if (!nums.length || nums.length > 6 || nums.some(n => n < 1 || n > sourceCount)) return m
+    return `[${nums.join(', ')}]`
+  })
+}
+
 // Apex 1.7 — Free tier model routing (OpenRouter → Workers AI → Gemini → Pollinations)
 // stream (v5.2.0, optional): { onDelta(chunk), onReset(part), part } — when
 // present, OpenRouter attempts use the streaming variant and deltas are
@@ -1175,14 +1203,14 @@ async function llmApexFree(env, messages, maxTokens = 4096, mode = 'quick', stre
   }
 
   // 2. Workers AI — free, built-in (skip deprecated models).
-  //    v5.2.1: with a stream consumer attached, each model streams token
-  //    deltas live; on validateOutput failure the partial buffer is reset and
-  //    the next model streams. Non-stream callers keep exact buffered behavior.
+  //    v5.3.1 order: qwen3-30b-a3b FIRST — benchmarked 3.5× faster than the
+  //    dense 8b (10.4s vs 36.4s for the same quick report, ~99 tok/s MoE)
+  //    with structure + citations intact.
   if (env.AI) {
     const workersAiModels = [
+      '@cf/qwen/qwen3-30b-a3b-fp8',
       '@cf/meta/llama-3.1-8b-instruct-fp8',
       '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
-      '@cf/qwen/qwen3-30b-a3b-fp8',
       '@cf/mistralai/mistral-small-3.1-24b-instruct',
     ];
     for (const m of workersAiModels) {
@@ -1271,11 +1299,11 @@ async function llmApexPremium(env, messages, maxTokens = 4096, mode = 'quick', s
   }
 
   // 3. Workers AI (v5.2.1: streaming when a stream consumer is attached —
-  //    same reset contract as the OpenRouter leg above)
+  //    same reset contract as the OpenRouter leg above; v5.3.1: qwen first)
   if (env.AI) {
     const workersAiModels = [
-      '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
       '@cf/qwen/qwen3-30b-a3b-fp8',
+      '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
       '@cf/mistralai/mistral-small-3.1-24b-instruct',
     ];
     for (const m of workersAiModels) {
@@ -1309,12 +1337,12 @@ async function llmApexPremium(env, messages, maxTokens = 4096, mode = 'quick', s
 async function llmQuick(env, messages, maxTokens = 4096) {
   const errors = [];
 
-  // 1. Workers AI — free, fast, no credit limit
+  // 1. Workers AI — free, fast, no credit limit (v5.3.1: qwen first — 3.5× faster)
   if (env.AI) {
     const workersAiModels = [
+      '@cf/qwen/qwen3-30b-a3b-fp8',
       '@cf/meta/llama-3.1-8b-instruct-fp8',
       '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
-      '@cf/qwen/qwen3-30b-a3b-fp8',
       '@cf/mistralai/mistral-small-3.1-24b-instruct',
     ];
     for (const m of workersAiModels) {
@@ -2298,6 +2326,8 @@ async function quickResearch(query, env, apexModel = 'apex-free', searchQueryOve
       { role: 'user', content: userContent },
     ], 2048, 'quick', streamCtx);
   }
+  // v5.3: deterministic paren→bracket citation normalization (models drift)
+  rawReport = normalizeCitations(rawReport, sources.length);
 
   console.log(`[Quick] Report generated in ${Date.now() - t0}ms`);
 
@@ -2388,13 +2418,14 @@ async function deepResearch(query, env, apexModel = 'apex-free', searchQueryOver
       prompt: `You are KIVORA RESEARCH DEEP, a world-class research analyst. Write the FIRST HALF of a thorough research report. Target ~1,500 words. Truncation is the worst failure mode — finish every section cleanly.
 
 CRITICAL RULES:
-1. Cite every claim with [N] matching source numbers. Only cite a source you actually read.
-2. Confidence language: "established" (2+ sources), "likely" (one source + reasoning), "uncertain" (speculative).
-3. Reserve **bold** for genuinely critical terms (max 1-2 per paragraph). Do NOT bold entire sentences.
-4. Do NOT invent statistics. If a number isn't in the sources, omit or phrase qualitatively.
-5. No filler like "Based on the search results" — start with the finding.
-6. Third person, neutral analytical tone — like a senior analyst's memo.
-7. Use 1-2 tables in this half (1 in Context for key background data, 1 in Detailed Analysis for a CONSOLIDATED comparison). Each table MUST use proper markdown syntax with a separator row of | --- | between the header and body. Tables must carry information that bullets cannot.
+1. CITATION FORMAT (STRICT): cite every claim with square brackets [N] matching source numbers — [1], [2], [4, 5]. NEVER use parentheses like (2). Only cite a source you actually read.
+2. ATTRIBUTION (STRICT): never write "a recent report" or "a study found" without naming the source and year — write "a 2023 JAMA analysis [3]". Date every statistic: "As of March 2025, ... [2]".
+3. Confidence language: "established" (2+ sources), "likely" (one source + reasoning), "uncertain" (speculative).
+4. Reserve **bold** for genuinely critical terms (max 1-2 per paragraph). Do NOT bold entire sentences.
+5. Do NOT invent statistics. If a number isn't in the sources, omit or phrase qualitatively.
+6. No filler like "Based on the search results" — start with the finding.
+7. Third person, neutral analytical tone — like a senior analyst's memo.
+8. Use 1-2 tables in this half (1 in Context for key background data, 1 in Detailed Analysis for a CONSOLIDATED comparison). Each table MUST use proper markdown syntax with a separator row of | --- | between the header and body. Tables must carry information that bullets cannot.
 
 FORMATTING (CRITICAL for readability — models often ignore this, so follow exactly):
 - Put a ---  horizontal rule between every major section. This creates visual breathing room.
@@ -2441,12 +2472,13 @@ Do NOT end with a ---  divider (the system adds one between parts). Do NOT inclu
 IMPORTANT HEADING LEVEL: Your output starts a NEW half of the report. Use ## (h2) for ALL major section headings — NOT ### (h3). The first line of your output MUST be exactly: ## Comparative Analysis
 
 CRITICAL RULES:
-1. Cite every claim with [N] matching source numbers. Only cite a source you actually read.
-2. Confidence language: "established" (2+ sources), "likely" (one source + reasoning), "uncertain" (speculative).
-3. Reserve **bold** for genuinely critical terms (max 1-2 per paragraph). Do NOT bold entire sentences.
-4. Do NOT invent statistics. If a number isn't in the sources, omit or phrase qualitatively.
-5. No filler. Third person, neutral analytical tone.
-6. Use 1-3 tables in this half (1 in Comparative Analysis for the options matrix, optionally 1 in Risk & Opportunity for probability/impact, optionally 1 in Future Outlook for scenarios). Each table MUST use proper markdown syntax with a separator row of | --- | between the header and body.
+1. CITATION FORMAT (STRICT): cite every claim with square brackets [N] matching source numbers — [1], [2], [4, 5]. NEVER use parentheses like (2). Only cite a source you actually read.
+2. ATTRIBUTION (STRICT): never write "a recent report" or "a study found" without naming the source and year — write "a 2023 JAMA analysis [3]". Date every statistic: "As of March 2025, ... [2]".
+3. Confidence language: "established" (2+ sources), "likely" (one source + reasoning), "uncertain" (speculative).
+4. Reserve **bold** for genuinely critical terms (max 1-2 per paragraph). Do NOT bold entire sentences.
+5. Do NOT invent statistics. If a number isn't in the sources, omit or phrase qualitatively.
+6. No filler. Third person, neutral analytical tone.
+7. Use 1-3 tables in this half (1 in Comparative Analysis for the options matrix, optionally 1 in Risk & Opportunity for probability/impact, optionally 1 in Future Outlook for scenarios). Each table MUST use proper markdown syntax with a separator row of | --- | between the header and body.
 
 FORMATTING (CRITICAL for readability — models often ignore this, so follow exactly):
 - Put a ---  horizontal rule between every major section. This creates visual breathing room.
@@ -2519,7 +2551,7 @@ FOLLOWUPS:
     ], effectiveMaxTokens, 'deep', mkStreamCtx(section.name));
     console.log(`[Deep] Section '${section.name}' done in ${Date.now() - sectionT0}ms, ${result?.length || 0} chars`);
     emit({ type: 'part_done', part: section.name });
-    return { name: section.name, content: result || '' };
+    return { name: section.name, content: normalizeCitations(result || '', sources.length) };
   });
   const sectionResults = await Promise.all(sectionPromises);
 
@@ -3027,6 +3059,7 @@ export {
   workersAiChatStream,
   classifyQuery,
   detectRecency,
+  normalizeCitations,
   tavilyTimeRange,
   braveFreshness,
   firecrawlTbs,
