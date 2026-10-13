@@ -10,7 +10,7 @@ import { streamSSE } from '@/lib/sseClient'
 import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, IconRocket, IconHeart, IconMicroscope, IconWarning, IconLock } from '@/components/Icons'
 import { usePlan } from '@/lib/usePlan'
 import UpgradeCard from '@/components/UpgradeCard'
-import { parseCitationMarker, faviconUrl, domainOf, buildReferences } from '@/lib/citations'
+import { parseCitationMarker, faviconUrl, domainOf, buildReferences, computeVerificationGrid, verificationStatusFor, VERIFICATION_VERDICTS } from '@/lib/citations'
 
 // ── File Upload Constants ──
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
@@ -55,6 +55,11 @@ function stripInlineMarkdown(text) {
 function CiteLogo({ source, n }) {
   const [stage, setStage] = useState(0) // 0 google s2 → 1 duckduckgo → 2 letter
   const domain = domainOf(source?.url)
+  // v5.4: chip ring = tier identity (consistent with the sources list), corner
+  // dot = binary verification verdict (✓ verified / ! review / ! unverified).
+  const status = verificationStatusFor(source?.tier)
+  const ring = source?.tier === 'P1' ? '#34d399' : source?.tier === 'P2' ? '#60a5fa' : source?.tier === 'P3' ? '#fbbf24' : '#3f3f46'
+  const statusWord = status === 'verified' ? 'Verified' : status === 'review' ? 'Needs review' : 'Unverified'
   if (!domain || stage >= 2) return <span className="cite-fallback">{n}</span>
   const src = stage === 0
     ? faviconUrl(source.url, 64)
@@ -62,13 +67,15 @@ function CiteLogo({ source, n }) {
   return (
     <a
       className="cite-chip"
+      style={{ borderColor: ring }}
       href={source.url}
       target="_blank"
       rel="noopener noreferrer"
-      title={`[${n}] ${source.title || domain} · ${domain}`}
+      title={`[${n}] ${source.title || domain} · ${domain} · ${status === 'verified' ? '✓' : '⚠'} ${statusWord} (${source.tierLabel || source.tier || 'UNV'})`}
       onClick={(e) => e.stopPropagation()}
     >
       <img src={src} alt="" width="14" height="14" loading="lazy" onError={() => setStage(s => s + 1)} />
+      <span className={`cite-dot cite-dot-${status}`} />
     </a>
   )
 }
@@ -214,6 +221,78 @@ function ReferencesBlock({ sources }) {
           </li>
         ))}
       </ol>
+    </div>
+  )
+}
+
+// ── Verification grid (v5.4) — per-claim trust, made visible ──
+// Maps the report's citation markers onto the pipeline's source tiers and
+// shows exactly how well-sourced the answer is: a verdict, a weighted score,
+// a tier-segmented bar, and the flagged claims that need review. Pure client
+// derivation from sources + report — identical on fresh, cache-hit, and
+// history paths, and it retroactively upgrades older cached reports.
+function VerificationGridBlock({ sources, report }) {
+  const grid = useMemo(() => computeVerificationGrid(sources, report), [sources, report])
+  if (!grid.citedCount) return null
+  const verdict = VERIFICATION_VERDICTS[grid.verdict] || VERIFICATION_VERDICTS.none
+  const segs = [
+    { tier: 'P1', count: grid.counts.P1 || 0, color: '#34d399' },
+    { tier: 'P2', count: grid.counts.P2 || 0, color: '#60a5fa' },
+    { tier: 'P3', count: grid.counts.P3 || 0, color: '#fbbf24' },
+    { tier: 'UNV', count: grid.counts.UNV || 0, color: '#525252' },
+  ].filter(s => s.count > 0)
+  const flaggedShown = grid.flagged.slice(0, 6)
+  return (
+    <div className="verification-block animate-fade-in">
+      <div className="verification-header">
+        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={grid.verdict === 'verified' ? 'text-emerald-400/80' : 'text-amber-400/80'}>
+            <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+            {(grid.verdict === 'verified')
+              ? <path d="m9 12 2 2 4-4" />
+              : <><path d="M12 8v4" /><path d="M12 16h.01" /></>}
+          </svg>
+          Verification
+        </h3>
+        <span className={`verification-badge verification-badge-${grid.verdict}`}>
+          {grid.verdict === 'verified' ? '✓' : '⚠'} {verdict.label} · {grid.score}%
+        </span>
+      </div>
+      <div className="verification-bar" role="img" aria-label={`Source tiers: ${segs.map(s => `${s.count} ${s.tier}`).join(', ')}`}>
+        {segs.map(s => (
+          <div key={s.tier} className="verification-seg" style={{ width: `${(s.count / grid.citedCount) * 100}%`, background: s.color }} title={`${s.count} × ${s.tier}`} />
+        ))}
+      </div>
+      <div className="verification-counts">
+        <span className="verification-count verification-count-ok">{grid.verified} verified</span>
+        <span className="verification-sep">·</span>
+        <span className="verification-count verification-count-warn">{grid.counts.P3 || 0} community</span>
+        <span className="verification-sep">·</span>
+        <span className="verification-count verification-count-bad">{grid.counts.UNV || 0} unverified</span>
+        <span className="verification-sep">·</span>
+        <span className="verification-count-quiet">{grid.citedCount} of {grid.totalSources} sources cited</span>
+      </div>
+      <p className="verification-desc">{verdict.desc}</p>
+      {flaggedShown.length > 0 && (
+        <div className="verification-flagged">
+          <div className="verification-flagged-title">Needs review</div>
+          {flaggedShown.map(c => (
+            <a key={c.n} className="verification-flag-row" href={c.url} target="_blank" rel="noopener noreferrer">
+              <span className="ref-n">[{c.n}]</span>
+              <SourceLogo source={{ url: c.url, tier: c.tier }} size={16} />
+              <span className="verification-flag-title">{c.title}</span>
+              <span className="verification-flag-domain">{c.domain}</span>
+              <span className={`verification-flag-chip verification-flag-chip-${c.status}`}>
+                {c.status === 'review' ? '⚠ community' : '⚠ unverified'}
+              </span>
+            </a>
+          ))}
+          {grid.flagged.length > flaggedShown.length && (
+            <div className="verification-flag-more">+{grid.flagged.length - flaggedShown.length} more flagged citations</div>
+          )}
+        </div>
+      )}
+      <div className="verification-footer">citation status derived from source tier at retrieval · as of {grid.asOf}</div>
     </div>
   )
 }
@@ -1617,6 +1696,11 @@ function ResearchPageContent() {
                   </div>
                 )}
 
+                {/* Verification grid (v5.4) — per-claim trust from source tiers */}
+                {researchStage === 'done' && sources.length > 0 && (
+                  <VerificationGridBlock sources={sources} report={reportText} />
+                )}
+
                 {/* References (v5.3) — numbered, identifier-linked (DOI/PMID/NCT), dated */}
                 {researchStage === 'done' && sources.length > 0 && (
                   <ReferencesBlock sources={sources} />
@@ -2279,6 +2363,7 @@ function ResearchPageContent() {
           background: #181818;
           border: 1px solid #2a2a2a;
           overflow: hidden;
+          position: relative;
           transition: border-color 0.15s, transform 0.15s, background 0.15s;
         }
         .cite-chip:hover {
@@ -2292,6 +2377,20 @@ function ResearchPageContent() {
           border-radius: 2px;
           object-fit: contain;
         }
+        /* v5.4 verification status dot — corner badge on each citation chip */
+        .cite-dot {
+          position: absolute;
+          top: 0;
+          right: 0;
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          border: 1px solid #0d0d0d;
+          pointer-events: none;
+        }
+        .cite-dot-verified { background: #34d399; }
+        .cite-dot-review { background: #fbbf24; }
+        .cite-dot-unverified { background: #f87171; }
         .cite-fallback {
           color: #f87171;
           font-size: 0.72em;
@@ -2390,6 +2489,140 @@ function ResearchPageContent() {
           transition: background 0.15s;
         }
         .ref-id:hover { background: rgba(96, 165, 250, 0.16); text-decoration: none; }
+
+        /* ─── v5.4 verification grid ─── */
+        .verification-block {
+          border: 1px solid #1a1a1a;
+          background: #0d0d0d;
+          border-radius: 12px;
+          padding: 12px 16px;
+        }
+        .verification-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-bottom: 10px;
+        }
+        .verification-badge {
+          font-size: 10px;
+          font-weight: 600;
+          font-family: ui-monospace, monospace;
+          border-radius: 5px;
+          padding: 2px 7px;
+          letter-spacing: 0.02em;
+        }
+        .verification-badge-verified {
+          color: #34d399;
+          background: rgba(52, 211, 153, 0.08);
+          border: 1px solid rgba(52, 211, 153, 0.25);
+        }
+        .verification-badge-mixed {
+          color: #fbbf24;
+          background: rgba(251, 191, 36, 0.08);
+          border: 1px solid rgba(251, 191, 36, 0.25);
+        }
+        .verification-badge-weak,
+        .verification-badge-none {
+          color: #f87171;
+          background: rgba(248, 113, 113, 0.08);
+          border: 1px solid rgba(248, 113, 113, 0.25);
+        }
+        .verification-bar {
+          display: flex;
+          height: 4px;
+          border-radius: 2px;
+          overflow: hidden;
+          background: #1a1a1a;
+          margin-bottom: 8px;
+          gap: 1px;
+        }
+        .verification-seg { min-width: 2px; transition: width 0.3s ease; }
+        .verification-counts {
+          display: flex;
+          align-items: baseline;
+          gap: 6px;
+          flex-wrap: wrap;
+          font-size: 11px;
+          margin-bottom: 4px;
+        }
+        .verification-count { font-weight: 600; }
+        .verification-count-ok { color: #34d399; }
+        .verification-count-warn { color: #fbbf24; }
+        .verification-count-bad { color: #f87171; }
+        .verification-count-quiet { color: #525252; font-size: 10px; }
+        .verification-sep { color: #2a2a2a; }
+        .verification-desc {
+          font-size: 10.5px;
+          color: #737373;
+          margin: 0 0 10px 0;
+          line-height: 1.5;
+        }
+        .verification-flagged {
+          border-top: 1px solid #1a1a1a;
+          padding-top: 9px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .verification-flagged-title {
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: #525252;
+        }
+        .verification-flag-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 11px;
+          line-height: 1.5;
+          min-width: 0;
+          text-decoration: none;
+          border-radius: 6px;
+          padding: 2px 4px;
+          margin: -2px -4px;
+          transition: background 0.15s;
+        }
+        .verification-flag-row:hover { background: #141414; }
+        .verification-flag-title {
+          color: #c0c0c0;
+          font-weight: 500;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          min-width: 0;
+        }
+        .verification-flag-row:hover .verification-flag-title { color: #fff; }
+        .verification-flag-domain { color: #525252; font-size: 10px; flex-shrink: 0; }
+        .verification-flag-chip {
+          flex-shrink: 0;
+          font-size: 9px;
+          font-weight: 600;
+          font-family: ui-monospace, monospace;
+          border-radius: 4px;
+          padding: 0 4px;
+        }
+        .verification-flag-chip-review {
+          color: #fbbf24;
+          background: rgba(251, 191, 36, 0.08);
+          border: 1px solid rgba(251, 191, 36, 0.2);
+        }
+        .verification-flag-chip-unverified {
+          color: #f87171;
+          background: rgba(248, 113, 113, 0.08);
+          border: 1px solid rgba(248, 113, 113, 0.2);
+        }
+        .verification-flag-more { font-size: 10px; color: #525252; }
+        .verification-footer {
+          margin-top: 10px;
+          border-top: 1px solid #1a1a1a;
+          padding-top: 8px;
+          font-size: 9.5px;
+          color: #3f3f3f;
+        }
 
         .report-content h1 { font-size: 1.25rem; font-weight: 700; color: #fff; margin-top: 1rem; margin-bottom: 0.75rem; }
         .report-content h2 { font-size: 1.1rem; font-weight: 600; color: #fff; margin-top: 1.25rem; margin-bottom: 0.5rem; }
