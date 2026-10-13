@@ -1,5 +1,11 @@
 // ══════════════════════════════════════════════════════════════════
-// KIVORA RESEARCH WORKER — Cloudflare Worker (v5.2.0)
+// KIVORA RESEARCH WORKER — Cloudflare Worker (v5.2.1)
+// v5.2.1 fix ("results not streaming / taking forever"):
+//   - Workers AI leg of llmApexFree/llmApexPremium now streams via
+//     workersAiChatStream() when a stream consumer is attached. Previously,
+//     with OpenRouter out of credits (402), every report silently fell back to
+//     the BUFFERED Workers AI models (8b ~10-15s, 70b ~60-70s) → long silence
+//     then one giant delta. Now tokens flow from whichever provider wins.
 // v5.2.0 additions (strictly additive — non-stream JSON behavior unchanged):
 //   - True streaming: POST /research with body { stream: true } returns SSE
 //     (phase → sources → delta → part_done → done|error). Without the flag,
@@ -783,6 +789,59 @@ async function workersAiChat(env, messages, model, maxTokens = 2048) {
   }
 }
 
+// ── Workers AI streaming variant (v5.2.1) ──
+// env.AI.run with stream:true returns a ReadableStream of SSE frames
+// (`data: {"response":"token"}`). Forwards tokens to onDelta as they arrive,
+// returns the FULL text (validateOutput still runs at the caller), or null on
+// any failure — the caller then does resetPartial() and moves down the chain.
+// This is the fix for "not streaming": with OpenRouter out of credits (402),
+// v5.2.0 silently fell back to the BUFFERED Workers AI leg (8b ~10-15s, 70b
+// ~60-70s) → long silence + one giant delta. Streaming here keeps tokens
+// flowing regardless of which provider wins.
+async function workersAiChatStream(env, messages, model, maxTokens = 2048, onDelta = null) {
+  if (!env.AI) return null;
+  try {
+    const t0 = Date.now();
+    const stream = await env.AI.run(model, { messages, max_tokens: maxTokens, stream: true });
+    if (!stream || typeof stream.getReader !== 'function') {
+      // Binding returned a plain buffered object (unexpected) — use it as-is.
+      const text = stream?.response || null;
+      if (text && typeof onDelta === 'function') { try { onDelta(text); } catch {} }
+      return text;
+    }
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
+    let buf = '', full = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === '[DONE]') continue;
+        try {
+          const evt = JSON.parse(payload);
+          const piece = evt.response || '';
+          if (piece) {
+            full += piece;
+            if (typeof onDelta === 'function') { try { onDelta(piece); } catch {} }
+          }
+        } catch { // partial JSON across chunk boundary — line framing tolerates
+        }
+      }
+    }
+    console.log(`[WorkersAI-stream] ${model} streamed ${full.length} chars in ${Date.now() - t0}ms`);
+    return full.length > 0 ? full : null;
+  } catch (err) {
+    console.error(`[WorkersAI-stream] ${model} exception:`, err.message);
+    return null;
+  }
+}
+
 // Google Gemini — free tier (15 RPM for Flash). Very fast ~3-8s
 async function geminiChat(env, messages, model = 'gemini-2.0-flash', maxTokens = 4096, timeout = 20000) {
   const apiKey = getGeminiKey(env);
@@ -1115,7 +1174,10 @@ async function llmApexFree(env, messages, maxTokens = 4096, mode = 'quick', stre
     }
   }
 
-  // 2. Workers AI — free, built-in (skip deprecated models)
+  // 2. Workers AI — free, built-in (skip deprecated models).
+  //    v5.2.1: with a stream consumer attached, each model streams token
+  //    deltas live; on validateOutput failure the partial buffer is reset and
+  //    the next model streams. Non-stream callers keep exact buffered behavior.
   if (env.AI) {
     const workersAiModels = [
       '@cf/meta/llama-3.1-8b-instruct-fp8',
@@ -1124,6 +1186,13 @@ async function llmApexFree(env, messages, maxTokens = 4096, mode = 'quick', stre
       '@cf/mistralai/mistral-small-3.1-24b-instruct',
     ];
     for (const m of workersAiModels) {
+      if (canStream) {
+        const result = await workersAiChatStream(env, messages, m, Math.min(maxTokens, 4096), stream.onDelta);
+        if (result && validateOutput(result, mode)) return result;
+        if (result) resetPartial(); // discard deltas the client already rendered
+        errors.push(`WAI-stream:${m}:${result ? 'bad-output' : 'null'}`);
+        continue;
+      }
       const result = await workersAiChat(env, messages, m, Math.min(maxTokens, 4096));
       if (result && validateOutput(result, mode)) { emitBuffered(result); return result; }
       if (result) errors.push(`WAI:${m}:bad-output`);
@@ -1201,7 +1270,8 @@ async function llmApexPremium(env, messages, maxTokens = 4096, mode = 'quick', s
     }
   }
 
-  // 3. Workers AI
+  // 3. Workers AI (v5.2.1: streaming when a stream consumer is attached —
+  //    same reset contract as the OpenRouter leg above)
   if (env.AI) {
     const workersAiModels = [
       '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
@@ -1209,6 +1279,13 @@ async function llmApexPremium(env, messages, maxTokens = 4096, mode = 'quick', s
       '@cf/mistralai/mistral-small-3.1-24b-instruct',
     ];
     for (const m of workersAiModels) {
+      if (canStream) {
+        const result = await workersAiChatStream(env, messages, m, Math.min(maxTokens, 4096), stream.onDelta);
+        if (result && validateOutput(result, mode)) return result;
+        if (result) resetPartial(); // discard deltas the client already rendered
+        errors.push(`WAI-stream:${m}:${result ? 'bad-output' : 'null'}`);
+        continue;
+      }
       const result = await workersAiChat(env, messages, m, Math.min(maxTokens, 4096));
       if (result && validateOutput(result, mode)) { emitBuffered(result); return result; }
       if (result) errors.push(`WAI:${m}:bad-output`);
@@ -2945,6 +3022,7 @@ async function runMonthlyReset(env) {
 // default export (fetch + scheduled) is the only thing the runtime binds.
 export {
   openrouterChatStream,
+  workersAiChatStream,
   classifyQuery,
   detectRecency,
   tavilyTimeRange,

@@ -181,5 +181,47 @@ t('route parses cached sources/followups/verification_summary', routeSrc.include
 t('cached sources defaults to array', routeSrc.includes('asParsed(cached.sources) || []'))
 t('cached followups defaults to array', routeSrc.includes('asParsed(cached.followups) || []'))
 
+// ── 10. Workers AI streaming fallback (v5.2.1: "not streaming / taking forever") ──
+console.log('── 10. workersAiChatStream (mocked env.AI binding) ──')
+const WAI_CHUNKS = [
+  'data: {"response":"Token "}\n\n',
+  'data: {"response":"one "}\n\n',
+  'data: {"response":"flows"}\n\n',
+  'data: [DONE]\n\n',
+]
+const fakeEnvAI = {
+  AI: {
+    run: async (model, opts) => {
+      if (!opts?.stream) return { response: 'buffered path' } // guard: stream flag must be passed
+      const enc = new TextEncoder()
+      return new ReadableStream({
+        start(c) { for (const ch of WAI_CHUNKS) c.enqueue(enc.encode(ch)); c.close() },
+      })
+    },
+  },
+}
+const waiGot = []
+const waiFull = await worker.workersAiChatStream(fakeEnvAI, [{ role: 'user', content: 'hi' }], '@cf/meta/llama-3.1-8b-instruct-fp8', 100, (d) => waiGot.push(d))
+t('WAI stream: passes stream:true to binding', waiFull === 'Token one flows')
+t('WAI stream: onDelta fired per token', JSON.stringify(waiGot) === JSON.stringify(['Token ', 'one ', 'flows']))
+
+const emptyStreamEnv = { AI: { run: async () => { const e = new TextEncoder(); return new ReadableStream({ start(c) { c.enqueue(e.encode('data: [DONE]\n\n')); c.close() } }) } } }
+const waiEmpty = await worker.workersAiChatStream(emptyStreamEnv, [{ role: 'user', content: 'x' }], 'm', 10, () => {})
+t('WAI stream: empty result → null', waiEmpty === null)
+
+const throwEnv = { AI: { run: async () => { throw new Error('ai down') } } }
+const waiErr = await worker.workersAiChatStream(throwEnv, [{ role: 'user', content: 'x' }], 'm', 10, () => {})
+t('WAI stream: binding exception → null (caller falls through chain)', waiErr === null)
+
+const waiNoAI = await worker.workersAiChatStream({}, [{ role: 'user', content: 'x' }], 'm', 10, () => {})
+t('WAI stream: no env.AI → null', waiNoAI === null)
+
+console.log('── 11. WAI streaming wiring in both apex chains (static) ──')
+t('free chain WAI leg streams when canStream', workerSrc.includes('const result = await workersAiChatStream(env, messages, m, Math.min(maxTokens, 4096), stream.onDelta);'))
+t('WAI stream failures reset partial deltas', (workerSrc.match(/if \(result\) resetPartial\(\); \/\/ discard deltas the client already rendered/g) || []).length === 2)
+t('WAI stream errors tagged distinctly in chain trace', (workerSrc.match(/WAI-stream:/g) || []).length === 2) // free + premium legs' errors.push
+t('buffered workersAiChat still present for non-stream callers', (workerSrc.match(/await workersAiChat\(env, messages, m, Math\.min\(maxTokens, 4096\)\)/g) || []).length >= 3) // free + premium + llmQuick
+t('export exists for regression suite', typeof worker.workersAiChatStream === 'function')
+
 console.log(`\n${pass}/${pass + fail} assertions passed`)
 process.exit(fail > 0 ? 1 : 0)
