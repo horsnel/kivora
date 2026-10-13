@@ -463,3 +463,30 @@ Stage Summary:
 - Browser-verified end-to-end on live /chat (mock QA session + scenario override): caret live mid-stream + cleanup, orb hidden while streaming, rate/upgrade/error cards pixel-correct (no arrows), Try again re-fires (log chat:error ×2), status→shimmer→image card with caption + working Download
 - 9 evidence screenshots in /home/z/my-project/download/verify-*.png
 - PENDING: GitHub sync blocked — needs fresh PAT from user (commit 9dc3fcc + worklog commit ready to push)
+
+---
+Task ID: research-stream-v521
+Agent: Super Z (main)
+Task: Push pending cache-hit fix; fix "results not streaming / taking forever" in research engine
+
+Work Log:
+- Confirmed fb3049d (cache-hit .map crash fix) was already on origin; CI + Pages deploy green on it
+- Read CI via GitHub API (watch_ci.py lives outside repo; scripts/ in repo has the 5 test suites)
+- Diagnosed root cause: OpenRouter account 402s every request → v5.2.0 chains fell back to BUFFERED workersAiChat (8b ~10-15s, 70b ~60-70s) → long silence + ONE giant delta. Streaming only ever worked on the OpenRouter leg
+- Confirmed worker bindings via CF API: AI, OPENROUTER_API_KEY, MISTRAL_API_KEY, TAVILY — NO GEMINI key ⇒ Workers AI streaming is the only fix that matters now
+- Implemented workersAiChatStream(): env.AI.run({stream:true}) → SSE `data: {"response":...}` parser → onDelta per token; full text returned for validateOutput; null on failure → caller resetPartial() + next model (same contract as OpenRouter leg)
+- Wired into llmApexFree WAI leg + llmApexPremium WAI leg when canStream; buffered workersAiChat preserved byte-identically for non-stream callers (llmQuick untouched)
+- Header bumped v5.2.1; workersAiChatStream added to named test exports
+- Regression: sections 10-11 added to test_research_stream.mjs (mocked env.AI binding, stream:true guard, per-token onDelta, empty/error/no-AI → null, static wiring ×2 chains, buffered paths still present). Hit a self-inflicted syntax bug (extra `)` + comma-operator soup in inline awaits) — rewrote block flat. 92/92; all 5 suites 213/213
+- Deployed worker via `wrangler deploy --config research-worker/wrangler.toml` (CLOUDFLARE_API_TOKEN from scripts/.cf_token) → version d1b946bd
+- LIVE VERIFIED worker: 810 deltas over 39.0s, first delta 3.8s, streamed chars == final report (4198==4198), recency year detected from "2026", 3 write-phase events at 3.8s = initial + 2×OR-402 resets before any visible text
+- Commit 2e285eb pushed (remote URL now carries the new PAT); CI + Pages deploy green
+- LIVE VERIFIED production route /api/research (needs browser UA — bare urllib gets 403 from bot protection): 604 deltas, first 4.2s, spread 39.5s, terminal done with full enriched payload (cacheId, wiki*, recency, fromCache)
+- Cache burst re-verified: 1.12s repeat query, phase:cache → done, fromCache:true
+- Verified live client bundle: page-494c1c550c3c33b6.js contains stream_active / research-stream-error / text/event-stream / recency markers (first check was a false alarm — grep'd framework chunks with a minifiable function name)
+
+Stage Summary:
+- Worker v5.2.1 live: true token streaming from ALL providers in both apex chains — OpenRouter credits no longer required for streaming UX
+- Production chain verified end-to-end: browser → /api/research → worker → 600+ token deltas starting ~4s
+- User-facing note: hard-reload /research once (old cached chunk predates streaming client); OpenRouter top-up still recommended (adds premium model quality, not needed for streaming anymore)
+- Test suites: 213/213 (research_stream 92 + send_button 21 + notice_cards 75 + gate_errors 14 + output_scroll 11)
