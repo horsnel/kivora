@@ -175,5 +175,11 @@ t('fallback suppressed once streaming is active', clientSrc.includes("throw new 
 t('stream_active never surfaced as error message', clientSrc.includes("m !== 'stream_active'"))
 t('stream failure rejects → Promise.any falls to fallback', clientSrc.includes("reject(new Error('research stream ended without result'))"))
 
+// ── 9. cache-hit payload type safety (regression: '.map is not a function') ──
+console.log('── 9. cache-hit payload normalizes JSON strings ──')
+t('route parses cached sources/followups/verification_summary', routeSrc.includes('const asParsed = (v) => {'))
+t('cached sources defaults to array', routeSrc.includes('asParsed(cached.sources) || []'))
+t('cached followups defaults to array', routeSrc.includes('asParsed(cached.followups) || []'))
+
 console.log(`\n${pass}/${pass + fail} assertions passed`)
 process.exit(fail > 0 ? 1 : 0)

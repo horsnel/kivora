@@ -261,11 +261,20 @@ export async function POST(req) {
           // Fetch wiki metadata if linked
           const wikiMeta = await getWikiMeta(admin, cached.wiki_page_id)
 
+          // apex_research_cache stores these as JSON strings (text columns).
+          // Parse defensively — a raw string here crashes the /research UI
+          // with '.map is not a function' on every cache hit (pre-existing
+          // bug made prominent by the v5.2.0 instant cache burst).
+          const asParsed = (v) => {
+            if (typeof v !== 'string') return v
+            try { return JSON.parse(v) } catch { return v }
+          }
+
           const cachedPayload = {
             report: cached.report,
-            sources: cached.sources,
-            followups: cached.followups,
-            verificationSummary: cached.verification_summary,
+            sources: asParsed(cached.sources) || [],
+            followups: asParsed(cached.followups) || [],
+            verificationSummary: asParsed(cached.verification_summary) || {},
             fromCache: true,
             cacheId: cached.id,
             wikiPageId: cached.wiki_page_id || null,
