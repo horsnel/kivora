@@ -248,14 +248,16 @@ t('API: exact-cache hit re-serves supportCheck + statCheck (v5.7 gap closed)', r
 t('worker: quick-mode gate wired before makeResponse', workerSrc.indexOf('[Quick] Fabrication gate:') > -1 && workerSrc.indexOf('[Quick] Fabrication gate:') < workerSrc.lastIndexOf("mode: 'quick'"))
 t('worker: repair ladder orders verified-recite → verified-search → rewrite → drop', (() => {
   const ladder = workerSrc.slice(workerSrc.indexOf('async function repairFabrications'))
-  const recite = ladder.indexOf('Step 1 — verified re-cite')
-  const search = ladder.indexOf('Step 2 — search for a source that CONTAINS the figure')
-  const rewrite = ladder.indexOf('Step 3 — ONE batched LLM rewrite')
-  const drop = ladder.indexOf('Step 4 — the sentence is unverifiable fiction')
+  const recite = ladder.indexOf('PASS A — verified re-cite')
+  const search = ladder.indexOf('PASS B — verified search')
+  const rewrite = ladder.indexOf('PASS C — ONE batched LLM hedge-rewrite')
+  const drop = ladder.indexOf('PASS D — the sentence is unverifiable fiction')
   return recite > -1 && recite < search && search < rewrite && rewrite < drop
 })())
 
 t('worker: repair recite requires the candidate to satisfy EVERY violation', workerSrc.includes('vios.every((x) => ('))
+t('worker: verified searches run in ONE parallel batch (latency-safe ceiling)', workerSrc.includes('PASS B — verified search, ALL sentences in ONE parallel batch') && workerSrc.includes('await Promise.all(searchTargets.map'))
+t('worker: both pipelines strip internal prompt meta-lines', (workerSrc.match(/stripInternalPromptLines\(stripSourcesSection/g) || []).length === 2)
 
 console.log(`\n${pass}/${pass + fail} assertions passed`)
 process.exit(fail > 0 ? 1 : 0)

@@ -203,7 +203,7 @@ t('quick pipeline: NO decomposition (speed budget sacred)', (() => {
   const quickBody = workerSrc.slice(workerSrc.indexOf('async function quickResearch'), workerSrc.indexOf('async function deepResearch'))
   return !quickBody.includes('decomposeSubQuestions')
 })())
-t('worker version bumped to v5.8 (header)', workerSrc.includes('Cloudflare Worker (v5.8)'))
+t('worker version bumped to v5.8.1', workerSrc.includes('Cloudflare Worker (v5.8)') && workerSrc.includes("version: '5.8.1'"))
 
 console.log('── v5.7: analysis dimensions (deterministic detection) ──')
 const THE_Q = "What are features and architecture that'll blow up the next social media platforms ?"
@@ -305,7 +305,12 @@ t('router: permalink stored AFTER successful result', (() => {
   return pipe.indexOf('storePermalink(env, result, safeQuery)') > pipe.indexOf('await deepResearch(effectiveQuery')
 })())
 t('router: semantic hit emits cache phase for stream UX', workerSrc.includes("emit({ type: 'phase', phase: 'cache' })"))
-t('worker version bumped to v5.8', workerSrc.includes('Cloudflare Worker (v5.8)') && workerSrc.includes("version: '5.8.0'"))
+t('worker version bumped to v5.8.1', workerSrc.includes('Cloudflare Worker (v5.8)') && workerSrc.includes("version: '5.8.1'"))
+t('tier snapshot fenced OUT of report structure (echo-proof placement)', workerSrc.includes('--- INTERNAL EVIDENCE NOTE — NOT REPORT CONTENT, NEVER OUTPUT ANY PART OF IT ---\n${tierSnapshot}`'))
+t('strip catches reformatted tier-jargon echoes (bullet lists too)', (() => {
+  const cleaned = worker.stripInternalPromptLines('Overall: High.\n- **P1-academic**: 1 (source [5] on algorithmic mechanisms).\n- **P2-professional**: 0.\nBiggest uncertainty: adoption.')
+  return !cleaned.includes('P1-academic') && !cleaned.includes('P2-professional') && cleaned.includes('Overall: High') && cleaned.includes('Biggest uncertainty')
+})())
 
 console.log('── v5.7: client permalink + support surface (research page) ──')
 const pageSrc = readFileSync(new URL('../app/research/page.jsx', import.meta.url), 'utf8')
@@ -376,6 +381,11 @@ t('rewrite parser: fenced JSON in, garbage → null', (() => {
   const ok = fab.parseRewriteItems('[{"i":1,"text":"hedged sentence [4]"}]')
   return ok && ok[0].text.includes('hedged') && fab.parseRewriteItems('sorry, no') === null
 })())
+t('internal prompt meta-lines stripped from reports (v5.8.1 echo leak)', (() => {
+  const cleaned = fab.stripInternalPromptLines('Confidence Assessment\nEVIDENCE-BASED CONFIDENCE INPUT — SOURCE VERIFICATION SNAPSHOT: 2 P1-academic.\nOverall: High.')
+  return !cleaned.includes('EVIDENCE-BASED') && cleaned.includes('Overall: High')
+})())
+t('gate ceiling: 24 violations audited, 12 sentences repaired', fabSrc.includes('const FAB_MAX_REPAIRS = 12') && fabSrc.includes('const FAB_MAX_ITEMS = 24'))
 // 6. Pipeline wiring — both modes, payloads, and the laundering fix
 t('quick pipeline runs the fabrication gate', fabSrc.includes('auditFabrications(report, sources, fullTexts)') && fabSrc.includes("[Quick] Fabrication gate:"))
 t('deep pipeline runs the gate AFTER support repairs', (() => {

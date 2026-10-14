@@ -1050,8 +1050,11 @@ function buildSupportPrompt(claims, sources) {
 //   4. DROP — the sentence is fiction; fiction is deleted, never shipped
 // ══════════════════════════════════════════════════════════════════
 
-const FAB_MAX_REPAIRS = 4;     // sentences getting the full repair ladder
-const FAB_MAX_ITEMS = 12;      // audit cap on returned violations
+const FAB_MAX_REPAIRS = 12;    // violating sentences getting the ladder —
+                               // badly-behaved runs flag 25+ violations; the
+                               // v5.8.0 cap of 4 left residual fiction shipping
+const FAB_MAX_ITEMS = 24;      // audit cap on returned violations (matches
+                               // the deep source-pool cap)
 
 // Stoplist for named-term detection: structural/report words that get
 // capitalized in prose but are never factual attributions.
@@ -1172,6 +1175,20 @@ function extractEntityClaims(sentence) {
   return out;
 }
 
+// Strip internal prompt meta-lines a model may echo into its output
+// (v5.8.1: a live run pasted the tier-snapshot line into Confidence
+// Assessment). Deterministic, both modes, runs before the gate so the
+// gate never wastes repair budget on meta-text. Pure.
+function stripInternalPromptLines(report) {
+  return String(report || '')
+    // Tier jargon (P1-academic etc.) is internal-only — a reader-facing report
+    // must never contain it. This catches every echo FORMAT: verbatim line,
+    // reformatted heading, or bullet list (a live run rendered the snapshot as
+    // "EVIDENCE-BASED CONFIDENCE INPUT — SOURCE VERIFICATION SNAPSHOT:" + bullets).
+    .replace(/^.*(?:P1-academic|P2-professional|P3-community|SOURCE VERIFICATION SNAPSHOT|EVIDENCE-BASED CONFIDENCE INPUT|CONFIDENCE INPUT \(internal).*$/gm, '')
+    .replace(/\n{3,}/g, '\n\n');
+}
+
 // Deterministic fabrication audit. Verifies every statistic against the
 // text of its CITED sources (uncited stats against the whole pool) and
 // named-term claims in cited sentences. Pure — unit tested.
@@ -1215,8 +1232,18 @@ function auditFabrications(report, sources, fullTexts) {
           foundIn: foundIn >= 0 ? foundIn + 1 : null,
         });
       }
-      if (cited.length > 0 && !isTable) {
-        for (const term of extractEntityClaims(sentence)) {
+      // Named-term claims: cited sentences. In tables, skip the LEADING label
+      // cell (compression labels) but audit content cells — fabricated study
+      // attributions hide in table cells too ("a 2025 JAMA analysis [3]").
+      if (cited.length > 0) {
+        let entityText = sentence;
+        if (isTable) {
+          const cells = l.split('|').map((c) => c.trim()).filter(Boolean);
+          // leading space keeps cell-initial terms out of the sentence-initial
+          // framing exemption — a cell that STARTS with the term is a claim
+          entityText = ' ' + cells.slice(1).join(' ');
+        }
+        for (const term of extractEntityClaims(entityText)) {
           entitiesChecked++;
           const low = term.toLowerCase();
           const ok = cited.some((i) => srcText(i).toLowerCase().includes(low));
@@ -1302,74 +1329,89 @@ async function repairFabrications(env, audit, report, sources, fullTexts) {
     if (!bySentence.has(v.sentence)) bySentence.set(v.sentence, []);
     bySentence.get(v.sentence).push(v);
   }
+  const entries = [...bySentence.entries()].slice(0, FAB_MAX_REPAIRS);
   let repaired = 0;
   let rewritten = 0;
   let removed = 0;
-  let processed = 0;
-  const rewriteQueue = [];
-  for (const [sentence, vios] of bySentence) {
-    if (processed >= FAB_MAX_REPAIRS) break;
-    processed++;
-    // Step 1 — verified re-cite inside the existing pool. The candidate
-    // source must satisfy EVERY violation of this sentence, not just the
-    // first — otherwise the swap would fix one figure and orphan the other.
+
+  // ── PASS A — verified re-cite (pure, zero latency): a pool source that
+  // already contains EVERY flagged figure of the sentence gets the citation.
+  // The candidate must satisfy ALL violations, not just the first — otherwise
+  // the swap would fix one figure and orphan the other. ──
+  const open = [];
+  for (const [sentence, vios] of entries) {
     const reciteTo = vios.find((v) => v.foundIn && !v.cited.includes(v.foundIn) && vios.every((x) => (
       x.kind === 'stat'
         ? statMatchesSource(x.stat, srcText(v.foundIn))
         : srcText(v.foundIn).toLowerCase().includes(x.value.toLowerCase())
     )))?.foundIn;
-    if (reciteTo) {
-      const swapped = swapCitationMarker(report2, sentence, reciteTo);
-      if (swapped) {
-        report2 = swapped;
-        repaired++;
-        for (const v of vios) {
-          items.push({ sentence: sentence.slice(0, 160), kind: v.kind, value: v.value, action: 'repaired', detail: `re-cited to [${reciteTo}] — verified the ${v.kind} appears there verbatim` });
+    const swapped = reciteTo ? swapCitationMarker(report2, sentence, reciteTo) : null;
+    if (reciteTo && swapped) {
+      report2 = swapped;
+      repaired++;
+      for (const v of vios) {
+        items.push({ sentence: sentence.slice(0, 160), kind: v.kind, value: v.value, action: 'repaired', detail: `re-cited to [${reciteTo}] — verified the ${v.kind} appears there verbatim` });
+      }
+    } else {
+      open.push([sentence, vios]);
+    }
+  }
+
+  // ── PASS B — verified search, ALL sentences in ONE parallel batch (~1.5s
+  // wall, not 1.5s × n): a hit is cited ONLY if its text contains EVERY
+  // flagged figure verbatim (v5.7's topical swaps could launder a fabricated
+  // number into looking sourced — closed here). ──
+  const keywordsOf = (s) => String(s || '')
+    .replace(/[\[(]\d+(?:\s*[-,]\s*\d+)*[\])]/g, '')
+    .replace(/[#*|_`>]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120);
+  const searchTargets = open.filter(([sentence, vios]) => {
+    const fig = vios.find((v) => v.kind === 'stat') || vios[0];
+    return fig && keywordsOf(sentence).split(/\s+/).length >= 4;
+  });
+  const searchResults2 = await Promise.all(searchTargets.map(([sentence, vios]) => {
+    const fig = vios.find((v) => v.kind === 'stat') || vios[0];
+    return searchTavily(`${fig.value} ${keywordsOf(sentence)}`, env, 4, 'advanced', null).catch(() => []);
+  }));
+  const rewriteQueue = [];
+  const skippedSearch = open.filter(([s]) => !searchTargets.some(([t]) => t === s));
+  for (let idx = 0; idx < searchTargets.length; idx++) {
+    const [sentence, vios] = searchTargets[idx];
+    let done = false;
+    const pick = (Array.isArray(searchResults2[idx]) ? searchResults2[idx] : []).find((h) => {
+      if (!h?.url) return false;
+      const txt = `${h.snippet || ''}\n${h.content || ''}`;
+      return vios.every((x) => (x.kind === 'stat'
+        ? statMatchesSource(x.stat, txt)
+        : txt.toLowerCase().includes(x.value.toLowerCase())));
+    });
+    if (pick) {
+      const before = sources2.length;
+      const nextSources = appendRepairSources(sources2, [pick], mapSource);
+      if (nextSources.length > before) {
+        const swapped = swapCitationMarker(report2, sentence, before + 1);
+        if (swapped) {
+          sources2 = nextSources;
+          fts2.push(`${pick.snippet || ''}\n${pick.content || ''}`);
+          report2 = swapped;
+          repaired++;
+          for (const v of vios) {
+            items.push({ sentence: sentence.slice(0, 160), kind: v.kind, value: v.value, action: 'repaired', detail: `verified search hit appended as [${before + 1}] — figure present in its text` });
+          }
+          done = true;
         }
-        continue;
       }
     }
-    // Step 2 — search for a source that CONTAINS the figure (verified, not topical)
-    const fig = vios.find((v) => v.kind === 'stat') || vios[0];
-    const keywords = sentence.replace(/[\[(]\d+(?:\s*[-,]\s*\d+)*[\])]/g, '').replace(/[#*|_`>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120);
-    let done = false;
-    if (fig && keywords.split(/\s+/).length >= 4) {
-      try {
-        const hits = await searchTavily(`${fig.value} ${keywords}`, env, 4, 'advanced', null).catch(() => []);
-        const pick = (Array.isArray(hits) ? hits : []).find((h) => {
-          if (!h?.url) return false;
-          const txt = `${h.snippet || ''}\n${h.content || ''}`;
-          return vios.every((x) => (x.kind === 'stat'
-            ? statMatchesSource(x.stat, txt)
-            : txt.toLowerCase().includes(x.value.toLowerCase())));
-        });
-        if (pick) {
-          const before = sources2.length;
-          const nextSources = appendRepairSources(sources2, [pick], mapSource);
-          if (nextSources.length > before) {
-            const swapped = swapCitationMarker(report2, sentence, before + 1);
-            if (swapped) {
-              sources2 = nextSources;
-              fts2.push(`${pick.snippet || ''}\n${pick.content || ''}`);
-              report2 = swapped;
-              repaired++;
-              for (const v of vios) {
-                items.push({ sentence: sentence.slice(0, 160), kind: v.kind, value: v.value, action: 'repaired', detail: `verified search hit appended as [${before + 1}] — figure present in its text` });
-              }
-              done = true;
-            }
-          }
-        }
-      } catch { /* search failure falls through to rewrite */ }
-    }
-    if (done) continue;
-    // Step 3/4 — queued for the batched hedge rewrite; dropped if that fails
-    rewriteQueue.push({ sentence, vios });
+    if (!done) rewriteQueue.push({ sentence, vios });
   }
-  // Step 3 — ONE batched LLM rewrite for everything left
+  for (const [sentence, vios] of skippedSearch) rewriteQueue.push({ sentence, vios });
+
+  // ── PASS C — ONE batched LLM hedge-rewrite for everything left ──
   if (rewriteQueue.length > 0) {
     try {
-      const entries = rewriteQueue.map((r, idx) => ({
+      const rewriteEntries = rewriteQueue.map((r, idx) => ({
         i: idx + 1,
         sentence: r.sentence.slice(0, 400),
         issues: r.vios.map((v) => (v.kind === 'stat'
@@ -1377,8 +1419,8 @@ async function repairFabrications(env, audit, report, sources, fullTexts) {
           : `named term "${v.value}" not found in the cited sources`)),
       }));
       const raw = await llmApexFree(env, [
-        { role: 'user', content: buildFabricationRewritePrompt(entries) },
-      ], 1400, 'audit');
+        { role: 'user', content: buildFabricationRewritePrompt(rewriteEntries) },
+      ], 2000, 'audit');
       const parsed = parseRewriteItems(raw);
       for (const r of rewriteQueue) {
         const hit = parsed ? parsed.find((p) => p.i === rewriteQueue.indexOf(r) + 1) : null;
@@ -1404,7 +1446,8 @@ async function repairFabrications(env, audit, report, sources, fullTexts) {
             items.push({ sentence: r.sentence.slice(0, 160), kind: v.kind, value: v.value, action: 'rewritten', detail: 'unsupported figure removed — hedged rewrite verified code-side' });
           }
         } else if (report2.includes(r.sentence)) {
-          // Step 4 — the sentence is unverifiable fiction; drop it entirely
+          // ── PASS D — the sentence is unverifiable fiction; drop it entirely.
+          // Fiction is deleted, never shipped. ──
           report2 = report2.replace(r.sentence, '').replace(/[ \t]{2,}/g, ' ');
           removed++;
           for (const v of r.vios) {
@@ -3385,7 +3428,7 @@ async function quickResearch(query, env, apexModel = 'apex-free', searchQueryOve
   const { report: rawReport2, followups } = extractFollowups(rawReport);
   // Strip trailing "Sources:" section model may have appended despite instructions
   // let (not const) — v5.8 fabrication-gate repairs may rewrite/remove sentences
-  let report = stripSourcesSection(rawReport2);
+  let report = stripInternalPromptLines(stripSourcesSection(rawReport2));
   // Fix #22: No markdownToHtml — frontend handles rendering
   const titleMatch = report.match(/^##\s+(.+)$/m) || report.match(/^#\s+(.+)$/m);
   const title = titleMatch ? titleMatch[1].replace(/[*_]/g, '') : query;
@@ -3555,8 +3598,12 @@ async function deepResearch(query, env, apexModel = 'apex-free', searchQueryOver
   // v5.5 agentic loop: the REAL tier distribution of the actual source base,
   // injected into part2's Confidence Assessment so the report's confidence
   // section is grounded in evidence the pipeline measured, not model vibes.
+  // v5.8.1: worded as an internal instruction — the old phrasing got echoed
+  // VERBATIM into a live report's Confidence Assessment (prompt-leakage that
+  // also polluted the fabrication gate). stripInternalPromptLines below is
+  // the deterministic safety net if a model still echoes it.
   const _finalTiers = countTiers(sources);
-  const tierSnapshot = `EVIDENCE-BASED CONFIDENCE INPUT — SOURCE VERIFICATION SNAPSHOT (computed from the actual retrieved sources of this report): ${_finalTiers.P1} P1-academic, ${_finalTiers.P2} P2-professional, ${_finalTiers.P3} P3-community, ${_finalTiers.UNV} unverified. Weigh this distribution when rating overall confidence, and explicitly name which claims rest on the weakest (P3-community or unverified) sources.`;
+  const tierSnapshot = `CONFIDENCE INPUT (internal — weigh silently, NEVER repeat or quote this line in the report): the retrieved sources measured ${_finalTiers.P1} P1-academic, ${_finalTiers.P2} P2-professional, ${_finalTiers.P3} P3-community, ${_finalTiers.UNV} unverified. Weigh this distribution when rating overall confidence, and explicitly name which claims rest on the weakest (P3-community or unverified) sources.`;
 
   // Section prompts — 2 parallel LLM calls for credit efficiency
   // Each part targets ~1,500 words; concatenated report lands at 2,500-3,500.
@@ -3670,14 +3717,16 @@ Then 2-3 short paragraphs framing the risk/opportunity landscape. Include 1 tabl
 
 ## Confidence Assessment
 Overall: High / Moderate / Low. Biggest uncertainty: ...
-${tierSnapshot}
 
 Do NOT include a Sources section — the sources list is shown separately in the UI. Keep [N] citations inline only.
 
 FOLLOWUPS:
 1. Specific, answerable follow-up question?
 2. Specific, answerable follow-up question?
-3. Specific, answerable follow-up question?`,
+3. Specific, answerable follow-up question?
+
+--- INTERNAL EVIDENCE NOTE — NOT REPORT CONTENT, NEVER OUTPUT ANY PART OF IT ---
+${tierSnapshot}`,
     },
   ];
 
@@ -3714,7 +3763,7 @@ FOLLOWUPS:
   const { report: rawReport2, followups } = extractFollowups(rawReport);
   // Strip trailing "Sources:" section model may have appended despite instructions
   // let (not const) — v5.7 citation-support repair may swap markers in-place
-  let report = stripSourcesSection(rawReport2);
+  let report = stripInternalPromptLines(stripSourcesSection(rawReport2));
   // Fix #22/#23: No markdownToHtml, no content field
   const titleMatch = report.match(/^##\s+(.+)$/m) || report.match(/^#\s+(.+)$/m);
   const title = titleMatch ? titleMatch[1].replace(/[*_]/g, '') : query;
@@ -3936,7 +3985,7 @@ export default {
       return jsonRes({
         status: 'ok',
         service: 'kivora-research',
-        version: '5.8.0',
+        version: '5.8.1',
         providers: {
           openrouter: !!getOpenRouterKey(env),
           gemini: !!getGeminiKey(env),
@@ -4416,5 +4465,6 @@ export {
   auditFabrications,
   buildFabricationRewritePrompt,
   parseRewriteItems,
+  stripInternalPromptLines,
   cosineSim,
 };
