@@ -138,8 +138,10 @@ const clientSrc = readFileSync(new URL('../app/research/page.jsx', import.meta.u
 t('grid helper imported', clientSrc.includes('computeVerificationGrid, verificationStatusFor, VERIFICATION_VERDICTS'))
 t('VerificationGridBlock component present', clientSrc.includes('function VerificationGridBlock('))
 t('grid memoized on sources+report', clientSrc.includes('computeVerificationGrid(sources, report), [sources, report]'))
-t('grid rendered when done + sources present', clientSrc.includes("researchStage === 'done' && sources.length > 0 && (\n                  <VerificationGridBlock sources={sources} report={reportText} supportCheck={activeResearch?.supportCheck || null} />"))
+t('grid rendered when done + sources present', clientSrc.includes("researchStage === 'done' && sources.length > 0 && (\n                  <VerificationGridBlock sources={sources} report={reportText} supportCheck={activeResearch?.supportCheck || null} statCheck={activeResearch?.statCheck || null} />"))
 t('v5.7: grid passes the worker support audit into the panel', clientSrc.includes('supportCheck={activeResearch?.supportCheck'))
+t('v5.8: grid passes the fabrication gate into the panel', clientSrc.includes('statCheck={activeResearch?.statCheck || null}'))
+t('v5.8: fabrication gate section shows verified-count + actions', clientSrc.includes('Fabrication gate ·') && clientSrc.includes("'⚠ hedged' : '✗ removed'"))
 t('grid renders BEFORE references block', (() => {
   const gi = clientSrc.indexOf('<VerificationGridBlock')
   const ri = clientSrc.indexOf('<ReferencesBlock sources={sources} />')

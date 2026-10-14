@@ -203,7 +203,7 @@ t('quick pipeline: NO decomposition (speed budget sacred)', (() => {
   const quickBody = workerSrc.slice(workerSrc.indexOf('async function quickResearch'), workerSrc.indexOf('async function deepResearch'))
   return !quickBody.includes('decomposeSubQuestions')
 })())
-t('worker version bumped to v5.7 (header)', workerSrc.includes('Cloudflare Worker (v5.7)'))
+t('worker version bumped to v5.8 (header)', workerSrc.includes('Cloudflare Worker (v5.8)'))
 
 console.log('── v5.7: analysis dimensions (deterministic detection) ──')
 const THE_Q = "What are features and architecture that'll blow up the next social media platforms ?"
@@ -305,7 +305,7 @@ t('router: permalink stored AFTER successful result', (() => {
   return pipe.indexOf('storePermalink(env, result, safeQuery)') > pipe.indexOf('await deepResearch(effectiveQuery')
 })())
 t('router: semantic hit emits cache phase for stream UX', workerSrc.includes("emit({ type: 'phase', phase: 'cache' })"))
-t('worker version bumped to v5.7', workerSrc.includes('Cloudflare Worker (v5.7)') && workerSrc.includes("version: '5.7.0'"))
+t('worker version bumped to v5.8', workerSrc.includes('Cloudflare Worker (v5.8)') && workerSrc.includes("version: '5.8.0'"))
 
 console.log('── v5.7: client permalink + support surface (research page) ──')
 const pageSrc = readFileSync(new URL('../app/research/page.jsx', import.meta.url), 'utf8')
@@ -327,6 +327,78 @@ t('reuses the SAME verification lib (no drift)', permSrc.includes("from '@/lib/c
 t('renders citation-support audit', permSrc.includes('supportCheck'))
 t('handles 404 with CTA back to research', permSrc.includes('Report unavailable') && permSrc.includes('href="/research"'))
 t('proxy route exists with rate limit', readFileSync(new URL('../app/api/research/report/[id]/route.js', import.meta.url), 'utf8').includes('rateLimit'))
+
+console.log('── v5.8: fabrication gate (deterministic, both modes) ──')
+const fab = worker
+const fabSrc = workerSrc
+// 1. Pure helpers: stat extraction — numbers are extraction-able, years are not
+t('extractStats: percent', JSON.stringify(fab.extractStats('showing 68% of users')) .includes('"num":"68"'))
+t('extractStats: currency + magnitude + bare', (() => {
+  const s = fab.extractStats('A$109.2 million in fines, 2.5 million users, 500 signals')
+  return s.some((x) => x.kind === 'currency' && x.num === '109.2')
+    && s.some((x) => x.kind === 'magnitude' && x.num === '2.5')
+    && s.some((x) => x.kind === 'bare' && x.num === '500')
+})())
+t('extractStats: years skipped, markers stripped', fab.extractStats('since 2024 adoption grew [3]').every((x) => x.num !== '2024' && x.num !== '3'))
+// 2. statMatchesSource — verbatim or nothing
+t('statMatches: 68% ↔ "68 percent"', fab.statMatchesSource({ num: '68', kind: 'percent', raw: '68%' }, 'sources say 68 percent prefer'))
+t('statMatches: 68% ↛ 1968 (word boundary)', !fab.statMatchesSource({ num: '68', kind: 'percent', raw: '68%' }, '1968 users surveyed'))
+t('statMatches: 2.5M ↔ 2,500,000 (expanded)', fab.statMatchesSource({ num: '2.5', kind: 'magnitude', raw: '2.5 million' }, 'platform reports 2,500,000 users'))
+t('statMatches: strict on rounding (68 ↛ 68.4%)', !fab.statMatchesSource({ num: '68', kind: 'percent', raw: '68%' }, 'shows 68.4% prefer'))
+// 3. Entity claims — invented attributions detectable
+t('entity: "JAMA analysis" name extracted', fab.extractEntityClaims('This aligns with a 2026 JAMA analysis showing users prefer control.').includes('JAMA'))
+t('entity: coined term "Nearby Processing" extracted', fab.extractEntityClaims('Frameworks such as Nearby Processing reduce latency [4].').includes('Nearby Processing'))
+t('entity: bold bullet labels exempt', fab.extractEntityClaims('- **Decentralized Networks** — enable interoperability [3].').length === 0)
+// 4. The user's exact live-eval fabrication, caught by the audit
+t('audit: replica report flags both fabricated stats', (() => {
+  const srcs = [
+    { url: 'https://hackernoon.com/x', snippet: 'Manob is a chronological-feed social platform.' },
+    { url: 'https://appinventiv.com/x', snippet: 'AI tools help marketers schedule posts.' },
+  ]
+  const rep = 'Real-time frameworks, such as Nearby Processing, reduce latency by 40% [2]. This aligns with a 2026 JAMA analysis showing 68% of users prefer control [1].'
+  const a = fab.auditFabrications(rep, srcs)
+  return a.violations.some((v) => v.kind === 'stat' && v.stat?.num === '40')
+    && a.violations.some((v) => v.kind === 'stat' && v.stat?.num === '68')
+    && a.violations.some((v) => v.kind === 'entity' && v.value === 'JAMA')
+    && a.violations.some((v) => v.kind === 'entity' && v.value === 'Nearby Processing')
+})())
+t('audit: sourced figure passes clean', (() => {
+  const srcs = [{ url: 'https://x.y', snippet: 'Australia proposed fines up to A$109.2 million for non-compliance.' }]
+  const a = fab.auditFabrications('Australia proposed fines up to A$109.2 million for non-compliance [1].', srcs)
+  return a.total === 0
+})())
+// 5. Rewrite plumbing
+t('rewrite prompt demands [N] markers unchanged + JSON only', (() => {
+  const p = fab.buildFabricationRewritePrompt([{ i: 1, sentence: 'S has 40% latency cuts [4].', issues: ['statistic "40%" not found'] }])
+  return p.includes('EXACTLY as-is') && p.includes('NEVER introduce any new number') && p.includes('JSON array')
+})())
+t('rewrite parser: fenced JSON in, garbage → null', (() => {
+  const ok = fab.parseRewriteItems('[{"i":1,"text":"hedged sentence [4]"}]')
+  return ok && ok[0].text.includes('hedged') && fab.parseRewriteItems('sorry, no') === null
+})())
+// 6. Pipeline wiring — both modes, payloads, and the laundering fix
+t('quick pipeline runs the fabrication gate', fabSrc.includes('auditFabrications(report, sources, fullTexts)') && fabSrc.includes("[Quick] Fabrication gate:"))
+t('deep pipeline runs the gate AFTER support repairs', (() => {
+  const deep = fabSrc.slice(fabSrc.indexOf('async function deepResearch'))
+  const gate = deep.indexOf('FABRICATION GATE (v5.8)')
+  const support = deep.indexOf('support check failed (non-fatal)')
+  return gate > -1 && support > -1 && gate > support
+})())
+t('repair step 2 cites ONLY stat-verified search hits', fabSrc.includes('verified search hit appended as') && fabSrc.includes('statMatchesSource(x.stat, txt)'))
+t('repair step 4 drops unverifiable fiction', fabSrc.includes('unverifiable claim dropped'))
+t('rewrite acceptance is code-verified (gone + newSafe)', fabSrc.includes('if (gone && newSafe && noNewTerms) accepted = hit.text'))
+t('makeResponse forwards statCheck', fabSrc.includes('...(statCheck ? { statCheck } : {})'))
+t('semcache slim payload carries statCheck', fabSrc.includes('statCheck: result.statCheck || null,'))
+t('permalink snapshot carries statCheck', (fabSrc.match(/statCheck: result\.statCheck \|\| null/g) || []).length >= 2)
+t('GET /report/:id serves statCheck', fabSrc.includes('statCheck: meta.statCheck || null'))
+// 7. Prompt guards — the attribution rule that taught the template, fixed
+t('QUICK/DEEP/part prompts: attribution must exist in source', (workerSrc.match(/worst failure this engine can produce/g) || []).length === 4)
+t('stats rule demands verbatim numbers', (workerSrc.match(/must appear VERBATIM in the text of the source/g) || []).length === 4)
+t('metrics directive: honest gap mandated', fabSrc.includes('no verifiable user/financial data found in sources'))
+// 8. Client surfaces
+t('research page: statCheck passthrough + panel prop', pageSrc.includes('statCheck: data.statCheck || null') && pageSrc.includes('statCheck={activeResearch?.statCheck || null}'))
+t('research page: fabrication gate section renders', pageSrc.includes('Fabrication gate ·') && pageSrc.includes("'⚠ hedged' : '✗ removed'"))
+t('permalink page: fabrication gate section renders', permSrc.includes('Fabrication gate ·') && permSrc.includes('statCheck'))
 
 console.log(`\n${pass}/${pass + fail} assertions passed`)
 process.exit(fail > 0 ? 1 : 0)

@@ -237,7 +237,11 @@ function ReferencesBlock({ sources }) {
 // v5.7: when the worker ran the deep-mode citation-support audit, the
 // supportCheck prop renders its entailment findings — repaired citations
 // (emerald) and claims whose cited source does not actually back them (red).
-function VerificationGridBlock({ sources, report, supportCheck }) {
+// v5.8: the statCheck prop renders the DETERMINISTIC fabrication gate —
+// every figure in the report verified verbatim against its cited source,
+// in both modes. Repairs (re-cited), hedges (rewritten), and removals are
+// shown; a clean count proves the guarantee.
+function VerificationGridBlock({ sources, report, supportCheck, statCheck }) {
   const grid = useMemo(() => computeVerificationGrid(sources, report), [sources, report])
   if (!grid.citedCount) return null
   const verdict = VERIFICATION_VERDICTS[grid.verdict] || VERIFICATION_VERDICTS.none
@@ -321,6 +325,35 @@ function VerificationGridBlock({ sources, report, supportCheck }) {
           ))}
           {(supportCheck.items || []).length > 5 && (
             <div className="verification-flag-more">+{supportCheck.items.length - 5} more audited citations</div>
+          )}
+        </div>
+      )}
+      {/* v5.8 — fabrication gate (deterministic, both modes): every figure
+          in the report was checked VERBATIM against its cited source text —
+          a number cannot be paraphrased, so a match is proof, not a judgment.
+          Clean runs show the guarantee; actions show what the gate changed. */}
+      {statCheck && statCheck.checked > 0 && (
+        <div className="verification-flagged">
+          <div className="verification-flagged-title">
+            Fabrication gate · {Math.max(0, statCheck.checked - (statCheck.flagged || 0))}/{statCheck.checked} figures verified in cited sources
+            {statCheck.repaired > 0 ? ` · ${statCheck.repaired} re-cited` : ''}
+            {statCheck.rewritten > 0 ? ` · ${statCheck.rewritten} hedged` : ''}
+            {statCheck.removed > 0 ? ` · ${statCheck.removed} removed` : ''}
+          </div>
+          {(statCheck.items || []).slice(0, 5).map((it, i) => (
+            <div key={i} className="verification-flag-row" style={{ cursor: 'default' }}>
+              <span className={`verification-flag-chip ${
+                it.action === 'repaired' ? 'verification-flag-chip-verified' :
+                it.action === 'rewritten' ? 'verification-flag-chip-review' : 'verification-flag-chip-unverified'
+              }`}>
+                {it.action === 'repaired' ? '✓ repaired' : it.action === 'rewritten' ? '⚠ hedged' : '✗ removed'}
+              </span>
+              <span className="verification-flag-title">{(it.sentence || '').replace(/\s+/g, ' ').slice(0, 110)}</span>
+              {it.value && <span className="verification-flag-domain">{it.kind === 'stat' ? `figure “${it.value}”` : `“${it.value}”`}</span>}
+            </div>
+          ))}
+          {(statCheck.items || []).length > 5 && (
+            <div className="verification-flag-more">+{statCheck.items.length - 5} more gate actions</div>
           )}
         </div>
       )}
@@ -1063,6 +1096,8 @@ function ResearchPageContent() {
         // v5.7: public permalink id + citation-support audit (deep runs)
         permalinkId: data.permalink_id || data.permalinkId || null,
         supportCheck: data.supportCheck || null,
+        // v5.8: deterministic fabrication gate (both modes)
+        statCheck: data.statCheck || null,
         // v5.2.0: freshness routing — explicit time axis detected in the query
         recency: data.recency || null,
       }
@@ -1816,7 +1851,7 @@ function ResearchPageContent() {
 
                 {/* Verification grid (v5.4) — per-claim trust from source tiers */}
                 {researchStage === 'done' && sources.length > 0 && (
-                  <VerificationGridBlock sources={sources} report={reportText} supportCheck={activeResearch?.supportCheck || null} />
+                  <VerificationGridBlock sources={sources} report={reportText} supportCheck={activeResearch?.supportCheck || null} statCheck={activeResearch?.statCheck || null} />
                 )}
 
                 {/* References (v5.3) — numbered, identifier-linked (DOI/PMID/NCT), dated */}

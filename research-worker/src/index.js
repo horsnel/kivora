@@ -1,5 +1,16 @@
 // ══════════════════════════════════════════════════════════════════
-// KIVORA RESEARCH WORKER — Cloudflare Worker (v5.7)
+// KIVORA RESEARCH WORKER — Cloudflare Worker (v5.8)
+// v5.8 fabrication gate (BOTH modes; the trust differentiator made
+// deterministic): the v5.7 live eval caught the engine inventing
+// statistics ("a 2026 JAMA analysis showing 68%...", "reduces latency
+// by 40%") and coining technology names ("Nearby Processing") — the LLM
+// support audit let them through and quick mode had no audit at all.
+// This round adds a code-level gate: every number in the report must
+// appear VERBATIM in its cited source's text (a number cannot be
+// paraphrased), named studies/technologies must exist in the cited
+// source, and violations get a strict repair ladder — verified re-cite →
+// verified search hit → one batched hedged rewrite (code-checked) →
+// drop the sentence. Fiction is never shipped; honest gaps are.
 // v5.6 sub-question decomposition (deep mode only; quick untouched):
 // multi-facet queries ("A vs B for X", "compare X and Y", conjunction
 // chains) are deterministically split into ≤3 focused sub-questions, each
@@ -870,7 +881,7 @@ const DIMENSION_DIRECTIVES = {
   technical: 'TECHNICAL ARCHITECTURE (required): when the topic involves products, platforms, or systems, include a dedicated technical-architecture analysis that names SPECIFIC protocols, standards, specifications, and systems found in the sources (e.g. actual protocol/standard names, component names, data flows). Generic phrases like "modular APIs" or "scalable backends" are forbidden WITHOUT a named concrete example next to them. Every named protocol or system MUST come from a cited source [N] — if the sources name none, say so in one sentence rather than inventing names.',
   regulatory: 'REGULATORY LANDSCAPE (required): check the sources for legislation, regulators, compliance obligations, or policy debates relevant to this topic (e.g. acts, directives, proposed laws, fines, jurisdiction-specific rules). Integrate what you find into the analysis — frame practices that are becoming legal requirements as compliance obligations, not merely "competitive advantages". If the retrieved sources contain no regulatory material, state that explicitly in one sentence; do NOT invent laws or statutes.',
   business: 'BUSINESS-MODEL SUSTAINABILITY (required): for every platform, company, or product analyzed, assess whether its business model is SUSTAINABLE — revenue path, cost structure, funding dependence, and what happens if the model faces its core tension (e.g. can it survive without ad-targeting revenue or continued VC funding?). Treat unproven monetization as a RISK to analyze, not a feature to celebrate. Ground every assessment in cited sources [N].',
-  metrics: 'VERIFIABLE SCALE METRICS (required): whenever a platform, company, or product is named, attach its verifiable scale metric from the sources with a citation [N] — user counts, funding raised, valuation, post volume, market share, growth rate. Never invent or round up numbers; if no source gives a metric, name the platform without one.',
+  metrics: 'VERIFIABLE SCALE METRICS (required): whenever a platform, company, or product is named, attach its verifiable scale metric from the sources with a citation [N] — user counts, funding raised, valuation, post volume, market share, growth rate. Never invent or round up numbers; if no source gives a metric, name the platform without one and write "no verifiable user/financial data found in sources" — never estimate or extrapolate.',
 };
 
 // Compose the ANALYSIS DIMENSIONS line for the write-phase context block.
@@ -1010,6 +1021,409 @@ function buildSupportPrompt(claims, sources) {
     'CLAIMS:',
     lines.join('\n\n'),
   ].join('\n');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// FABRICATION GATE (v5.8)
+// The v5.7 live eval caught the engine FABRICATING statistics: "a 2026
+// JAMA analysis showing 68% of users..." cited to a HackerNoon article
+// (JAMA is a medical journal; the 68% exists nowhere), "reduces latency
+// by 40% [4]" with no source carrying the number, and an invented
+// "Nearby Processing" technology — while the LLM support audit let all
+// three through (entailment models are lenient on numbers) and quick
+// mode ran no audit at all. Prompt rules already forbade invented
+// stats; demonstrably insufficient.
+//
+// This gate is DETERMINISTIC and code-level: a number cannot be
+// paraphrased — either "68%" appears verbatim in the cited source or
+// the claim is fabricated. Same for named studies/technologies: "JAMA"
+// absent from the cited source = invented attribution. Both modes run
+// the gate (pure regex scan, ~0ms). Repair ladder per violating
+// sentence:
+//   1. VERIFIED RE-CITE — a pool source contains the figure verbatim →
+//      citation marker swapped to it (code-checked, not topical)
+//   2. VERIFIED SEARCH — a fresh hit is cited ONLY if its text contains
+//      the figure (v5.7's topical swaps could launder a fabricated
+//      number into looking sourced — closed here)
+//   3. HEDGED REWRITE — ONE batched LLM call strips the figure, keeps
+//      the [N] markers, output code-verified before acceptance
+//   4. DROP — the sentence is fiction; fiction is deleted, never shipped
+// ══════════════════════════════════════════════════════════════════
+
+const FAB_MAX_REPAIRS = 4;     // sentences getting the full repair ladder
+const FAB_MAX_ITEMS = 12;      // audit cap on returned violations
+
+// Stoplist for named-term detection: structural/report words that get
+// capitalized in prose but are never factual attributions.
+const FAB_STOPWORDS = new Set([
+  'the', 'this', 'that', 'these', 'those', 'there', 'here', 'it', 'its',
+  'key', 'executive', 'summary', 'detailed', 'comparison', 'practical',
+  'confidence', 'assessment', 'overall', 'finding', 'findings', 'context',
+  'analysis', 'implications', 'table', 'pros', 'cons', 'use', 'case',
+  'high', 'moderate', 'low', 'established', 'likely', 'uncertain',
+  'sources', 'report', 'section', 'structure', 'formatting', 'rules',
+]);
+
+// Normalize digits for matching: strip commas inside numbers ("2,500" → "2500").
+function _fabNumNorm(t) {
+  return String(t || '').replace(/(\d),(\d)/g, '$1$2');
+}
+
+function _fabEsc(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Extract statistics from a text fragment. Citation markers are stripped
+// first (a [40] source marker is not a statistic). Returns
+// [{ raw, num, kind }] with kind ∈ percent | currency | magnitude | bare.
+// Bare = multi-digit number or decimal that is not a year (19xx/20xx).
+// Pure — unit tested.
+function extractStats(text) {
+  const t = _fabNumNorm(String(text || '')).replace(/[\[(]\d+(?:\s*[-,]\s*\d+)*[\])]/g, ' ');
+  if (!t.trim()) return [];
+  const out = [];
+  const seen = new Set();
+  const push = (raw, num, kind) => {
+    const k = `${kind}:${num}`;
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push({ raw: raw.trim(), num: String(num), kind });
+  };
+  // Percentages: "68%", "68 percent", "40 percentage points"
+  for (const m of t.matchAll(/(\d{1,3}(?:\.\d+)?)\s?(?:%|percent|per cent|pct|percentage points?)/gi)) {
+    push(m[0], m[1], 'percent');
+  }
+  // Currency: "$49.2 million", "A$109.2 million", "€2B"
+  for (const m of t.matchAll(/(?:[$€£₹]|(?:US|AU|NZ|HK|CA|A|C|S)\$)\s?(\d[\d.]*)\s?(trillion|billion|million|thousand|bn|mn|mm|m|k)?(?![\d])/gi)) {
+    push(m[0], m[1], 'currency');
+  }
+  // Magnitude words: "2.5 million users", "3 billion"
+  for (const m of t.matchAll(/(\d[\d.]*)\s?(trillion|billion|million|thousand|mln|mn|bn)\b/gi)) {
+    push(m[0], m[1], 'magnitude');
+  }
+  // Bare: decimals ("2.5") or integers ≥ 2 digits ("68", "500") — skip years.
+  // Trailing boundary is a digit-lookahead, not \b: "2.5x" and "2.5." must
+  // match, while "2.5.6" (version triples) must not.
+  for (const m of t.matchAll(/\b(\d+\.\d+|\d{2,})(?!\.?\d)/g)) {
+    if (/^(?:19|20)\d{2}$/.test(m[1])) continue;
+    push(m[0], m[1], 'bare');
+  }
+  // A bare number duplicating a richer stat's number is redundant ("68" next to "68%")
+  const rich = new Set(out.filter((s) => s.kind !== 'bare').map((s) => s.num));
+  return out.filter((s) => s.kind !== 'bare' || !rich.has(s.num));
+}
+
+// Does the source text contain the statistic verbatim (after digit
+// normalization, case-insensitive)? Deliberately STRICT — this is the
+// anti-fabrication gate; when in doubt the claim gets hedged, never waved
+// through. Pure — unit tested.
+function statMatchesSource(stat, text) {
+  if (!stat || !stat.num) return false;
+  const t = _fabNumNorm(String(text || '')).toLowerCase();
+  if (!t) return false;
+  const n = _fabEsc(String(stat.num).toLowerCase());
+  if (stat.kind === 'percent') {
+    return new RegExp(`${n}\\s?(?:%|percent|per cent|pct|percentage points?)`).test(t);
+  }
+  if (stat.kind === 'currency') {
+    return new RegExp(`${n}(?![\\d])(?:\\s?(?:trillion|billion|million|thousand|bn|mn|mm|[mk](?![a-z])))?`).test(t);
+  }
+  if (stat.kind === 'magnitude') {
+    const mult = { thousand: 1e3, million: 1e6, mln: 1e6, mn: 1e6, bn: 1e9, billion: 1e9, trillion: 1e12 };
+    const word = (String(stat.raw || '').match(/trillion|billion|million|thousand|mln|mn|bn/i) || [])[0]?.toLowerCase();
+    const pats = [word ? `${n}\\s?${_fabEsc(word)}` : ''];
+    if (word && mult[word]) {
+      const exp = Math.round(parseFloat(stat.num) * mult[word]);
+      if (Number.isFinite(exp)) pats.push(String(exp));
+    }
+    return new RegExp(pats.filter(Boolean).join('|')).test(t);
+  }
+  return new RegExp(`\\b${n}\\b`).test(t);
+}
+
+// Named-term candidates a research report must not be able to invent:
+// proper names attached to attribution nouns ("JAMA analysis", "MIT study")
+// and consecutive capitalized words mid-sentence ("Nearby Processing").
+// Leading bold bullet labels ("- **Real-Time Interaction** — ...") are
+// compression labels, not claims — stripped before scanning. Pure.
+function extractEntityClaims(sentence) {
+  const s = String(sentence || '');
+  if (!s.trim()) return [];
+  const stripped = s.replace(/^\s*(?:[-*]|\d+[.)])?\s*\*\*[^*]{2,60}\*\*\s*[:—-]?/, ' ');
+  const out = [];
+  const seen = new Set();
+  const push = (term) => {
+    const k = String(term).toLowerCase().replace(/\s+/g, ' ').trim();
+    if (!k || seen.has(k)) return;
+    seen.add(k);
+    out.push(String(term).trim());
+  };
+  // (a) proper name + attribution noun: "2026 JAMA analysis", "MIT study"
+  for (const m of stripped.matchAll(/\b([A-Z][A-Za-z0-9&'.-]{2,}(?:\s+(?:of|for|on|de|the)?\s?[A-Z][A-Za-z0-9&'.-]{2,})*)\s+(?:analys(?:is|es)|studies|surveys?|reports?|reviews?|polls?|papers?|investigations?)\b/g)) {
+    if (!FAB_STOPWORDS.has(m[1].toLowerCase())) push(m[1]);
+  }
+  // (b) consecutive capitalized words mid-sentence: "Nearby Processing"
+  for (const m of stripped.matchAll(/\b[A-Z][a-z]{2,}\s[A-Z][a-z]{2,}(?:\s[A-Z][a-z]{2,})?\b/g)) {
+    if ((m.index || 0) === 0) continue; // sentence-initial terms are framing, not claims
+    const words = m[0].split(/\s+/);
+    if (words.every((w) => FAB_STOPWORDS.has(w.toLowerCase()))) continue;
+    push(m[0]);
+  }
+  return out;
+}
+
+// Deterministic fabrication audit. Verifies every statistic against the
+// text of its CITED sources (uncited stats against the whole pool) and
+// named-term claims in cited sentences. Pure — unit tested.
+//   report     markdown report string
+//   sources    canonical source array ([N] index alignment)
+//   fullTexts  per-index verification text (snippet + deep-read content);
+//              falls back to source snippets when omitted
+function auditFabrications(report, sources, fullTexts) {
+  const text = String(report || '');
+  const src = Array.isArray(sources) ? sources : [];
+  const fts = (Array.isArray(fullTexts) && fullTexts.length === src.length && fullTexts.length > 0)
+    ? fullTexts
+    : src.map((s) => String(s?.snippet || ''));
+  const poolText = fts.join('\n');
+  const srcText = (i) => String(fts[i - 1] || '');
+  const violations = [];
+  let statsChecked = 0;
+  let entitiesChecked = 0;
+  for (const line of text.split('\n')) {
+    const l = line.trim();
+    if (!l || /^#{1,6}\s/.test(l) || /^\|[\s:|-]+\|?$/.test(l)) continue;
+    const isTable = /^\|/.test(l);
+    const units = isTable ? [l] : l.split(/(?<=[.!?])\s+/);
+    for (const unit of units) {
+      const sentence = unit.trim();
+      if (sentence.length < 25) continue;
+      const cited = [...new Set(
+        [...sentence.matchAll(/[\[(](\d+(?:\s*[-,]\s*\d+)*)[\])]/g)]
+          .flatMap((m) => m[1].split(',').map((x) => parseInt(x.trim(), 10)))
+          .filter((n) => Number.isFinite(n) && n >= 1 && n <= src.length)
+      )];
+      for (const st of extractStats(sentence)) {
+        statsChecked++;
+        const ok = cited.length > 0
+          ? cited.some((i) => statMatchesSource(st, srcText(i)))
+          : statMatchesSource(st, poolText);
+        if (ok) continue;
+        const foundIn = fts.findIndex((t) => statMatchesSource(st, t));
+        violations.push({
+          kind: 'stat', stat: st, value: st.raw, sentence, cited,
+          foundIn: foundIn >= 0 ? foundIn + 1 : null,
+        });
+      }
+      if (cited.length > 0 && !isTable) {
+        for (const term of extractEntityClaims(sentence)) {
+          entitiesChecked++;
+          const low = term.toLowerCase();
+          const ok = cited.some((i) => srcText(i).toLowerCase().includes(low));
+          if (ok) continue;
+          const foundIn = fts.findIndex((t) => t.toLowerCase().includes(low));
+          violations.push({
+            kind: 'entity', stat: null, value: term, sentence, cited,
+            foundIn: foundIn >= 0 ? foundIn + 1 : null,
+          });
+        }
+      }
+    }
+  }
+  // Stats are hard fabrication — audit them first
+  violations.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'stat' ? -1 : 1));
+  return {
+    statsChecked,
+    entitiesChecked,
+    total: violations.length,
+    violations: violations.slice(0, FAB_MAX_ITEMS),
+  };
+}
+
+// Build the hedged-rewrite prompt for sentences whose figures could not be
+// verified against any source. One batched call for the whole report.
+function buildFabricationRewritePrompt(entries) {
+  const lines = (Array.isArray(entries) ? entries : []).map((e) =>
+    `${e.i}. SENTENCE: ${e.sentence}\n   UNSUPPORTED: ${(e.issues || []).join('; ')}`
+  );
+  return [
+    'You are a rigorous factuality editor. Each SENTENCE below states a figure or named attribution that is NOT supported by its cited sources.',
+    'Rewrite each sentence: REMOVE the unsupported figure/attribution, keep the sentence\'s meaning and every [N] citation marker EXACTLY as-is, same language as the original,',
+    'and prefer honest hedged phrasing such as "the cited sources do not provide a verifiable figure". NEVER introduce any new number, percentage, study name, or technology name.',
+    'If the sentence was mostly the unsupported claim, output one short honest hedge sentence instead.',
+    'Respond with ONLY a JSON array: [{"i":<n>,"text":"<rewritten sentence>"}] — one item per sentence, no extras.',
+    '',
+    'SENTENCES:',
+    lines.join('\n\n'),
+  ].join('\n');
+}
+
+// Parse the factuality editor's JSON reply. Same robustness contract as
+// parseSupportVerdicts: strips fences, finds the array, validates items.
+function parseRewriteItems(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  let s = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+  const start = s.indexOf('[');
+  const end = s.lastIndexOf(']');
+  if (start === -1 || end === -1 || end <= start) return null;
+  try {
+    const arr = JSON.parse(s.slice(start, end + 1));
+    if (!Array.isArray(arr)) return null;
+    const out = [];
+    for (const it of arr) {
+      if (!it || typeof it !== 'object') continue;
+      const i = Number.isFinite(it.i) ? it.i : parseInt(it.i, 10);
+      const t = String(it.text || it.t || '').trim();
+      if (!Number.isFinite(i) || !t) continue;
+      out.push({ i, text: t.slice(0, 600) });
+    }
+    return out.length ? out : null;
+  } catch {
+    return null;
+  }
+}
+
+// Repair ladder for the fabrication gate. Returns updated
+// { report, sources, statCheck } — never throws, every step guarded.
+// Searches happen ONLY for violating sentences; the LLM is called at most
+// once per report (batched hedge rewrite), and its output is re-verified
+// deterministically before it may touch the report.
+async function repairFabrications(env, audit, report, sources, fullTexts) {
+  const items = [];
+  let report2 = String(report || '');
+  let sources2 = [...(Array.isArray(sources) ? sources : [])];
+  let fts2 = (Array.isArray(fullTexts) && fullTexts.length === sources2.length && fullTexts.length > 0)
+    ? [...fullTexts]
+    : sources2.map((s) => String(s?.snippet || ''));
+  const srcText = (i) => String(fts2[i - 1] || '');
+  // Group violations by sentence — one sentence with 2 bad figures gets ONE repair pass
+  const bySentence = new Map();
+  for (const v of (audit?.violations || [])) {
+    if (!bySentence.has(v.sentence)) bySentence.set(v.sentence, []);
+    bySentence.get(v.sentence).push(v);
+  }
+  let repaired = 0;
+  let rewritten = 0;
+  let removed = 0;
+  let processed = 0;
+  const rewriteQueue = [];
+  for (const [sentence, vios] of bySentence) {
+    if (processed >= FAB_MAX_REPAIRS) break;
+    processed++;
+    // Step 1 — verified re-cite inside the existing pool. The candidate
+    // source must satisfy EVERY violation of this sentence, not just the
+    // first — otherwise the swap would fix one figure and orphan the other.
+    const reciteTo = vios.find((v) => v.foundIn && !v.cited.includes(v.foundIn) && vios.every((x) => (
+      x.kind === 'stat'
+        ? statMatchesSource(x.stat, srcText(v.foundIn))
+        : srcText(v.foundIn).toLowerCase().includes(x.value.toLowerCase())
+    )))?.foundIn;
+    if (reciteTo) {
+      const swapped = swapCitationMarker(report2, sentence, reciteTo);
+      if (swapped) {
+        report2 = swapped;
+        repaired++;
+        for (const v of vios) {
+          items.push({ sentence: sentence.slice(0, 160), kind: v.kind, value: v.value, action: 'repaired', detail: `re-cited to [${reciteTo}] — verified the ${v.kind} appears there verbatim` });
+        }
+        continue;
+      }
+    }
+    // Step 2 — search for a source that CONTAINS the figure (verified, not topical)
+    const fig = vios.find((v) => v.kind === 'stat') || vios[0];
+    const keywords = sentence.replace(/[\[(]\d+(?:\s*[-,]\s*\d+)*[\])]/g, '').replace(/[#*|_`>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120);
+    let done = false;
+    if (fig && keywords.split(/\s+/).length >= 4) {
+      try {
+        const hits = await searchTavily(`${fig.value} ${keywords}`, env, 4, 'advanced', null).catch(() => []);
+        const pick = (Array.isArray(hits) ? hits : []).find((h) => {
+          if (!h?.url) return false;
+          const txt = `${h.snippet || ''}\n${h.content || ''}`;
+          return vios.every((x) => (x.kind === 'stat'
+            ? statMatchesSource(x.stat, txt)
+            : txt.toLowerCase().includes(x.value.toLowerCase())));
+        });
+        if (pick) {
+          const before = sources2.length;
+          const nextSources = appendRepairSources(sources2, [pick], mapSource);
+          if (nextSources.length > before) {
+            const swapped = swapCitationMarker(report2, sentence, before + 1);
+            if (swapped) {
+              sources2 = nextSources;
+              fts2.push(`${pick.snippet || ''}\n${pick.content || ''}`);
+              report2 = swapped;
+              repaired++;
+              for (const v of vios) {
+                items.push({ sentence: sentence.slice(0, 160), kind: v.kind, value: v.value, action: 'repaired', detail: `verified search hit appended as [${before + 1}] — figure present in its text` });
+              }
+              done = true;
+            }
+          }
+        }
+      } catch { /* search failure falls through to rewrite */ }
+    }
+    if (done) continue;
+    // Step 3/4 — queued for the batched hedge rewrite; dropped if that fails
+    rewriteQueue.push({ sentence, vios });
+  }
+  // Step 3 — ONE batched LLM rewrite for everything left
+  if (rewriteQueue.length > 0) {
+    try {
+      const entries = rewriteQueue.map((r, idx) => ({
+        i: idx + 1,
+        sentence: r.sentence.slice(0, 400),
+        issues: r.vios.map((v) => (v.kind === 'stat'
+          ? `statistic "${v.value}" not found in the cited sources`
+          : `named term "${v.value}" not found in the cited sources`)),
+      }));
+      const raw = await llmApexFree(env, [
+        { role: 'user', content: buildFabricationRewritePrompt(entries) },
+      ], 1400, 'audit');
+      const parsed = parseRewriteItems(raw);
+      for (const r of rewriteQueue) {
+        const hit = parsed ? parsed.find((p) => p.i === rewriteQueue.indexOf(r) + 1) : null;
+        let accepted = null;
+        if (hit) {
+          // Code-verify the rewrite: the flagged figures must be GONE, and any
+          // new figures it introduces must exist in the sentence's cited sources.
+          const cited = [...new Set(
+            [...r.sentence.matchAll(/[\[(](\d+(?:\s*[-,]\s*\d+)*)[\])]/g)]
+              .flatMap((m) => m[1].split(',').map((x) => parseInt(x.trim(), 10)))
+              .filter((n) => Number.isFinite(n) && n >= 1 && n <= sources2.length)
+          )];
+          const oldStats = extractStats(r.sentence).filter((st) => r.vios.some((v) => v.stat && v.stat.num === st.num && v.stat.kind === st.kind));
+          const gone = oldStats.every((st) => !extractStats(hit.text).some((n) => n.num === st.num && n.kind === st.kind));
+          const newSafe = extractStats(hit.text).every((n) => cited.length === 0 || cited.some((i) => statMatchesSource(n, srcText(i))));
+          const noNewTerms = extractEntityClaims(hit.text).every((term) => cited.length === 0 || cited.some((i) => srcText(i).toLowerCase().includes(term.toLowerCase())));
+          if (gone && newSafe && noNewTerms) accepted = hit.text;
+        }
+        if (accepted && report2.includes(r.sentence)) {
+          report2 = report2.replace(r.sentence, accepted);
+          rewritten++;
+          for (const v of r.vios) {
+            items.push({ sentence: r.sentence.slice(0, 160), kind: v.kind, value: v.value, action: 'rewritten', detail: 'unsupported figure removed — hedged rewrite verified code-side' });
+          }
+        } else if (report2.includes(r.sentence)) {
+          // Step 4 — the sentence is unverifiable fiction; drop it entirely
+          report2 = report2.replace(r.sentence, '').replace(/[ \t]{2,}/g, ' ');
+          removed++;
+          for (const v of r.vios) {
+            items.push({ sentence: r.sentence.slice(0, 160), kind: v.kind, value: v.value, action: 'removed', detail: 'unverifiable claim dropped — no source could be found or written for it' });
+          }
+        }
+      }
+    } catch { /* LLM failure: remaining sentences ship flagged, not rewritten */ }
+  }
+  const statCheck = {
+    checked: audit?.statsChecked || 0,
+    entitiesChecked: audit?.entitiesChecked || 0,
+    flagged: audit?.total || 0,
+    repaired,
+    rewritten,
+    removed,
+    items: items.slice(0, 10),
+  };
+  return { report: report2, sources: sources2, statCheck };
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1158,6 +1572,7 @@ async function semStore(env, query, mode, tier, result) {
     classification: result.classification || null,
     recency: result.recency || null,
     supportCheck: result.supportCheck || null,
+    statCheck: result.statCheck || null,
   };
   const row = {
     query_text: String(query || '').slice(0, 2000),
@@ -1203,7 +1618,7 @@ async function storePermalink(env, result, fallbackQuery) {
     report: result.report || '',
     sources: JSON.stringify(result.sources || []),
     followups: JSON.stringify(result.followups || []),
-    verification_summary: JSON.stringify({ supportCheck: result.supportCheck || null, mode: result.mode || 'deep', createdAt: now }),
+    verification_summary: JSON.stringify({ supportCheck: result.supportCheck || null, statCheck: result.statCheck || null, mode: result.mode || 'deep', createdAt: now }),
     mode: PERMALINK_MODE,
     apex_tier: PERMALINK_MODE,
     original_latency_ms: 0,
@@ -2089,10 +2504,10 @@ OUTPUT BUDGET: ~450-650 words. Be dense — every sentence must carry informatio
 
 RULES:
 1. CITATION FORMAT (STRICT): cite every claim with square-bracket notation: [1], [2], [4, 5]. NEVER use parentheses like (2) — parenthesized citations are a protocol violation. Only cite a source you actually read.
-2. ATTRIBUTION (STRICT): never write "a recent report", "a study found", or "researchers found" without naming the source and year — write "a 2023 JAMA analysis [3]". When citing any statistic, date it: "As of March 2025, ... [2]". Vague attribution is a protocol violation.
+2. ATTRIBUTION (STRICT): never write "a recent report", "a study found", or "researchers found" without naming the source and year — write "a 2023 JAMA analysis [3]". When citing any statistic, date it: "As of March 2025, ... [2]". Vague attribution is a protocol violation. The named institution, publication, or study MUST itself appear in the cited source's text — inventing a study name or attaching one to the wrong source is the worst failure this engine can produce.
 3. Confidence language: "established" (2+ sources), "likely" (one source + reasoning), "uncertain" (speculative).
 4. Reserve **bold** for genuinely critical terms (max 1-2 per paragraph). Do NOT bold entire sentences.
-5. Do NOT invent statistics. If a number isn't in the sources, omit or phrase qualitatively.
+5. Do NOT invent statistics — EVERY number you write must appear VERBATIM in the text of the source you cite it to. If the sources lack the number, write "no verifiable figure" or phrase qualitatively. An honest data gap beats an invented number.
 6. No filler like "Based on the search results" — start with the finding.
 7. Third person, neutral analytical tone.
 8. Use exactly 2 markdown tables: one in Key Findings (summary table with one row per finding) and one in Comparison Table (options/approaches matrix). Do NOT add more.
@@ -2157,10 +2572,10 @@ CRITICAL RULES:
 1. LENGTH: Stay within 2,500-3,500 words. Do NOT exceed — truncation is the worst failure mode. Finish every section cleanly.
 2. TABLES: Use 3-5 markdown tables distributed across sections (1 in Context, 1 in Detailed Analysis, 1 in Comparative Analysis, 1 in Risk & Opportunity or Future Outlook). Each table MUST use proper markdown syntax with a separator row of | --- | between the header and body. Tables must carry information that bullets cannot.
 3. CITATIONS (STRICT): cite every claim with square-bracket notation: [1], [2], [4, 5]. NEVER use parentheses like (2) — parenthesized citations are a protocol violation. Only cite a source you actually read.
-4. ATTRIBUTION (STRICT): never write "a recent report", "a study found", or "researchers found" without naming the source and year — write "a 2023 Cochrane review [3]". When citing any statistic, date it: "As of March 2025, ... [2]". Vague attribution is a protocol violation.
+4. ATTRIBUTION (STRICT): never write "a recent report", "a study found", or "researchers found" without naming the source and year — write "a 2023 Cochrane review [3]". When citing any statistic, date it: "As of March 2025, ... [2]". Vague attribution is a protocol violation. The named institution, publication, or study MUST itself appear in the cited source's text — inventing a study name or attaching one to the wrong source is the worst failure this engine can produce.
 5. CONFIDENCE: "established" (2+ sources), "likely" (one source + reasoning), "uncertain" (speculative).
 6. NO FILLER: Start directly with information. No "Based on the search results," no "In today's rapidly evolving landscape."
-7. NO INVENTED STATS: If a number isn't in the sources, omit or phrase qualitatively ("growing", "significant", "limited").
+7. NO INVENTED STATS: EVERY number you write must appear VERBATIM in the text of the source you cite it to. If the sources lack the number, write "no verifiable figure" or phrase qualitatively ("growing", "significant", "limited"). An honest data gap beats an invented number.
 8. DEPTH: Think like a senior analyst. Identify patterns, synthesize, challenge assumptions.
 9. Third person, neutral analytical tone — like a senior analyst's memo, not a marketing brochure.
 
@@ -2853,11 +3268,17 @@ Produce the intelligence report now. Cross-reference the image content against t
 // ══════════════════════════════════════════════════════════════════
 
 // Standardized response shape (Fix #25)
-function makeResponse({ sources, report, title, followups, mode, classification, recency, supportCheck }) {
+function makeResponse({ sources, report, title, followups, mode, classification, recency, supportCheck, statCheck }) {
   // recency is additive (v5.2.0): { range, label } when an explicit time axis
   // was detected, absent otherwise — older clients ignore unknown fields.
   // supportCheck is additive (v5.7): citation-support audit (deep runs only).
-  return { sources, report, title, followups, mode, classification, ...(recency ? { recency } : {}), ...(supportCheck ? { supportCheck } : {}) };
+  // statCheck is additive (v5.8): deterministic fabrication gate (both modes).
+  return {
+    sources, report, title, followups, mode, classification,
+    ...(recency ? { recency } : {}),
+    ...(supportCheck ? { supportCheck } : {}),
+    ...(statCheck ? { statCheck } : {}),
+  };
 }
 
 // ── Source mapping (shared by quick/deep/stream paths) ──
@@ -2923,7 +3344,8 @@ async function quickResearch(query, env, apexModel = 'apex-free', searchQueryOve
 
   // Sources are known NOW — emit early so the client can render them while
   // the report is still being written (stream mode only; cheap no-op otherwise)
-  const sources = searchResults.map((s, i) => mapSource(s, i));
+  // let (not const) — v5.8 fabrication-gate repairs may append/replace
+  let sources = searchResults.map((s, i) => mapSource(s, i));
   emit({ type: 'sources', sources });
 
   // Step 2: Format sources for the LLM
@@ -2962,13 +3384,37 @@ async function quickResearch(query, env, apexModel = 'apex-free', searchQueryOve
   // Step 4: Process report
   const { report: rawReport2, followups } = extractFollowups(rawReport);
   // Strip trailing "Sources:" section model may have appended despite instructions
-  const report = stripSourcesSection(rawReport2);
+  // let (not const) — v5.8 fabrication-gate repairs may rewrite/remove sentences
+  let report = stripSourcesSection(rawReport2);
   // Fix #22: No markdownToHtml — frontend handles rendering
   const titleMatch = report.match(/^##\s+(.+)$/m) || report.match(/^#\s+(.+)$/m);
   const title = titleMatch ? titleMatch[1].replace(/[*_]/g, '') : query;
 
+  // ── FABRICATION GATE (v5.8): deterministic stat/entity verification.
+  // Quick mode never had ANY audit — the v5.7 eval showed fabricated
+  // statistics ("a 2026 JAMA analysis showing 68%...") shipping unchecked in
+  // this mode. Pure regex scan (~0ms); repairs cost searches only when a
+  // violation exists, plus at most ONE batched LLM hedge-rewrite call. ──
+  let statCheck = null;
+  try {
+    const fullTexts = searchResults.map((s) => String(s.snippet || ''));
+    const fabAudit = auditFabrications(report, sources, fullTexts);
+    if (fabAudit.violations.length > 0) {
+      console.log(`[Quick] Fabrication gate: ${fabAudit.violations.length} violations of ${fabAudit.statsChecked} figures checked`);
+      const rep = await repairFabrications(env, fabAudit, report, sources, fullTexts);
+      report = rep.report;
+      sources = rep.sources;
+      statCheck = rep.statCheck;
+      console.log(`[Quick] Fabrication repair: ${statCheck.repaired} repaired, ${statCheck.rewritten} rewritten, ${statCheck.removed} removed`);
+    } else {
+      statCheck = { checked: fabAudit.statsChecked, entitiesChecked: fabAudit.entitiesChecked, flagged: 0, repaired: 0, rewritten: 0, removed: 0, items: [] };
+    }
+  } catch (e) {
+    console.error('[Quick] fabrication gate failed (non-fatal):', e?.message);
+  }
+
   // Fix #25: Standardized response shape — no content field
-  return makeResponse({ sources, report, title, followups, mode: 'quick', classification, recency: recency.range ? recency : null });
+  return makeResponse({ sources, report, title, followups, mode: 'quick', classification, recency: recency.range ? recency : null, ...(statCheck ? { statCheck } : {}) });
 }
 
 async function deepResearch(query, env, apexModel = 'apex-free', searchQueryOverride = null, streamCb = null) {
@@ -3121,10 +3567,10 @@ async function deepResearch(query, env, apexModel = 'apex-free', searchQueryOver
 
 CRITICAL RULES:
 1. CITATION FORMAT (STRICT): cite every claim with square brackets [N] matching source numbers — [1], [2], [4, 5]. NEVER use parentheses like (2). Only cite a source you actually read.
-2. ATTRIBUTION (STRICT): never write "a recent report" or "a study found" without naming the source and year — write "a 2023 JAMA analysis [3]". Date every statistic: "As of March 2025, ... [2]".
+2. ATTRIBUTION (STRICT): never write "a recent report" or "a study found" without naming the source and year — write "a 2023 JAMA analysis [3]". Date every statistic: "As of March 2025, ... [2]". The named institution, publication, or study MUST itself appear in the cited source's text — inventing a study name or attaching one to the wrong source is the worst failure this engine can produce.
 3. Confidence language: "established" (2+ sources), "likely" (one source + reasoning), "uncertain" (speculative).
 4. Reserve **bold** for genuinely critical terms (max 1-2 per paragraph). Do NOT bold entire sentences.
-5. Do NOT invent statistics. If a number isn't in the sources, omit or phrase qualitatively.
+5. Do NOT invent statistics — EVERY number you write must appear VERBATIM in the text of the source you cite it to. If the sources lack the number, write "no verifiable figure" or phrase qualitatively. An honest data gap beats an invented number.
 6. No filler like "Based on the search results" — start with the finding.
 7. Third person, neutral analytical tone — like a senior analyst's memo.
 8. Use 1-2 tables in this half (1 in Context for key background data, 1 in Detailed Analysis for a CONSOLIDATED comparison). Each table MUST use proper markdown syntax with a separator row of | --- | between the header and body. Tables must carry information that bullets cannot.
@@ -3175,10 +3621,10 @@ IMPORTANT HEADING LEVEL: Your output starts a NEW half of the report. Use ## (h2
 
 CRITICAL RULES:
 1. CITATION FORMAT (STRICT): cite every claim with square brackets [N] matching source numbers — [1], [2], [4, 5]. NEVER use parentheses like (2). Only cite a source you actually read.
-2. ATTRIBUTION (STRICT): never write "a recent report" or "a study found" without naming the source and year — write "a 2023 JAMA analysis [3]". Date every statistic: "As of March 2025, ... [2]".
+2. ATTRIBUTION (STRICT): never write "a recent report" or "a study found" without naming the source and year — write "a 2023 JAMA analysis [3]". Date every statistic: "As of March 2025, ... [2]". The named institution, publication, or study MUST itself appear in the cited source's text — inventing a study name or attaching one to the wrong source is the worst failure this engine can produce.
 3. Confidence language: "established" (2+ sources), "likely" (one source + reasoning), "uncertain" (speculative).
 4. Reserve **bold** for genuinely critical terms (max 1-2 per paragraph). Do NOT bold entire sentences.
-5. Do NOT invent statistics. If a number isn't in the sources, omit or phrase qualitatively.
+5. Do NOT invent statistics — EVERY number you write must appear VERBATIM in the text of the source you cite it to. If the sources lack the number, write "no verifiable figure" or phrase qualitatively. An honest data gap beats an invented number.
 6. No filler. Third person, neutral analytical tone.
 7. Use 1-3 tables in this half (1 in Comparative Analysis for the options matrix, optionally 1 in Risk & Opportunity for probability/impact, optionally 1 in Future Outlook for scenarios). Each table MUST use proper markdown syntax with a separator row of | --- | between the header and body.
 
@@ -3341,8 +3787,35 @@ FOLLOWUPS:
     console.error('[Deep] support check failed (non-fatal):', e?.message);
   }
 
+  // ── FABRICATION GATE (v5.8): deterministic stat/entity verification on the
+  // FINAL report text — after the support-audit repairs above, so swapped
+  // markers and appended sources are included in the scan. Verification text
+  // per source = raw snippet + deep-read content (the same evidence the
+  // writer saw). Quick-mode variant lives in quickResearch. ──
+  let statCheck = null;
+  try {
+    const contentByUrl = new Map((deepContents || []).map((dc) => [dc.url, String(dc.content || '').slice(0, 6000)]));
+    const fullTexts = sources.map((s) => {
+      const raw = searchResults.find((r) => r.url === s.url);
+      return `${raw?.snippet || ''}\n${contentByUrl.get(s.url) || ''}`;
+    });
+    const fabAudit = auditFabrications(report, sources, fullTexts);
+    if (fabAudit.violations.length > 0) {
+      console.log(`[Deep] Fabrication gate: ${fabAudit.violations.length} violations of ${fabAudit.statsChecked} figures checked`);
+      const rep = await repairFabrications(env, fabAudit, report, sources, fullTexts);
+      report = rep.report;
+      sources = rep.sources;
+      statCheck = rep.statCheck;
+      console.log(`[Deep] Fabrication repair: ${statCheck.repaired} repaired, ${statCheck.rewritten} rewritten, ${statCheck.removed} removed`);
+    } else if (fabAudit.statsChecked > 0 || fabAudit.entitiesChecked > 0) {
+      statCheck = { checked: fabAudit.statsChecked, entitiesChecked: fabAudit.entitiesChecked, flagged: 0, repaired: 0, rewritten: 0, removed: 0, items: [] };
+    }
+  } catch (e) {
+    console.error('[Deep] fabrication gate failed (non-fatal):', e?.message);
+  }
+
   // Fix #25: Standardized response shape
-  return makeResponse({ sources, report, title, followups, mode: 'deep', classification, recency: recency.range ? recency : null, ...(supportCheck ? { supportCheck } : {}) });
+  return makeResponse({ sources, report, title, followups, mode: 'deep', classification, recency: recency.range ? recency : null, ...(supportCheck ? { supportCheck } : {}), ...(statCheck ? { statCheck } : {}) });
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -3463,7 +3936,7 @@ export default {
       return jsonRes({
         status: 'ok',
         service: 'kivora-research',
-        version: '5.7.0',
+        version: '5.8.0',
         providers: {
           openrouter: !!getOpenRouterKey(env),
           gemini: !!getGeminiKey(env),
@@ -3811,6 +4284,7 @@ export default {
           sources: asArr(row.sources),
           followups: asArr(row.followups),
           supportCheck: meta.supportCheck || null,
+          statCheck: meta.statCheck || null,
           createdAt: meta.createdAt || null,
         });
       } catch (e) {
@@ -3936,5 +4410,11 @@ export {
   swapCitationMarker,
   appendRepairSources,
   buildSupportPrompt,
+  extractStats,
+  statMatchesSource,
+  extractEntityClaims,
+  auditFabrications,
+  buildFabricationRewritePrompt,
+  parseRewriteItems,
   cosineSim,
 };

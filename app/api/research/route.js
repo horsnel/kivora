@@ -102,7 +102,12 @@ async function storeCacheResult(admin, queryHash, queryText, normalized, mode, a
       report: result.report || '',
       sources: JSON.stringify(result.sources || []),
       followups: JSON.stringify(result.followups || []),
-      verification_summary: JSON.stringify(result.verificationSummary || result.verification_summary || {}),
+      // v5.8: persist BOTH audit payloads so exact-cache hits keep the
+      // verification panel (supportCheck was silently dropped here in v5.7)
+      verification_summary: JSON.stringify({
+        supportCheck: result.supportCheck || null,
+        statCheck: result.statCheck || null,
+      }),
       mode,
       apex_tier: apexTier,
       original_latency_ms: latencyMs,
@@ -270,11 +275,16 @@ export async function POST(req) {
             try { return JSON.parse(v) } catch { return v }
           }
 
+          const cachedMeta = asParsed(cached.verification_summary) || {}
           const cachedPayload = {
             report: cached.report,
             sources: asParsed(cached.sources) || [],
             followups: asParsed(cached.followups) || [],
-            verificationSummary: asParsed(cached.verification_summary) || {},
+            verificationSummary: cachedMeta,
+            // v5.8: cached hits carry the audit payloads too (parity with
+            // fresh runs — the verification panel renders identically)
+            supportCheck: cachedMeta.supportCheck || null,
+            statCheck: cachedMeta.statCheck || null,
             fromCache: true,
             cacheId: cached.id,
             wikiPageId: cached.wiki_page_id || null,

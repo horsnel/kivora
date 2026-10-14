@@ -47,6 +47,9 @@ function PermalinkView() {
   const sources = Array.isArray(state.data?.sources) ? state.data.sources : []
   const grid = useMemo(() => computeVerificationGrid(sources, report), [sources, report])
   const supportCheck = state.data?.supportCheck || null
+  // v5.8: deterministic fabrication gate — every figure verified verbatim
+  // against its cited source text, in both modes
+  const statCheck = state.data?.statCheck || null
 
   if (state.loading) {
     return (
@@ -128,6 +131,24 @@ function PermalinkView() {
                       {it.verdict === 'repaired' ? `✓ repaired → [${it.source}]` : it.verdict === 'partial' ? '⚠ partial' : '✗ unsupported'}
                     </span>
                     <span className="text-[#a0a0a0] min-w-0">{(it.claim || '').replace(/\s+/g, ' ').slice(0, 120)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {statCheck && statCheck.checked > 0 && (
+              <div className="mt-3 pt-3 border-t border-[#1a1a1a]">
+                <div className="text-[11px] font-medium text-[#a0a0a0]">
+                  Fabrication gate · {Math.max(0, statCheck.checked - (statCheck.flagged || 0))}/{statCheck.checked} figures verified in cited sources
+                  {statCheck.repaired > 0 ? ` · ${statCheck.repaired} re-cited` : ''}
+                  {statCheck.rewritten > 0 ? ` · ${statCheck.rewritten} hedged` : ''}
+                  {statCheck.removed > 0 ? ` · ${statCheck.removed} removed` : ''}
+                </div>
+                {(statCheck.items || []).slice(0, 5).map((it, i) => (
+                  <div key={i} className="flex items-start gap-2 mt-2 text-[11px]">
+                    <span className={`px-1.5 py-0.5 rounded font-medium shrink-0 ${it.action === 'repaired' ? 'bg-emerald-500/10 text-emerald-400' : it.action === 'rewritten' ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'}`}>
+                      {it.action === 'repaired' ? '✓ repaired' : it.action === 'rewritten' ? '⚠ hedged' : '✗ removed'}
+                    </span>
+                    <span className="text-[#a0a0a0] min-w-0">{(it.sentence || '').replace(/\s+/g, ' ').slice(0, 120)}</span>
                   </div>
                 ))}
               </div>

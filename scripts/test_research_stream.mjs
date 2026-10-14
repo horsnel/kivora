@@ -234,5 +234,28 @@ t('permalink proxy: id format enforced client-of-worker', proxySrc.includes('^[a
 t('permalink proxy: 10s timeout + 404 passthrough', proxySrc.includes('AbortSignal.timeout(10000)') && proxySrc.includes("workerRes.status === 404 ? 404 : 502"))
 t('permalink proxy: no auth gate (capability URL by design)', !proxySrc.includes('requireFeatureAccess') && !proxySrc.includes('requireCredits'))
 
+console.log('── v5.8: fabrication gate payload flow ──')
+t('makeResponse: statCheck additive, key set unchanged when absent', (() => {
+  const r = worker.makeResponse(base)
+  return !('statCheck' in r) && !('supportCheck' in r)
+})())
+t('makeResponse: statCheck present when provided', (() => {
+  const r = worker.makeResponse({ ...base, statCheck: { checked: 5, flagged: 1 } })
+  return r.statCheck?.checked === 5
+})())
+t('API: exact-cache store persists BOTH audit payloads', routeSrc.includes('supportCheck: result.supportCheck || null,') && routeSrc.includes('statCheck: result.statCheck || null,'))
+t('API: exact-cache hit re-serves supportCheck + statCheck (v5.7 gap closed)', routeSrc.includes('supportCheck: cachedMeta.supportCheck || null,') && routeSrc.includes('statCheck: cachedMeta.statCheck || null,'))
+t('worker: quick-mode gate wired before makeResponse', workerSrc.indexOf('[Quick] Fabrication gate:') > -1 && workerSrc.indexOf('[Quick] Fabrication gate:') < workerSrc.lastIndexOf("mode: 'quick'"))
+t('worker: repair ladder orders verified-recite → verified-search → rewrite → drop', (() => {
+  const ladder = workerSrc.slice(workerSrc.indexOf('async function repairFabrications'))
+  const recite = ladder.indexOf('Step 1 — verified re-cite')
+  const search = ladder.indexOf('Step 2 — search for a source that CONTAINS the figure')
+  const rewrite = ladder.indexOf('Step 3 — ONE batched LLM rewrite')
+  const drop = ladder.indexOf('Step 4 — the sentence is unverifiable fiction')
+  return recite > -1 && recite < search && search < rewrite && rewrite < drop
+})())
+
+t('worker: repair recite requires the candidate to satisfy EVERY violation', workerSrc.includes('vios.every((x) => ('))
+
 console.log(`\n${pass}/${pass + fail} assertions passed`)
 process.exit(fail > 0 ? 1 : 0)
