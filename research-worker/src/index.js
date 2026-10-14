@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════
-// KIVORA RESEARCH WORKER — Cloudflare Worker (v5.6)
+// KIVORA RESEARCH WORKER — Cloudflare Worker (v5.7)
 // v5.6 sub-question decomposition (deep mode only; quick untouched):
 // multi-facet queries ("A vs B for X", "compare X and Y", conjunction
 // chains) are deterministically split into ≤3 focused sub-questions, each
@@ -808,6 +808,337 @@ function mergeCorrectiveResults(base, corrective, maxSources = 18) {
     out.push(r);
   }
   return out.slice(0, maxSources);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ANALYSIS DIMENSIONS (v5.7)
+// Competitive-eval upgrade #1/#3/#4/#5: queries that touch product/platform
+// topics were getting ~90% feature prose and ~10% vague technical gestures,
+// zero regulatory context, no verifiable platform metrics, and no business-
+// model critique. Deterministic detection picks which ANALYSIS DIMENSIONS a
+// query implies; each dimension (a) adds one targeted sub-search (deep only,
+// parallel — same wall time as one search) and (b) injects an evidence-locked
+// directive into the write-phase context. Pure heuristic, zero LLM latency.
+// ══════════════════════════════════════════════════════════════════
+
+const DIMENSION_ORDER = ['technical', 'regulatory', 'business', 'metrics'];
+
+// Trigger conditions. `regulatory` is deliberately two-gated (explicit policy
+// words, OR a platform/industry noun combined with forward-looking framing)
+// so "best pasta recipes" never fires it but "next social media platforms" does.
+const DIMENSION_TESTS = {
+  technical: (q) => /\b(architect|infrastructure|protocol|protocols|technical|technolog(y|ical) stack|backend|back-end|system design|engineering|scalab|decentrali|how (do|does|will) .*(work|built|implement))/i.test(q),
+  regulatory: (q) => (
+    /\b(regulation|regulatory|regulate|law|legal|legislation|policy|policies|compliance|comply|ban|bans|gdpr|dsa|ai act|antitrust|government)\b/i.test(q) ||
+    (/\b(social media|platform|platforms|app|apps|ai|artificial intelligence|crypto|fintech|drone|drones|gaming|streaming|marketplace|data)\b/i.test(q) &&
+     /\b(next|future|upcoming|new generation|202[5-9]|launch|building|build|regulate|governance)\b/i.test(q))
+  ),
+  business: (q) => /\b(monetiz|business model|revenue|startup|startups|platform|platforms|market|industry|compan(y|ies)|competit|pricing|subscription|venture|funding|economy|commercial)\b/i.test(q),
+  metrics: (q) => /\b(platform|platforms|compan(y|ies)|startup|startups|product|products|app|apps|competit|users|market share|adoption)\b/i.test(q),
+};
+
+// Detect which dimensions a query implies → ['technical', ...] in stable order.
+function detectAnalysisDimensions(query) {
+  const q = String(query || '').slice(0, 400);
+  if (!q) return [];
+  return DIMENSION_ORDER.filter((dim) => {
+    try { return DIMENSION_TESTS[dim](q); } catch { return false; }
+  });
+}
+
+// One targeted search per dimension (capped at 3 — metrics surface naturally
+// from the base pool once the directive asks for them). Parallel-friendly.
+function buildDimensionQueries(query, dims) {
+  const q = String(query || '').slice(0, 180).trim();
+  const year = new Date().getFullYear();
+  const builders = {
+    technical: () => `${q} technical architecture protocols standards explained`,
+    regulatory: () => `${q} regulation legislation policy compliance ${year}`,
+    business: () => `${q} business model monetization sustainability analysis`,
+    metrics: () => `${q} platform users funding growth metrics`,
+  };
+  return (Array.isArray(dims) ? dims : [])
+    .filter((d) => typeof builders[d] === 'function')
+    .slice(0, 3)
+    .map((d) => builders[d]());
+}
+
+// Evidence-locked write-phase directives. Every directive demands the claim
+// come FROM a cited source and forbids invention — depth must never cost
+// citation discipline (Kivora's core differentiator per the competitive eval).
+const DIMENSION_DIRECTIVES = {
+  technical: 'TECHNICAL ARCHITECTURE (required): when the topic involves products, platforms, or systems, include a dedicated technical-architecture analysis that names SPECIFIC protocols, standards, specifications, and systems found in the sources (e.g. actual protocol/standard names, component names, data flows). Generic phrases like "modular APIs" or "scalable backends" are forbidden WITHOUT a named concrete example next to them. Every named protocol or system MUST come from a cited source [N] — if the sources name none, say so in one sentence rather than inventing names.',
+  regulatory: 'REGULATORY LANDSCAPE (required): check the sources for legislation, regulators, compliance obligations, or policy debates relevant to this topic (e.g. acts, directives, proposed laws, fines, jurisdiction-specific rules). Integrate what you find into the analysis — frame practices that are becoming legal requirements as compliance obligations, not merely "competitive advantages". If the retrieved sources contain no regulatory material, state that explicitly in one sentence; do NOT invent laws or statutes.',
+  business: 'BUSINESS-MODEL SUSTAINABILITY (required): for every platform, company, or product analyzed, assess whether its business model is SUSTAINABLE — revenue path, cost structure, funding dependence, and what happens if the model faces its core tension (e.g. can it survive without ad-targeting revenue or continued VC funding?). Treat unproven monetization as a RISK to analyze, not a feature to celebrate. Ground every assessment in cited sources [N].',
+  metrics: 'VERIFIABLE SCALE METRICS (required): whenever a platform, company, or product is named, attach its verifiable scale metric from the sources with a citation [N] — user counts, funding raised, valuation, post volume, market share, growth rate. Never invent or round up numbers; if no source gives a metric, name the platform without one.',
+};
+
+// Compose the ANALYSIS DIMENSIONS line for the write-phase context block.
+function buildDimensionsLine(dims) {
+  const list = Array.isArray(dims) ? dims.filter((d) => DIMENSION_DIRECTIVES[d]) : [];
+  if (list.length === 0) return '';
+  return `\n\nANALYSIS DIMENSIONS DETECTED FOR THIS QUERY (each dimension below MUST receive explicit, cited coverage in the relevant sections):\n${list.map((d) => `- ${DIMENSION_DIRECTIVES[d]}`).join('\n')}`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CITATION-CLAIM SUPPORT CHECK (v5.7)
+// Competitive-eval upgrade #2: the engine cited source [4] (an AI-marketing
+// article) for "nearby processing, modular APIs" — a technical claim the
+// source never discusses. Tier-based verification (v5.4 grid) proves the
+// SOURCE is trustworthy, not that it SUPPORTS the claim. This pass audits
+// the report's claim→citation pairs for actual topical support, then either
+// FINDS a better source (search + deterministic marker swap) or FLAGS the
+// gap in the payload. One LLM call, deep mode only, capped + fail-silent.
+// ══════════════════════════════════════════════════════════════════
+
+const SUPPORT_MAX_CLAIMS = 14;
+const SUPPORT_MAX_REPAIRS = 3;
+const SUPPORT_MIN_CLAIMS = 3;      // tiny reports skip the audit entirely
+const SUPPORT_SNIPPET_CHARS = 400;
+
+// Extract citable claim sentences from a markdown report: line-by-line,
+// sentence-split, keep fragments that carry ≥1 resolvable [N] marker.
+// Pure — unit tested.
+function extractCitedClaims(report, cap = SUPPORT_MAX_CLAIMS) {
+  const text = String(report || '');
+  if (!text) return [];
+  const out = [];
+  const lines = text.split('\n');
+  for (const line of lines) {
+    if (out.length >= cap) break;
+    if (/^\s*[-#>|]/.test(line) === false && !line.includes('[')) continue;
+    if (/^\s*\|/.test(line)) {
+      // Table row: a row is one claim unit when it carries a marker
+      if (/[\[(]\d+(?:\s*[-,]\s*\d+)*[\])]/.test(line)) {
+        out.push({ claim: line.trim().slice(0, 320), line: line.trim() });
+      }
+      continue;
+    }
+    const sentences = line.split(/(?<=[.!?])\s+/);
+    for (const s of sentences) {
+      if (out.length >= cap) break;
+      if (/[\[(]\d+(?:\s*[-,]\s*\d+)*[\])]/.test(s)) {
+        out.push({ claim: s.trim().slice(0, 320), line: s.trim() });
+      }
+    }
+  }
+  return out;
+}
+
+// Parse the auditor's JSON reply. Robust: strips code fences, finds the first
+// JSON array, validates every item. Returns [] or null — never throws.
+function parseSupportVerdicts(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  let s = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/,'').trim();
+  const start = s.indexOf('[');
+  const end = s.lastIndexOf(']');
+  if (start === -1 || end === -1 || end <= start) return null;
+  s = s.slice(start, end + 1);
+  try {
+    const arr = JSON.parse(s);
+    if (!Array.isArray(arr)) return null;
+    const out = [];
+    for (const it of arr) {
+      if (!it || typeof it !== 'object') continue;
+      const i = Number.isFinite(it.i) ? it.i : parseInt(it.i, 10);
+      const v = String(it.v || it.verdict || '').toLowerCase();
+      const r = String(it.r || it.reason || '').trim().slice(0, 160);
+      if (!Number.isFinite(i) || !['supported', 'partial', 'unsupported'].includes(v)) continue;
+      out.push({ i, verdict: v, reason: r });
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+// Swap every citation marker inside ONE sentence with [newN]. Returns the
+// updated full report, or null when the sentence can't be located (never
+// guessed — the sentence came from this same string, so null is a hard guard).
+function swapCitationMarker(report, sentence, newN) {
+  const text = String(report || '');
+  const sent = String(sentence || '');
+  if (!text || !sent || !Number.isFinite(newN) || newN < 1) return null;
+  const idx = text.indexOf(sent);
+  if (idx === -1) return null;
+  const swapped = sent.replace(/[\[(]\d+(?:\s*[-,]\s*\d+)*[\])]/g, `[${newN}]`);
+  if (swapped === sent) return null;
+  return text.slice(0, idx) + swapped + text.slice(idx + sent.length);
+}
+
+// Append audit-repair search hits as NEW sources (indices continue after the
+// existing pool so every existing [N] marker stays valid). Dedupes by URL,
+// enforces tier, maps to the canonical source shape. Pure — unit tested.
+function appendRepairSources(sources, hits, mapFn) {
+  const base = Array.isArray(sources) ? sources : [];
+  const seen = new Set(base.map((s) => String(s?.url || '').toLowerCase().replace(/\/+$/, '')).filter(Boolean));
+  const out = [...base];
+  for (const h of (Array.isArray(hits) ? hits : [])) {
+    if (!h?.url) continue;
+    const key = String(h.url).toLowerCase().replace(/\/+$/, '');
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const { tier, tierLabel } = enforceSourceTier(h.url);
+    out.push(mapFn({ ...h, tier, tierLabel }, out.length, 'loaded'));
+  }
+  return out;
+}
+
+// Build the audit prompt — claims × cited-source snippets, strict rubric.
+function buildSupportPrompt(claims, sources) {
+  const lines = [];
+  claims.forEach((c, idx) => {
+    const nums = [...c.claim.matchAll(/[\[(](\d+(?:\s*[-,]\s*\d+)*)[\])]/g)]
+      .flatMap((m) => m[1].split(',').map((x) => parseInt(x.trim(), 10)))
+      .filter((n) => Number.isFinite(n) && n >= 1 && n <= sources.length);
+    const uniq = [...new Set(nums)];
+    if (uniq.length === 0) return;
+    const srcText = uniq.map((n) => {
+      const s = sources[n - 1] || {};
+      return `[${n}] "${String(s.title || '').slice(0, 120)}" — ${String(s.snippet || '').slice(0, SUPPORT_SNIPPET_CHARS)}`;
+    }).join('\n    ');
+    lines.push(`${idx + 1}. CLAIM: ${c.claim}\n    CITED SOURCES:\n    ${srcText}`);
+  });
+  return [
+    'You are a rigorous citation auditor. For each CLAIM, decide whether the cited SOURCE text actually substantiates the claim\'s specific assertions.',
+    'Rubric (be strict — topic-adjacent is NOT support):',
+    '- "supported": a reader checking the source would find the claim\'s substance there.',
+    '- "partial": source is on-topic but does not substantiate the specific assertion.',
+    '- "unsupported": source is about a different aspect/topic; the claim is misattributed.',
+    'Use ONLY the provided source text — no outside knowledge. Respond with ONLY a JSON array: [{"i":<claim number>,"v":"supported"|"partial"|"unsupported","r":"reason max 12 words"}]. Audit every claim listed.',
+    '',
+    'CLAIMS:',
+    lines.join('\n\n'),
+  ].join('\n');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SEMANTIC CACHE + PERMALINKS (v5.7 — roadmap)
+// Exact-hash caching lives in the Next API layer (Supabase). This layer adds:
+//   1. SEMANTIC cache (deep mode): embed the query with Workers AI bge-base,
+//      cosine-match against a small KV index — paraphrased queries reuse the
+//      expensive deep report instead of re-running the 20s pipeline.
+//   2. PERMALINKS (both modes): every successful report gets a short
+//      capability URL id stored in KV; GET /report/:id serves it publicly.
+// All KV/embedding failures are fail-silent — the pipeline result is
+// returned regardless.
+// ══════════════════════════════════════════════════════════════════
+
+const SEM_MODEL = '@cf/baai/bge-base-en-v1.5';
+const SEM_THRESHOLD = 0.93;       // bge-base cosine ≈ paraphrase territory
+const SEM_INDEX_CAP = 30;         // queries indexed per mode+tier bucket
+const SEM_TTL = 60 * 60 * 24 * 30;      // 30 days
+const PERMALINK_TTL = 60 * 60 * 24 * 90; // 90 days
+
+async function sha1Hex(s) {
+  const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(String(s || '')));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Cosine similarity between two equal-length numeric vectors. Pure.
+function cosineSim(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length === 0 || a.length !== b.length) return 0;
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i], y = b[i];
+    dot += x * y; na += x * x; nb += y * y;
+  }
+  if (na === 0 || nb === 0) return 0;
+  return dot / Math.sqrt(na * nb);
+}
+
+// Embed a query via Workers AI. Returns a 768-dim rounded array or null.
+async function embedQuery(env, text) {
+  if (!env?.AI) return null;
+  try {
+    const res = await env.AI.run(SEM_MODEL, { text: [String(text || '').slice(0, 512)] });
+    const vec = res?.data?.[0];
+    if (!Array.isArray(vec) || vec.length === 0) return null;
+    return vec.map((x) => Math.round(Number(x) * 100000) / 100000);
+  } catch (e) {
+    console.error('[semcache] embed failed:', e?.message);
+    return null;
+  }
+}
+
+function semIndexKey(mode, tier) { return `si:${mode}:${tier}`; }
+function semValKey(mode, tier, h) { return `sv:${mode}:${tier}:${h}`; }
+
+// Look for a semantically-equal cached deep report. Fail-silent → null.
+async function semLookup(env, query, mode, tier) {
+  if (!env?.SEMCACHE) return null;
+  const vec = await embedQuery(env, query);
+  if (!vec) return null;
+  const idxRaw = await env.SEMCACHE.get(semIndexKey(mode, tier));
+  if (!idxRaw) return null;
+  let entries = [];
+  try { entries = JSON.parse(idxRaw); } catch { return null; }
+  if (!Array.isArray(entries)) return null;
+  let best = null;
+  for (const e of entries) {
+    if (!e?.e || !e?.k) continue;
+    const score = cosineSim(vec, e.e);
+    if (score >= SEM_THRESHOLD && (!best || score > best.score)) {
+      best = { score, key: e.k, query: e.q || '' };
+    }
+  }
+  if (!best) return null;
+  const valRaw = await env.SEMCACHE.get(best.key);
+  if (!valRaw) return null;
+  try {
+    const payload = JSON.parse(valRaw);
+    return { payload, score: Math.round(best.score * 1000) / 1000, query: best.query };
+  } catch { return null; }
+}
+
+// Store a deep result in the semantic index. Fail-silent.
+async function semStore(env, query, mode, tier, result) {
+  if (!env?.SEMCACHE) return;
+  const vec = await embedQuery(env, query);
+  if (!vec) return;
+  const h = await sha1Hex(`${String(query).toLowerCase().trim()}|${mode}|${tier}`);
+  const vkey = semValKey(mode, tier, h);
+  const slim = {
+    report: result.report || '',
+    sources: result.sources || [],
+    followups: result.followups || [],
+    title: result.title || '',
+    mode: result.mode || mode,
+    classification: result.classification || null,
+    recency: result.recency || null,
+    supportCheck: result.supportCheck || null,
+  };
+  await env.SEMCACHE.put(vkey, JSON.stringify(slim), { expirationTtl: SEM_TTL });
+  const idxRaw = await env.SEMCACHE.get(semIndexKey(mode, tier));
+  let entries = [];
+  try { entries = idxRaw ? JSON.parse(idxRaw) : []; } catch { entries = []; }
+  if (!Array.isArray(entries)) entries = [];
+  entries = entries.filter((e) => e?.k !== vkey);
+  entries.unshift({ k: vkey, e: vec, q: String(query || '').slice(0, 200) });
+  await env.SEMCACHE.put(semIndexKey(mode, tier), JSON.stringify(entries.slice(0, SEM_INDEX_CAP)), { expirationTtl: SEM_TTL });
+}
+
+// Permalink id — 12 hex chars (URL-safe capability token, 48 bits).
+function permalinkId() {
+  return crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+}
+
+// Store the public permalink snapshot; returns the id (null on failure).
+async function storePermalink(env, result, fallbackQuery) {
+  if (!env?.SEMCACHE) return null;
+  const id = permalinkId();
+  const snap = {
+    query: String(result.originalQuery || fallbackQuery || result.title || '').slice(0, 400),
+    mode: result.mode || 'deep',
+    title: result.title || '',
+    report: result.report || '',
+    sources: result.sources || [],
+    followups: result.followups || [],
+    supportCheck: result.supportCheck || null,
+    createdAt: new Date().toISOString(),
+  };
+  await env.SEMCACHE.put(`perm:${id}`, JSON.stringify(snap), { expirationTtl: PERMALINK_TTL });
+  return id;
 }
 
 // Deep-read budget goes to the strongest sources: P1 → P2 → P3 → UNV,
@@ -2591,6 +2922,26 @@ async function deepResearch(query, env, apexModel = 'apex-free', searchQueryOver
     console.log(`[Deep] Sub-question search: ${before} → ${searchResults.length} sources`);
   }
 
+  // ── ANALYSIS DIMENSIONS (v5.7): platform/product queries imply analysis
+  // axes a blended search under-covers — technical architecture, regulation,
+  // business sustainability. Detected deterministically; each dimension adds
+  // ONE targeted sub-search in parallel (same wall time as one search) and
+  // an evidence-locked write directive below. Deep mode only. ──
+  const dimensions = detectAnalysisDimensions(searchQuery);
+  if (dimensions.length >= 2) {
+    const dimQueries = buildDimensionQueries(searchQuery, dimensions);
+    if (dimQueries.length > 0) {
+      console.log(`[Deep] Analysis dimensions [${dimensions.join(', ')}] → ${dimQueries.length} dimension searches`);
+      emit({ type: 'phase', phase: 'search', dimensions });
+      const dimHits = (await Promise.all(
+        dimQueries.map(dq => searchTavily(dq, env, 5, 'advanced', recency.range).catch(() => []))
+      )).flat();
+      const before = searchResults.length;
+      searchResults = mergeCorrectiveResults(searchResults, dimHits, 24);
+      console.log(`[Deep] Dimension search: ${before} → ${searchResults.length} sources`);
+    }
+  }
+
   // ── AGENTIC LOOP (v5.5): if the source base came back weak (< 40% P1/P2),
   // run two deterministic corrective searches — academic angle via Semantic
   // Scholar, official-statistics angle via Tavily — and merge the stronger
@@ -2633,7 +2984,8 @@ async function deepResearch(query, env, apexModel = 'apex-free', searchQueryOver
   console.log(`[Deep] Phase 2 done in ${Date.now() - t0}ms, read ${deepContents.length} URLs`);
 
   // Mark deep-read sources
-  const sources = searchResults.map((s, i) =>
+  // let (not const) — v5.7 citation-support repair may append sources
+  let sources = searchResults.map((s, i) =>
     mapSource(s, i, deepContents.some(dc => dc.url === s.url) ? 'deep' : 'loaded')
   );
 
@@ -2655,7 +3007,10 @@ async function deepResearch(query, env, apexModel = 'apex-free', searchQueryOver
   const facetLine = subQuestions.length >= 2
     ? `\n\nREPORT FACETS (this query has distinct sub-questions — the analysis must address each one explicitly, with its own evidence): ${subQuestions.map((sq, i) => `(${i + 1}) ${sq}`).join('; ')}`
     : '';
-  const contextBlock = `Research query: "${query}"${facetLine}\n\nSOURCES:\n${allSourcesContext}\n\nDEEP CONTENT:\n${deepContent}`;
+  // v5.7 analysis dimensions: evidence-locked directives for technical /
+  // regulatory / business / metrics coverage detected in the query
+  const dimensionsLine = buildDimensionsLine(dimensions);
+  const contextBlock = `Research query: "${query}"${facetLine}${dimensionsLine}\n\nSOURCES:\n${allSourcesContext}\n\nDEEP CONTENT:\n${deepContent}`;
 
   const llmFn = apexModel === 'apex-premium' ? llmApexPremium : llmApexFree;
   const effectiveMaxTokens = apexModel === 'apex-premium' ? 8192 : 6000;
@@ -2821,13 +3176,76 @@ FOLLOWUPS:
   // Process report
   const { report: rawReport2, followups } = extractFollowups(rawReport);
   // Strip trailing "Sources:" section model may have appended despite instructions
-  const report = stripSourcesSection(rawReport2);
+  // let (not const) — v5.7 citation-support repair may swap markers in-place
+  let report = stripSourcesSection(rawReport2);
   // Fix #22/#23: No markdownToHtml, no content field
   const titleMatch = report.match(/^##\s+(.+)$/m) || report.match(/^#\s+(.+)$/m);
   const title = titleMatch ? titleMatch[1].replace(/[*_]/g, '') : query;
 
+  // ── CITATION-CLAIM SUPPORT CHECK (v5.7): audit the assembled report's
+  // claim→citation pairs for ACTUAL topical support (tier verification proves
+  // the source is trustworthy, not that it backs the claim). Unsupported
+  // claims get one repair attempt — a targeted search appends a better source
+  // (indices continue after the pool, so existing [N] markers stay valid) and
+  // the sentence's marker is swapped deterministically. Whatever remains
+  // unrepaired is FLAGGED in the payload (client Verification panel). One LLM
+  // call + ≤3 searches; every failure path is silent — the report ships. ──
+  let supportCheck = null;
+  try {
+    const claims = extractCitedClaims(report, SUPPORT_MAX_CLAIMS);
+    if (claims.length >= SUPPORT_MIN_CLAIMS) {
+      const auditT0 = Date.now();
+      const auditRaw = await llmApexFree(env, [
+        { role: 'user', content: buildSupportPrompt(claims, sources) },
+      ], 900, 'deep');
+      const verdicts = parseSupportVerdicts(auditRaw);
+      if (verdicts && verdicts.length > 0) {
+        const items = [];
+        for (const v of verdicts) {
+          const c = claims[v.i - 1];
+          if (!c) continue;
+          items.push({ claim: c.claim, verdict: v.verdict, reason: v.reason, source: null });
+        }
+        // Repair loop — find-one-or-flag, capped
+        const repairable = items.filter((it) => it.verdict === 'unsupported').slice(0, SUPPORT_MAX_REPAIRS);
+        let repaired = 0;
+        for (const it of repairable) {
+          try {
+            const claimKeywords = it.claim.replace(/[\[(]\d+(?:\s*[-,]\s*\d+)*[\])]/g, '').replace(/[#*|_`>]/g, '').trim().slice(0, 140);
+            if (claimKeywords.split(/\s+/).length < 4) continue;
+            const hits = await searchTavily(`${claimKeywords} explained analysis`, env, 3, 'advanced', null).catch(() => []);
+            const before = sources.length;
+            const nextSources = appendRepairSources(sources, hits, mapSource);
+            if (nextSources.length === before) continue; // all dupes — nothing to swap to
+            const swapped = swapCitationMarker(report, it.claim, before + 1);
+            if (!swapped) continue;
+            sources = nextSources;
+            report = swapped;
+            it.verdict = 'repaired';
+            it.source = before + 1;
+            it.reason = 'misattributed citation — re-cited to a source found for this claim';
+            repaired++;
+            console.log(`[Deep] Citation repair: claim re-cited [${it.source}] — "${it.claim.slice(0, 60)}..."`);
+          } catch { /* per-item failure never blocks the report */ }
+        }
+        const count = (v) => items.filter((x) => x.verdict === v).length;
+        supportCheck = {
+          checked: items.length,
+          supported: count('supported'),
+          partial: count('partial'),
+          unsupported: count('unsupported'),
+          repaired,
+          items: items.filter((x) => x.verdict !== 'supported').slice(0, 10),
+        };
+        console.log(`[Deep] Citation support audit: ${items.length} claims in ${Date.now() - auditT0}ms — ${supportCheck.supported} supported, ${supportCheck.partial} partial, ${supportCheck.unsupported} unsupported, ${repaired} repaired`);
+      }
+    }
+  } catch (e) {
+    console.error('[Deep] support check failed (non-fatal):', e?.message);
+  }
+
   // Fix #25: Standardized response shape
-  return makeResponse({ sources, report, title, followups, mode: 'deep', classification, recency: recency.range ? recency : null });
+  return makeResponse({ sources, report, title, followups, mode: 'deep', classification, recency: recency.range ? recency : null, ...(supportCheck ? { supportCheck } : {}) });
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -2866,6 +3284,7 @@ export default {
           github: 'available (free, rate-limited)',
         },
         classifications: ['academic', 'biomedical', 'tech', 'finance', 'general'],
+        semcache: !!env.SEMCACHE,
       });
     }
 
@@ -2947,7 +3366,7 @@ export default {
       return jsonRes({
         status: 'ok',
         service: 'kivora-research',
-        version: '5.4.0',
+        version: '5.7.0',
         providers: {
           openrouter: !!getOpenRouterKey(env),
           gemini: !!getGeminiKey(env),
@@ -3126,6 +3545,35 @@ export default {
           console.log(`[Research] Search query: "${searchQuery.slice(0, 150)}"`);
           console.log(`[Research] LLM context: ${effectiveQuery.length} chars`);
 
+          // ── SEMANTIC CACHE (v5.7, deep only): paraphrased queries reuse the
+          // expensive deep report instead of re-running the ~20s pipeline.
+          // Embeddings via Workers AI + KV index; threshold 0.93 cosine.
+          // Fail-silent — any error falls through to the normal pipeline. ──
+          if (mode === 'deep' && env.SEMCACHE && !hasImage && safeQuery) {
+            try {
+              const sem = await semLookup(env, safeQuery, 'deep', apex_model);
+              if (sem) {
+                console.log(`[Research] Semantic cache hit (${(sem.score * 100).toFixed(1)}%): "${sem.query}"`);
+                emit({ type: 'phase', phase: 'cache' });
+                let permalink = null;
+                try { permalink = await storePermalink(env, { ...sem.payload, originalQuery: sem.query }, safeQuery); } catch {}
+                return {
+                  status: 200,
+                  payload: {
+                    ...sem.payload,
+                    fromCache: true,
+                    cacheType: 'semantic',
+                    semanticScore: sem.score,
+                    originalQuery: sem.query,
+                    ...(permalink ? { permalinkId: permalink } : {}),
+                  },
+                };
+              }
+            } catch (e) {
+              console.error('[Research] semantic lookup failed (non-fatal):', e?.message);
+            }
+          }
+
           const result = mode === 'deep'
             ? await deepResearch(effectiveQuery, env, apex_model, searchQuery, streamCb)
             : await quickResearch(effectiveQuery, env, apex_model, searchQuery, streamCb);
@@ -3133,6 +3581,20 @@ export default {
           if (result.error) {
             return { status: 500, payload: result };
           }
+
+          // ── PERMALINK (v5.7): every successful report gets a public
+          // capability URL (90-day TTL). Deep results also enter the semantic
+          // index so future paraphrases hit the cache. Both fail-silent. ──
+          if (env.SEMCACHE && !hasImage) {
+            try {
+              const permalink = await storePermalink(env, result, safeQuery);
+              if (permalink) result.permalinkId = permalink;
+            } catch {}
+            if (mode === 'deep' && safeQuery) {
+              try { await semStore(env, safeQuery, 'deep', apex_model, result); } catch {}
+            }
+          }
+
           return { status: 200, payload: result };
         };
 
@@ -3220,6 +3682,35 @@ export default {
       } catch (err) {
         console.error('[cron] monthly-reset error:', err);
         return jsonRes({ error: err.message }, 500);
+      }
+    }
+
+    // ── Public report permalink (v5.7) ──
+    // Capability URL: whoever holds the 12-hex id can fetch the stored report
+    // snapshot (90-day TTL). The Next API proxies this server-side, so the
+    // browser never talks to the worker directly.
+    if (url.pathname.startsWith('/report/') && request.method === 'GET') {
+      const id = url.pathname.slice('/report/'.length);
+      if (!/^[a-f0-9]{6,24}$/i.test(id)) {
+        return jsonRes({ error: 'Invalid report id' }, 400);
+      }
+      try {
+        const raw = await env.SEMCACHE?.get(`perm:${id}`);
+        if (!raw) return jsonRes({ error: 'Report not found or expired' }, 404);
+        const snap = JSON.parse(raw);
+        return jsonRes({
+          query: snap.query,
+          mode: snap.mode,
+          title: snap.title,
+          report: snap.report,
+          sources: snap.sources || [],
+          followups: snap.followups || [],
+          supportCheck: snap.supportCheck || null,
+          createdAt: snap.createdAt,
+        });
+      } catch (e) {
+        console.error('[report] permalink fetch failed:', e?.message);
+        return jsonRes({ error: 'Report lookup failed' }, 500);
       }
     }
 
@@ -3332,4 +3823,13 @@ export {
   decomposeSubQuestions,
   mergeCorrectiveResults,
   tierPrioritizeReads,
+  detectAnalysisDimensions,
+  buildDimensionQueries,
+  buildDimensionsLine,
+  extractCitedClaims,
+  parseSupportVerdicts,
+  swapCitationMarker,
+  appendRepairSources,
+  buildSupportPrompt,
+  cosineSim,
 };

@@ -223,5 +223,16 @@ t('WAI stream errors tagged distinctly in chain trace', (workerSrc.match(/WAI-st
 t('buffered workersAiChat still present for non-stream callers', (workerSrc.match(/await workersAiChat\(env, messages, m, Math\.min\(maxTokens, 4096\)\)/g) || []).length >= 3) // free + premium + llmQuick
 t('export exists for regression suite', typeof worker.workersAiChatStream === 'function')
 
+console.log('── 12. v5.7 semantic-hit refund parity + permalink proxy (API layer) ──')
+t('JSON path: semantic hits refund all but 1 credit', routeSrc.includes("data.cacheType === 'semantic'") && routeSrc.includes("'semantic cache hit'"))
+t('stream path: semantic hits refund identically', routeSrc.includes("finalData.cacheType === 'semantic'"))
+t('semantic refunds are try/catch guarded (never block the response)', (routeSrc.match(/semantic refund failed/g) || []).length === 2)
+t('semantic hits still materialize into Supabase exact cache', routeSrc.includes('storeCacheResult(admin, queryHash, trimmedQuery, normalized, mode, apexTier, finalData, latencyMs)'))
+const proxySrc = readFileSync(new URL('../app/api/research/report/[id]/route.js', import.meta.url), 'utf8')
+t('permalink proxy: edge runtime + rate limited', proxySrc.includes("runtime = 'edge'") && proxySrc.includes('rateLimit(ip).ok'))
+t('permalink proxy: id format enforced client-of-worker', proxySrc.includes('^[a-f0-9]{6,24}$'))
+t('permalink proxy: 10s timeout + 404 passthrough', proxySrc.includes('AbortSignal.timeout(10000)') && proxySrc.includes("workerRes.status === 404 ? 404 : 502"))
+t('permalink proxy: no auth gate (capability URL by design)', !proxySrc.includes('requireFeatureAccess') && !proxySrc.includes('requireCredits'))
+
 console.log(`\n${pass}/${pass + fail} assertions passed`)
 process.exit(fail > 0 ? 1 : 0)

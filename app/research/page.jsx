@@ -227,12 +227,17 @@ function ReferencesBlock({ sources }) {
 }
 
 // ── Verification grid (v5.4) — per-claim trust, made visible ──
+// ── v5.7 note: the tier grid proves a SOURCE is trustworthy; the supportCheck
+// prop (worker entailment audit) proves the source actually backs the claim.
 // Maps the report's citation markers onto the pipeline's source tiers and
 // shows exactly how well-sourced the answer is: a verdict, a weighted score,
 // a tier-segmented bar, and the flagged claims that need review. Pure client
 // derivation from sources + report — identical on fresh, cache-hit, and
 // history paths, and it retroactively upgrades older cached reports.
-function VerificationGridBlock({ sources, report }) {
+// v5.7: when the worker ran the deep-mode citation-support audit, the
+// supportCheck prop renders its entailment findings — repaired citations
+// (emerald) and claims whose cited source does not actually back them (red).
+function VerificationGridBlock({ sources, report, supportCheck }) {
   const grid = useMemo(() => computeVerificationGrid(sources, report), [sources, report])
   if (!grid.citedCount) return null
   const verdict = VERIFICATION_VERDICTS[grid.verdict] || VERIFICATION_VERDICTS.none
@@ -290,6 +295,32 @@ function VerificationGridBlock({ sources, report }) {
           ))}
           {grid.flagged.length > flaggedShown.length && (
             <div className="verification-flag-more">+{grid.flagged.length - flaggedShown.length} more flagged citations</div>
+          )}
+        </div>
+      )}
+      {/* v5.7 — citation-support audit (worker entailment pass, deep runs):
+          claims whose cited source does not actually substantiate them, plus
+          any auto-repairs. Absent on quick mode / old cached payloads. */}
+      {supportCheck && (supportCheck.unsupported > 0 || supportCheck.partial > 0 || supportCheck.repaired > 0) && (
+        <div className="verification-flagged">
+          <div className="verification-flagged-title">
+            Citation support · {supportCheck.supported}/{supportCheck.checked} claims substantiated
+            {supportCheck.repaired > 0 ? ` · ${supportCheck.repaired} auto-repaired` : ''}
+          </div>
+          {(supportCheck.items || []).slice(0, 5).map((it, i) => (
+            <div key={i} className="verification-flag-row" style={{ cursor: 'default' }}>
+              <span className={`verification-flag-chip ${
+                it.verdict === 'repaired' ? 'verification-flag-chip-verified' :
+                it.verdict === 'partial' ? 'verification-flag-chip-review' : 'verification-flag-chip-unverified'
+              }`}>
+                {it.verdict === 'repaired' ? `✓ repaired → [${it.source}]` : it.verdict === 'partial' ? '⚠ partial' : '✗ unsupported'}
+              </span>
+              <span className="verification-flag-title">{(it.claim || '').replace(/\s+/g, ' ').slice(0, 110)}</span>
+              {it.reason && <span className="verification-flag-domain">{it.reason}</span>}
+            </div>
+          ))}
+          {(supportCheck.items || []).length > 5 && (
+            <div className="verification-flag-more">+{supportCheck.items.length - 5} more audited citations</div>
           )}
         </div>
       )}
@@ -561,6 +592,8 @@ function ResearchPageContent() {
   // barExpanded toggles it to a multi-line textarea — mirroring chat page UX.
   const [barExpanded, setBarExpanded] = useState(false)
   const [sourcesExpanded, setSourcesExpanded] = useState(false)
+  // v5.7: transient feedback for the permalink "Link" button
+  const [linkCopied, setLinkCopied] = useState(false)
   const [history, setHistory] = useState([])
   const [progress, setProgress] = useState(0)
   const [researchStage, setResearchStage] = useState('search')
@@ -1024,6 +1057,12 @@ function ResearchPageContent() {
         wikiSlug: data.wiki_slug || data.wikiSlug || '',
         wikiVersion: data.wiki_version || data.wikiVersion || 0,
         fromCache: data.from_cache || data.fromCache || false,
+        // v5.7: worker semantic-cache hit (paraphrased query reused a stored deep report)
+        cacheType: data.cacheType || null,
+        semanticScore: data.semanticScore || null,
+        // v5.7: public permalink id + citation-support audit (deep runs)
+        permalinkId: data.permalink_id || data.permalinkId || null,
+        supportCheck: data.supportCheck || null,
         // v5.2.0: freshness routing — explicit time axis detected in the query
         recency: data.recency || null,
       }
@@ -1633,6 +1672,13 @@ function ResearchPageContent() {
                         {activeResearch.recency.label}
                       </span>
                     )}
+                    {/* v5.7 — semantic cache hit: this report was served from a
+                        paraphrase-matched deep run (Workers AI embeddings) */}
+                    {activeResearch.cacheType === 'semantic' && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-purple-500/10 text-purple-400 border border-purple-500/30 shrink-0" title={activeResearch.originalQuery ? `Matches earlier research: "${activeResearch.originalQuery}"` : 'Semantically matched cached research'}>
+                        Semantic hit{typeof activeResearch.semanticScore === 'number' ? ` · ${Math.round(activeResearch.semanticScore * 100)}%` : ''}
+                      </span>
+                    )}
                     {/* APEX 2.0 Wiki badge only — no "Cached" badge (cached reports look identical to fresh ones) */}
                     {activeResearch.wikiLifecycle && activeResearch.wikiLifecycle !== 'draft' && (
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
@@ -1653,6 +1699,25 @@ function ResearchPageContent() {
                           <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                         </svg>
                         Copy
+                      </button>
+                    )}
+                    {/* v5.7 — public permalink: copies a shareable capability URL */}
+                    {reportText && !isResearching && activeResearch.permalinkId && (
+                      <button
+                        onClick={() => {
+                          try {
+                            navigator.clipboard.writeText(`${window.location.origin}/research/r/${activeResearch.permalinkId}`)
+                            setLinkCopied(true)
+                            setTimeout(() => setLinkCopied(false), 1800)
+                          } catch {}
+                        }}
+                        className={`text-[10px] transition-colors flex items-center gap-1 shrink-0 ${linkCopied ? 'text-green-400' : 'text-[#525252] hover:text-white'}`}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                        </svg>
+                        {linkCopied ? 'Copied' : 'Link'}
                       </button>
                     )}
                     {/* v5.6 — download report in different formats */}
@@ -1751,7 +1816,7 @@ function ResearchPageContent() {
 
                 {/* Verification grid (v5.4) — per-claim trust from source tiers */}
                 {researchStage === 'done' && sources.length > 0 && (
-                  <VerificationGridBlock sources={sources} report={reportText} />
+                  <VerificationGridBlock sources={sources} report={reportText} supportCheck={activeResearch?.supportCheck || null} />
                 )}
 
                 {/* References (v5.3) — numbered, identifier-linked (DOI/PMID/NCT), dated */}

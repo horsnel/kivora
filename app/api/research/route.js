@@ -405,6 +405,20 @@ export async function POST(req) {
             if (finalData && !sawError) {
               const latencyMs = Date.now() - workerStartTime
 
+              // v5.7: worker-side SEMANTIC cache hits are as cheap as exact
+              // cache hits — refund all but 1 credit (parity with the
+              // Supabase cache-hit path below)
+              if (adminCharger && user?.id && finalData.cacheType === 'semantic') {
+                try {
+                  const refundAmount = CREDIT_COSTS[action] - 1
+                  if (refundAmount > 0) {
+                    await refundCredits(adminCharger, user.id, refundAmount, action, 'semantic cache hit')
+                  }
+                } catch (refundErr) {
+                  console.error('[research] semantic refund failed:', refundErr?.message || refundErr)
+                }
+              }
+
               // ── Store result in cache (same as JSON path) ──────────
               let cacheId = null
               let wikiPageId = finalData.wikiPageId || null
@@ -484,6 +498,19 @@ export async function POST(req) {
         await refundCredits(adminCharger, user.id, CREDIT_COSTS[action], action, 'worker error response')
       }
       return Response.json({ error: data.error }, { status: 500 })
+    }
+
+    // v5.7: worker-side SEMANTIC cache hits are as cheap as exact cache
+    // hits — refund all but 1 credit (parity with the Supabase path)
+    if (adminCharger && user?.id && data.cacheType === 'semantic') {
+      try {
+        const refundAmount = CREDIT_COSTS[action] - 1
+        if (refundAmount > 0) {
+          await refundCredits(adminCharger, user.id, refundAmount, action, 'semantic cache hit')
+        }
+      } catch (refundErr) {
+        console.error('[research] semantic refund failed:', refundErr?.message || refundErr)
+      }
     }
 
     const latencyMs = Date.now() - workerStartTime

@@ -199,11 +199,24 @@ t('research: query header row elevated (relative z-20)', researchPageSrc.include
 t('research: ExportMenu rendered inside the elevated header row', (() => {
   const rowStart = researchPageSrc.indexOf('relative z-20 flex items-center gap-3 pt-3 animate-fade-in')
   const menuIdx = researchPageSrc.indexOf('<ExportMenu', rowStart)
-  return rowStart > -1 && menuIdx > rowStart && menuIdx < rowStart + 4000
+  return rowStart > -1 && menuIdx > rowStart && menuIdx < rowStart + 6500
 })())
 t('research: root cause marker — animate-fade-in still carries will-change (documented trap)',
   read('../app/globals.css').includes('.animate-fade-in,'))
 t('research: ExportMenu dropdown is z-50 inside elevated row', read('../components/ExportMenu.jsx').includes('z-50 animate-scale-in'))
+
+// ── 7. v5.7 permalink UI tripwires (research page + public renderer) ──────
+t('v5.7: Link button sits in the same elevated meta row (z-trap safe)', (() => {
+  const rowStart = researchPageSrc.indexOf('relative z-20 flex items-center gap-3 pt-3 animate-fade-in')
+  const linkIdx = researchPageSrc.indexOf("activeResearch.permalinkId && (", rowStart)
+  const menuIdx = researchPageSrc.indexOf('<ExportMenu', rowStart)
+  return rowStart > -1 && linkIdx > rowStart && linkIdx < menuIdx && menuIdx - linkIdx < 2500
+})())
+t('v5.7: Link button only renders when a permalink exists (no dead button on old reports)', researchPageSrc.includes('activeResearch.permalinkId && ('))
+t('v5.7: Link button style matches its Copy neighbor (10px, shrink-0)', researchPageSrc.includes("text-[10px] transition-colors flex items-center gap-1 shrink-0 ${linkCopied"))
+t('v5.7: copied feedback auto-resets (no stuck green state)', researchPageSrc.includes('setTimeout(() => setLinkCopied(false), 1800)'))
+t('v5.7: permalink page never leaks the raw worker URL to the browser', !read('../app/research/r/[id]/page.jsx').includes('workers.dev'))
+t('v5.7: permalink page is auth-free read-only (no supabase session calls)', !read('../app/research/r/[id]/page.jsx').includes('supabasePublic'))
 
 console.log(`\n════════════════════════════════════`)
 console.log(`  export suite: ${pass} pass, ${fail} fail`)

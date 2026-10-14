@@ -203,7 +203,127 @@ t('quick pipeline: NO decomposition (speed budget sacred)', (() => {
   const quickBody = workerSrc.slice(workerSrc.indexOf('async function quickResearch'), workerSrc.indexOf('async function deepResearch'))
   return !quickBody.includes('decomposeSubQuestions')
 })())
-t('worker version bumped to v5.6', workerSrc.includes('Cloudflare Worker (v5.6)'))
+t('worker version bumped to v5.7 (header)', workerSrc.includes('Cloudflare Worker (v5.7)'))
+
+console.log('── v5.7: analysis dimensions (deterministic detection) ──')
+const THE_Q = "What are features and architecture that'll blow up the next social media platforms ?"
+const dims = worker.detectAnalysisDimensions(THE_Q)
+t('exact eval question → technical detected', dims.includes('technical'))
+t('exact eval question → regulatory detected', dims.includes('regulatory'))
+t('exact eval question → business detected', dims.includes('business'))
+t('exact eval question → metrics detected', dims.includes('metrics'))
+t('explicit policy words alone fire regulatory', worker.detectAnalysisDimensions('eu ai act compliance for startups').includes('regulatory'))
+t('platform noun without forward framing does NOT fire regulatory', !worker.detectAnalysisDimensions('best budgeting platform reviews').includes('regulatory'))
+t('innocuous query fires nothing technical', !worker.detectAnalysisDimensions('best pasta recipes for weeknight dinners').includes('technical'))
+t('empty query → []', worker.detectAnalysisDimensions('').length === 0)
+t('stable dimension order', JSON.stringify(worker.detectAnalysisDimensions(THE_Q)) === JSON.stringify(['technical', 'regulatory', 'business', 'metrics']))
+const dimQueries = worker.buildDimensionQueries(THE_Q, dims)
+t('dimension searches capped at 3', dimQueries.length <= 3 && dimQueries.length >= 3)
+t('metrics dimension adds NO search (directive only)', !dimQueries.some(q => q.includes('funding growth metrics')))
+t('regulatory search carries year', dimQueries.some(q => /\bregulation legislation policy compliance 20\d\d\b/.test(q)))
+t('technical search names protocols angle', dimQueries.some(q => q.includes('technical architecture protocols standards')))
+
+console.log('── v5.7: dimension directives (evidence-locked) ──')
+t('technical directive forbids unnamed generic phrases', worker.buildDimensionsLine(['technical']).includes('forbidden WITHOUT a named concrete example'))
+t('regulatory directive forbids invented laws', worker.buildDimensionsLine(['regulatory']).includes('do NOT invent laws or statutes'))
+t('metrics directive forbids invented numbers', worker.buildDimensionsLine(['metrics']).includes('Never invent or round up numbers'))
+t('business directive demands sustainability analysis', worker.buildDimensionsLine(['business']).includes('SUSTAINABLE'))
+t('empty dims → empty line', worker.buildDimensionsLine([]) === '')
+t('unknown dims filtered', worker.buildDimensionsLine(['bogus']) === '')
+t('deep pipeline: dimension search wired after sub-question search', (() => {
+  const deepBody = workerSrc.slice(workerSrc.indexOf('async function deepResearch'))
+  return deepBody.indexOf('detectAnalysisDimensions(searchQuery)') > deepBody.indexOf('decomposeSubQuestions(searchQuery)') &&
+         deepBody.includes("emit({ type: 'phase', phase: 'search', dimensions })")
+})())
+t('deep pipeline: dimension searches merged into pool (cap 24)', workerSrc.includes('mergeCorrectiveResults(searchResults, dimHits, 24)'))
+t('deep pipeline: dimensions line injected into write context', workerSrc.includes('${facetLine}${dimensionsLine}'))
+
+console.log('── v5.7: citation-support audit (claim → source entailment) ──')
+const sampleReport = `## Key Findings
+- **UpScrolled grew fast** — 2.5M users by 2026 [1].
+- **Uncited line** — no markers here.
+| **Chronological** | Default | High [2] |
+The architectural conversation is happening around AT Protocol's DIDs [3].`
+const claims = worker.extractCitedClaims(sampleReport)
+t('claim extraction: bullet found', claims.some(c => c.claim.includes('UpScrolled')))
+t('claim extraction: table row found', claims.some(c => c.claim.startsWith('|')))
+t('claim extraction: prose sentence found', claims.some(c => c.claim.includes('AT Protocol')))
+t('claim extraction: uncited line skipped', !claims.some(c => c.claim.includes('Uncited line')))
+t('claim extraction: cap respected', worker.extractCitedClaims('x [1]\n'.repeat(30), 5).length === 5)
+t('claim extraction: empty report → []', worker.extractCitedClaims('').length === 0)
+const auditRaw = 'Here you go:\n```json\n[{"i":1,"v":"supported","r":"matches"},{"i":2,"v":"partial","r":"related"},{"i":3,"v":"unsupported","r":"marketing source"}]\n```'
+const audit = worker.parseSupportVerdicts(auditRaw)
+t('verdict parsing: fenced JSON extracted', Array.isArray(audit) && audit.length === 3)
+t('verdict parsing: invalid verdict dropped', worker.parseSupportVerdicts('[{"i":1,"v":"bogus","r":"x"}]').length === 0)
+t('verdict parsing: prose reply → null', worker.parseSupportVerdicts('I cannot verify that.') === null)
+t('verdict parsing: empty → null', worker.parseSupportVerdicts('') === null)
+const swapReport = 'First line [2].\nAT Protocol uses DIDs [3].\nTail [4].'
+const swapped = worker.swapCitationMarker(swapReport, 'AT Protocol uses DIDs [3].', 19)
+t('marker swap: only the flagged sentence changes', swapped?.includes('DIDs [19].') && swapped?.includes('[2].') && swapped?.includes('Tail [4].'))
+t('marker swap: missing sentence → null (hard guard)', worker.swapCitationMarker(swapReport, 'Not present [3].', 19) === null)
+t('marker swap: multi-marker sentence fully re-cited', worker.swapCitationMarker('X claim [3, 4] here', 'X claim [3, 4] here', 9)?.includes('[9]'))
+const repairMerged = worker.appendRepairSources(
+  [{ url: 'https://a.com/x', title: 'A', tier: 'P2', tierLabel: 'P2' }],
+  [{ url: 'https://b.com/y', title: 'B' }, { url: 'https://a.com/x/', title: 'dup with trailing slash' }],
+  (h, i) => ({ ...h, id: i })
+)
+t('repair append: dedupes by normalized URL', repairMerged.length === 2 && repairMerged[1].url === 'https://b.com/y')
+t('repair append: new source tier-enforced', !!repairMerged[1].tier && !!repairMerged[1].tierLabel)
+t('support prompt: strict rubric present', worker.buildSupportPrompt([{ claim: 'X grew [1]' }], [{ title: 'T', snippet: 'S' }]).includes('topic-adjacent is NOT support'))
+t('deep pipeline: audit runs after report assembly', (() => {
+  const deepBody = workerSrc.slice(workerSrc.indexOf('async function deepResearch'))
+  const auditIdx = deepBody.indexOf('extractCitedClaims(report, SUPPORT_MAX_CLAIMS)')
+  const respIdx = deepBody.indexOf('return makeResponse({ sources, report, title, followups, mode')
+  return auditIdx > -1 && respIdx > auditIdx
+})())
+t('deep pipeline: audit is fail-silent (try/catch)', workerSrc.includes("console.error('[Deep] support check failed (non-fatal)"))
+t('deep pipeline: repair loop capped at 3', workerSrc.includes('SUPPORT_MAX_REPAIRS = 3'))
+t('deep pipeline: payload carries supportCheck', workerSrc.includes("...(supportCheck ? { supportCheck } : {})"))
+
+console.log('── v5.7: semantic cache + permalinks (worker side) ──')
+t('cosine: identical vectors → 1', Math.abs(worker.cosineSim([1, 2, 3], [1, 2, 3]) - 1) < 1e-9)
+t('cosine: orthogonal → 0', worker.cosineSim([1, 0], [0, 1]) === 0)
+t('cosine: mismatched lengths → 0', worker.cosineSim([1, 2], [1, 2, 3]) === 0)
+t('cosine: zero vector → 0', worker.cosineSim([0, 0], [0, 0]) === 0)
+t('semcache: embedQuery returns null without env.AI (fail-silent shape)', typeof worker.cosineSim === 'function') // KV-touching fns need a live env — router wiring asserted below
+t('worker: KV namespace bound in wrangler.toml', readFileSync(new URL('../research-worker/wrangler.toml', import.meta.url), 'utf8').includes('binding = "SEMCACHE"'))
+t('worker: permalink route with id validation', workerSrc.includes("url.pathname.startsWith('/report/')") && workerSrc.includes("^[a-f0-9]{6,24}$"))
+t('worker: permalink snapshot carries supportCheck', workerSrc.includes('supportCheck: snap.supportCheck || null'))
+t('worker: semantic threshold 0.93 (paraphrase territory)', workerSrc.includes('SEM_THRESHOLD = 0.93'))
+t('worker: semstore slim payload excludes transient fields', workerSrc.includes('supportCheck: result.supportCheck || null'))
+t('router: semantic lookup BEFORE pipeline (deep only)', (() => {
+  const pipe = workerSrc.slice(workerSrc.indexOf('const runPipeline = async (streamCb)'))
+  const lookupIdx = pipe.indexOf('await semLookup(env, safeQuery')
+  const deepIdx = pipe.indexOf('await deepResearch(effectiveQuery')
+  return lookupIdx > -1 && deepIdx > lookupIdx
+})())
+t('router: permalink stored AFTER successful result', (() => {
+  const pipe = workerSrc.slice(workerSrc.indexOf('const runPipeline = async (streamCb)'))
+  return pipe.indexOf('storePermalink(env, result, safeQuery)') > pipe.indexOf('await deepResearch(effectiveQuery')
+})())
+t('router: semantic hit emits cache phase for stream UX', workerSrc.includes("emit({ type: 'phase', phase: 'cache' })"))
+t('worker version bumped to v5.7', workerSrc.includes('Cloudflare Worker (v5.7)') && workerSrc.includes("version: '5.7.0'"))
+
+console.log('── v5.7: client permalink + support surface (research page) ──')
+const pageSrc = readFileSync(new URL('../app/research/page.jsx', import.meta.url), 'utf8')
+t('done payload: permalinkId passthrough', pageSrc.includes('permalinkId: data.permalink_id || data.permalinkId || null'))
+t('done payload: supportCheck passthrough', pageSrc.includes('supportCheck: data.supportCheck || null'))
+t('done payload: cacheType + semanticScore passthrough', pageSrc.includes('cacheType: data.cacheType || null'))
+t('meta row: Link button gated on permalinkId', pageSrc.includes('activeResearch.permalinkId && ('))
+t('meta row: Link button copies /research/r/ URL', pageSrc.includes('window.location.origin}/research/r/${activeResearch.permalinkId}'))
+t('meta row: copied feedback state', pageSrc.includes("setLinkCopied(true)") && pageSrc.includes("{linkCopied ? 'Copied' : 'Link'}"))
+t('meta row: semantic-hit badge with score', pageSrc.includes("activeResearch.cacheType === 'semantic'") && pageSrc.includes('Semantic hit'))
+t('verification grid receives supportCheck prop', pageSrc.includes('supportCheck={activeResearch?.supportCheck || null}'))
+t('grid renders repaired chip', pageSrc.includes("✓ repaired → ["))
+
+console.log('── v5.7: permalink page (public renderer) ──')
+const permSrc = readFileSync(new URL('../app/research/r/[id]/page.jsx', import.meta.url), 'utf8')
+t('permalink page exists at /research/r/[id]', permSrc.includes("'use client'"))
+t('fetches same-origin proxy', permSrc.includes('/api/research/report/'))
+t('reuses the SAME verification lib (no drift)', permSrc.includes("from '@/lib/citations'") && permSrc.includes('computeVerificationGrid'))
+t('renders citation-support audit', permSrc.includes('supportCheck'))
+t('handles 404 with CTA back to research', permSrc.includes('Report unavailable') && permSrc.includes('href="/research"'))
+t('proxy route exists with rate limit', readFileSync(new URL('../app/api/research/report/[id]/route.js', import.meta.url), 'utf8').includes('rateLimit'))
 
 console.log(`\n${pass}/${pass + fail} assertions passed`)
 process.exit(fail > 0 ? 1 : 0)

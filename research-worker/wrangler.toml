@@ -7,6 +7,11 @@ compatibility_flags = ["nodejs_compat"]
 [ai]
 binding = "AI"
 
+# KV namespace — v5.7 semantic cache index + report permalinks
+[[kv_namespaces]]
+binding = "SEMCACHE"
+id = "9d2527a25b3f4dbc928a95f46cd17018"
+
 # ── Cron trigger for credit resets ──
 # Cloudflare's free plan limits accounts to 5 cron triggers total, and this
 # account is already at 5 (musicpulse-api × 2, sigma-pipeline × 2,
