@@ -216,6 +216,7 @@ t('v5.7: Link button only renders when a permalink exists (no dead button on old
 t('v5.7: Link button style matches its Copy neighbor (10px, shrink-0)', researchPageSrc.includes("text-[10px] transition-colors flex items-center gap-1 shrink-0 ${linkCopied"))
 t('v5.7: copied feedback auto-resets (no stuck green state)', researchPageSrc.includes('setTimeout(() => setLinkCopied(false), 1800)'))
 t('v5.7: permalink page never leaks the raw worker URL to the browser', !read('../app/research/r/[id]/page.jsx').includes('workers.dev'))
+t('v5.7: permalink page opts into edge runtime (next-on-pages dynamic-route requirement)', read('../app/research/r/[id]/page.jsx').includes("export const runtime = 'edge'"))
 t('v5.7: permalink page is auth-free read-only (no supabase session calls)', !read('../app/research/r/[id]/page.jsx').includes('supabasePublic'))
 
 console.log(`\n════════════════════════════════════`)

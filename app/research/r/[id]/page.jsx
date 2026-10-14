@@ -1,12 +1,16 @@
 'use client'
 // ── Public report permalink page (v5.7) ──
-// /research/r/:id — renders a stored report snapshot from the worker's KV
-// via the same-origin proxy GET /api/research/report/:id. The 12-hex id is
+// /research/r/:id — renders a stored report snapshot (Supabase-backed worker
+// permalink store) via the same-origin proxy GET /api/research/report/:id. The 12-hex id is
 // the capability: no auth, 90-day TTL. Visual language mirrors the research
 // page (same tokens), but this page is a lightweight read-only renderer —
 // the trust panel re-derives the verification grid from the stored sources
 // + report using the SAME lib the research page uses (lib/citations), so the
 // numbers can never drift between the two surfaces.
+
+// Required for Cloudflare Pages edge runtime (next-on-pages: dynamic routes
+// must opt into the edge runtime — same pattern as app/explore/[slug])
+export const runtime = 'edge'
 
 import { useState, useEffect, useMemo, Suspense } from 'react'
 import { useParams } from 'next/navigation'
