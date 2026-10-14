@@ -335,7 +335,7 @@ function VerificationGridBlock({ sources, report, supportCheck, statCheck }) {
       {statCheck && statCheck.checked > 0 && (
         <div className="verification-flagged">
           <div className="verification-flagged-title">
-            Fabrication gate · {Math.max(0, statCheck.checked - (statCheck.flagged || 0))}/{statCheck.checked} figures verified in cited sources
+            Fabrication gate · {statCheck.checked} figures checked · {Math.max(0, statCheck.checked - (statCheck.flagged || 0))} verified as-cited
             {statCheck.repaired > 0 ? ` · ${statCheck.repaired} re-cited` : ''}
             {statCheck.rewritten > 0 ? ` · ${statCheck.rewritten} hedged` : ''}
             {statCheck.removed > 0 ? ` · ${statCheck.removed} removed` : ''}

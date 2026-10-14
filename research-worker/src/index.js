@@ -1458,7 +1458,11 @@ async function repairFabrications(env, audit, report, sources, fullTexts) {
     } catch { /* LLM failure: remaining sentences ship flagged, not rewritten */ }
   }
   const statCheck = {
-    checked: audit?.statsChecked || 0,
+    // checked counts BOTH figures and named-term claims — the UI's "N/M"
+    // denominator must cover everything flagged could flag (v5.8.1: stats-only
+    // denominator made entity-flagged runs show an impossible 0/N)
+    checked: (audit?.statsChecked || 0) + (audit?.entitiesChecked || 0),
+    statsChecked: audit?.statsChecked || 0,
     entitiesChecked: audit?.entitiesChecked || 0,
     flagged: audit?.total || 0,
     repaired,
@@ -3450,7 +3454,7 @@ async function quickResearch(query, env, apexModel = 'apex-free', searchQueryOve
       statCheck = rep.statCheck;
       console.log(`[Quick] Fabrication repair: ${statCheck.repaired} repaired, ${statCheck.rewritten} rewritten, ${statCheck.removed} removed`);
     } else {
-      statCheck = { checked: fabAudit.statsChecked, entitiesChecked: fabAudit.entitiesChecked, flagged: 0, repaired: 0, rewritten: 0, removed: 0, items: [] };
+      statCheck = { checked: fabAudit.statsChecked + fabAudit.entitiesChecked, statsChecked: fabAudit.statsChecked, entitiesChecked: fabAudit.entitiesChecked, flagged: 0, repaired: 0, rewritten: 0, removed: 0, items: [] };
     }
   } catch (e) {
     console.error('[Quick] fabrication gate failed (non-fatal):', e?.message);
@@ -3857,7 +3861,7 @@ ${tierSnapshot}`,
       statCheck = rep.statCheck;
       console.log(`[Deep] Fabrication repair: ${statCheck.repaired} repaired, ${statCheck.rewritten} rewritten, ${statCheck.removed} removed`);
     } else if (fabAudit.statsChecked > 0 || fabAudit.entitiesChecked > 0) {
-      statCheck = { checked: fabAudit.statsChecked, entitiesChecked: fabAudit.entitiesChecked, flagged: 0, repaired: 0, rewritten: 0, removed: 0, items: [] };
+      statCheck = { checked: fabAudit.statsChecked + fabAudit.entitiesChecked, statsChecked: fabAudit.statsChecked, entitiesChecked: fabAudit.entitiesChecked, flagged: 0, repaired: 0, rewritten: 0, removed: 0, items: [] };
     }
   } catch (e) {
     console.error('[Deep] fabrication gate failed (non-fatal):', e?.message);

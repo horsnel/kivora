@@ -138,7 +138,7 @@ function PermalinkView() {
             {statCheck && statCheck.checked > 0 && (
               <div className="mt-3 pt-3 border-t border-[#1a1a1a]">
                 <div className="text-[11px] font-medium text-[#a0a0a0]">
-                  Fabrication gate · {Math.max(0, statCheck.checked - (statCheck.flagged || 0))}/{statCheck.checked} figures verified in cited sources
+                  Fabrication gate · {statCheck.checked} figures checked · {Math.max(0, statCheck.checked - (statCheck.flagged || 0))} verified as-cited
                   {statCheck.repaired > 0 ? ` · ${statCheck.repaired} re-cited` : ''}
                   {statCheck.rewritten > 0 ? ` · ${statCheck.rewritten} hedged` : ''}
                   {statCheck.removed > 0 ? ` · ${statCheck.removed} removed` : ''}
