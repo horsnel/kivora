@@ -539,3 +539,38 @@ Stage Summary:
 - Deep pipeline order now: search → decompose-sub-searches (multi-facet only) → corrective tier check → tier-prioritized reads → faceted write
 - Quick mode untouched (12s budget sacred); no protocol breaks (decomposed event keys are inert extras on the existing phase event)
 - Next candidates per roadmap: semantic cache + permalinks; multi-image research (vision input for charts); citation preview cards on hover
+
+---
+Task ID: v57-dimensions-audit-cache-permalinks
+Agent: Super Z (main)
+Task: Roadmap (semantic cache + permalinks) + 5 engine-quality upgrades from the user's multi-engine competitive evaluation (architecture depth with named protocols, citation-claim verification, regulatory awareness, verifiable platform metrics, business-model sustainability); "what we couldn't verify" section explicitly DEFERRED per user
+
+Work Log:
+- ENV RESET HIT AGAIN: sandbox rolled back to stale 831fd13 + mode-churn + wiped scripts/; recovered via core.fileMode false + ff to 4f779e7, CF token re-extracted from upload/KIVORA_PROJECT_HANDOFF (2).md (cfut_ format this time), GH PAT from same doc for push auth
+- WORKER v5.7 (research-worker/src/index.js):
+  * detectAnalysisDimensions — 4 deterministic triggers (technical/regulatory/business/metrics); regulatory two-gated (policy words OR platform-noun+forward-framing) so "next social media platforms" fires but "best pasta recipes" never does
+  * buildDimensionQueries — ≤3 parallel Tavily sub-searches (metrics directive-only); dimension searches merged into pool (cap 24) after sub-question search, before corrective loop
+  * DIMENSION_DIRECTIVES — evidence-locked write-phase context: name SPECIFIC protocols from sources (generic "modular APIs" forbidden without a named example), frame regulation as compliance obligations, business-model SUSTAINABILITY analysis (unproven monetization = risk, not feature), verifiable scale metrics with [N], all "invention forbidden" clauses
+  * CITATION-SUPPORT AUDIT (deep): extractCitedClaims (sentence+table-row scan) → buildSupportPrompt (strict rubric: topic-adjacent ≠ support) → llmApexFree 'audit' mode → parseSupportVerdicts → repair loop: ≤3 unsupported claims get ONE targeted Tavily search each, appendRepairSources appends EXACTLY ONE new source (indices continue after pool — existing [N] markers stay valid) and swapCitationMarker deterministically re-cites the sentence; unrepaired → flagged in supportCheck payload; every failure path silent
+  * SEMANTIC CACHE (deep): embedQuery via Workers AI bge-base-en-v1.5 (768-dim) → cosineSim ≥ 0.93 vs recent semidx rows → serve stored payload (fromCache/cacheType:'semantic'/semanticScore/originalQuery); emit 'cache' phase on hit for stream UX
+  * PERMALINKS (both modes): 12-hex capability id per successful report → GET /report/:id (validated ^[a-f0-9]{6,24}$, 90-day TTL) → Next proxy /api/research/report/[id] (rate-limited, edge, no auth — capability URL by design) → public /research/r/[id] page (verification grid re-derived from the SAME lib/citations — zero drift; support flags + sources + followups + CTA)
+  * validateOutput 'audit' mode: JSON-validity check (compact JSON array replies always failed the report thresholds 500ch/50w/headings — audit was silently dead until this)
+- CRITICAL INFRA FINDING: KV storage DEAD on this account — CF free tier caps KV writes per DAY account-WIDE (error 10048 "reached the free usage limit"), shared with musicpulse/sigma/vaultdrop workers; discovered mid-verification (silent catch{} ate it), pivoted storage to Supabase apex_research_cache rows under mode='permalink'/'semidx' namespaces (column overloads documented in-code, map 1:1 to dedicated tables later; ZERO migration needed — service-role key already in worker env). R2 unusable (10042 not enabled), Supabase DDL impossible without dashboard creds. KV binding kept in wrangler.toml (future hot-cache); quota resets 00:00 UTC
+- NEXT API: semantic-hit refund parity (refund cost-1 on data.cacheType==='semantic' in BOTH JSON + stream paths, try/catch guarded); permalink proxy route
+- CLIENT: permalinkId/cacheType/semanticScore/supportCheck passthrough in done-handler; Link button in meta row (between Copy and Export, z-20-elevated row — z-trap safe) with 1.8s green "Copied" feedback; "Semantic hit · N%" purple badge; VerificationGridBlock renders supportCheck section (repaired emerald chip, partial amber, unsupported red)
+- Pages deploy FAIL on f36eb01: next-on-pages requires dynamic routes to export runtime='edge' → added to permalink page (same pattern as app/explore/[slug]) → b3d1e99 green
+- Tests: 573/573 across 8 suites (citations 103→177, stream 92→100, export 103→110, grid 64→65); build clean
+- Shipped: 256d6ac + f36eb01 + b3d1e99 (CI+Pages green); worker versions c2cd2af0 → 05f41f6d → 847241fc → 8e0a1fb2 (v5.7.1)
+- LIVE VERIFIED (worker-direct, browser UA):
+  * DEEP on the exact eval question: dimensions event [technical+regulatory+business+metrics], dedicated subsections in report: "Technical Architecture: Decentralization and Real-Time Systems", "Regulatory Landscape: Compliance as a Mandatory Feature" (17 regulat + 15 compliance mentions — the compliance-obligation framing), "Business-Model Sustainability: Ad-Targeting Risks", "Verifiable Scale Metrics: Lack of Data on Emerging Platforms" (honest no-data statement instead of invented numbers); protocol names stayed source-locked (no ATProto in sources → not named → citation discipline intact, per user's #1 differentiator)
+  * SUPPORT AUDIT on live run: checked=13 supported=7 partial=3 repaired=3 — auditor caught "over 5 behavioral signals" vs source's "500 signals" misattribution (the EXACT Appinventiv-[4]-style failure from the user's eval); 3 claims auto-repaired via search+marker-swap
+  * SEMANTIC CACHE: repeat query → HIT score 1.0 in 2s (vs ~45-77s fresh); looser paraphrase stayed below 0.93 threshold (conservative by design — no wrong-report risk)
+  * BROWSER (production): /research/r/6d8e4f70b3ca renders full deep report (12,988 chars) + Verification panel (Weak · 13%) + "Citation support · 7/13 claims substantiated · 3 auto-repaired" section, 0 console errors; research quick run → Link button live → click → green "Copied"; /research/r/db3794cf8dea (quick permalink) renders 8 sources + CTA, 0 errors; invalid id → "Report unavailable" + CTA
+- Screenshots: download/verify-permalink-page.png (full), verify-link-copied.png, verify-permalink-404.png
+
+Stage Summary:
+- All 6 items shipped: analysis dimensions (architecture/regulatory/metrics/business directives + searches), citation-claim verification with find-one-or-flag auto-repair, semantic cache (2s vs 45s on repeats), public permalinks with shareable verification-carrying pages, refund parity, Link button
+- Deep pipeline order now: search → sub-question search (multi-facet) → dimension search (platform/product queries) → corrective tier check → tier-prioritized reads → faceted+directed write → citation-support audit + repair
+- Quick mode untouched (12s budget sacred; permalinks only +20ms KV-free put)
+- KNOWN LIMITS: semantic threshold 0.93 catches exact/near-exact repeats, misses loose paraphrases (honest miss → fresh run); protocol naming depends on sources containing them (evidence-locked by design — future tuning: topic-conditional protocol-term search augmentation)
+- Next candidates per roadmap: multi-image research (vision input for charts); citation preview cards on hover; "what we couldn't verify" section (user-deferred); Supabase dedicated tables when dashboard access exists
