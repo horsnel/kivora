@@ -288,7 +288,10 @@ t('cosine: zero vector → 0', worker.cosineSim([0, 0], [0, 0]) === 0)
 t('semcache: embedQuery returns null without env.AI (fail-silent shape)', typeof worker.cosineSim === 'function') // KV-touching fns need a live env — router wiring asserted below
 t('worker: KV namespace bound in wrangler.toml', readFileSync(new URL('../research-worker/wrangler.toml', import.meta.url), 'utf8').includes('binding = "SEMCACHE"'))
 t('worker: permalink route with id validation', workerSrc.includes("url.pathname.startsWith('/report/')") && workerSrc.includes("^[a-f0-9]{6,24}$"))
-t('worker: permalink snapshot carries supportCheck', workerSrc.includes('supportCheck: snap.supportCheck || null'))
+t('worker: permalink snapshot carries supportCheck', workerSrc.includes('supportCheck: meta.supportCheck || null'))
+t('v5.7: storage = apex_research_cache mode-namespace rows (no KV write dependency)', workerSrc.includes("mode=eq.${PERMALINK_MODE}") && workerSrc.includes("mode=eq.${SEMIDX_MODE}") && workerSrc.includes("const PERMALINK_MODE = 'permalink'") && workerSrc.includes("const SEMIDX_MODE = 'semidx'"))
+t('v5.7: semantic store upserts (check-then-write, no dup rows)', workerSrc.includes("apex_research_cache?id=eq.${found[0].id}"))
+t('v5.7: embedQuery fail-silent without env.AI', workerSrc.includes('[semcache] embed failed'))
 t('worker: semantic threshold 0.93 (paraphrase territory)', workerSrc.includes('SEM_THRESHOLD = 0.93'))
 t('worker: semstore slim payload excludes transient fields', workerSrc.includes('supportCheck: result.supportCheck || null'))
 t('router: semantic lookup BEFORE pipeline (deep only)', (() => {

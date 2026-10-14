@@ -7,7 +7,9 @@ compatibility_flags = ["nodejs_compat"]
 [ai]
 binding = "AI"
 
-# KV namespace — v5.7 semantic cache index + report permalinks
+# KV namespace — bound for future hot-cache use (v5.7 permalink + semantic
+# cache storage lives in Supabase apex_research_cache rows instead: the CF
+# free tier caps KV writes per DAY account-wide, which broke silent writes)
 [[kv_namespaces]]
 binding = "SEMCACHE"
 id = "9d2527a25b3f4dbc928a95f46cd17018"

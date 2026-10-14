@@ -1016,19 +1016,62 @@ function buildSupportPrompt(claims, sources) {
 // SEMANTIC CACHE + PERMALINKS (v5.7 — roadmap)
 // Exact-hash caching lives in the Next API layer (Supabase). This layer adds:
 //   1. SEMANTIC cache (deep mode): embed the query with Workers AI bge-base,
-//      cosine-match against a small KV index — paraphrased queries reuse the
-//      expensive deep report instead of re-running the 20s pipeline.
+//      cosine-match against recent indexed deep runs — paraphrased queries
+//      reuse the expensive deep report instead of re-running the 20s pipeline.
 //   2. PERMALINKS (both modes): every successful report gets a short
-//      capability URL id stored in KV; GET /report/:id serves it publicly.
-// All KV/embedding failures are fail-silent — the pipeline result is
-// returned regardless.
+//      capability URL id; GET /report/:id serves the snapshot publicly.
+//
+// STORAGE — apex_research_cache rows under dedicated `mode` namespaces
+// (NOT KV: the CF free tier caps KV writes per DAY account-wide and the
+// quota is shared with every other worker on this account — error 10048
+// killed silent writes mid-verification; Supabase has no such daily cap).
+// The table is a natural fit (query-hash keyed, TTL via expires_at) and
+// needs ZERO migration:
+//   mode='permalink' rows: query_hash = 12-hex capability id, report = the
+//     markdown, sources/followups = JSON strings, verification_summary =
+//     JSON { supportCheck, mode, createdAt }.
+//   mode='semidx' rows: query_hash = sha1(query|mode|tier), report = the
+//     full payload JSON, verification_summary = the 768-dim embedding JSON.
+// The column overloads are scoped to these two namespaces and map 1:1 onto
+// dedicated tables if this ever migrates. All failures are fail-silent —
+// the pipeline result is returned regardless.
 // ══════════════════════════════════════════════════════════════════
 
 const SEM_MODEL = '@cf/baai/bge-base-en-v1.5';
 const SEM_THRESHOLD = 0.93;       // bge-base cosine ≈ paraphrase territory
-const SEM_INDEX_CAP = 30;         // queries indexed per mode+tier bucket
+const SEM_INDEX_SCAN = 30;        // recent semidx rows compared per lookup
 const SEM_TTL = 60 * 60 * 24 * 30;      // 30 days
 const PERMALINK_TTL = 60 * 60 * 24 * 90; // 90 days
+const PERMALINK_MODE = 'permalink';
+const SEMIDX_MODE = 'semidx';
+
+// Supabase REST (service role — bypasses RLS). Returns the Response or null
+// when the worker env lacks credentials.
+async function supaRest(env, path, { method = 'GET', body, prefer } = {}) {
+  const supaUrl = env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL;
+  const supaKey = env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supaUrl || !supaKey) return null;
+  try {
+    return await fetch(`${supaUrl}/rest/v1/${path}`, {
+      method,
+      headers: {
+        'apikey': supaKey,
+        'Authorization': `Bearer ${supaKey}`,
+        'Content-Type': 'application/json',
+        ...(prefer ? { 'Prefer': prefer } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (e) {
+    console.error('[supa] rest failed:', e?.message);
+    return null;
+  }
+}
+
+// Storage readiness for permalink + semantic-cache features.
+function supaStoreReady(env) {
+  return !!(env && (env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL) && env.SUPABASE_SERVICE_ROLE_KEY);
+}
 
 async function sha1Hex(s) {
   const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(String(s || '')));
@@ -1061,43 +1104,51 @@ async function embedQuery(env, text) {
   }
 }
 
-function semIndexKey(mode, tier) { return `si:${mode}:${tier}`; }
-function semValKey(mode, tier, h) { return `sv:${mode}:${tier}:${h}`; }
+// (KV helpers removed — storage moved to Supabase apex_research_cache rows;
+// see the v5.7 block above for the mode-namespace design.)
 
 // Look for a semantically-equal cached deep report. Fail-silent → null.
 async function semLookup(env, query, mode, tier) {
-  if (!env?.SEMCACHE) return null;
+  const now = new Date().toISOString();
+  // 1. Light index read: recent semidx rows (embedding lives in verification_summary)
+  const idxRes = await supaRest(env,
+    `apex_research_cache?mode=eq.${SEMIDX_MODE}&apex_tier=eq.${encodeURIComponent(tier)}&expires_at=gt.${now}&order=last_accessed_at.desc&limit=${SEM_INDEX_SCAN}&select=query_hash,query_text,verification_summary`);
+  if (!idxRes || !idxRes.ok) return null;
+  const rows = await idxRes.json().catch(() => null);
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  // 2. Embed the incoming query and find the best paraphrase
   const vec = await embedQuery(env, query);
   if (!vec) return null;
-  const idxRaw = await env.SEMCACHE.get(semIndexKey(mode, tier));
-  if (!idxRaw) return null;
-  let entries = [];
-  try { entries = JSON.parse(idxRaw); } catch { return null; }
-  if (!Array.isArray(entries)) return null;
   let best = null;
-  for (const e of entries) {
-    if (!e?.e || !e?.k) continue;
-    const score = cosineSim(vec, e.e);
+  for (const r of rows) {
+    let e;
+    try { e = JSON.parse(r.verification_summary); } catch { continue; }
+    if (!Array.isArray(e)) continue;
+    const score = cosineSim(vec, e);
     if (score >= SEM_THRESHOLD && (!best || score > best.score)) {
-      best = { score, key: e.k, query: e.q || '' };
+      best = { score, hash: r.query_hash, query: r.query_text || '' };
     }
   }
   if (!best) return null;
-  const valRaw = await env.SEMCACHE.get(best.key);
-  if (!valRaw) return null;
+  // 3. Fetch the winner's payload (full JSON lives in the report column)
+  const valRes = await supaRest(env,
+    `apex_research_cache?mode=eq.${SEMIDX_MODE}&query_hash=eq.${encodeURIComponent(best.hash)}&select=report&limit=1`);
+  if (!valRes || !valRes.ok) return null;
+  const valRows = await valRes.json().catch(() => null);
+  if (!Array.isArray(valRows) || !valRows[0]?.report) return null;
   try {
-    const payload = JSON.parse(valRaw);
+    const payload = JSON.parse(valRows[0].report);
     return { payload, score: Math.round(best.score * 1000) / 1000, query: best.query };
   } catch { return null; }
 }
 
 // Store a deep result in the semantic index. Fail-silent.
 async function semStore(env, query, mode, tier, result) {
-  if (!env?.SEMCACHE) return;
   const vec = await embedQuery(env, query);
   if (!vec) return;
   const h = await sha1Hex(`${String(query).toLowerCase().trim()}|${mode}|${tier}`);
-  const vkey = semValKey(mode, tier, h);
+  const now = new Date().toISOString();
+  const expires = new Date(Date.now() + SEM_TTL * 1000).toISOString();
   const slim = {
     report: result.report || '',
     sources: result.sources || [],
@@ -1108,14 +1159,31 @@ async function semStore(env, query, mode, tier, result) {
     recency: result.recency || null,
     supportCheck: result.supportCheck || null,
   };
-  await env.SEMCACHE.put(vkey, JSON.stringify(slim), { expirationTtl: SEM_TTL });
-  const idxRaw = await env.SEMCACHE.get(semIndexKey(mode, tier));
-  let entries = [];
-  try { entries = idxRaw ? JSON.parse(idxRaw) : []; } catch { entries = []; }
-  if (!Array.isArray(entries)) entries = [];
-  entries = entries.filter((e) => e?.k !== vkey);
-  entries.unshift({ k: vkey, e: vec, q: String(query || '').slice(0, 200) });
-  await env.SEMCACHE.put(semIndexKey(mode, tier), JSON.stringify(entries.slice(0, SEM_INDEX_CAP)), { expirationTtl: SEM_TTL });
+  const row = {
+    query_text: String(query || '').slice(0, 2000),
+    normalized_query: String(query || '').toLowerCase().trim().slice(0, 2000),
+    query_hash: h,
+    report: JSON.stringify(slim),                 // payload JSON (semidx rows only)
+    sources: '[]',
+    followups: '[]',
+    verification_summary: JSON.stringify(vec),    // embedding (semidx rows only)
+    mode: SEMIDX_MODE,
+    apex_tier: tier,
+    original_latency_ms: 0,
+    expires_at: expires,
+    last_accessed_at: now,
+  };
+  // Upsert on the (query_hash, mode, apex_tier) triple — check-then-write
+  // (PostgREST merge-duplicates targets the PK, which is a surrogate uuid here)
+  const find = await supaRest(env, `apex_research_cache?mode=eq.${SEMIDX_MODE}&query_hash=eq.${h}&apex_tier=eq.${encodeURIComponent(tier)}&select=id&limit=1`);
+  const found = find && find.ok ? await find.json().catch(() => null) : null;
+  let res;
+  if (Array.isArray(found) && found[0]?.id) {
+    res = await supaRest(env, `apex_research_cache?id=eq.${found[0].id}`, { method: 'PATCH', body: row });
+  } else {
+    res = await supaRest(env, 'apex_research_cache', { method: 'POST', body: [row] });
+  }
+  if (!res || !res.ok) console.error('[semcache] store failed:', res?.status);
 }
 
 // Permalink id — 12 hex chars (URL-safe capability token, 48 bits).
@@ -1125,19 +1193,28 @@ function permalinkId() {
 
 // Store the public permalink snapshot; returns the id (null on failure).
 async function storePermalink(env, result, fallbackQuery) {
-  if (!env?.SEMCACHE) return null;
   const id = permalinkId();
-  const snap = {
-    query: String(result.originalQuery || fallbackQuery || result.title || '').slice(0, 400),
-    mode: result.mode || 'deep',
-    title: result.title || '',
+  const now = new Date().toISOString();
+  const expires = new Date(Date.now() + PERMALINK_TTL * 1000).toISOString();
+  const row = {
+    query_text: String(result.originalQuery || fallbackQuery || result.title || '').slice(0, 2000),
+    normalized_query: PERMALINK_MODE,
+    query_hash: id,
     report: result.report || '',
-    sources: result.sources || [],
-    followups: result.followups || [],
-    supportCheck: result.supportCheck || null,
-    createdAt: new Date().toISOString(),
+    sources: JSON.stringify(result.sources || []),
+    followups: JSON.stringify(result.followups || []),
+    verification_summary: JSON.stringify({ supportCheck: result.supportCheck || null, mode: result.mode || 'deep', createdAt: now }),
+    mode: PERMALINK_MODE,
+    apex_tier: PERMALINK_MODE,
+    original_latency_ms: 0,
+    expires_at: expires,
+    last_accessed_at: now,
   };
-  await env.SEMCACHE.put(`perm:${id}`, JSON.stringify(snap), { expirationTtl: PERMALINK_TTL });
+  const res = await supaRest(env, 'apex_research_cache', { method: 'POST', body: [row] });
+  if (!res || !res.ok) {
+    console.error('[permalink] store failed:', res?.status);
+    return null;
+  }
   return id;
 }
 
@@ -1645,6 +1722,19 @@ async function pollinationsChat(messages, model = 'openai', maxTokens = 4096, ti
 // Checks if LLM output is usable. Returns true if good, false if bad (triggers next provider).
 function validateOutput(text, mode = 'quick') {
   if (!text || typeof text !== 'string') return false;
+
+  // v5.7 audit mode: the citation-support auditor replies with a compact JSON
+  // array — the only valid outcome is parseable JSON with ≥1 verdict item
+  // (report length/word/structure thresholds would always reject it).
+  if (mode === 'audit') {
+    try {
+      const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+      const arr = JSON.parse(cleaned);
+      return Array.isArray(arr) && arr.length > 0;
+    } catch {
+      return false;
+    }
+  }
 
   // Absolute minimum — anything less is clearly broken
   const minLen = mode === 'deep' ? 500 : 200;
@@ -2763,10 +2853,11 @@ Produce the intelligence report now. Cross-reference the image content against t
 // ══════════════════════════════════════════════════════════════════
 
 // Standardized response shape (Fix #25)
-function makeResponse({ sources, report, title, followups, mode, classification, recency }) {
+function makeResponse({ sources, report, title, followups, mode, classification, recency, supportCheck }) {
   // recency is additive (v5.2.0): { range, label } when an explicit time axis
   // was detected, absent otherwise — older clients ignore unknown fields.
-  return { sources, report, title, followups, mode, classification, ...(recency ? { recency } : {}) };
+  // supportCheck is additive (v5.7): citation-support audit (deep runs only).
+  return { sources, report, title, followups, mode, classification, ...(recency ? { recency } : {}), ...(supportCheck ? { supportCheck } : {}) };
 }
 
 // ── Source mapping (shared by quick/deep/stream paths) ──
@@ -3197,7 +3288,7 @@ FOLLOWUPS:
       const auditT0 = Date.now();
       const auditRaw = await llmApexFree(env, [
         { role: 'user', content: buildSupportPrompt(claims, sources) },
-      ], 900, 'deep');
+      ], 900, 'audit');
       const verdicts = parseSupportVerdicts(auditRaw);
       if (verdicts && verdicts.length > 0) {
         const items = [];
@@ -3214,9 +3305,15 @@ FOLLOWUPS:
             const claimKeywords = it.claim.replace(/[\[(]\d+(?:\s*[-,]\s*\d+)*[\])]/g, '').replace(/[#*|_`>]/g, '').trim().slice(0, 140);
             if (claimKeywords.split(/\s+/).length < 4) continue;
             const hits = await searchTavily(`${claimKeywords} explained analysis`, env, 3, 'advanced', null).catch(() => []);
+            // Pick ONE new source per flagged claim — the report cites exactly
+            // one replacement, so appending the whole hit list would bloat the
+            // pool with uncited sources (v5.7.1 fix)
+            const seenUrls = new Set(sources.map((s) => String(s?.url || '').toLowerCase().replace(/\/+$/, '')).filter(Boolean));
+            const pick = (Array.isArray(hits) ? hits : []).find((h) => h?.url && !seenUrls.has(String(h.url).toLowerCase().replace(/\/+$/, '')));
+            if (!pick) continue; // all dupes — nothing to swap to
             const before = sources.length;
-            const nextSources = appendRepairSources(sources, hits, mapSource);
-            if (nextSources.length === before) continue; // all dupes — nothing to swap to
+            const nextSources = appendRepairSources(sources, [pick], mapSource);
+            if (nextSources.length === before) continue;
             const swapped = swapCitationMarker(report, it.claim, before + 1);
             if (!swapped) continue;
             sources = nextSources;
@@ -3284,7 +3381,7 @@ export default {
           github: 'available (free, rate-limited)',
         },
         classifications: ['academic', 'biomedical', 'tech', 'finance', 'general'],
-        semcache: !!env.SEMCACHE,
+        semcache: supaStoreReady(env),
       });
     }
 
@@ -3547,9 +3644,9 @@ export default {
 
           // ── SEMANTIC CACHE (v5.7, deep only): paraphrased queries reuse the
           // expensive deep report instead of re-running the ~20s pipeline.
-          // Embeddings via Workers AI + KV index; threshold 0.93 cosine.
+          // Embeddings via Workers AI + Supabase index; threshold 0.93 cosine.
           // Fail-silent — any error falls through to the normal pipeline. ──
-          if (mode === 'deep' && env.SEMCACHE && !hasImage && safeQuery) {
+          if (mode === 'deep' && supaStoreReady(env) && !hasImage && safeQuery) {
             try {
               const sem = await semLookup(env, safeQuery, 'deep', apex_model);
               if (sem) {
@@ -3585,7 +3682,7 @@ export default {
           // ── PERMALINK (v5.7): every successful report gets a public
           // capability URL (90-day TTL). Deep results also enter the semantic
           // index so future paraphrases hit the cache. Both fail-silent. ──
-          if (env.SEMCACHE && !hasImage) {
+          if (supaStoreReady(env) && !hasImage) {
             try {
               const permalink = await storePermalink(env, result, safeQuery);
               if (permalink) result.permalinkId = permalink;
@@ -3687,26 +3784,34 @@ export default {
 
     // ── Public report permalink (v5.7) ──
     // Capability URL: whoever holds the 12-hex id can fetch the stored report
-    // snapshot (90-day TTL). The Next API proxies this server-side, so the
-    // browser never talks to the worker directly.
+    // snapshot (90-day TTL, apex_research_cache rows under mode='permalink').
+    // The Next API proxies this server-side, so the browser never talks to
+    // the worker directly.
     if (url.pathname.startsWith('/report/') && request.method === 'GET') {
       const id = url.pathname.slice('/report/'.length);
       if (!/^[a-f0-9]{6,24}$/i.test(id)) {
         return jsonRes({ error: 'Invalid report id' }, 400);
       }
       try {
-        const raw = await env.SEMCACHE?.get(`perm:${id}`);
-        if (!raw) return jsonRes({ error: 'Report not found or expired' }, 404);
-        const snap = JSON.parse(raw);
+        const now = new Date().toISOString();
+        const res = await supaRest(env,
+          `apex_research_cache?mode=eq.${PERMALINK_MODE}&query_hash=eq.${encodeURIComponent(id)}&expires_at=gt.${now}&select=query_text,report,sources,followups,verification_summary&limit=1`);
+        if (!res || !res.ok) return jsonRes({ error: 'Report not found or expired' }, 404);
+        const rows = await res.json().catch(() => null);
+        const row = Array.isArray(rows) ? rows[0] : null;
+        if (!row?.report) return jsonRes({ error: 'Report not found or expired' }, 404);
+        let meta = {};
+        try { meta = JSON.parse(row.verification_summary || '{}'); } catch {}
+        const asArr = (v) => { if (Array.isArray(v)) return v; try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } };
         return jsonRes({
-          query: snap.query,
-          mode: snap.mode,
-          title: snap.title,
-          report: snap.report,
-          sources: snap.sources || [],
-          followups: snap.followups || [],
-          supportCheck: snap.supportCheck || null,
-          createdAt: snap.createdAt,
+          query: row.query_text,
+          mode: meta.mode || 'deep',
+          title: (row.query_text || '').slice(0, 120),
+          report: row.report,
+          sources: asArr(row.sources),
+          followups: asArr(row.followups),
+          supportCheck: meta.supportCheck || null,
+          createdAt: meta.createdAt || null,
         });
       } catch (e) {
         console.error('[report] permalink fetch failed:', e?.message);
