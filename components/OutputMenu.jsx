@@ -237,7 +237,7 @@ export default function OutputMenu({
                 <button role="menuitem" onClick={() => setView('export')} className={menuRow}>
                   <IconDownloadReport size={14} className="shrink-0 text-[#737373]" />
                   <span className="flex-1">{exportLabel}</span>
-                  <IconArrowLeft size={12} className="shrink-0 rotate-180 text-[#404040]" />
+                  <IconArrowLeft size={13} strokeWidth={2.75} className="shrink-0 rotate-180 text-[#737373]" />
                 </button>
               )}
             </>
@@ -249,7 +249,7 @@ export default function OutputMenu({
                 onClick={() => setView('main')}
                 className="w-full flex items-center gap-2.5 px-3.5 pt-0.5 pb-2 mb-1 text-[10px] text-[#737373] hover:text-white font-medium uppercase tracking-wider border-b border-white/[0.06] transition-colors text-left"
               >
-                <IconArrowLeft size={12} className="shrink-0" />
+                <IconArrowLeft size={13} strokeWidth={2.75} className="shrink-0" />
                 <span className="flex-1">{exportLabel}</span>
               </button>
               {formats.map((fmt) => (

@@ -1,12 +1,13 @@
 export const runtime = 'edge' 
 import { groq, MODEL, VISION_MODEL, groqChat, GroqError, ALLOWED_MODELS, getPrimaryClientAsync, getFallbackClientAsync, setCerebrasApiKey, setSambanovaApiKey, setSiliconflowApiKey, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
-import { mistralChat, mistralChatStream, setMistralApiKeys, isMistralConfigured } from '@/lib/mistral'
+import { mistralChat, mistralChatStream, setMistralApiKeys, isMistralConfigured, messagesHaveImage } from '@/lib/mistral'
+import { setJudge0Config } from '@/lib/judge0'
 import { sseResponse } from '@/lib/sse'
 import { createClient } from '@supabase/supabase-js'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit, anonymousRateLimit, anonymousDailyLimit, getClientIP } from '@/lib/ratelimit'
 import { safeJson } from '@/lib/payload'
-import { toolDefs, toolHandlers, TOOL_INSTRUCTIONS, filterToolsByQuery, detectRequiredTool } from '@/lib/toolRegistry'
+import { toolDefs, toolHandlers, TOOL_INSTRUCTIONS, filterToolsByQuery, detectRequiredTool, setToolSandboxConfig } from '@/lib/toolRegistry'
 import { buildSystemPrompt } from '@/lib/systemPrompt'
 import { requireCredits, requireFeatureAccess, refundCredits, CREDIT_COSTS } from '@/lib/credits'
 
@@ -124,8 +125,12 @@ async function ingestToWiki(admin, { userMessage, assistantReply, userId }) {
 // OpenRouter→Cerebras) adds seconds of dead retries before generation even
 // starts, so it is now the FALLBACK. Response shape is OpenAI-compatible for
 // both paths (choices[0].message), so callers are unchanged.
+//
+// v5.11: image messages SKIP Mistral — its pixtral/small vision tiers are
+// weak at person/celebrity identification. The legacy chain (lib/groq.js)
+// runs an image-aware provider order (llama-4-scout → Gemini → …) instead.
 async function aiChat(params) {
-  if (isMistralConfigured()) {
+  if (isMistralConfigured() && !messagesHaveImage(params.messages)) {
     try {
       const m = await mistralChat({
         messages: params.messages,
@@ -148,7 +153,7 @@ async function aiChat(params) {
 // chain NON-streamed and emits the whole reply as a single delta — clients
 // render both identically.
 async function aiChatStream(params, { onDelta }) {
-  if (isMistralConfigured()) {
+  if (isMistralConfigured() && !messagesHaveImage(params.messages)) {
     try {
       const m = await mistralChatStream({
         messages: params.messages,
@@ -167,6 +172,75 @@ async function aiChatStream(params, { onDelta }) {
   const text = res?.choices?.[0]?.message?.content || ''
   if (text && onDelta) onDelta(text)
   return res
+}
+
+// ── Truncation guard: complete-length continuation + sentence finisher ──
+// Providers stop at max_tokens (finish_reason 'length') or drop the stream
+// early — the user sees a reply cut mid-sentence. This wrapper continues a
+// 'length'-truncated completion up to MAX_CONTINUATIONS times (streaming the
+// continuation through the same onDelta so the client renders seamlessly),
+// then trims to the last complete sentence so a reply never ends mid-thought.
+const MAX_CONTINUATIONS = 2
+
+async function aiChatComplete(params, { onDelta, stream }) {
+  const call = (p) => (stream
+    ? aiChatStream(p, { onDelta })
+    : aiChat(p))
+
+  let chat = await call(params)
+  let text = chat?.choices?.[0]?.message?.content || ''
+  let finish = chat?.choices?.[0]?.finish_reason
+  let rounds = 0
+
+  while (finish === 'length' && text.trim() && rounds < MAX_CONTINUATIONS) {
+    rounds += 1
+    console.warn(`[chat] completion hit max_tokens (round ${rounds}) — continuing`)
+    let cont
+    try {
+      cont = await call({
+        ...params,
+        messages: [
+          ...params.messages,
+          { role: 'assistant', content: text },
+          { role: 'user', content: 'Continue your previous reply from EXACTLY where you stopped. Do not repeat any earlier text, do not add an introduction — resume mid-sentence if that is where you stopped, and finish the thought.' },
+        ],
+      })
+    } catch (contErr) {
+      console.warn('[chat] continuation failed:', String(contErr?.message || contErr).slice(0, 100))
+      break
+    }
+    const contText = cont?.choices?.[0]?.message?.content || ''
+    if (!contText.trim()) break
+    text += contText
+    finish = cont?.choices?.[0]?.finish_reason
+  }
+
+  return {
+    choices: [{
+      message: { role: 'assistant', content: text },
+      finish_reason: finish || 'stop',
+    }],
+  }
+}
+
+// Trim an over-running reply back to its last complete sentence. Never trims
+// short replies (they may legitimately end without terminal punctuation),
+// code fences, or list tables mid-structure.
+function completeSentences(text) {
+  const s = String(text || '')
+  if (s.length < 240) return s
+  // Balanced code fences — leave code blocks untouched
+  const fenceCount = (s.match(/```/g) || []).length
+  if (fenceCount % 2 === 1) return s
+  if (/[.!?)\]"'”’`*…]\s*$/.test(s.trim())) return s
+  // Walk to the last sentence terminator that is followed by whitespace/EOS
+  let last = -1
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]
+    if ((ch === '.' || ch === '!' || ch === '?') && (i + 1 >= s.length || /\s/.test(s[i + 1]))) last = i
+  }
+  if (last > 80) return s.slice(0, last + 1).trimEnd()
+  return s
 }
 
 export async function POST(req) {
@@ -354,7 +428,10 @@ async function processChat(req, body, send) {
     }
 
     // ── Effort level — controls how much the model is allowed to generate ──
-    const EFFORT_TOKENS = { low: 2048, medium: 4096, high: 8192 }
+    // v5.11 — raised caps + server-side continuation (aiChatComplete) so a
+    // reply that hits the token ceiling CONTINUES instead of stopping
+    // mid-sentence. Output still stays concise by default (medium = 6144).
+    const EFFORT_TOKENS = { low: 3072, medium: 6144, high: 12288 }
     const effort = EFFORT_TOKENS[requestedEffort] ? requestedEffort : 'medium'
 
     // Check if the last user message contains an image attachment
@@ -453,10 +530,14 @@ async function processChat(req, body, send) {
 
     if (hasImage) {
       const textContent = lastUserMsg.content.replace(/^\[Image: .+?\]\ndata:image\/[^;]+;base64,[\s\S]+$/, '').trim()
+      // v5.11 visual-intelligence prompt: full forensic analysis including
+      // public-figure / celebrity identification with confidence levels.
+      // When tools are available (web_search), the model verifies the
+      // identified identity against live web results before answering.
       apiMessages = [
         {
           role: 'system',
-          content: `${systemPrompt ? `Additional instructions: ${systemPrompt}\n\n` : ''}You are Kivora — an advanced AI assistant. The user has attached an image. Describe what you see in precise detail and answer any questions about it. Be thorough: identify objects, text, people, settings, colors, styles, and any relevant context. Use markdown formatting with ## sections for structured analysis. No filler phrases — get straight to the description.`
+          content: `${systemPrompt ? `Additional instructions: ${systemPrompt}\n\n` : ''}You are Kivora — an advanced AI assistant with visual intelligence. The user has attached an image. Analyze it thoroughly and answer any questions about it.\n\n${TOOL_INSTRUCTIONS}\n\nFor people in images: if a person appears to be a public figure or celebrity, identify them by name, state why they are famous, and give a confidence level (high/medium/low). If unsure between candidates, name your top candidates with rough confidence percentages, then USE THE web_search TOOL to verify the identity and enrich the answer with current, accurate context (their profession, recent news, notable work). If the image contains landmarks, artwork, products, or logos, identify those too. Never present a low-confidence guess about a person as certain fact — always label uncertainty clearly. For private, non-famous individuals, describe what is visible without guessing a name. Use markdown with ## sections. No filler phrases — get straight to the analysis.`
         },
         ...messages.slice(0, -1).slice(-8),
         {
@@ -479,9 +560,15 @@ async function processChat(req, body, send) {
     // to every request, which blows past Groq 8B's 6K TPM and most free-tier
     // limits. By sending only the 1-8 tools relevant to the user's query, we
     // drop input context to ~1-2K tokens — fits every provider's free tier.
-    const useTools = !hasImage
+    //
+    // v5.11: tools are now ALSO available for image messages — the vision
+    // model uses web_search to verify identities of people/landmarks it
+    // detects (celebrity recognition needs live confirmation). For image
+    // messages the tool filter runs on the user's typed text; when there is
+    // none, the default set (which includes web_search) applies.
+    const useTools = true
     const lastContent = (lastUserMsg?.content || '').trim()
-    const relevantTools = useTools ? filterToolsByQuery(lastContent) : []
+    const relevantTools = filterToolsByQuery(hasImage ? (lastUserMsg.content.replace(/^\[Image: .+?\]\n/, '').slice(0, 200) || 'analyze image') : lastContent)
 
     // ── Force tool_choice when user intent clearly requires a specific tool ──
     // Models (especially Qwen 2.5 and Llama 3.3) often describe what they'd do
@@ -503,8 +590,8 @@ async function processChat(req, body, send) {
     let chat
     try {
       chat = send
-        ? await aiChatStream(llmParams, { onDelta: (v) => send({ type: 'delta', v }) })
-        : await aiChat(llmParams)
+        ? await aiChatComplete(llmParams, { onDelta: (v) => send({ type: 'delta', v }), stream: true })
+        : await aiChatComplete(llmParams, { stream: false })
     } catch (firstErr) {
       // If the first call hit a quota/rate-limit error, retry immediately —
       // groqChat already tries all providers, so a 15s wait is too long.
@@ -532,8 +619,8 @@ async function processChat(req, body, send) {
       }
       try {
         const forcedChat = send
-          ? await aiChatStream(forcedParams, { onDelta: (v) => send({ type: 'delta', v }) })
-          : await aiChat(forcedParams)
+          ? await aiChatComplete(forcedParams, { onDelta: (v) => send({ type: 'delta', v }), stream: true })
+          : await aiChatComplete(forcedParams, { stream: false })
         const forcedMessage = forcedChat.choices[0].message
         if (forcedMessage.tool_calls && forcedMessage.tool_calls.length > 0) {
           // Update the message and chat references to the forced response
@@ -589,6 +676,30 @@ async function processChat(req, body, send) {
           const e2bMod = await import('@/lib/e2b')
           e2bMod.setE2BApiKey(e2bKey)
         } catch {}
+      }
+
+      // v5.11 fix: wire Judge0 config into the tool handlers. Previously only
+      // /api/execute did this — the chat's execute_code tool fell back to
+      // Judge0 with NO config, so dedicated-host credentials were never used
+      // and executions failed whenever the public CE endpoint was saturated.
+      const judge0Url = await getEnvVar('JUDGE0_URL')
+      const judge0Key = await getEnvVar('JUDGE0_API_KEY')
+      if (judge0Url || judge0Key) {
+        try { setJudge0Config(judge0Url, judge0Key) } catch {}
+      }
+
+      // Same for the Cloudflare Sandbox tool path (module-level constants read
+      // process.env, which is empty for CF Pages secrets — wire via setter).
+      const cfSandboxUrl = await getEnvVar('KIVORA_SANDBOX_URL')
+      const cfSandboxKey = await getEnvVar('KIVORA_SANDBOX_KEY')
+      if (cfSandboxUrl && cfSandboxKey) {
+        try {
+          const { setSandboxConfig } = await import('@/lib/sandboxConfig')
+          setSandboxConfig(cfSandboxUrl, cfSandboxKey)
+        } catch {}
+        // toolRegistry keeps its own module-level copy — wire it too so the
+        // sandbox_exec / execute_code tools see the credentials.
+        try { setToolSandboxConfig(cfSandboxUrl, cfSandboxKey) } catch {}
       }
 
       // Set Daytona API key from server-side env (primary sandbox provider)
@@ -675,22 +786,17 @@ async function processChat(req, body, send) {
       } else {
         // Normal path: second LLM call to synthesize tool results into a reply.
         // Streamed in SSE mode — this is the long generation for tool queries.
+        const finalParams = {
+          model,
+          messages: [...apiMessages, ...toolMessages],
+          max_tokens: 4096,
+          tools: relevantTools,
+          tool_choice: 'none'
+        }
         const finalChat = send
-          ? await aiChatStream({
-              model,
-              messages: [...apiMessages, ...toolMessages],
-              max_tokens: 2048,
-              tools: relevantTools,
-              tool_choice: 'none'
-            }, { onDelta: (v) => send({ type: 'delta', v }) })
-          : await aiChat({
-              model,
-              messages: [...apiMessages, ...toolMessages],
-              max_tokens: 2048,
-              tools: relevantTools,
-              tool_choice: 'none'
-            })
-        reply = finalChat.choices[0].message.content
+          ? await aiChatComplete(finalParams, { onDelta: (v) => send({ type: 'delta', v }), stream: true })
+          : await aiChatComplete(finalParams, { stream: false })
+        reply = completeSentences(finalChat.choices[0].message.content)
         if (!reply || !String(reply).trim()) {
           // Empty second-pass reply — synthesize from the raw tool results so
           // the user still sees what the tools returned instead of a blank
@@ -831,7 +937,7 @@ async function processChat(req, body, send) {
     }
 
     // Normal response (no tool calls)
-    let reply = message.content
+    let reply = completeSentences(message.content)
 
     // ── Empty-reply hardening ──
     // Some providers occasionally return HTTP 200 with empty content (content

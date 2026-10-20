@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from '@/lib/supabase'
 import { createClient } from '@supabase/supabase-js'
 import { requireCredits, requireFeatureAccess, refundCredits, CREDIT_COSTS } from '@/lib/credits'
 import { SSE_HEADERS, sseResponse } from '@/lib/sse'
+import { groqChat, VISION_MODEL, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
 
 // Kivora Research Worker endpoint (Cloudflare Worker)
 const RESEARCH_WORKER_URL = 'https://kivora-research.odehebuka48.workers.dev/research'
@@ -142,6 +143,68 @@ async function storeCacheResult(admin, queryHash, queryText, normalized, mode, a
     }
   } catch (err) {
     console.error('[research] Cache store failed:', err?.message || err)
+    return null
+  }
+}
+
+/**
+ * v5.11 — server-side vision pre-analysis of attached images.
+ *
+ * The external research worker receives images verbatim, but its text
+ * pipeline historically under-delivered on "who is this person" queries.
+ * Before forwarding, we run a fast forensic vision pass (llama-4-scout via
+ * the image-aware provider chain) and prepend a structured analysis block
+ * to the query. The worker's search + synthesis stages then ground the
+ * report in identified entities (people, landmarks, brands, OCR text)
+ * instead of a bare image blob.
+ *
+ * Failure is non-fatal: on any error/timeout the original query is passed
+ * through unchanged.
+ */
+async function analyzeImageAttachments(geminiKey, openrouterKey, query, files) {
+  try {
+    if (!Array.isArray(files)) return null
+    const image = files.find(f =>
+      (f?.type || '').startsWith('image/') &&
+      typeof f?.content === 'string' && f.content.startsWith('data:image/')
+    )
+    if (!image) return null
+
+    setGeminiApiKey(geminiKey)
+    setOpenrouterApiKey(openrouterKey)
+
+    const analysisPrompt = `Analyze this image for a research pipeline. Produce a compact structured brief:
+1. PEOPLE — for each visible person: apparent role/context. If they appear to be a public figure or celebrity, name them + why famous + confidence (high/medium/low). If uncertain, list top candidates with rough confidence. Never invent identities for private individuals.
+2. SCENE — setting, location cues, landmarks (name them if identifiable), time-of-day, weather.
+3. OBJECTS & BRANDING — notable objects, logos, products, vehicles, signage.
+4. TEXT — transcribe ALL visible text (OCR), including captions, watermarks, screens, clothing text.
+5. NOTABLE DETAILS — anything unusual, timestamped, or research-worthy.
+Be factual and label uncertainty. Keep the whole brief under 350 words.`
+
+    const analysisPromise = groqChat({
+      model: VISION_MODEL,
+      messages: [
+        { role: 'system', content: 'You are a precise visual forensic analyst. Output only the structured brief.' },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: analysisPrompt + (query ? `\n\nUser's question about this image: "${query}"` : '') },
+            { type: 'image_url', image_url: { url: image.content } },
+          ],
+        },
+      ],
+      max_tokens: 900,
+    })
+    // Hard 15s cap — a hung vision call must never delay the research request
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('vision pre-analysis timeout')), 15000)
+    )
+    const res = await Promise.race([analysisPromise, timeoutPromise])
+
+    const text = res?.choices?.[0]?.message?.content || ''
+    return text.trim() ? text.trim() : null
+  } catch (err) {
+    console.warn('[research] vision pre-analysis failed (passthrough):', String(err?.message || err).slice(0, 120))
     return null
   }
 }
@@ -344,6 +407,22 @@ export async function POST(req) {
     }
     if (Array.isArray(attachedFiles) && attachedFiles.length > 0) {
       workerBody.attachedFiles = attachedFiles
+    }
+
+    // ── v5.11: vision pre-analysis of attached images ──
+    // Runs BEFORE the worker call; the structured brief is prepended to the
+    // query so the worker's text pipeline researches the identified entities.
+    // Non-fatal on failure. Only for image-bearing requests (adds ~2-4s).
+    if (hasImage) {
+      const visionAnalysis = await analyzeImageAttachments(
+        await getEnvVar('GEMINI_API_KEY'),
+        openrouterKey,
+        trimmedQuery,
+        allFilesForImageCheck
+      )
+      if (visionAnalysis) {
+        workerBody.query = `[IMAGE ANALYSIS — from the attached image(s), machine-generated, verify claims against sources]\n${visionAnalysis}\n[END IMAGE ANALYSIS]\n\nUser's question: ${trimmedQuery || 'Analyze the attached image and identify everything researchable, especially any people.'}`
+      }
     }
 
     const workerRes = await fetch(RESEARCH_WORKER_URL, {

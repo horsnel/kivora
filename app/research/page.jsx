@@ -11,6 +11,7 @@ import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, 
 import { usePlan } from '@/lib/usePlan'
 import UpgradeCard from '@/components/UpgradeCard'
 import OutputMenu from '@/components/OutputMenu'
+import Lightbox from '@/components/Lightbox'
 import { parseCitationMarker, faviconUrl, domainOf, buildReferences, computeVerificationGrid, verificationStatusFor, VERIFICATION_VERDICTS } from '@/lib/citations'
 
 // ── File Upload Constants ──
@@ -191,37 +192,111 @@ function SourceLogo({ source, size = 20 }) {
 // links extracted from source URLs, a retrieval date stamp, and the databases
 // that were searched. Built from the enriched sources array — works identically
 // on fresh and cache-hit results.
+
+// ── v5.11 — shared attachment chip row ──
+// Real image thumbnails (the data URL is already in memory) instead of a
+// generic placeholder icon; tapping a thumbnail opens the full-screen
+// Lightbox preview. Used by all three text bars on this page.
+function AttachmentChipRow({ files, onRemove, onPreview }) {
+  return (
+    <div className="flex flex-wrap gap-1.5 mb-2 max-w-full animate-fade-in">
+      {files.map((f, idx) => (
+        <div key={idx} className="flex items-center gap-2 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1.5 max-w-full attachment-chip">
+          {f.type?.startsWith('image/') && typeof f.content === 'string' && f.content.startsWith('data:image/') ? (
+            <button
+              onClick={() => onPreview(f.content)}
+              className="relative shrink-0 group/th"
+              title="Preview image"
+              aria-label={`Preview ${f.name}`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={f.content}
+                alt={f.name}
+                className="w-8 h-8 rounded-md object-cover border border-white/[0.08] group-hover/th:border-[#FF3366]/50 transition-colors"
+              />
+              <span className="absolute inset-0 flex items-center justify-center rounded-md bg-black/0 group-hover/th:bg-black/30 transition-colors">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" className="opacity-0 group-hover/th:opacity-100 transition-opacity"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+              </span>
+            </button>
+          ) : f.type?.startsWith('image/') ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+            </svg>
+          )}
+          <span className="text-xs text-[#a0a0a0] truncate flex-1 min-w-0 max-w-[180px]">{f.name}</span>
+          <span className="text-[10px] text-[#525252] shrink-0">{(f.size / 1024).toFixed(1)}KB</span>
+          <button
+            onClick={() => onRemove(idx)}
+            className="shrink-0 text-[#525252] hover:text-red-400 transition-colors p-0.5"
+            aria-label="Remove attachment"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function ReferencesBlock({ sources }) {
   const refs = useMemo(() => buildReferences(sources), [sources])
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef(null)
+  // Click-outside + Escape close for the popup card
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => { if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false) }
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [open])
   if (!refs.refs.length) return null
   return (
-    <div className="references-block animate-fade-in">
-      <div className="references-header">
-        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400/70">
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-          </svg>
-          References
-        </h3>
-        <span className="references-meta">
-          as of {refs.asOf} · {refs.refs.length} sources{refs.databases.length > 0 ? ` · via ${refs.databases.join(', ')}` : ''}
-        </span>
-      </div>
-      <ol className="references-list">
-        {refs.refs.map((r) => (
-          <li key={r.n} className="reference-item">
-            <span className="ref-n">[{r.n}]</span>
-            <SourceLogo source={{ url: r.url, tier: r.tier }} size={16} />
-            <a href={r.url} target="_blank" rel="noopener noreferrer" className="ref-title">{r.title}</a>
-            <span className="ref-domain">{r.domain}</span>
-            {r.year ? <span className="ref-year">{r.year}</span> : null}
-            {r.doi ? <a className="ref-id" href={`https://doi.org/${r.doi}`} target="_blank" rel="noopener noreferrer">DOI</a> : null}
-            {r.pmid ? <a className="ref-id" href={`https://pubmed.ncbi.nlm.nih.gov/${r.pmid}/`} target="_blank" rel="noopener noreferrer">PMID:{r.pmid}</a> : null}
-            {r.nct ? <a className="ref-id" href={`https://clinicaltrials.gov/study/${r.nct}`} target="_blank" rel="noopener noreferrer">{r.nct}</a> : null}
-            {r.pmc ? <a className="ref-id" href={`https://www.ncbi.nlm.nih.gov/pmc/articles/${r.pmc}/`} target="_blank" rel="noopener noreferrer">{r.pmc}</a> : null}
-          </li>
-        ))}
-      </ol>
+    <div ref={rootRef} className="references-block animate-fade-in">
+      {/* v5.11 — compact summary row; clicking pops the full card up from underneath */}
+      <button onClick={() => setOpen(v => !v)} className="references-summary" aria-expanded={open}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400/70 shrink-0">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+        </svg>
+        <span className="references-summary-title">References</span>
+        <span className="references-summary-badge">{refs.refs.length} sources</span>
+        {refs.databases.length > 0 && (
+          <span className="references-summary-meta">via {refs.databases.slice(0, 2).join(', ')}{refs.databases.length > 2 ? '…' : ''}</span>
+        )}
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className={`references-summary-chevron ${open ? 'rotate-180' : ''}`}><path d="M3 5l3 3 3-3" /></svg>
+      </button>
+
+      {open && (
+        <div className="hush-pop references-popup" role="dialog" aria-label="References detail">
+          <div className="references-popup-header">
+            <span className="references-popup-title">References</span>
+            <span className="references-popup-meta">as of {refs.asOf} · {refs.refs.length} sources{refs.databases.length > 0 ? ` · via ${refs.databases.join(', ')}` : ''}</span>
+          </div>
+          <ol className="references-list references-list-popup">
+            {refs.refs.map((r) => (
+              <li key={r.n} className="reference-item">
+                <span className="ref-n">[{r.n}]</span>
+                <SourceLogo source={{ url: r.url, tier: r.tier }} size={16} />
+                <a href={r.url} target="_blank" rel="noopener noreferrer" className="ref-title">{r.title}</a>
+                <span className="ref-domain">{r.domain}</span>
+                {r.year ? <span className="ref-year">{r.year}</span> : null}
+                {r.doi ? <a className="ref-id" href={`https://doi.org/${r.doi}`} target="_blank" rel="noopener noreferrer">DOI</a> : null}
+                {r.pmid ? <a className="ref-id" href={`https://pubmed.ncbi.nlm.nih.gov/${r.pmid}/`} target="_blank" rel="noopener noreferrer">PMID:{r.pmid}</a> : null}
+                {r.nct ? <a className="ref-id" href={`https://clinicaltrials.gov/study/${r.nct}`} target="_blank" rel="noopener noreferrer">{r.nct}</a> : null}
+                {r.pmc ? <a className="ref-id" href={`https://www.ncbi.nlm.nih.gov/pmc/articles/${r.pmc}/`} target="_blank" rel="noopener noreferrer">{r.pmc}</a> : null}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
     </div>
   )
 }
@@ -243,6 +318,17 @@ function ReferencesBlock({ sources }) {
 // shown; a clean count proves the guarantee.
 function VerificationGridBlock({ sources, report, supportCheck, statCheck }) {
   const grid = useMemo(() => computeVerificationGrid(sources, report), [sources, report])
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef(null)
+  // Click-outside + Escape close for the popup card
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => { if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false) }
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [open])
   if (!grid.citedCount) return null
   const verdict = VERIFICATION_VERDICTS[grid.verdict] || VERIFICATION_VERDICTS.none
   const segs = [
@@ -253,111 +339,120 @@ function VerificationGridBlock({ sources, report, supportCheck, statCheck }) {
   ].filter(s => s.count > 0)
   const flaggedShown = grid.flagged.slice(0, 6)
   return (
-    <div className="verification-block animate-fade-in">
-      <div className="verification-header">
-        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={grid.verdict === 'verified' ? 'text-emerald-400/80' : 'text-amber-400/80'}>
-            <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
-            {(grid.verdict === 'verified')
-              ? <path d="m9 12 2 2 4-4" />
-              : <><path d="M12 8v4" /><path d="M12 16h.01" /></>}
-          </svg>
-          Verification
-        </h3>
+    <div ref={rootRef} className="verification-block animate-fade-in">
+      {/* v5.11 — compact summary row; clicking pops the full card up from underneath */}
+      <button onClick={() => setOpen(v => !v)} className="verification-summary" aria-expanded={open}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={grid.verdict === 'verified' ? 'text-emerald-400/80' : 'text-amber-400/80'}>
+          <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+          {(grid.verdict === 'verified')
+            ? <path d="m9 12 2 2 4-4" />
+            : <><path d="M12 8v4" /><path d="M12 16h.01" /></>}
+        </svg>
+        <span className="verification-summary-title">Verification</span>
         <span className={`verification-badge verification-badge-${grid.verdict}`}>
           {grid.verdict === 'verified' ? '✓' : '⚠'} {verdict.label} · {grid.score}%
         </span>
-      </div>
-      <div className="verification-bar" role="img" aria-label={`Source tiers: ${segs.map(s => `${s.count} ${s.tier}`).join(', ')}`}>
-        {segs.map(s => (
-          <div key={s.tier} className="verification-seg" style={{ width: `${(s.count / grid.citedCount) * 100}%`, background: s.color }} title={`${s.count} × ${s.tier}`} />
-        ))}
-      </div>
-      <div className="verification-counts">
-        <span className="verification-count verification-count-ok">{grid.verified} verified</span>
-        <span className="verification-sep">·</span>
-        <span className="verification-count verification-count-warn">{grid.counts.P3 || 0} community</span>
-        <span className="verification-sep">·</span>
-        <span className="verification-count verification-count-bad">{grid.counts.UNV || 0} unverified</span>
-        <span className="verification-sep">·</span>
-        <span className="verification-count-quiet">{grid.citedCount} of {grid.totalSources} sources cited</span>
-      </div>
-      <p className="verification-desc">{verdict.desc}</p>
-      {flaggedShown.length > 0 && (
-        <div className="verification-flagged">
-          <div className="verification-flagged-title">Needs review</div>
-          {flaggedShown.map(c => (
-            <a key={c.n} className="verification-flag-row" href={c.url} target="_blank" rel="noopener noreferrer">
-              <span className="ref-n">[{c.n}]</span>
-              <SourceLogo source={{ url: c.url, tier: c.tier }} size={16} />
-              <span className="verification-flag-title">{c.title}</span>
-              <span className="verification-flag-domain">{c.domain}</span>
-              <span className={`verification-flag-chip verification-flag-chip-${c.status}`}>
-                {c.status === 'review' ? '⚠ community' : '⚠ unverified'}
-              </span>
-            </a>
-          ))}
-          {grid.flagged.length > flaggedShown.length && (
-            <div className="verification-flag-more">+{grid.flagged.length - flaggedShown.length} more flagged citations</div>
-          )}
-        </div>
-      )}
-      {/* v5.7 — citation-support audit (worker entailment pass, deep runs):
-          claims whose cited source does not actually substantiate them, plus
-          any auto-repairs. Absent on quick mode / old cached payloads. */}
-      {supportCheck && (supportCheck.unsupported > 0 || supportCheck.partial > 0 || supportCheck.repaired > 0) && (
-        <div className="verification-flagged">
-          <div className="verification-flagged-title">
-            Citation support · {supportCheck.supported}/{supportCheck.checked} claims substantiated
-            {supportCheck.repaired > 0 ? ` · ${supportCheck.repaired} auto-repaired` : ''}
+        <span className="verification-summary-meta">{grid.verified} verified · {grid.counts.UNV || 0} unverified</span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className={`references-summary-chevron ${open ? 'rotate-180' : ''}`}><path d="M3 5l3 3 3-3" /></svg>
+      </button>
+
+      {open && (
+        <div className="hush-pop verification-popup" role="dialog" aria-label="Verification detail">
+          <div className="verification-popup-header">
+            <span className="verification-popup-title">Verification</span>
+            <span className={`verification-badge verification-badge-${grid.verdict}`}>
+              {grid.verdict === 'verified' ? '✓' : '⚠'} {verdict.label} · {grid.score}%
+            </span>
           </div>
-          {(supportCheck.items || []).slice(0, 5).map((it, i) => (
-            <div key={i} className="verification-flag-row" style={{ cursor: 'default' }}>
-              <span className={`verification-flag-chip ${
-                it.verdict === 'repaired' ? 'verification-flag-chip-verified' :
-                it.verdict === 'partial' ? 'verification-flag-chip-review' : 'verification-flag-chip-unverified'
-              }`}>
-                {it.verdict === 'repaired' ? `✓ repaired → [${it.source}]` : it.verdict === 'partial' ? '⚠ partial' : '✗ unsupported'}
-              </span>
-              <span className="verification-flag-title">{(it.claim || '').replace(/\s+/g, ' ').slice(0, 110)}</span>
-              {it.reason && <span className="verification-flag-domain">{it.reason}</span>}
+          <div className="verification-popup-body">
+            <div className="verification-bar" role="img" aria-label={`Source tiers: ${segs.map(s => `${s.count} ${s.tier}`).join(', ')}`}>
+              {segs.map(s => (
+                <div key={s.tier} className="verification-seg" style={{ width: `${(s.count / grid.citedCount) * 100}%`, background: s.color }} title={`${s.count} × ${s.tier}`} />
+              ))}
             </div>
-          ))}
-          {(supportCheck.items || []).length > 5 && (
-            <div className="verification-flag-more">+{supportCheck.items.length - 5} more audited citations</div>
-          )}
-        </div>
-      )}
-      {/* v5.8 — fabrication gate (deterministic, both modes): every figure
-          in the report was checked VERBATIM against its cited source text —
-          a number cannot be paraphrased, so a match is proof, not a judgment.
-          Clean runs show the guarantee; actions show what the gate changed. */}
-      {statCheck && statCheck.checked > 0 && (
-        <div className="verification-flagged">
-          <div className="verification-flagged-title">
-            Fabrication gate · {statCheck.checked} figures checked · {Math.max(0, statCheck.checked - (statCheck.flagged || 0))} verified as-cited
-            {statCheck.repaired > 0 ? ` · ${statCheck.repaired} re-cited` : ''}
-            {statCheck.rewritten > 0 ? ` · ${statCheck.rewritten} hedged` : ''}
-            {statCheck.removed > 0 ? ` · ${statCheck.removed} removed` : ''}
+            <div className="verification-counts">
+              <span className="verification-count verification-count-ok">{grid.verified} verified</span>
+              <span className="verification-sep">·</span>
+              <span className="verification-count verification-count-warn">{grid.counts.P3 || 0} community</span>
+              <span className="verification-sep">·</span>
+              <span className="verification-count verification-count-bad">{grid.counts.UNV || 0} unverified</span>
+              <span className="verification-sep">·</span>
+              <span className="verification-count-quiet">{grid.citedCount} of {grid.totalSources} sources cited</span>
+            </div>
+            <p className="verification-desc">{verdict.desc}</p>
+            {flaggedShown.length > 0 && (
+              <div className="verification-flagged">
+                <div className="verification-flagged-title">Needs review</div>
+                {flaggedShown.map(c => (
+                  <a key={c.n} className="verification-flag-row" href={c.url} target="_blank" rel="noopener noreferrer">
+                    <span className="ref-n">[{c.n}]</span>
+                    <SourceLogo source={{ url: c.url, tier: c.tier }} size={16} />
+                    <span className="verification-flag-title">{c.title}</span>
+                    <span className="verification-flag-domain">{c.domain}</span>
+                    <span className={`verification-flag-chip verification-flag-chip-${c.status}`}>
+                      {c.status === 'review' ? '⚠ community' : '⚠ unverified'}
+                    </span>
+                  </a>
+                ))}
+                {grid.flagged.length > flaggedShown.length && (
+                  <div className="verification-flag-more">+{grid.flagged.length - flaggedShown.length} more flagged citations</div>
+                )}
+              </div>
+            )}
+            {/* v5.7 — citation-support audit (worker entailment pass, deep runs) */}
+            {supportCheck && (supportCheck.unsupported > 0 || supportCheck.partial > 0 || supportCheck.repaired > 0) && (
+              <div className="verification-flagged">
+                <div className="verification-flagged-title">
+                  Citation support · {supportCheck.supported}/{supportCheck.checked} claims substantiated
+                  {supportCheck.repaired > 0 ? ` · ${supportCheck.repaired} auto-repaired` : ''}
+                </div>
+                {(supportCheck.items || []).slice(0, 5).map((it, i) => (
+                  <div key={i} className="verification-flag-row" style={{ cursor: 'default' }}>
+                    <span className={`verification-flag-chip ${
+                      it.verdict === 'repaired' ? 'verification-flag-chip-verified' :
+                      it.verdict === 'partial' ? 'verification-flag-chip-review' : 'verification-flag-chip-unverified'
+                    }`}>
+                      {it.verdict === 'repaired' ? `✓ repaired → [${it.source}]` : it.verdict === 'partial' ? '⚠ partial' : '✗ unsupported'}
+                    </span>
+                    <span className="verification-flag-title">{(it.claim || '').replace(/\s+/g, ' ').slice(0, 110)}</span>
+                    {it.reason && <span className="verification-flag-domain">{it.reason}</span>}
+                  </div>
+                ))}
+                {(supportCheck.items || []).length > 5 && (
+                  <div className="verification-flag-more">+{supportCheck.items.length - 5} more audited citations</div>
+                )}
+              </div>
+            )}
+            {/* v5.8 — fabrication gate (deterministic, both modes) */}
+            {statCheck && statCheck.checked > 0 && (
+              <div className="verification-flagged">
+                <div className="verification-flagged-title">
+                  Fabrication gate · {statCheck.checked} figures checked · {Math.max(0, statCheck.checked - (statCheck.flagged || 0))} verified as-cited
+                  {statCheck.repaired > 0 ? ` · ${statCheck.repaired} re-cited` : ''}
+                  {statCheck.rewritten > 0 ? ` · ${statCheck.rewritten} hedged` : ''}
+                  {statCheck.removed > 0 ? ` · ${statCheck.removed} removed` : ''}
+                </div>
+                {(statCheck.items || []).slice(0, 5).map((it, i) => (
+                  <div key={i} className="verification-flag-row" style={{ cursor: 'default' }}>
+                    <span className={`verification-flag-chip ${
+                      it.action === 'repaired' ? 'verification-flag-chip-verified' :
+                      it.action === 'rewritten' ? 'verification-flag-chip-review' : 'verification-flag-chip-unverified'
+                    }`}>
+                      {it.action === 'repaired' ? '✓ repaired' : it.action === 'rewritten' ? '⚠ hedged' : '✗ removed'}
+                    </span>
+                    <span className="verification-flag-title">{(it.sentence || '').replace(/\s+/g, ' ').slice(0, 110)}</span>
+                    {it.value && <span className="verification-flag-domain">{it.kind === 'stat' ? `figure “${it.value}”` : `“${it.value}”`}</span>}
+                  </div>
+                ))}
+                {(statCheck.items || []).length > 5 && (
+                  <div className="verification-flag-more">+{statCheck.items.length - 5} more gate actions</div>
+                )}
+              </div>
+            )}
+            <div className="verification-footer">citation status derived from source tier at retrieval · as of {grid.asOf}</div>
           </div>
-          {(statCheck.items || []).slice(0, 5).map((it, i) => (
-            <div key={i} className="verification-flag-row" style={{ cursor: 'default' }}>
-              <span className={`verification-flag-chip ${
-                it.action === 'repaired' ? 'verification-flag-chip-verified' :
-                it.action === 'rewritten' ? 'verification-flag-chip-review' : 'verification-flag-chip-unverified'
-              }`}>
-                {it.action === 'repaired' ? '✓ repaired' : it.action === 'rewritten' ? '⚠ hedged' : '✗ removed'}
-              </span>
-              <span className="verification-flag-title">{(it.sentence || '').replace(/\s+/g, ' ').slice(0, 110)}</span>
-              {it.value && <span className="verification-flag-domain">{it.kind === 'stat' ? `figure “${it.value}”` : `“${it.value}”`}</span>}
-            </div>
-          ))}
-          {(statCheck.items || []).length > 5 && (
-            <div className="verification-flag-more">+{statCheck.items.length - 5} more gate actions</div>
-          )}
         </div>
       )}
-      <div className="verification-footer">citation status derived from source tier at retrieval · as of {grid.asOf}</div>
     </div>
   )
 }
@@ -650,6 +745,8 @@ function ResearchPageContent() {
   const fileInputRef = useRef(null)
   const collapsedFileInputRef = useRef(null)
   const [attachedFiles, setAttachedFiles] = useState([]) // [{ name, type, size, content }]
+  // v5.11 — full-screen preview of an attached image (Lightbox)
+  const [previewImage, setPreviewImage] = useState(null)
   const [fileError, setFileError] = useState('')
   const typewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
   const collapsedTypewriterRef = useRef({ phraseIdx: 0, charIdx: 0, deleting: false, timeout: null })
@@ -925,7 +1022,10 @@ function ResearchPageContent() {
       // v5.3 streaming policy: DEEP streams token-by-token (premium live feel);
       // QUICK stays plain JSON so it returns the moment generation finishes —
       // no transport overhead, fastest possible end-to-end path.
-      const reqBody = { query: query.trim(), mode: researchMode, apex_model: apexModel, stream: researchMode === 'deep' }
+      // v5.11 — image queries stream too: the fallback endpoint is skipped for
+      // attachments, so without SSE the user would stare at a static progress
+      // bar for the full ~80s vision window. Live phases fix the perceived wait.
+      const reqBody = { query: query.trim(), mode: researchMode, apex_model: apexModel, stream: researchMode === 'deep' || isImage }
       if (fileAttachments.length > 0) {
         reqBody.attachedFiles = fileAttachments
       }
@@ -1483,32 +1583,7 @@ function ResearchPageContent() {
             <div className="chat-container-expanded">
               {/* Attachment chips (one per file) */}
               {attachedFiles.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2 max-w-full animate-fade-in">
-                  {attachedFiles.map((f, idx) => (
-                    <div key={idx} className="flex items-center gap-2 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1.5 max-w-full attachment-chip">
-                      {f.type?.startsWith('image/') ? (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
-                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                        </svg>
-                      ) : (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
-                        </svg>
-                      )}
-                      <span className="text-xs text-[#a0a0a0] truncate flex-1 min-w-0 max-w-[180px]">{f.name}</span>
-                      <span className="text-[10px] text-[#525252] shrink-0">{(f.size / 1024).toFixed(1)}KB</span>
-                      <button
-                        onClick={() => removeAttachment(idx)}
-                        className="shrink-0 text-[#525252] hover:text-red-400 transition-colors p-0.5"
-                        aria-label="Remove attachment"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                <AttachmentChipRow files={attachedFiles} onRemove={removeAttachment} onPreview={setPreviewImage} />
               )}
               {fileError && (
                 <div className="text-xs text-red-400 mb-2 px-2">{fileError}</div>
@@ -1895,32 +1970,7 @@ function ResearchPageContent() {
               {(attachedFiles.length > 0 || fileError) && (
                 <div className="max-w-full mb-2">
                   {attachedFiles.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 max-w-full">
-                      {attachedFiles.map((f, idx) => (
-                        <div key={idx} className="flex items-center gap-2 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1.5 max-w-full animate-fade-in attachment-chip">
-                          {f.type?.startsWith('image/') ? (
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
-                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                            </svg>
-                          ) : (
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
-                            </svg>
-                          )}
-                          <span className="text-xs text-[#a0a0a0] truncate flex-1 min-w-0 max-w-[180px]">{f.name}</span>
-                          <span className="text-[10px] text-[#525252] shrink-0">{(f.size / 1024).toFixed(1)}KB</span>
-                          <button
-                            onClick={() => removeAttachment(idx)}
-                            className="shrink-0 text-[#525252] hover:text-red-400 transition-colors p-0.5"
-                            aria-label="Remove attachment"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                    <AttachmentChipRow files={attachedFiles} onRemove={removeAttachment} onPreview={setPreviewImage} />
                   )}
                   {fileError && (
                     <div className="text-xs text-red-400 px-2">{fileError}</div>
@@ -2049,32 +2099,7 @@ function ResearchPageContent() {
                 <div className="chat-container-expanded" ref={chatBarRef}>
                   {/* Attachment chips (one per file) */}
                   {attachedFiles.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-2 max-w-full animate-fade-in">
-                      {attachedFiles.map((f, idx) => (
-                        <div key={idx} className="flex items-center gap-2 bg-[#1a1a1a] border border-[#262626] rounded-lg px-2.5 py-1.5 max-w-full attachment-chip">
-                          {f.type?.startsWith('image/') ? (
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
-                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                            </svg>
-                          ) : (
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
-                            </svg>
-                          )}
-                          <span className="text-xs text-[#a0a0a0] truncate flex-1 min-w-0 max-w-[180px]">{f.name}</span>
-                          <span className="text-[10px] text-[#525252] shrink-0">{(f.size / 1024).toFixed(1)}KB</span>
-                          <button
-                            onClick={() => removeAttachment(idx)}
-                            className="shrink-0 text-[#525252] hover:text-red-400 transition-colors p-0.5"
-                            aria-label="Remove attachment"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                    <AttachmentChipRow files={attachedFiles} onRemove={removeAttachment} onPreview={setPreviewImage} />
                   )}
                   {fileError && (
                     <div className="text-xs text-red-400 mb-2 px-2">{fileError}</div>
@@ -2557,10 +2582,98 @@ function ResearchPageContent() {
         }
 
         /* ─── v5.3 references block ─── */
+        /* v5.11 — the block is now the anchor for the summary row + popup card.
+           The summary button IS the card; the popup slides up from underneath. */
         .references-block {
+          position: relative;
+          border: none;
+          background: transparent;
+          border-radius: 12px;
+          padding: 0;
+        }
+        .references-summary {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 14px;
           border: 1px solid #1a1a1a;
           background: #0d0d0d;
           border-radius: 12px;
+          cursor: pointer;
+          text-align: left;
+          transition: background 0.2s, border-color 0.2s, transform 0.15s;
+        }
+        .references-summary:hover {
+          background: #141414;
+          border-color: #262626;
+        }
+        .references-summary:active { transform: scale(0.995); }
+        .references-summary-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: #fff;
+        }
+        .references-summary-badge {
+          font-size: 10px;
+          font-weight: 500;
+          color: #a3a3a3;
+          padding: 2px 8px;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid rgba(255,255,255,0.08);
+          white-space: nowrap;
+        }
+        .references-summary-meta {
+          font-size: 10px;
+          color: #525252;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .references-summary-chevron {
+          margin-left: auto;
+          color: #525252;
+          transition: transform 0.3s cubic-bezier(0.16,1,0.3,1);
+          flex-shrink: 0;
+        }
+        .references-popup {
+          position: absolute;
+          bottom: calc(100% + 8px);
+          left: 0;
+          right: 0;
+          z-index: 40;
+          background: #141414;
+          border: 1px solid #2a2a2a;
+          border-radius: 16px;
+          box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+          overflow: hidden;
+        }
+        .references-popup-header {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 8px;
+          flex-wrap: wrap;
+          padding: 12px 16px;
+          border-bottom: 1px solid rgba(255,255,255,0.06);
+          background: #161616;
+          position: sticky;
+          top: 0;
+          z-index: 1;
+        }
+        .references-popup-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: #fff;
+        }
+        .references-popup-meta {
+          font-size: 10px;
+          color: #525252;
+        }
+        .references-list-popup {
+          max-height: min(52vh, 420px);
+          overflow-y: auto;
           padding: 12px 16px;
         }
         .references-header {
@@ -2630,11 +2743,85 @@ function ResearchPageContent() {
         .ref-id:hover { background: rgba(96, 165, 250, 0.16); text-decoration: none; }
 
         /* ─── v5.4 verification grid ─── */
+        /* v5.11 — verification block anchors the summary row + popup card */
         .verification-block {
+          position: relative;
+          border: none;
+          background: transparent;
+          border-radius: 12px;
+          padding: 0;
+        }
+        .verification-summary {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 14px;
           border: 1px solid #1a1a1a;
           background: #0d0d0d;
           border-radius: 12px;
+          cursor: pointer;
+          text-align: left;
+          transition: background 0.2s, border-color 0.2s, transform 0.15s;
+        }
+        .verification-summary:hover {
+          background: #141414;
+          border-color: #262626;
+        }
+        .verification-summary:active { transform: scale(0.995); }
+        .verification-summary-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: #fff;
+          white-space: nowrap;
+        }
+        .verification-summary-meta {
+          font-size: 10px;
+          color: #525252;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .verification-popup {
+          position: absolute;
+          bottom: calc(100% + 8px);
+          left: 0;
+          right: 0;
+          z-index: 40;
+          background: #141414;
+          border: 1px solid #2a2a2a;
+          border-radius: 16px;
+          box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+          overflow: hidden;
+        }
+        .verification-popup-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          flex-wrap: wrap;
           padding: 12px 16px;
+          border-bottom: 1px solid rgba(255,255,255,0.06);
+          background: #161616;
+          position: sticky;
+          top: 0;
+          z-index: 1;
+        }
+        .verification-popup-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: #fff;
+        }
+        .verification-popup-body {
+          padding: 12px 16px;
+          max-height: min(60vh, 520px);
+          overflow-y: auto;
+        }
+        /* v5.11 fix — chip style used by supportCheck/statCheck rows was missing */
+        .verification-flag-chip-verified {
+          background: rgba(52, 211, 153, 0.1);
+          color: #34d399;
+          border: 1px solid rgba(52, 211, 153, 0.25);
         }
         .verification-header {
           display: flex;
@@ -3237,6 +3424,11 @@ function ResearchPageContent() {
           transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
       `}</style>
+
+      {/* ── v5.11 attachment preview lightbox ── */}
+      {previewImage && (
+        <Lightbox src={previewImage} alt="Attachment preview" onClose={() => setPreviewImage(null)} />
+      )}
     </main>
   )
 }

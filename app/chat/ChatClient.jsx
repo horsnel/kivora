@@ -18,8 +18,13 @@ import { useVoiceTTS } from '@/hooks/useVoiceTTS'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
 import { reportClientError } from '@/lib/reportClientError'
+import dynamic from 'next/dynamic'
 import ComingSoonPopup from '@/components/ComingSoonPopup'
 import ChatNoticeCard from '@/components/ChatNoticeCard'
+import Lightbox from '@/components/Lightbox'
+
+// v5.11 — Live Terminal restored (client-only; xterm touches DOM)
+const XTerminal = dynamic(() => import('@/components/XTerminal'), { ssr: false })
 
 
 
@@ -322,6 +327,9 @@ export default function ChatClient() {
   const [attachedContent, setAttachedContent] = useState('')
   const [attachedIsImage, setAttachedIsImage] = useState(false)
   const fileInputRef = useRef(null)
+
+  // v5.11 — attachment preview lightbox
+  const [previewImage, setPreviewImage] = useState(null)
 
   // Feature: Voice Input
   const [isListening, setIsListening] = useState(false)
@@ -1306,6 +1314,162 @@ export default function ChatClient() {
 
   const currentModel = ALL_MODELS.find(m => m.id === model) || MODELS[0]
 
+  // ── v5.11 Live Terminal (restored) ──────────────────────────────
+  // SANDBOX mode: Cloudflare Sandbox (internet, pip/npm, persistent fs).
+  // JUDGE0 mode: /api/execute bash fallback when the sandbox isn't wired.
+  const [terminalMode, setTerminalMode] = useState(false)
+  const [sandboxAvailable, setSandboxAvailable] = useState(false)
+  const [aiSuggestion, setAiSuggestion] = useState(null)
+  const xtermRef = useRef(null)
+
+  useEffect(() => {
+    fetch('/api/sandbox?action=health')
+      .then(r => r.json())
+      .then(data => setSandboxAvailable(data.sandbox_available === true))
+      .catch(() => setSandboxAvailable(false))
+  }, [])
+
+  // Helper to write to xterm with ANSI colors
+  const termWrite = (text, color) => {
+    const term = xtermRef.current
+    if (!term) return
+    if (color) {
+      const colorMap = { green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m', cyan: '\x1b[36m', gray: '\x1b[90m', reset: '\x1b[0m' }
+      term.write(`${colorMap[color] || ''}${text}${colorMap.reset}`)
+    } else {
+      term.write(text)
+    }
+  }
+
+  const termWriteln = (text, color) => {
+    termWrite(text + '\r\n', color)
+  }
+
+  const termPrompt = () => {
+    const term = xtermRef.current
+    if (!term) return
+    term.write('\r\n\x1b[32m$\x1b[0m ')
+  }
+
+  const executeCommand = async (cmd) => {
+    // ── Try Cloudflare Sandbox first ──
+    if (sandboxAvailable) {
+      try {
+        const res = await fetch('/api/sandbox', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'exec', sandbox_id: 'terminal', command: cmd, timeout: 30000 })
+        })
+        const data = await res.json()
+        if (data.sandbox_available && data.success !== undefined) {
+          let output = data.stdout || ''
+          if (data.stderr) output += (output ? '\n' : '') + data.stderr
+          if (!output) output = '(no output)'
+          if (data.exitCode && data.exitCode !== 0) {
+            termWriteln(output)
+            termWriteln(`[Exit code: ${data.exitCode}]`, 'red')
+          } else {
+            termWriteln(output)
+          }
+          termPrompt()
+          return
+        }
+      } catch {
+        // Fall through to Judge0
+      }
+    }
+
+    // ── Fallback: Judge0 (bash) ──
+    try {
+      const res = await fetch('/api/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_code: cmd, language_id: 46 }) // Bash
+      })
+      const data = await res.json()
+
+      let output = ''
+      if (data.error && !data.status) {
+        output = data.error
+      } else {
+        if (data.stdout) output += data.stdout
+        if (data.compile_output) output += (output ? '\n' : '') + data.compile_output
+        if (data.stderr) output += (output ? '\n' : '') + data.stderr
+        if (!output) output = '(no output)'
+        if (data.exit_code && data.exit_code !== 0) output += `\n[Exit code: ${data.exit_code}]`
+        if (data.status?.id && data.status.id !== 3 && data.status.id !== 4) {
+          output += `\n[${data.status.description}]`
+        }
+      }
+
+      termWriteln(output)
+    } catch {
+      termWriteln('Execution failed. Check your connection.', 'red')
+    }
+
+    termPrompt()
+  }
+
+  const askAIForCommand = async (query) => {
+    termWriteln(`\x1b[90m# ${query}\x1b[0m`)
+
+    try {
+      const messages = [{ role: 'user', content: `I need a shell command for: ${query}\n\nRespond with ONLY the command, no explanation, no markdown, no code blocks. Just the raw command that can be pasted into a terminal.` }]
+
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages, model: 'llama-3.1-8b-instant' })
+      })
+      const data = await res.json()
+
+      if (data.reply) {
+        let cmd = data.reply.trim()
+        cmd = cmd.replace(/^```(?:bash|sh|shell)?\n?/, '').replace(/\n?```$/, '').trim()
+        cmd = cmd.replace(/^`|`$/g, '').trim()
+
+        if (cmd) {
+          setAiSuggestion(cmd)
+          termWriteln(`\x1b[33mAI suggests:\x1b[0m ${cmd}`)
+          termWriteln('\x1b[90mPress Enter to run · Esc to dismiss\x1b[0m')
+        }
+      }
+    } catch {
+      termWriteln('AI request failed.', 'red')
+    }
+
+    termPrompt()
+  }
+
+  // Handle xterm input (command submitted via Enter)
+  const handleXTermInput = async (cmd) => {
+    // If there's an AI suggestion pending, execute it
+    if (aiSuggestion) {
+      const suggestion = aiSuggestion
+      setAiSuggestion(null)
+      await executeCommand(suggestion)
+      return
+    }
+
+    // Check if this looks like a shell command
+    const isCommand = /^[a-z]/.test(cmd) && (
+      /^(ls|cd|pwd|cat|echo|mkdir|rm|cp|mv|grep|find|curl|wget|npm|npx|node|python|pip|git|docker|make|chmod|chown|export|source|sudo|apt|yum|brew|which|whoami|uname|df|du|ps|top|kill|clear|history)/.test(cmd)
+    )
+
+    if (isCommand) {
+      await executeCommand(cmd)
+    } else {
+      await askAIForCommand(cmd)
+    }
+  }
+
+  // Handle xterm key events for AI suggestion dismiss
+  const handleXTermKey = (domEvent) => {
+    if (domEvent.key === 'Escape') {
+      setAiSuggestion(null)
+    }
+  }
+
   return (
     <main className="h-dvh flex bg-[#0a0a0a] overflow-hidden">
       {/* ── Artifact Side Panel (desktop) ── */}
@@ -1822,7 +1986,45 @@ export default function ChatClient() {
           </button>
         </div>
 
-        {/* Messages area — flex-1 + min-h-0 + overflow-y-auto for stable scrolling (research page pattern) */}
+        {/* ── v5.11 Live Terminal (restored) ── */}
+        {terminalMode ? (
+          <div className="flex-1 min-h-0 flex flex-col">
+            {/* Terminal header */}
+            <div className="flex items-center gap-2 px-4 py-2 border-b border-white/[0.06] shrink-0">
+              <span className={`w-2 h-2 rounded-full ${sandboxAvailable ? 'bg-amber-500' : 'bg-green-500'} animate-pulse`} />
+              <span className="text-[12px] font-mono text-[#737373] uppercase tracking-wider">Live Terminal</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${sandboxAvailable ? 'bg-amber-500/10 text-amber-400/70 border border-amber-500/20' : 'bg-green-500/10 text-green-400/70 border border-green-500/20'}`}>
+                {sandboxAvailable ? 'SANDBOX' : 'JUDGE0'}
+              </span>
+              {sandboxAvailable && (
+                <span className="text-[10px] text-[#525252]">· internet · pip/npm · persistent</span>
+              )}
+              {aiSuggestion && (
+                <span className="text-[10px] text-yellow-400 ml-auto animate-pulse">AI suggestion pending — Enter to run</span>
+              )}
+              <button
+                onClick={() => setTerminalMode(false)}
+                className="ml-auto w-7 h-7 rounded-md flex items-center justify-center text-[#525252] hover:text-white hover:bg-white/[0.06] transition-colors"
+                title="Back to chat"
+                aria-label="Back to chat"
+              >
+                <IconClose size={13} />
+              </button>
+            </div>
+
+            {/* xterm.js terminal */}
+            <div className="flex-1 min-h-0 bg-[#0d0d0d] p-2 terminal-xterm-container">
+              <XTerminal
+                ref={xtermRef}
+                onInput={handleXTermInput}
+                onKey={handleXTermKey}
+                welcomeMessage={'\x1b[32mWelcome to Live Terminal\x1b[0m\r\nType a shell command to execute it directly.\r\nOr type a natural language query and AI will suggest a command.' + (sandboxAvailable ? '\r\n\x1b[33mSandbox mode active — internet access, pip/npm install, and persistent filesystem available.\x1b[0m' : '')}
+                className="terminal-xterm"
+              />
+            </div>
+          </div>
+        ) : (
+        // Messages area — flex-1 + min-h-0 + overflow-y-auto for stable scrolling (research page pattern)
         <div
           ref={scrollContainerRef}
           onScroll={(e) => {
@@ -2141,8 +2343,10 @@ export default function ChatClient() {
             <div ref={bottomRef} />
           </div>
         </div>
+        )}
 
-        {/* ── Expandable Chat Bar ────────────────────── */}
+        {/* ── Expandable Chat Bar (hidden in terminal mode) ────────────────────── */}
+        {!terminalMode && (
         <div className="shrink-0 px-[min(5vw,48px)] pb-4 pt-2" style={{ overflow: 'visible' }}>
           <div className="max-w-[960px] mx-auto" style={{ overflow: 'visible' }}>
             {/* Suggestion pills — above chat bar, single scrollable row */}
@@ -2177,14 +2381,30 @@ export default function ChatClient() {
                 </div>
               </div>
             )}
-            {/* File attachment chip */}
+            {/* File attachment chip — v5.11: real thumbnail for images,
+                click opens the full-screen Lightbox preview */}
             {attachedFile && barExpanded && (
               <div className="mb-2 flex items-center justify-end">
-                <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-1.5 text-[12px] text-[#a3a3a3]">
+                <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.06] rounded-lg px-2.5 py-1.5 text-[12px] text-[#a3a3a3]">
                   {attachedIsImage ? (
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1.5"/><path d="M2 11l3.5-3.5 2.5 2.5 2-2L14 11"/></svg>
+                    <button
+                      onClick={() => setPreviewImage(attachedContent)}
+                      className="relative shrink-0 group/thumb"
+                      title="Preview image"
+                      aria-label="Preview attached image"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={attachedContent}
+                        alt={attachedFile}
+                        className="w-9 h-9 rounded-md object-cover border border-white/[0.08] group-hover/thumb:border-[#FF3366]/50 transition-colors"
+                      />
+                      <span className="absolute inset-0 flex items-center justify-center rounded-md bg-black/0 group-hover/thumb:bg-black/30 transition-colors">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-0 group-hover/thumb:opacity-100 transition-opacity"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                      </span>
+                    </button>
                   ) : (
-                    <IconFile size={12} />
+                    <IconFile size={14} className="shrink-0" />
                   )}
                   <span className="max-w-[120px] truncate">{attachedFile}</span>
                   <button
@@ -2325,7 +2545,18 @@ export default function ChatClient() {
                       </svg>
                     </button>
 
-
+                    {/* v5.11 — Live terminal toggle */}
+                    <button
+                      className={`chat-toolbar-btn ${terminalMode ? 'chat-toolbar-btn-active' : ''}`}
+                      onClick={() => setTerminalMode(!terminalMode)}
+                      title={terminalMode ? 'Switch to chat mode' : 'Live terminal'}
+                      aria-label={terminalMode ? 'Switch to chat mode' : 'Live terminal'}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="4 17 10 11 4 5" />
+                        <line x1="12" y1="19" x2="20" y2="19" />
+                      </svg>
+                    </button>
 
                     {/* Voice Settings — Coming Soon */}
                     <button
@@ -2461,6 +2692,8 @@ export default function ChatClient() {
 
           </div>
         </div>
+        )}
+
       </div>
 
       {/* ── Voice Settings — Coming Soon Popup ── */}
@@ -3378,7 +3611,30 @@ export default function ChatClient() {
           80%   { content: 'considering'; }
         }
 
+        /* ── v5.11 Live Terminal ── */
+        .terminal-xterm-container {
+          height: 100%;
+          overflow: hidden;
+        }
+        .terminal-xterm-container .terminal-xterm {
+          height: 100%;
+        }
+        .terminal-xterm-container .xterm {
+          height: 100%;
+        }
+        .terminal-xterm-container .xterm-viewport {
+          background: transparent !important;
+        }
+        .terminal-xterm-container .xterm-viewport::-webkit-scrollbar { width: 3px; }
+        .terminal-xterm-container .xterm-viewport::-webkit-scrollbar-thumb { background: #262626; border-radius: 2px; }
+        .terminal-xterm-container .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
+
       `}</style>
+
+      {/* ── v5.11 attachment preview lightbox ── */}
+      {previewImage && (
+        <Lightbox src={previewImage} alt={attachedFile || 'Attachment preview'} onClose={() => setPreviewImage(null)} />
+      )}
     </main>
   )
 }

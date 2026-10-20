@@ -155,10 +155,10 @@ export function IconArrowRight({ size = 16, className = '' }) {
   )
 }
 
-export function IconArrowLeft({ size = 16, className = '' }) {
+export function IconArrowLeft({ size = 16, className = '', strokeWidth = 1.5 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
-      <path d="M13 8H3M7 4L3 8l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M13 8H3M7 4L3 8l4 4" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   )
 }

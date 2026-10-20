@@ -263,6 +263,15 @@ input, textarea, select {
 .hush-scroll::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 4px; }
 .hush-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255, 51, 102, 0.45); }
 
+/* v5.11 — HUSH pop-up card: rises from underneath its trigger (verification /
+   references summary rows, detail popovers). Spring-ish ease, no forwards
+   fill so hover transforms still apply after entry. */
+@keyframes hushPopUp {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.hush-pop { animation: hushPopUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
 .animate-fade-up { animation: fadeUp 0.45s cubic-bezier(0.16,1,0.3,1) forwards; opacity: 0; }
 .animate-fade-up-1 { animation-delay: 0.08s; }
 .animate-fade-up-2 { animation-delay: 0.16s; }
