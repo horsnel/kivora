@@ -10,6 +10,7 @@ import PageContent from '@/components/PageContent'
 import { CurrencyProvider } from '@/components/CurrencyToggle'
 import { LanguageProvider } from '@/components/LanguageProvider'
 import TourGuide from '@/components/TourGuide'
+import FeedbackToast from '@/components/FeedbackToast'
 
 // ── Font optimization via next/font ──
 // Using next/font instead of @import url() in globals.css to:
@@ -111,6 +112,8 @@ export default async function RootLayout({ children }) {
             </CurrencyProvider>
             {/* Guided tour — inside LanguageProvider so it can translate; auto-starts for new users on /dashboard, replayable from the sidebar */}
             <TourGuide />
+            {/* HUSH-style action feedback (copy toasts / export cards) — global, event-driven */}
+            <FeedbackToast />
           </LanguageProvider>
         </ProvidersErrorBoundary>
         {/* Service worker registration — external /sw-register.js (next/script,

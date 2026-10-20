@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { IconBook, IconWrite, IconMicroscope, IconCode, IconCopy, IconCheck, IconSpinner } from '@/components/Icons'
+import { IconBook, IconWrite, IconMicroscope, IconCode, IconSpinner } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { streamSSE } from '@/lib/sseClient'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
@@ -9,6 +9,7 @@ import Select from '@/components/Select'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
 import ExportMenu from '@/components/ExportMenu'
+import CopyButton from '@/components/CopyButton'
 
 /* ─── Icon Components ─────────────────────────────────────────── */
 
@@ -166,7 +167,6 @@ export default function StudyClient() {
   const [result, setResult] = useState('')
   const [loading, setLoading] = useState(false)
   const [thinkingConfig, setThinkingConfig] = useState('study')
-  const [copied, setCopied] = useState(false)
   const [form, setForm] = useState({
     subject:'Mathematics', question:'', topic:'', level:'Undergraduate',
     text:'', source:'', style:'APA', language:'Python', codeLevel:'Intermediate',
@@ -323,10 +323,8 @@ export default function StudyClient() {
     setLoading(false)
   }
 
-  function copy() {
-    navigator.clipboard.writeText(stripMarkdown(result))
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  // copy handled by <CopyButton> — fires a HUSH toast + keeps markCopied sync
+  const handleStudyCopied = () => {
     if (sessionRef.current) markCopied(sessionRef.current)
   }
 
@@ -519,16 +517,19 @@ export default function StudyClient() {
           </div>
 
           {/* Output */}
-          <div className="bg-[#141414] rounded-xl p-6 flex flex-col min-h-[500px]">
+          <div className="bg-[#141414] rounded-xl p-6 flex flex-col min-h-[500px] overflow-hidden">
             <div className="flex items-center justify-between mb-4 shrink-0">
               <h2 className="font-semibold text-sm tracking-tight text-muted">
                 {active === 'pomodoro' ? t('study.timer') : active === 'quiz' && quizQuestions.length > 0 ? 'Quiz' : t('study.output')}
               </h2>
               <div className="flex items-center gap-3">
                 {result && active !== 'pomodoro' && !(active === 'quiz' && quizQuestions.length > 0) && (
-                  <button onClick={copy} className="flex items-center gap-1 text-xs text-muted hover:text-white transition-colors">
-                    {copied ? <><IconCheck size={11} className="text-emerald-400" /> {t('common.copied')}</> : <><IconCopy size={11} /> {t('common.copy')}</>}
-                  </button>
+                  <CopyButton
+                    getText={() => stripMarkdown(result)}
+                    label={t('common.copy')}
+                    copiedLabel={t('feedback.copied')}
+                    onCopied={handleStudyCopied}
+                  />
                 )}
                 {/* v5.6 — download study material (MD / TXT / PDF) */}
                 {result && active !== 'pomodoro' && !(active === 'quiz' && quizQuestions.length > 0) && (
@@ -536,6 +537,8 @@ export default function StudyClient() {
                     formats={studyExportFormats}
                     label={t('export.report')}
                     errorText={t('export.failed')}
+                    successText={t('feedback.export_done')}
+                    startedText={t('feedback.export_started')}
                   />
                 )}
               </div>
@@ -543,7 +546,8 @@ export default function StudyClient() {
 
             {/* Pomodoro Timer Display */}
             {active === 'pomodoro' ? (
-              <div className="flex-1 flex flex-col items-center justify-center">
+              <div className="flex-1 min-h-0 overflow-y-auto hush-scroll">
+                <div className="min-h-full flex flex-col items-center justify-center">
                 <div className="relative mb-6">
                   <svg width="220" height="220">
                     {/* Background circle */}
@@ -587,10 +591,11 @@ export default function StudyClient() {
                     {t('study.pomodoro.reset')}
                   </button>
                 </div>
+                </div>
               </div>
             ) : active === 'quiz' && quizQuestions.length > 0 ? (
               /* Interactive Quiz */
-              <div className="flex-1 overflow-auto overscroll-behavior-contain space-y-4 max-h-[600px]">
+              <div className="flex-1 min-h-0 overflow-auto hush-scroll overscroll-behavior-contain space-y-4 max-h-[min(600px,72dvh)]">
                 {quizChecked && (
                   <div className="bg-[#1a1a1a] rounded-xl p-4 text-center shrink-0">
                     <span className="text-lg font-bold text-white">{t('study.quiz.score')} {quizScore}/{quizQuestions.length}</span>
@@ -642,7 +647,7 @@ export default function StudyClient() {
                 )}
               </div>
             ) : result ? (
-              <MarkdownRenderer content={result} className="flex-1 min-h-0 overflow-auto overscroll-behavior-contain max-h-[min(600px,72dvh)]" />
+              <MarkdownRenderer content={result} className="flex-1 min-h-0 overflow-auto hush-scroll overscroll-behavior-contain max-h-[min(600px,72dvh)]" />
             ) : (
               <div className="flex-1 flex items-center justify-center">
                 {loading ? (

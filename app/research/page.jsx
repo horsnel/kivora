@@ -11,6 +11,8 @@ import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, 
 import { usePlan } from '@/lib/usePlan'
 import UpgradeCard from '@/components/UpgradeCard'
 import ExportMenu from '@/components/ExportMenu'
+import CopyButton from '@/components/CopyButton'
+import { showFeedback } from '@/components/FeedbackToast'
 import { parseCitationMarker, faviconUrl, domainOf, buildReferences, computeVerificationGrid, verificationStatusFor, VERIFICATION_VERDICTS } from '@/lib/citations'
 
 // ── File Upload Constants ──
@@ -1726,15 +1728,11 @@ function ResearchPageContent() {
                       </span>
                     )}
                     {reportText && !isResearching && (
-                      <button
-                        onClick={() => navigator.clipboard.writeText(activeResearch?.report || '')}
-                        className="text-[10px] text-[#525252] hover:text-white transition-colors flex items-center gap-1 shrink-0"
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                        </svg>
-                        Copy
-                      </button>
+                      <CopyButton
+                        getText={() => activeResearch?.report || ''}
+                        label={t('common.copy')}
+                        copiedLabel={t('feedback.copied')}
+                      />
                     )}
                     {/* v5.7 — public permalink: copies a shareable capability URL */}
                     {reportText && !isResearching && activeResearch.permalinkId && (
@@ -1744,15 +1742,20 @@ function ResearchPageContent() {
                             navigator.clipboard.writeText(`${window.location.origin}/research/r/${activeResearch.permalinkId}`)
                             setLinkCopied(true)
                             setTimeout(() => setLinkCopied(false), 1800)
+                            showFeedback({ variant: 'toast', message: t('feedback.link_copied') })
                           } catch {}
                         }}
-                        className={`text-[10px] transition-colors flex items-center gap-1 shrink-0 ${linkCopied ? 'text-green-400' : 'text-[#525252] hover:text-white'}`}
+                        className={`inline-flex items-center gap-1.5 shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-medium transition-all duration-200 active:scale-[0.96] ${
+                          linkCopied
+                            ? 'border-[#FF3366]/60 text-[#FF3366] bg-[#FF3366]/[0.07]'
+                            : 'border-[#2a2a2a] bg-[#0a0a0a]/60 text-[#a3a3a3] hover:border-[#FF3366]/60 hover:text-[#FF3366] hover:bg-[#FF3366]/[0.05]'
+                        }`}
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                           <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                         </svg>
-                        {linkCopied ? 'Copied' : 'Link'}
+                        {linkCopied ? t('feedback.link_copied') : 'Link'}
                       </button>
                     )}
                     {/* v5.6 — download report in different formats */}
@@ -1761,6 +1764,8 @@ function ResearchPageContent() {
                         formats={reportExportFormats}
                         label={t('export.report')}
                         errorText={t('export.failed')}
+                        successText={t('feedback.export_done')}
+                        startedText={t('feedback.export_started')}
                       />
                     )}
                   </div>

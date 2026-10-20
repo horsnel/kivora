@@ -195,6 +195,74 @@ input, textarea, select {
   50%       { opacity: 0.5; transform: scale(1.4); }
 }
 
+/* ────────────────────────────────────────────────────────────────
+   HUSH feedback system — toasts, notification cards, scrollbars.
+   Lifted from the HUSH design cards (#FF3366 accent, spring slides,
+   draining progress bar). Kept here (not runtime-injected) so the
+   hash-based CSP on prerendered pages stays valid.
+   ──────────────────────────────────────────────────────────────── */
+
+/* Top-center pill toast — spring drop-in, quick fade-out */
+.hush-toast { transform: translate(-50%, 0); }  /* base pos: keyframes override */
+.hush-toast-in  { animation: hushToastIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.hush-toast-out { animation: hushToastOut 0.28s cubic-bezier(0.4, 0, 1, 1) forwards; }
+
+@keyframes hushToastIn {
+  from { transform: translate(-50%, -20px); opacity: 0; }
+  to   { transform: translate(-50%, 0);     opacity: 1; }
+}
+@keyframes hushToastOut {
+  from { transform: translate(-50%, 0);     opacity: 1; }
+  to   { transform: translate(-50%, -20px); opacity: 0; }
+}
+
+/* Bottom slide-up notification card — 3-stage spring from the HUSH card.
+   No `forwards` on the entrance: its final keyframe equals the natural
+   state, and dropping the fill lets the :hover lift apply afterwards. */
+.hush-card-in  { animation: hushCardIn 0.45s cubic-bezier(0.16, 1, 0.3, 1); }
+.hush-card-out { animation: hushCardOut 0.35s cubic-bezier(0.4, 0, 1, 1) forwards; }
+
+@keyframes hushCardIn {
+  0%   { transform: translateY(120%) scale(0.96); opacity: 0; }
+  60%  { transform: translateY(-6px) scale(1);    opacity: 1; }
+  100% { transform: translateY(0) scale(1);       opacity: 1; }
+}
+@keyframes hushCardOut {
+  from { transform: translateY(0);    opacity: 1; }
+  to   { transform: translateY(120%); opacity: 0; }
+}
+
+/* Card hover lift — matches the HUSH notif-card micro-interaction.
+   Skipped while leaving so the exit animation owns the transform. */
+.hush-card:not(.hush-card-out):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+.hush-card {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+  will-change: transform, opacity;
+}
+
+/* Draining accent progress bar (duration set inline per card) */
+.hush-card-progress { animation-name: hushDrain; animation-timing-function: linear; animation-fill-mode: forwards; }
+@keyframes hushDrain {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
+/* HUSH scroll utility — slim 4px rounded scrollbar with accent hover,
+   used on output-card content areas (reelpen / devtools / study) */
+.hush-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a2a transparent;
+}
+.hush-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+.hush-scroll::-webkit-scrollbar-track { background: transparent; }
+.hush-scroll::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 4px; }
+.hush-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255, 51, 102, 0.45); }
+
 .animate-fade-up { animation: fadeUp 0.45s cubic-bezier(0.16,1,0.3,1) forwards; opacity: 0; }
 .animate-fade-up-1 { animation-delay: 0.08s; }
 .animate-fade-up-2 { animation-delay: 0.16s; }

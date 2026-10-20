@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { IconCopy, IconCheck, IconSpinner } from '@/components/Icons'
+import { IconSpinner } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { streamSSE } from '@/lib/sseClient'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
@@ -11,6 +11,7 @@ import { stripMarkdown } from '@/lib/stripMarkdown'
 import { authFetch } from '@/lib/authFetch'
 import UpgradeCard from '@/components/UpgradeCard'
 import ExportMenu from '@/components/ExportMenu'
+import CopyButton from '@/components/CopyButton'
 import UsageTimerButton from '@/components/UsageTimerButton'
 
 /* ─── Icon Components ─────────────────────────────────────────── */
@@ -307,7 +308,6 @@ export default function ReelPenClient() {
   const [result, setResult] = useState('')
   const [gate, setGate] = useState(null) // 403 plan-gate payload → UpgradeCard
   const [loading, setLoading] = useState(false)
-  const [copied, setCopied] = useState(false)
   const [validationError, setValidationError] = useState('')
   const [form, setForm] = useState({
     // Music tools
@@ -455,10 +455,8 @@ export default function ReelPenClient() {
     refreshUsage()
   }
 
-  function copy() {
-    navigator.clipboard.writeText(stripMarkdown(result))
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  // copy handled by <CopyButton> — fires a HUSH toast + keeps markCopied sync
+  const handleReelCopied = () => {
     if (sessionRef.current) markCopied(sessionRef.current)
   }
 
@@ -1001,16 +999,19 @@ export default function ReelPenClient() {
           {/* v5.6: min-height + padding matched to devtools (560px desktop) and
              study (500px) — was min-h-[300px] sm:min-h-[500px], which read as
              "small and cut short" next to those pages */}
-          <div className="bg-[#141414] rounded-xl p-6 flex flex-col min-h-[500px] lg:min-h-[560px]">
+          <div className="bg-[#141414] rounded-xl p-6 flex flex-col min-h-[500px] lg:min-h-[560px] overflow-hidden">
             <div className="flex items-center justify-between mb-4 shrink-0">
               <h2 className="font-semibold text-sm tracking-tight text-muted">
                 {active === 'bpm_tapper' ? 'BPM Detector' : t('reelpen.output')}
               </h2>
               <div className="flex items-center gap-3">
                 {result && active !== 'bpm_tapper' && (
-                  <button onClick={copy} className="flex items-center gap-1 text-xs text-muted hover:text-white transition-colors">
-                    {copied ? <><IconCheck size={11} className="text-emerald-400" /> {t('common.copied')}</> : <><IconCopy size={11} /> {t('common.copy')}</>}
-                  </button>
+                  <CopyButton
+                    getText={() => stripMarkdown(result)}
+                    label={t('common.copy')}
+                    copiedLabel={t('feedback.copied')}
+                    onCopied={handleReelCopied}
+                  />
                 )}
                 {/* v5.6 — download generated report (MD / TXT / PDF) */}
                 {result && active !== 'bpm_tapper' && (
@@ -1018,13 +1019,16 @@ export default function ReelPenClient() {
                     formats={exportFormats}
                     label={t('export.report')}
                     errorText={t('export.failed')}
+                    successText={t('feedback.export_done')}
+                    startedText={t('feedback.export_started')}
                   />
                 )}
               </div>
             </div>
 
             {active === 'bpm_tapper' ? (
-              <div className="flex-1 flex flex-col items-center justify-center">
+              <div className="flex-1 min-h-0 overflow-y-auto hush-scroll">
+                <div className="min-h-full flex flex-col items-center justify-center">
                 <div className="w-10 h-10 bg-[#1a1a1a] rounded-xl flex items-center justify-center mb-3">
                   <IconBPM size={18} className="text-[#2e2e2e]" />
                 </div>
@@ -1051,11 +1055,12 @@ export default function ReelPenClient() {
                 ) : (
                   <p className="text-muted2 text-sm text-center">Start tapping to detect the tempo</p>
                 )}
+                </div>
               </div>
             ) : gate ? (
               <UpgradeCard gate={gate} onDismiss={() => setGate(null)} />
             ) : result ? (
-              <MarkdownRenderer content={result} className="flex-1 min-h-0 overflow-auto overscroll-behavior-contain max-h-[min(600px,72dvh)]" />
+              <MarkdownRenderer content={result} className="flex-1 min-h-0 overflow-auto hush-scroll overscroll-behavior-contain max-h-[min(600px,72dvh)]" />
             ) : (
               <div className="flex-1 flex items-center justify-center">
                 {loading ? (
