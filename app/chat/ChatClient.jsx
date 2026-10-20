@@ -29,19 +29,15 @@ const XTerminal = dynamic(() => import('@/components/XTerminal'), { ssr: false }
 
 
 const MODELS = [
-  { id: 'llama-3.3-70b-versatile', name: 'Nova 2.3', tag: 'Premium · Detailed', short: 'Nova 2.3', pro: false },
-  { id: 'llama-3.1-8b-instant', name: 'Nova 1.7', tag: 'Free · Fast', short: 'Nova 1.7', pro: false },
-  { id: 'llama3-70b-8192', name: 'Nova 2.3 Pro', tag: 'Extended context', short: '2.3 Pro', pro: false },
-  { id: 'mixtral-8x7b-32768', name: 'Nova 2.3 Mix', tag: 'Long context', short: '2.3 Mix', pro: false },
-  { id: 'gemma2-9b-it', name: 'Nova 1.7 Lite', tag: 'Efficient', short: '1.7 Lite', pro: false },
+  { id: 'openai/gpt-oss-120b', name: 'Nova 3', tag: 'Premium · Detailed', short: 'Nova 3', pro: false },
+  { id: 'openai/gpt-oss-20b', name: 'Nova 1.9', tag: 'Free · Fast', short: 'Nova 1.9', pro: false },
+  { id: 'qwen/qwen3.8-27b', name: 'Nova Vision', tag: 'Multimodal · 131K', short: 'Vision', pro: false },
 ]
 
 // Reasoning / specialty models — shown in the selectors with a Pro badge;
 // the API rejects them for non-Pro plans (server-side gate).
 const EXTRA_MODELS = [
   { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1', tag: 'Reasoning · Pro', short: 'R1', pro: true },
-  { id: 'qwen-qwq-32b', name: 'Qwen QwQ', tag: 'Reasoning · Pro', short: 'QwQ', pro: true },
-  { id: 'llama-3.2-3b-preview', name: 'Nova 0.9', tag: 'Lightweight', short: '0.9', pro: false },
 ]
 
 const ALL_MODELS = [...MODELS, ...EXTRA_MODELS]
@@ -52,7 +48,7 @@ const EFFORT_LEVELS = [
   { level: 'high', label: 'High', desc: 'Longer, more thorough responses' },
 ]
 
-const DEFAULT_MODEL = 'llama-3.3-70b-versatile'
+const DEFAULT_MODEL = 'openai/gpt-oss-120b'
 
 const ALLOWED_TEXT_EXTENSIONS = ['.txt', '.md', '.json', '.csv', '.js', '.py', '.ts', '.jsx', '.tsx', '.css', '.html', '.sql']
 const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp']
@@ -1419,7 +1415,7 @@ export default function ChatClient() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages, model: 'llama-3.1-8b-instant' })
+        body: JSON.stringify({ messages, model: 'openai/gpt-oss-20b' })
       })
       const data = await res.json()
 

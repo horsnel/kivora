@@ -1,5 +1,5 @@
 export const runtime = 'edge' 
-import { groq, MODEL, VISION_MODEL, groqChat, GroqError, ALLOWED_MODELS, getPrimaryClientAsync, getFallbackClientAsync, setCerebrasApiKey, setSambanovaApiKey, setSiliconflowApiKey, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
+import { groq, MODEL, VISION_MODEL, groqChat, GroqError, ALLOWED_MODELS, getPrimaryClientAsync, getFallbackClientAsync, setCerebrasApiKey, setSambanovaApiKey, setSiliconflowApiKey, setGeminiApiKey, setOpenrouterApiKey, stripThinking } from '@/lib/groq'
 import { mistralChat, mistralChatStream, setMistralApiKeys, isMistralConfigured, messagesHaveImage } from '@/lib/mistral'
 import { setJudge0Config } from '@/lib/judge0'
 import { sseResponse } from '@/lib/sse'
@@ -12,6 +12,22 @@ import { buildSystemPrompt } from '@/lib/systemPrompt'
 import { requireCredits, requireFeatureAccess, refundCredits, CREDIT_COSTS } from '@/lib/credits'
 
 const ALLOWED_MODEL_IDS = ALLOWED_MODELS.map(m => m.id)
+
+// ── Image attachment parser ─────────────────────────────────────
+// ChatClient sends images as:
+//   "[Image: filename]\n<data:image/...;base64,...>"            (no question)
+//   "[Image: filename]\n<data:image/...;base64,...>\nquestion"  (with question)
+// The OLD regex (/[\s\S]+$/) greedily swallowed the trailing question text
+// INTO the data URL — producing "...base64,XXXX\nwho is this?" which every
+// vision provider 4xx-rejects (the historic "something went wrong" on
+// image+question), and the question was simultaneously erased from the text
+// part. Base64 payloads contain only [A-Za-z0-9+/=], so anchoring the capture
+// on that alphabet splits the three fields exactly.
+function parseImageMessage(content) {
+  const m = String(content || '').match(/^\[Image: (.+?)\]\n(data:image\/[A-Za-z0-9.+-]+;base64,[A-Za-z0-9+/=]+)(?:\n([\s\S]*))?$/)
+  if (!m) return null
+  return { fileName: m[1], dataUrl: m[2], text: (m[3] || '').trim() }
+}
 
 // ── Session message history coercion ─────────────────────────────────────
 // chat_sessions.messages must ALWAYS be an array of {role, content} objects.
@@ -128,7 +144,7 @@ async function ingestToWiki(admin, { userMessage, assistantReply, userId }) {
 //
 // v5.11: image messages SKIP Mistral — its pixtral/small vision tiers are
 // weak at person/celebrity identification. The legacy chain (lib/groq.js)
-// runs an image-aware provider order (llama-4-scout → Gemini → …) instead.
+// runs an image-aware provider order (qwen3.8-27b → Gemini → Mistral) instead.
 async function aiChat(params) {
   if (isMistralConfigured() && !messagesHaveImage(params.messages)) {
     try {
@@ -217,7 +233,7 @@ async function aiChatComplete(params, { onDelta, stream }) {
 
   return {
     choices: [{
-      message: { role: 'assistant', content: text },
+      message: { role: 'assistant', content: stripThinking(text) },
       finish_reason: finish || 'stop',
     }],
   }
@@ -227,7 +243,7 @@ async function aiChatComplete(params, { onDelta, stream }) {
 // short replies (they may legitimately end without terminal punctuation),
 // code fences, or list tables mid-structure.
 function completeSentences(text) {
-  const s = String(text || '')
+  const s = stripThinking(text)
   if (s.length < 240) return s
   // Balanced code fences — leave code blocks untouched
   const fenceCount = (s.match(/```/g) || []).length
@@ -438,12 +454,16 @@ async function processChat(req, body, send) {
     const lastUserMsg = messages[messages.length - 1]
     let hasImage = false
     let imageBase64 = null
+    let imageText = ''
+    let imageFileName = 'image'
 
     if (lastUserMsg?.role === 'user' && typeof lastUserMsg.content === 'string') {
-      const imageMatch = lastUserMsg.content.match(/^\[Image: .+?\]\n(data:image\/[^;]+;base64,[\s\S]+)$/)
-      if (imageMatch) {
+      const parsed = parseImageMessage(lastUserMsg.content)
+      if (parsed) {
         hasImage = true
-        imageBase64 = imageMatch[1]
+        imageBase64 = parsed.dataUrl
+        imageText = parsed.text
+        imageFileName = parsed.fileName
       }
     }
 
@@ -529,7 +549,7 @@ async function processChat(req, body, send) {
     let apiMessages
 
     if (hasImage) {
-      const textContent = lastUserMsg.content.replace(/^\[Image: .+?\]\ndata:image\/[^;]+;base64,[\s\S]+$/, '').trim()
+      const textContent = imageText
       // v5.11 visual-intelligence prompt: full forensic analysis including
       // public-figure / celebrity identification with confidence levels.
       // When tools are available (web_search), the model verifies the
@@ -568,14 +588,18 @@ async function processChat(req, body, send) {
     // none, the default set (which includes web_search) applies.
     const useTools = true
     const lastContent = (lastUserMsg?.content || '').trim()
-    const relevantTools = filterToolsByQuery(hasImage ? (lastUserMsg.content.replace(/^\[Image: .+?\]\n/, '').slice(0, 200) || 'analyze image') : lastContent)
+    // For image messages, run the tool filter on the user's TYPED question —
+    // never on the raw content (it used to slice 200 chars of base64 noise).
+    // When there's no typed text, the hint still yields the default set
+    // (web_search always included) so the vision model can verify identities.
+    const relevantTools = filterToolsByQuery(hasImage ? (imageText || 'analyze image identify people landmarks text') : lastContent)
 
     // ── Force tool_choice when user intent clearly requires a specific tool ──
     // Models (especially Qwen 2.5 and Llama 3.3) often describe what they'd do
     // instead of calling the tool. When the user's query unambiguously maps to
     // a tool (e.g. "generate an image of X" → generate_image), we force that
     // tool call via tool_choice so the model MUST invoke it.
-    const requiredTool = useTools ? detectRequiredTool(lastContent) : null
+    const requiredTool = useTools ? detectRequiredTool(hasImage ? imageText : lastContent) : null
     const toolChoice = requiredTool && relevantTools.some(t => t.function.name === requiredTool)
       ? { type: 'function', function: { name: requiredTool } }
       : (relevantTools.length > 0 ? 'auto' : undefined)
@@ -584,6 +608,11 @@ async function processChat(req, body, send) {
       model,
       messages: apiMessages,
       max_tokens: EFFORT_TOKENS[effort],
+      // qwen3.8-27b (vision) defaults to a thinking mode that leaks <think>
+      // blocks into content and burns output tokens — disable it for vision
+      // replies so answers stream straight out. Direct (non-Groq) providers
+      // strip this field before sending.
+      ...(model === VISION_MODEL ? { reasoning_effort: 'none' } : {}),
       ...(relevantTools.length > 0 ? { tools: relevantTools, tool_choice: toolChoice } : {})
     }
 
@@ -827,9 +856,7 @@ async function processChat(req, body, send) {
           // not megabytes of base64, so history stays cheap to load.
           let storedUserMsg = { ...messages.slice(-1)[0] }
           if (hasImage) {
-            const imageFileName = lastUserMsg.content.match(/^\[Image: (.+?)\]/)?.[1] || 'image'
-            const textOnly = lastUserMsg.content.replace(/^\[Image: .+?\]\ndata:image\/[^;]+;base64,[\s\S]+$/, '').trim()
-            storedUserMsg = { role: 'user', content: `[Image: ${imageFileName}]${textOnly ? '\n' + textOnly : ''}` }
+            storedUserMsg = { role: 'user', content: `[Image: ${imageFileName}]${imageText ? '\n' + imageText : ''}` }
           }
 
           await admin.from('chat_sessions').upsert({
@@ -975,9 +1002,7 @@ async function processChat(req, body, send) {
 
         let storedUserMsg = { ...messages.slice(-1)[0] }
         if (hasImage) {
-          const imageFileName = lastUserMsg.content.match(/^\[Image: (.+?)\]/)?.[1] || 'image'
-          const textOnly = lastUserMsg.content.replace(/^\[Image: .+?\]\ndata:image\/[^;]+;base64,[\s\S]+$/, '').trim()
-          storedUserMsg = { role: 'user', content: `[Image: ${imageFileName}]${textOnly ? '\n' + textOnly : ''}` }
+          storedUserMsg = { role: 'user', content: `[Image: ${imageFileName}]${imageText ? '\n' + imageText : ''}` }
         }
 
         await admin.from('chat_sessions').upsert({
@@ -1019,10 +1044,20 @@ async function processChat(req, body, send) {
     }
     // Generic friendly error — never expose the underlying provider's HTML
     // error page (e.g. Cerebras's Cloudflare WAF 403 challenge page) or
-    // provider-specific status codes. The detailed providerOutcomes are
-    // logged server-side but not surfaced to the client.
+    // provider-specific status codes. Detailed providerOutcomes stay server-
+    // side EXCEPT a sanitized copy (provider names + HTTP statuses only —
+    // no keys, no payloads) attached as `debug`, so vision-chain outages are
+    // diagnosable from a single production request.
+    const debugOutcomes = Array.isArray(err?.providerOutcomes)
+      ? err.providerOutcomes.map(o => ({
+          provider: o.name,
+          status: o.status,
+          http_status: o.http_status,
+        }))
+      : undefined
     return json({
       error: 'I hit a snag reaching the AI service. Please try again in a moment.',
+      ...(debugOutcomes ? { debug: debugOutcomes } : {}),
     }, 503)
   }
 }

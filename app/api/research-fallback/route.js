@@ -288,12 +288,12 @@ async function generateWithFallback(messages, apexModel, mode = 'quick') {
     errors.push('Mistral: no key')
   }
 
-  // 2. Groq
+  // 2. Groq (current-generation models — legacy llama-3.x IDs were shut down 08/16/26)
   const groqKey = await getGroqKey()
   if (groqKey) {
     const groqModels = apexModel === 'apex-premium'
-      ? ['llama-3.3-70b-versatile']
-      : ['llama-3.1-8b-instant']
+      ? ['openai/gpt-oss-120b']
+      : ['openai/gpt-oss-20b']
     for (const model of groqModels) {
       calls.push({
         label: `Groq/${model}`,

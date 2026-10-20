@@ -6,7 +6,7 @@ import { getSupabaseAdmin } from '@/lib/supabase'
 import { createClient } from '@supabase/supabase-js'
 import { requireCredits, requireFeatureAccess, refundCredits, CREDIT_COSTS } from '@/lib/credits'
 import { SSE_HEADERS, sseResponse } from '@/lib/sse'
-import { groqChat, VISION_MODEL, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
+import { groqChat, VISION_MODEL, setGeminiApiKey, setOpenrouterApiKey, stripThinking } from '@/lib/groq'
 
 // Kivora Research Worker endpoint (Cloudflare Worker)
 const RESEARCH_WORKER_URL = 'https://kivora-research.odehebuka48.workers.dev/research'
@@ -152,7 +152,7 @@ async function storeCacheResult(admin, queryHash, queryText, normalized, mode, a
  *
  * The external research worker receives images verbatim, but its text
  * pipeline historically under-delivered on "who is this person" queries.
- * Before forwarding, we run a fast forensic vision pass (llama-4-scout via
+ * Before forwarding, we run a fast forensic vision pass (qwen3.8-27b via
  * the image-aware provider chain) and prepend a structured analysis block
  * to the query. The worker's search + synthesis stages then ground the
  * report in identified entities (people, landmarks, brands, OCR text)
@@ -174,11 +174,11 @@ async function analyzeImageAttachments(geminiKey, openrouterKey, query, files) {
     setOpenrouterApiKey(openrouterKey)
 
     const analysisPrompt = `Analyze this image for a research pipeline. Produce a compact structured brief:
-1. PEOPLE — for each visible person: apparent role/context. If they appear to be a public figure or celebrity, name them + why famous + confidence (high/medium/low). If uncertain, list top candidates with rough confidence. Never invent identities for private individuals.
+1. PEOPLE — for each visible person: apparent role/context. CRITICAL: if they could be a public figure or celebrity, you MUST name your top candidate(s) with rough confidence percentages (e.g. "Candidate: Billie Eilish (~70%)"). Only say "no known match" if you truly cannot form any hypothesis. Never invent identities for clearly private individuals.
 2. SCENE — setting, location cues, landmarks (name them if identifiable), time-of-day, weather.
 3. OBJECTS & BRANDING — notable objects, logos, products, vehicles, signage.
 4. TEXT — transcribe ALL visible text (OCR), including captions, watermarks, screens, clothing text.
-5. NOTABLE DETAILS — anything unusual, timestamped, or research-worthy.
+5. SEARCH QUERIES — based on EVERYTHING above, list 2-4 concrete web search queries that would verify or identify the subjects (e.g. "Billie Eilish polka dot top 2024 photo"). These queries are executed verbatim by the research engine — make them specific and self-contained.
 Be factual and label uncertainty. Keep the whole brief under 350 words.`
 
     const analysisPromise = groqChat({
@@ -194,14 +194,15 @@ Be factual and label uncertainty. Keep the whole brief under 350 words.`
         },
       ],
       max_tokens: 900,
+      reasoning_effort: 'none', // qwen3.8 — no thinking tokens in the brief
     })
-    // Hard 15s cap — a hung vision call must never delay the research request
+    // Hard 20s cap — a hung vision call must never delay the research request
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('vision pre-analysis timeout')), 15000)
+      setTimeout(() => reject(new Error('vision pre-analysis timeout')), 20000)
     )
     const res = await Promise.race([analysisPromise, timeoutPromise])
 
-    const text = res?.choices?.[0]?.message?.content || ''
+    const text = stripThinking(res?.choices?.[0]?.message?.content || '')
     return text.trim() ? text.trim() : null
   } catch (err) {
     console.warn('[research] vision pre-analysis failed (passthrough):', String(err?.message || err).slice(0, 120))
@@ -421,7 +422,7 @@ export async function POST(req) {
         allFilesForImageCheck
       )
       if (visionAnalysis) {
-        workerBody.query = `[IMAGE ANALYSIS — from the attached image(s), machine-generated, verify claims against sources]\n${visionAnalysis}\n[END IMAGE ANALYSIS]\n\nUser's question: ${trimmedQuery || 'Analyze the attached image and identify everything researchable, especially any people.'}`
+        workerBody.query = `[IMAGE ANALYSIS — machine-generated brief from the attached image(s); the SEARCH QUERIES below are pre-formulated to identify/verify the subjects — run them and verify claims against sources]\n${visionAnalysis}\n[END IMAGE ANALYSIS]\n\nUser's question: ${trimmedQuery || 'Analyze the attached image and identify everything researchable, especially any people.'}`
       }
     }
 

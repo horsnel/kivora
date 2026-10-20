@@ -2,10 +2,8 @@ export const runtime = 'edge'
 
 import { rateLimit, getClientIP } from '@/lib/ratelimit'
 import { safeJson } from '@/lib/payload'
-import { groq, groqChat, getPrimaryClientAsync, GroqError, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
+import { groq, groqChat, getPrimaryClientAsync, GroqError, setGeminiApiKey, setOpenrouterApiKey, VISION_MODEL, stripThinking } from '@/lib/groq'
 import { getEnvVar } from '@/lib/cfEnv'
-
-const VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct'
 
 export async function POST(req) {
   const ip = getClientIP(req)
@@ -54,7 +52,7 @@ export async function POST(req) {
       }
     }
 
-    // Call Groq Vision API (with Gemini fallback)
+    // Call Groq Vision API (Gemini/OpenRouter/Mistral fallbacks via groqChat)
     const chat = await groqChat({
       model: VISION_MODEL,
       messages: [
@@ -69,7 +67,7 @@ export async function POST(req) {
       max_tokens: 1024,
     })
 
-    const description = chat.choices[0]?.message?.content || 'No description generated.'
+    const description = stripThinking(chat.choices[0]?.message?.content) || 'No description generated.'
 
     return Response.json({ description, model: VISION_MODEL })
   } catch (err) {
