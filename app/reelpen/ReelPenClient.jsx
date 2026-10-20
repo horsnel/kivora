@@ -10,8 +10,7 @@ import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
 import { authFetch } from '@/lib/authFetch'
 import UpgradeCard from '@/components/UpgradeCard'
-import ExportMenu from '@/components/ExportMenu'
-import CopyButton from '@/components/CopyButton'
+import OutputMenu from '@/components/OutputMenu'
 import UsageTimerButton from '@/components/UsageTimerButton'
 
 /* ─── Icon Components ─────────────────────────────────────────── */
@@ -455,7 +454,7 @@ export default function ReelPenClient() {
     refreshUsage()
   }
 
-  // copy handled by <CopyButton> — fires a HUSH toast + keeps markCopied sync
+  // copy handled by <OutputMenu> — fires a HUSH toast + keeps markCopied sync
   const handleReelCopied = () => {
     if (sessionRef.current) markCopied(sessionRef.current)
   }
@@ -1004,26 +1003,26 @@ export default function ReelPenClient() {
               <h2 className="font-semibold text-sm tracking-tight text-muted">
                 {active === 'bpm_tapper' ? 'BPM Detector' : t('reelpen.output')}
               </h2>
-              <div className="flex items-center gap-3">
-                {result && active !== 'bpm_tapper' && (
-                  <CopyButton
-                    getText={() => stripMarkdown(result)}
-                    label={t('common.copy')}
-                    copiedLabel={t('feedback.copied')}
-                    onCopied={handleReelCopied}
-                  />
-                )}
-                {/* v5.6 — download generated report (MD / TXT / PDF) */}
-                {result && active !== 'bpm_tapper' && (
-                  <ExportMenu
-                    formats={exportFormats}
-                    label={t('export.report')}
-                    errorText={t('export.failed')}
-                    successText={t('feedback.export_done')}
-                    startedText={t('feedback.export_started')}
-                  />
-                )}
-              </div>
+              {/* v5.10 — single 3-dot menu: Share / Copy / Export */}
+              {result && active !== 'bpm_tapper' && (
+                <OutputMenu
+                  getText={() => stripMarkdown(result)}
+                  copyLabel={t('common.copy')}
+                  copiedLabel={t('feedback.copied')}
+                  onCopied={handleReelCopied}
+                  shareData={() => ({
+                    title: t(currentTool.labelKey),
+                    text: stripMarkdown(result),
+                  })}
+                  shareFallbackLabel={t('feedback.copied')}
+                  shareLabel={t('menu.share')}
+                  exportLabel={t('export.report')}
+                  errorText={t('export.failed')}
+                  successText={t('feedback.export_done')}
+                  startedText={t('feedback.export_started')}
+                  formats={exportFormats}
+                />
+              )}
             </div>
 
             {active === 'bpm_tapper' ? (

@@ -121,6 +121,8 @@
   "feedback.link_copied": "Lien copié",
   "feedback.export_done": "Export terminé",
   "feedback.export_started": "Votre téléchargement a commencé",
+  "menu.share": "Partager",
+  "menu.actions": "Actions",
   "common.copy": "Copier",
   "common.delete": "Supprimer",
   "common.error.general": "Quelque chose s'est mal passé.",

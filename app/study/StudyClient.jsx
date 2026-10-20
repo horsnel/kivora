@@ -8,8 +8,7 @@ import ThinkingState, { STAGE_CONFIGS } from '@/components/ThinkingState'
 import Select from '@/components/Select'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
-import ExportMenu from '@/components/ExportMenu'
-import CopyButton from '@/components/CopyButton'
+import OutputMenu from '@/components/OutputMenu'
 
 /* ─── Icon Components ─────────────────────────────────────────── */
 
@@ -323,7 +322,7 @@ export default function StudyClient() {
     setLoading(false)
   }
 
-  // copy handled by <CopyButton> — fires a HUSH toast + keeps markCopied sync
+  // copy handled by <OutputMenu> — fires a HUSH toast + keeps markCopied sync
   const handleStudyCopied = () => {
     if (sessionRef.current) markCopied(sessionRef.current)
   }
@@ -522,26 +521,26 @@ export default function StudyClient() {
               <h2 className="font-semibold text-sm tracking-tight text-muted">
                 {active === 'pomodoro' ? t('study.timer') : active === 'quiz' && quizQuestions.length > 0 ? 'Quiz' : t('study.output')}
               </h2>
-              <div className="flex items-center gap-3">
-                {result && active !== 'pomodoro' && !(active === 'quiz' && quizQuestions.length > 0) && (
-                  <CopyButton
-                    getText={() => stripMarkdown(result)}
-                    label={t('common.copy')}
-                    copiedLabel={t('feedback.copied')}
-                    onCopied={handleStudyCopied}
-                  />
-                )}
-                {/* v5.6 — download study material (MD / TXT / PDF) */}
-                {result && active !== 'pomodoro' && !(active === 'quiz' && quizQuestions.length > 0) && (
-                  <ExportMenu
-                    formats={studyExportFormats}
-                    label={t('export.report')}
-                    errorText={t('export.failed')}
-                    successText={t('feedback.export_done')}
-                    startedText={t('feedback.export_started')}
-                  />
-                )}
-              </div>
+              {/* v5.10 — single 3-dot menu: Share / Copy / Export */}
+              {result && active !== 'pomodoro' && !(active === 'quiz' && quizQuestions.length > 0) && (
+                <OutputMenu
+                  getText={() => stripMarkdown(result)}
+                  copyLabel={t('common.copy')}
+                  copiedLabel={t('feedback.copied')}
+                  onCopied={handleStudyCopied}
+                  shareData={() => ({
+                    title: t(meta.labelKey),
+                    text: stripMarkdown(result),
+                  })}
+                  shareFallbackLabel={t('feedback.copied')}
+                  shareLabel={t('menu.share')}
+                  exportLabel={t('export.report')}
+                  errorText={t('export.failed')}
+                  successText={t('feedback.export_done')}
+                  startedText={t('feedback.export_started')}
+                  formats={studyExportFormats}
+                />
+              )}
             </div>
 
             {/* Pomodoro Timer Display */}

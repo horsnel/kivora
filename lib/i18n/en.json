@@ -133,6 +133,8 @@
   "export.docx": "Export as DOCX",
   "export.html": "Export as HTML",
   "export.txt": "Export as Text",
+  "menu.share": "Share",
+  "menu.actions": "Actions",
   "common.generate": "Generate",
   "common.loading": "Loading...",
   "common.run": "Run",

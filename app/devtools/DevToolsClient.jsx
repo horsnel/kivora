@@ -12,8 +12,7 @@ import { streamSSE } from '@/lib/sseClient'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
 import { authFetch } from '@/lib/authFetch'
-import ExportMenu from '@/components/ExportMenu'
-import CopyButton from '@/components/CopyButton'
+import OutputMenu from '@/components/OutputMenu'
 import UpgradeCard from '@/components/UpgradeCard'
 import UsageTimerButton from '@/components/UsageTimerButton'
 
@@ -397,7 +396,7 @@ export default function DevToolsClient() {
     refreshUsage()
   }
 
-  // copy handled by <CopyButton> — fires a HUSH toast + keeps markCopied sync
+  // copy handled by <OutputMenu> — fires a HUSH toast + keeps markCopied sync
   const handleDevCopied = () => {
     if (sessionRef.current) markCopied(sessionRef.current)
   }
@@ -1013,26 +1012,26 @@ export default function DevToolsClient() {
           <div className="bg-[#141414] rounded-xl p-6 flex flex-col min-h-[560px] overflow-hidden">
             <div className="flex items-center justify-between mb-4 shrink-0">
               <h2 className="font-semibold text-sm text-muted">{t('devtools.output')}</h2>
-              <div className="flex items-center gap-3">
-                {result && (
-                  <CopyButton
-                    getText={() => stripMarkdown(result)}
-                    label={t('common.copy')}
-                    copiedLabel={t('feedback.copied')}
-                    onCopied={handleDevCopied}
-                  />
-                )}
-                {/* v5.6 — download tool output (MD / TXT / PDF) */}
-                {result && (
-                  <ExportMenu
-                    formats={devExportFormats}
-                    label={t('export.report')}
-                    errorText={t('export.failed')}
-                    successText={t('feedback.export_done')}
-                    startedText={t('feedback.export_started')}
-                  />
-                )}
-              </div>
+              {/* v5.10 — single 3-dot menu: Share / Copy / Export */}
+              {result && (
+                <OutputMenu
+                  getText={() => stripMarkdown(result)}
+                  copyLabel={t('common.copy')}
+                  copiedLabel={t('feedback.copied')}
+                  onCopied={handleDevCopied}
+                  shareData={() => ({
+                    title: t('devtools.output'),
+                    text: stripMarkdown(result),
+                  })}
+                  shareFallbackLabel={t('feedback.copied')}
+                  shareLabel={t('menu.share')}
+                  exportLabel={t('export.report')}
+                  errorText={t('export.failed')}
+                  successText={t('feedback.export_done')}
+                  startedText={t('feedback.export_started')}
+                  formats={devExportFormats}
+                />
+              )}
             </div>
 
             {gate

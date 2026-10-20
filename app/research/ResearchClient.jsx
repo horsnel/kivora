@@ -5,7 +5,7 @@ import { authFetch } from '@/lib/authFetch'
 import UpgradeCard from '@/components/UpgradeCard'
 import { usePlan } from '@/lib/usePlan'
 import { IconLock } from '@/components/Icons'
-import CopyButton from '@/components/CopyButton'
+import OutputMenu from '@/components/OutputMenu'
 import { sanitizeHtml } from '@/lib/sanitizeHtml'
 import { streamSSE } from '@/lib/sseClient'
 
@@ -913,6 +913,26 @@ export default function ResearchClient() {
     )
   }
 
+  // ── v5.10 permalink report export (MD / TXT / PDF) — lazy-loaded writers,
+  // same pipeline as the main research page ──
+  async function exportPermalinkReport(format, body, title) {
+    const name = title || 'Research Report'
+    const payload = { title: name, subtitle: '', meta: '', body: body || '' }
+    if (format === 'md') {
+      const { exportReportAsMarkdown, buildReportFilename, downloadBlob } = await import('@/lib/fileExportClient')
+      downloadBlob(exportReportAsMarkdown(payload), buildReportFilename(name, 'md'))
+    } else if (format === 'txt') {
+      const { exportReportAsText, buildReportFilename, downloadBlob } = await import('@/lib/fileExportClient')
+      downloadBlob(exportReportAsText(payload), buildReportFilename(name, 'txt'))
+    } else if (format === 'pdf') {
+      const [{ exportReportAsPDF }, { buildReportFilename, downloadBlob }] = await Promise.all([
+        import('@/lib/fileExportHeavy'),
+        import('@/lib/fileExportClient'),
+      ])
+      downloadBlob(await exportReportAsPDF(payload), buildReportFilename(name, 'pdf'))
+    }
+  }
+
   // ── Render Report Tile ──
   function renderReportTile() {
     const reportText = reportDisplay || activeResearch?.report || ''
@@ -981,10 +1001,30 @@ export default function ResearchClient() {
                 )}
               </div>
             </div>
-            <CopyButton
+            {/* v5.10 — single 3-dot menu: Share / Copy / Export. Share hands
+                the permalink URL to the native share sheet (clipboard
+                fallback) — this page IS the shareable link. */}
+            <OutputMenu
               getText={() => activeResearch?.report || ''}
-              label="Copy"
+              copyLabel="Copy"
               copiedLabel="Copied to clipboard"
+              shareData={() => ({
+                title: reportTitle,
+                text: reportTitle,
+                url: typeof window !== 'undefined' ? window.location.href : '',
+              })}
+              shareFallbackLabel="Link copied"
+              shareLabel="Share"
+              exportLabel="Export"
+              errorText="Export failed"
+              successText="Export complete"
+              startedText="Your download has started"
+              formats={[
+                { id: 'md', badge: 'MD', label: 'Export as Markdown', run: () => exportPermalinkReport('md', reportText, reportTitle) },
+                { id: 'txt', badge: 'TXT', label: 'Export as Text', run: () => exportPermalinkReport('txt', reportText, reportTitle) },
+                { id: 'pdf', badge: 'PDF', label: 'Export as PDF', run: () => exportPermalinkReport('pdf', reportText, reportTitle) },
+              ]}
+              title="Actions"
               className="ml-4 mt-1"
             />
           </div>

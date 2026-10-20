@@ -179,6 +179,16 @@ export function IconMenu({ size = 16, className = '' }) {
   )
 }
 
+export function IconDotsVertical({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <circle cx="8" cy="3" r="1.4" fill="currentColor"/>
+      <circle cx="8" cy="8" r="1.4" fill="currentColor"/>
+      <circle cx="8" cy="13" r="1.4" fill="currentColor"/>
+    </svg>
+  )
+}
+
 export function IconCopy({ size = 16, className = '' }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>

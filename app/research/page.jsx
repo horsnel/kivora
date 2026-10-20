@@ -10,9 +10,7 @@ import { streamSSE } from '@/lib/sseClient'
 import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, IconRocket, IconHeart, IconMicroscope, IconWarning, IconLock } from '@/components/Icons'
 import { usePlan } from '@/lib/usePlan'
 import UpgradeCard from '@/components/UpgradeCard'
-import ExportMenu from '@/components/ExportMenu'
-import CopyButton from '@/components/CopyButton'
-import { showFeedback } from '@/components/FeedbackToast'
+import OutputMenu from '@/components/OutputMenu'
 import { parseCitationMarker, faviconUrl, domainOf, buildReferences, computeVerificationGrid, verificationStatusFor, VERIFICATION_VERDICTS } from '@/lib/citations'
 
 // ── File Upload Constants ──
@@ -627,8 +625,6 @@ function ResearchPageContent() {
   // barExpanded toggles it to a multi-line textarea — mirroring chat page UX.
   const [barExpanded, setBarExpanded] = useState(false)
   const [sourcesExpanded, setSourcesExpanded] = useState(false)
-  // v5.7: transient feedback for the permalink "Link" button
-  const [linkCopied, setLinkCopied] = useState(false)
   const [history, setHistory] = useState([])
   const [progress, setProgress] = useState(0)
   const [researchStage, setResearchStage] = useState('search')
@@ -1727,45 +1723,30 @@ function ResearchPageContent() {
                         Wiki · {activeResearch.wikiLifecycle}{activeResearch.wikiVersion > 0 ? ` v${activeResearch.wikiVersion}` : ''}
                       </span>
                     )}
+                    {/* v5.10 — single 3-dot menu: Share / Copy / Export.
+                        Share uses the public permalink URL when one exists
+                        (native share sheet, clipboard fallback), absorbing
+                        the old standalone "Link" button. */}
                     {reportText && !isResearching && (
-                      <CopyButton
+                      <OutputMenu
                         getText={() => activeResearch?.report || ''}
-                        label={t('common.copy')}
+                        copyLabel={t('common.copy')}
                         copiedLabel={t('feedback.copied')}
-                      />
-                    )}
-                    {/* v5.7 — public permalink: copies a shareable capability URL */}
-                    {reportText && !isResearching && activeResearch.permalinkId && (
-                      <button
-                        onClick={() => {
-                          try {
-                            navigator.clipboard.writeText(`${window.location.origin}/research/r/${activeResearch.permalinkId}`)
-                            setLinkCopied(true)
-                            setTimeout(() => setLinkCopied(false), 1800)
-                            showFeedback({ variant: 'toast', message: t('feedback.link_copied') })
-                          } catch {}
-                        }}
-                        className={`inline-flex items-center gap-1.5 shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-medium transition-all duration-200 active:scale-[0.96] ${
-                          linkCopied
-                            ? 'border-[#FF3366]/60 text-[#FF3366] bg-[#FF3366]/[0.07]'
-                            : 'border-[#2a2a2a] bg-[#0a0a0a]/60 text-[#a3a3a3] hover:border-[#FF3366]/60 hover:text-[#FF3366] hover:bg-[#FF3366]/[0.05]'
-                        }`}
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                        </svg>
-                        {linkCopied ? t('feedback.link_copied') : 'Link'}
-                      </button>
-                    )}
-                    {/* v5.6 — download report in different formats */}
-                    {reportText && !isResearching && (
-                      <ExportMenu
-                        formats={reportExportFormats}
-                        label={t('export.report')}
+                        shareData={() => ({
+                          title: activeResearch?.query || 'Kivora Research',
+                          text: activeResearch?.query || '',
+                          url: activeResearch?.permalinkId
+                            ? `${window.location.origin}/research/r/${activeResearch.permalinkId}`
+                            : '',
+                        })}
+                        shareFallbackLabel={t('feedback.link_copied')}
+                        shareLabel={t('menu.share')}
+                        exportLabel={t('export.report')}
                         errorText={t('export.failed')}
                         successText={t('feedback.export_done')}
                         startedText={t('feedback.export_started')}
+                        formats={reportExportFormats}
+                        title={t('menu.actions')}
                       />
                     )}
                   </div>
