@@ -1047,6 +1047,14 @@ export default function ChatClient() {
               // Server started the image tool — swap the generic thinking
               // indicator for a dedicated shimmer card.
               setImageGenerating(true)
+            } else if (evt.type === 'status' && evt.phase === 'exec') {
+              // v5.13 — AI called an exec tool: auto-switch to Live Terminal
+              // and mirror the process (code → executing → output).
+              openTerminalForExec(evt)
+            } else if (evt.type === 'status' && evt.phase === 'done') {
+              // v5.13 — exec finished: show the output in the terminal, then
+              // auto-return to the conversation after a short read window.
+              finishTerminalExec(evt)
             }
           })
         } finally {
@@ -1314,6 +1322,10 @@ export default function ChatClient() {
   // SANDBOX mode: Cloudflare Sandbox (internet, pip/npm, persistent fs).
   // JUDGE0 mode: /api/execute bash fallback when the sandbox isn't wired.
   const [terminalMode, setTerminalMode] = useState(false)
+  // Ref mirror for non-reactive write paths (queued terminal writes run
+  // outside the render cycle and must not read a stale closure value)
+  const terminalModeRef = useRef(false)
+  useEffect(() => { terminalModeRef.current = terminalMode }, [terminalMode])
   const [sandboxAvailable, setSandboxAvailable] = useState(false)
   const [aiSuggestion, setAiSuggestion] = useState(null)
   const xtermRef = useRef(null)
@@ -1346,6 +1358,120 @@ export default function ChatClient() {
     if (!term) return
     term.write('\r\n\x1b[32m$\x1b[0m ')
   }
+
+  // ── v5.13: AI-driven terminal automation ────────────────────────
+  // The terminal is no longer a manual tab — the AI "calls it": when code is
+  // executed (execute_code tool, Run button on a code block) the chat view
+  // switches to Live Terminal, mirrors the process (code → executing →
+  // output), then automatically returns to the conversation when done.
+  const termQueueRef = useRef([])      // writes buffered until xterm mounts
+  const termAutoRef = useRef(false)    // terminal currently auto-opened by exec
+  const termFinishingRef = useRef(false) // guards double done (server frame + Run button event)
+  const termCloseTimerRef = useRef(null)
+  const termRetryTimerRef = useRef(null)
+
+  const LANG_NAMES = { 46: 'bash', 71: 'python', 63: 'javascript', 74: 'typescript', 82: 'sql', 62: 'java', 54: 'c++', 50: 'c', 60: 'go', 73: 'rust', 72: 'ruby', 68: 'php' }
+
+  const flushTermQueue = () => {
+    const q = termQueueRef.current
+    termQueueRef.current = []
+    for (const { text, color, nl } of q) {
+      if (nl) termWriteln(text, color)
+      else termWrite(text, color)
+    }
+  }
+
+  // Ensure the terminal is mounted before writing; retries briefly because
+  // the first open lazily loads the xterm chunk.
+  const flushTermQueueWhenReady = (attempt = 0) => {
+    if (termQueueRef.current.length === 0) return
+    if (xtermRef.current) { flushTermQueue(); return }
+    if (attempt > 16) { termQueueRef.current = []; return } // ~2s, give up
+    if (termRetryTimerRef.current) clearTimeout(termRetryTimerRef.current)
+    termRetryTimerRef.current = setTimeout(() => flushTermQueueWhenReady(attempt + 1), 120)
+  }
+
+  const queueTermWrite = (text, color, nl = false) => {
+    if (xtermRef.current && terminalModeRef.current) {
+      if (nl) termWriteln(text, color)
+      else termWrite(text, color)
+    } else {
+      termQueueRef.current.push({ text, color, nl })
+    }
+  }
+
+  // Exec start: switch to terminal, echo the code being executed
+  const openTerminalForExec = (evt = {}) => {
+    if (termCloseTimerRef.current) { clearTimeout(termCloseTimerRef.current); termCloseTimerRef.current = null }
+    termAutoRef.current = true
+    termFinishingRef.current = false
+    setTerminalMode(true)
+    terminalModeRef.current = true
+    const code = String(evt.code || '')
+    const lang = LANG_NAMES[evt.language_id] || ''
+    queueTermWrite('', null, true)
+    queueTermWrite(`\x1b[90m── Kivora AI · running ${lang || 'code'} ──\x1b[0m`, null, true)
+    if (code) {
+      const lines = code.split('\n').slice(0, 40)
+      queueTermWrite('\x1b[32m$\x1b[0m ', null)
+      lines.forEach((l, i) => {
+        queueTermWrite(l.length > 160 ? l.slice(0, 160) + '…' : l, 'cyan', i < Math.min(lines.length, 40) - 1 || lines.length > 1)
+      })
+      if (code.split('\n').length > 40) queueTermWrite(`… ${code.split('\n').length - 40} more lines`, 'gray', true)
+    } else {
+      queueTermWrite('Executing…', 'gray', true)
+    }
+    queueTermWrite('\x1b[90mexecuting — output will appear here\x1b[0m', null, true)
+    flushTermQueueWhenReady()
+  }
+
+  // Exec done: print the output, pause, switch back to the conversation
+  const finishTerminalExec = (evt = {}) => {
+    if (!termAutoRef.current || termFinishingRef.current) return
+    termFinishingRef.current = true
+    const output = String(evt.output || '')
+    if (output) {
+      queueTermWrite('', null, true)
+      const outLines = output.split('\n')
+      const shown = outLines.slice(0, 60)
+      shown.forEach((l, i) => queueTermWrite(l.length > 200 ? l.slice(0, 200) + '…' : l, null, i < shown.length - 1))
+      if (outLines.length > 60) queueTermWrite(`… ${outLines.length - 60} more lines (full result in chat)`, 'gray', true)
+    } else {
+      queueTermWrite('(no output)', 'gray', true)
+    }
+    if (evt.exit_code != null && evt.exit_code !== 0 && evt.exit_code !== undefined) {
+      queueTermWrite(`\x1b[31m[Exit code: ${evt.exit_code}]\x1b[0m`, null, true)
+    } else if (evt.exitCode != null && evt.exitCode !== 0) {
+      // Run-button bridge events carry `exitCode`
+      queueTermWrite(`\x1b[31m[Exit code: ${evt.exitCode}]\x1b[0m`, null, true)
+    } else {
+      queueTermWrite('\x1b[32m[Done]\x1b[0m', null, true)
+    }
+    queueTermWrite('', null, true)
+    flushTermQueueWhenReady()
+    // Switch back to the conversation once the user can read the tail
+    if (termCloseTimerRef.current) clearTimeout(termCloseTimerRef.current)
+    termCloseTimerRef.current = setTimeout(() => {
+      termAutoRef.current = false
+      setTerminalMode(false)
+      terminalModeRef.current = false
+    }, 2600)
+  }
+
+  // CodeBlock Run button bridge (MarkdownRenderer is decoupled from chat state)
+  useEffect(() => {
+    const onStart = (e) => openTerminalForExec(e.detail || {})
+    const onDone = (e) => finishTerminalExec(e.detail || {})
+    window.addEventListener('kivora:code-exec-start', onStart)
+    window.addEventListener('kivora:code-exec-done', onDone)
+    return () => {
+      window.removeEventListener('kivora:code-exec-start', onStart)
+      window.removeEventListener('kivora:code-exec-done', onDone)
+    }
+  }, [])
+
+  // Preload the xterm chunk so the first auto-open is instant
+  useEffect(() => { try { XTerminal.preload?.() } catch {} }, [])
 
   const executeCommand = async (cmd) => {
     // ── Try Cloudflare Sandbox first ──
@@ -2541,18 +2667,9 @@ export default function ChatClient() {
                       </svg>
                     </button>
 
-                    {/* v5.11 — Live terminal toggle */}
-                    <button
-                      className={`chat-toolbar-btn ${terminalMode ? 'chat-toolbar-btn-active' : ''}`}
-                      onClick={() => setTerminalMode(!terminalMode)}
-                      title={terminalMode ? 'Switch to chat mode' : 'Live terminal'}
-                      aria-label={terminalMode ? 'Switch to chat mode' : 'Live terminal'}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="4 17 10 11 4 5" />
-                        <line x1="12" y1="19" x2="20" y2="19" />
-                      </svg>
-                    </button>
+                    {/* v5.13 — terminal icon removed: the AI opens Live Terminal
+                        automatically when it runs code, and returns to chat
+                        when the process finishes */}
 
                     {/* Voice Settings — Coming Soon */}
                     <button

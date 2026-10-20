@@ -730,8 +730,12 @@ export async function POST(req) {
       return Response.json({ error: 'Query is required' }, { status: 400 })
     }
 
-    if (query.length > 2000) {
-      return Response.json({ error: 'Query too long (max 2000 characters)' }, { status: 400 })
+    // v5.13: raised 2000 → 8000. Human-typed queries stay under 2K, but the
+    // primary route self-heals image queries through this endpoint with a
+    // machine-generated vision brief prepended (~3-4K chars) — the limit must
+    // accommodate that.
+    if (query.length > 8000) {
+      return Response.json({ error: 'Query too long (max 8000 characters)' }, { status: 400 })
     }
 
     // ── Plan gate BEFORE any work — defense-in-depth ──────────────────

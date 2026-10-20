@@ -148,6 +148,43 @@ async function storeCacheResult(admin, queryHash, queryText, normalized, mode, a
 }
 
 /**
+ * v5.13 — self-heal for image-bearing research queries.
+ *
+ * The external research worker's LLM layer (OpenRouter / Workers AI) is
+ * independent of ours and can be down entirely — when it is, image queries
+ * (which skip the client-side fallback race) would 100% fail. This helper
+ * re-runs the failed query through our OWN /api/research-fallback pipeline
+ * (Tavily/Firecrawl search + Mistral/Groq LLM chain) using the vision
+ * pre-analysis brief as the query, so image research survives worker
+ * outages. Returns the fallback payload or null.
+ */
+async function runInternalFallback(req, query, mode, apexModel, timeoutMs) {
+  try {
+    const url = new URL('/api/research-fallback', req.url)
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, mode, apex_model: apexModel }),
+      signal: AbortSignal.timeout(timeoutMs),
+    })
+    if (!res.ok) return null
+    const data = await res.json().catch(() => null)
+    if (!data || data.error || !data.report) return null
+    return data
+  } catch {
+    return null
+  }
+}
+
+// Chunk a finished report into SSE delta frames so a self-healed (non
+// streaming) fallback result still renders progressively in the client.
+function chunkReport(text, chunkSize = 120) {
+  const chunks = []
+  for (let i = 0; i < text.length; i += chunkSize) chunks.push(text.slice(i, i + chunkSize))
+  return chunks
+}
+
+/**
  * v5.11 — server-side vision pre-analysis of attached images.
  *
  * The external research worker receives images verbatim, but its text
@@ -382,8 +419,11 @@ export async function POST(req) {
     // in production (search + LLM race), so 30s aborted valid work mid-flight
     // and produced spurious 504s. 80s gives it real headroom while staying
     // well inside Cloudflare's edge limits.
-    // When an image is attached, the vision model needs extra time (up to
-    // 15s for image description) — extend the timeout by 30s in that case.
+    // When an image is attached the worker gets a TIGHTER budget, not a
+    // longer one: image queries self-heal through the internal fallback when
+    // the worker fails, so the worker must fail FAST to leave the fallback
+    // room inside the client's abort window (quick+image: 65s worker + 70s
+    // heal = 135s < 150s client cap).
     const allFilesForImageCheck = Array.isArray(attachedFiles) && attachedFiles.length > 0
       ? attachedFiles
       : (attachedFile ? [attachedFile] : [])
@@ -392,7 +432,7 @@ export async function POST(req) {
       /\.(png|jpe?g|gif|webp)$/i.test(f?.name || '')
     )
     const baseTimeout = mode === 'deep' ? 200000 : 80000
-    const workerTimeout = hasImage ? baseTimeout + 30000 : baseTimeout
+    const workerTimeout = hasImage ? (mode === 'deep' ? 130000 : 65000) : baseTimeout
 
     const workerBody = {
       query: trimmedQuery,
@@ -437,6 +477,15 @@ export async function POST(req) {
       const errText = await workerRes.text().catch(() => '')
       console.error(`[research] Worker error ${workerRes.status}:`, errText.slice(0, 300))
 
+      // v5.13: image queries self-heal through the internal fallback instead
+      // of failing — the worker's LLM layer can be down while ours is fine.
+      if (hasImage) {
+        const healed = await runInternalFallback(req, workerBody.query, mode, apexTier, mode === 'deep' ? 160000 : 70000)
+        if (healed) {
+          return Response.json({ ...healed, fromCache: false, selfHealed: true })
+        }
+      }
+
       // Refund credits — the worker failed, user shouldn't be charged
       if (adminCharger && user?.id) {
         await refundCredits(adminCharger, user.id, CREDIT_COSTS[action], action, `worker ${workerRes.status}`)
@@ -453,6 +502,9 @@ export async function POST(req) {
     // worker's done frame, store the cache, then emit ONE enriched done.
     // If the worker (or this pipe) fails mid-stream, emit an error event and
     // refund — same refund policy as the JSON path.
+    // v5.13: image queries hold back worker ERROR frames too and self-heal
+    // through the internal fallback pipeline inside the stream, so the client
+    // keeps its live progress UI and still receives a done payload.
     if (wantsStream && (workerRes.headers.get('content-type') || '').includes('text/event-stream')) {
       const enc = new TextEncoder()
       const upstreamReader = workerRes.body.getReader()
@@ -486,9 +538,40 @@ export async function POST(req) {
                 if (evt.type === 'done') {
                   finalData = evt.data // held back — enriched below
                 } else {
-                  if (evt.type === 'error') sawError = true
+                  if (evt.type === 'error') {
+                    sawError = true
+                    if (hasImage) continue // held back — self-heal below
+                  }
                   send(evt)
                 }
+              }
+            }
+
+            // ── v5.13: image self-heal — worker failed → internal fallback ──
+            if (!finalData && hasImage) {
+              send({ type: 'phase', phase: 'search' })
+              const healed = await runInternalFallback(req, workerBody.query, mode, apexTier, mode === 'deep' ? 160000 : 70000)
+              if (healed && !closed) {
+                const healedSources = Array.isArray(healed.sources) ? healed.sources : []
+                if (healedSources.length > 0) {
+                  send({ type: 'sources', sources: healedSources })
+                }
+                send({ type: 'phase', phase: 'write' })
+                const fullReport = healed.report || ''
+                for (const chunk of chunkReport(fullReport)) {
+                  send({ type: 'delta', part: 'report', v: chunk })
+                }
+                send({ type: 'part_done', part: 'report' })
+                send({
+                  type: 'done',
+                  data: {
+                    ...healed,
+                    report: fullReport,
+                    fromCache: false,
+                    selfHealed: true,
+                  },
+                })
+                return
               }
             }
 
@@ -583,6 +666,13 @@ export async function POST(req) {
     const data = await workerRes.json()
 
     if (data.error) {
+      // v5.13: image queries self-heal through the internal fallback
+      if (hasImage) {
+        const healed = await runInternalFallback(req, workerBody.query, mode, apexTier, mode === 'deep' ? 160000 : 70000)
+        if (healed) {
+          return Response.json({ ...healed, fromCache: false, selfHealed: true })
+        }
+      }
       // Refund credits — worker returned an error
       if (adminCharger && user?.id) {
         await refundCredits(adminCharger, user.id, CREDIT_COSTS[action], action, 'worker error response')

@@ -172,6 +172,10 @@ function CodeBlock({ langLabel, codeText, codeClassName }) {
     setRunning(true)
     setRunResult(null)
     setDetailsOpen(false)
+    // v5.13 — mirror the execution into the chat page's Live Terminal:
+    // the view switches to the terminal for the process, then auto-returns
+    // to the conversation when the run finishes (ChatClient listens).
+    try { window.dispatchEvent(new CustomEvent('kivora:code-exec-start', { detail: { code: codeText, languageId: langId } })) } catch {}
     try {
       const res = await fetch('/api/execute', {
         method: 'POST',
@@ -187,8 +191,17 @@ function CodeBlock({ langLabel, codeText, codeClassName }) {
           compile_output: data.details || null,
           exit_code: null, time: null, memory: null
         })
+        try {
+          window.dispatchEvent(new CustomEvent('kivora:code-exec-done', { detail: { output: data.error, exitCode: 1, success: false } }))
+        } catch {}
       } else {
         setRunResult(data)
+        let out = data.stdout || ''
+        if (data.stderr) out += (out ? '\n' : '') + data.stderr
+        if (data.compile_output) out += (out ? '\n' : '') + data.compile_output
+        try {
+          window.dispatchEvent(new CustomEvent('kivora:code-exec-done', { detail: { output: out || '(no output)', exitCode: data.exit_code ?? null, success: data.status?.id === 3 || data.status?.id === 4 } }))
+        } catch {}
       }
     } catch {
       setRunResult({
@@ -197,6 +210,9 @@ function CodeBlock({ langLabel, codeText, codeClassName }) {
         stdout: null, compile_output: null,
         exit_code: null, time: null, memory: null
       })
+      try {
+        window.dispatchEvent(new CustomEvent('kivora:code-exec-done', { detail: { output: 'Could not reach the execution server.', exitCode: 1, success: false } }))
+      } catch {}
     }
     setRunning(false)
   }

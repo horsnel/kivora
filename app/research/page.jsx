@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useMemo, Suspense, memo, Fragment, Children } from 'react'
+import { createPortal } from 'react-dom'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/LanguageProvider'
 import dynamic from 'next/dynamic'
@@ -7,7 +8,7 @@ import remarkGfm from 'remark-gfm'
 const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false })
 import { supabasePublic } from '@/lib/supabase'
 import { streamSSE } from '@/lib/sseClient'
-import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, IconRocket, IconHeart, IconMicroscope, IconWarning, IconLock } from '@/components/Icons'
+import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, IconRocket, IconHeart, IconMicroscope, IconWarning, IconLock, IconTrash } from '@/components/Icons'
 import { usePlan } from '@/lib/usePlan'
 import UpgradeCard from '@/components/UpgradeCard'
 import OutputMenu from '@/components/OutputMenu'
@@ -498,6 +499,105 @@ const APEX_MODELS = [
   { id: 'apex-free', name: 'Apex 1.7', tag: 'Free', color: 'gray' },
   { id: 'apex-premium', name: 'Apex 2.3', tag: 'Premium', color: 'red' },
 ]
+
+// ── v5.13: History pill with tap-and-hold delete ────────────────────
+// A quick tap loads the research. Pressing and holding (~450ms) pops out a
+// small delete card anchored to the pill (hush-pop animation, rendered via
+// portal so it escapes the horizontally scrollable pill row). Pointer events
+// make it work identically for touch and mouse. Long-press context menus and
+// text selection are suppressed on the pill.
+const LONG_PRESS_MS = 450
+
+function HistoryPill({ item, active, onLoad, onDelete, compact }) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
+  const pressTimer = useRef(null)
+  const longPressed = useRef(false)
+  const btnRef = useRef(null)
+
+  // Outside pointerdown closes the popout
+  useEffect(() => {
+    if (!menuOpen) return
+    const close = (e) => {
+      const card = document.getElementById('history-pill-delete-card')
+      if (card && card.contains(e.target)) return
+      setMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', close, true)
+    return () => document.removeEventListener('pointerdown', close, true)
+  }, [menuOpen])
+
+  const clearPress = () => {
+    if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null }
+  }
+  useEffect(() => clearPress, [])
+
+  const handlePointerDown = () => {
+    longPressed.current = false
+    clearPress()
+    pressTimer.current = setTimeout(() => {
+      longPressed.current = true
+      const rect = btnRef.current?.getBoundingClientRect()
+      if (rect) {
+        const CARD_W = 148
+        const left = Math.max(8, Math.min(rect.right - CARD_W, window.innerWidth - CARD_W - 8))
+        // Prefer opening below the pill; flip above when clipped at the bottom
+        const below = rect.bottom + 6
+        const top = below + 96 > window.innerHeight ? Math.max(8, rect.top - 96) : below
+        setMenuPos({ top, left })
+      }
+      setMenuOpen(true)
+      try { navigator.vibrate?.(15) } catch {}
+    }, LONG_PRESS_MS)
+  }
+
+  const handleClick = () => {
+    if (longPressed.current) { longPressed.current = false; return }
+    if (menuOpen) { setMenuOpen(false); return }
+    onLoad(item)
+  }
+
+  const handleDelete = () => {
+    setMenuOpen(false)
+    onDelete(item)
+  }
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onClick={handleClick}
+        onPointerDown={handlePointerDown}
+        onPointerUp={clearPress}
+        onPointerLeave={clearPress}
+        onPointerCancel={clearPress}
+        onContextMenu={(e) => e.preventDefault()}
+        className={`flex items-center gap-1.5 bg-transparent border font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em] whitespace-nowrap shrink-0 select-none touch-pan-y rounded-full hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px ${compact ? 'text-[11px] max-w-[160px] px-3 py-1.5' : 'text-[12px] max-w-[180px] px-3.5 py-2'} ${
+          active ? 'border-red-500/40 text-red-400' : 'border-[#1f1f1f] text-[#525252]'
+        }`}
+      >
+        <IconMicroscope size={compact ? 10 : 12} className="shrink-0 text-red-400/60" />
+        <span className="truncate">{item.query}</span>
+      </button>
+      {menuOpen && createPortal(
+        <div
+          id="history-pill-delete-card"
+          className="hush-pop fixed z-[999] min-w-[148px] bg-[#141414] border border-[#2a2a2a] rounded-xl shadow-2xl overflow-hidden"
+          style={{ top: menuPos.top, left: menuPos.left }}
+        >
+          <button
+            onClick={handleDelete}
+            className="flex items-center gap-2 w-full px-3.5 py-2.5 text-[12px] text-red-400 hover:bg-[#1f1f1f] cursor-pointer tracking-[-0.01em]"
+          >
+            <IconTrash size={13} />
+            <span>Delete research</span>
+          </button>
+        </div>,
+        document.body
+      )}
+    </>
+  )
+}
 
 // ── Helpers ──
 function generateId() {
@@ -1012,10 +1112,12 @@ function ResearchPageContent() {
       // Production timing: the worker needs ~48s for quick mode (search + LLM
       // race), so the old 30s cap aborted valid work. The fixed fallback
       // pipeline usually returns in 15-40s and wins the race when healthy.
-      // When an image is attached, the vision model needs extra time — add 30s.
+      // v5.13 — image queries self-heal server-side (worker fail → internal
+      // fallback pipeline), so the primary abort window must cover
+      // worker(65s) + heal(70s) = 135s for quick / 130s + 160s for deep.
       const basePrimary = researchMode === 'deep' ? 205000 : 85000
       const baseFallback = researchMode === 'deep' ? 160000 : 65000
-      const primaryTimeout = setTimeout(() => primaryController.abort(), isImage ? basePrimary + 30000 : basePrimary)
+      const primaryTimeout = setTimeout(() => primaryController.abort(), isImage ? (researchMode === 'deep' ? 290000 : 150000) : basePrimary)
       const fallbackTimeout = setTimeout(() => fallbackController.abort(), isImage ? baseFallback + 30000 : baseFallback)
 
       // Build request body — include attachedFiles (array) if present.
@@ -1427,6 +1529,29 @@ function ResearchPageContent() {
     setResearchStage('search')
   }
 
+  // ── v5.13: delete a research history item ──
+  // Removes the entry from localStorage + state. For signed-in users the
+  // server-side copy in research_reports is deleted best-effort (matched on
+  // user + query) — failures are silent, the local list is the source of
+  // truth for this UI.
+  function deleteResearchItem(item) {
+    const next = loadHistory().filter(h => h.id !== item.id)
+    saveHistory(next)
+    setHistory(next)
+    // If the deleted research is currently open, close the reading view
+    setActiveResearch(prev => (prev && prev.id === item.id ? null : prev))
+    if (user?.id && supabasePublic && item.query) {
+      supabasePublic
+        .from('research_reports')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('query', item.query)
+        .then(({ error }) => {
+          if (error) console.warn('[research] Supabase history delete failed:', error.message)
+        })
+    }
+  }
+
   async function loadResearch(item) {
     // Ensure item has all expected fields (guard against stale localStorage data)
     const safeItem = {
@@ -1567,14 +1692,13 @@ function ResearchPageContent() {
             {history.length > 0 && (
               <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none pb-0.5 px-1">
                 {history.map((item) => (
-                  <button
+                  <HistoryPill
                     key={item.id}
-                    onClick={() => loadResearch(item)}
-                    className="flex items-center gap-2 bg-transparent border border-[#1f1f1f] text-[#737373] hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px px-3.5 py-2 rounded-full text-[12px] font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em] whitespace-nowrap shrink-0 max-w-[180px]"
-                  >
-                    <IconMicroscope size={12} className="shrink-0 text-red-400/60" />
-                    <span className="truncate">{item.query}</span>
-                  </button>
+                    item={item}
+                    active={activeResearch?.id === item.id}
+                    onLoad={loadResearch}
+                    onDelete={deleteResearchItem}
+                  />
                 ))}
               </div>
             )}
@@ -1954,16 +2078,14 @@ function ResearchPageContent() {
               {!isResearching && history.length > 0 && (
                 <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none pb-1">
                   {history.map((item) => (
-                    <button
+                    <HistoryPill
                       key={item.id}
-                      onClick={() => loadResearch(item)}
-                      className={`flex items-center gap-1.5 bg-transparent border text-[11px] font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em] whitespace-nowrap shrink-0 max-w-[160px] px-3 py-1.5 rounded-full hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px ${
-                        activeResearch?.id === item.id ? 'border-red-500/40 text-red-400' : 'border-[#1f1f1f] text-[#525252]'
-                      }`}
-                    >
-                      <IconMicroscope size={10} className="shrink-0 text-red-400/60" />
-                      <span className="truncate">{item.query}</span>
-                    </button>
+                      item={item}
+                      compact
+                      active={activeResearch?.id === item.id}
+                      onLoad={loadResearch}
+                      onDelete={deleteResearchItem}
+                    />
                   ))}
                 </div>
               )}

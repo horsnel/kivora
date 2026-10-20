@@ -166,8 +166,11 @@ async function aiChat(params) {
 // ── Mistral-first STREAMING chat with legacy-chain fallback ──────
 // Streams Mistral tokens through onDelta as they arrive. If Mistral is
 // unavailable (or dies before the stream starts), falls back to the legacy
-// chain NON-streamed and emits the whole reply as a single delta — clients
-// render both identically.
+// chain — v5.13: the chain now streams too (every provider in lib/groq.js
+// forwards deltas through onDelta), so tokens flow token-by-token no matter
+// which provider serves the reply. Previously the chain path buffered the
+// ENTIRE generation and emitted one giant delta — dead air, then a wall of
+// text. That's the "not seamless" bug.
 async function aiChatStream(params, { onDelta }) {
   if (isMistralConfigured() && !messagesHaveImage(params.messages)) {
     try {
@@ -184,10 +187,7 @@ async function aiChatStream(params, { onDelta }) {
       console.warn(`[chat] mistral stream unavailable (${String(err?.message).slice(0, 80)}) — falling back to legacy chain`)
     }
   }
-  const res = await groqChat(params)
-  const text = res?.choices?.[0]?.message?.content || ''
-  if (text && onDelta) onDelta(text)
-  return res
+  return groqChat(params, { onDelta })
 }
 
 // ── Truncation guard: complete-length continuation + sentence finisher ──
@@ -608,11 +608,17 @@ async function processChat(req, body, send) {
       model,
       messages: apiMessages,
       max_tokens: EFFORT_TOKENS[effort],
+      // v5.13: gpt-oss models think before they speak — on Groq the default
+      // 'medium' reasoning burns seconds of invisible tokens before the first
+      // visible output. 'low' keeps a brief planning pass but cuts TTFB
+      // roughly in half. 'high' user effort earns 'medium' thinking.
       // qwen3.8-27b (vision) defaults to a thinking mode that leaks <think>
       // blocks into content and burns output tokens — disable it for vision
       // replies so answers stream straight out. Direct (non-Groq) providers
       // strip this field before sending.
-      ...(model === VISION_MODEL ? { reasoning_effort: 'none' } : {}),
+      ...(model === VISION_MODEL
+        ? { reasoning_effort: 'none' }
+        : { reasoning_effort: effort === 'high' ? 'medium' : 'low' }),
       ...(relevantTools.length > 0 ? { tools: relevantTools, tool_choice: toolChoice } : {})
     }
 
@@ -765,25 +771,59 @@ async function processChat(req, body, send) {
       const toolResults = {}
 
       // Execute all tool calls
+      const EXEC_TOOLS = new Set(['execute_code', 'sandbox_exec', 'run_code', 'run_on_gpu'])
       for (const toolCall of message.tool_calls) {
+        const toolName = toolCall.function.name
         // Tell SSE clients what is running before it starts — image
         // generation takes 5-15s and a status event lets the client swap
         // the generic thinking indicator for a dedicated shimmer card.
         // Non-streaming requests have no `send`; legacy clients ignore
         // unknown event types.
-        if (send) {
-          try { send({ type: 'status', tool: toolCall.function.name }) } catch {}
+        // v5.13: exec tools carry a second `exec` frame with the code payload
+        // — the client auto-opens Live Terminal and mirrors the process.
+        let execArgs = {}
+        if (EXEC_TOOLS.has(toolName)) {
+          try { execArgs = JSON.parse(toolCall.function.arguments) || {} } catch {}
         }
-        const handler = toolHandlers[toolCall.function.name]
+        if (send) {
+          try { send({ type: 'status', tool: toolName, phase: 'start' }) } catch {}
+          if (EXEC_TOOLS.has(toolName)) {
+            const code = String(execArgs.code || execArgs.command || execArgs.script || '').slice(0, 8000)
+            if (code) {
+              try { send({ type: 'status', tool: toolName, phase: 'exec', code, language_id: execArgs.language_id || null }) } catch {}
+            }
+          }
+        }
+        const handler = toolHandlers[toolName]
         if (handler) {
           try {
             const args = JSON.parse(toolCall.function.arguments)
-            toolResults[toolCall.id] = await handler(args, toolContext)
+            const toolResult = await handler(args, toolContext)
+            toolResults[toolCall.id] = toolResult
+            // v5.13: exec tools emit a done frame with the output so the
+            // terminal can show the result before switching back to chat.
+            if (send && EXEC_TOOLS.has(toolName)) {
+              let out = ''
+              let exitCode = null
+              let success = null
+              try {
+                const parsed = JSON.parse(toolResult)
+                out = String(parsed.output || parsed.stdout || '').slice(0, 8000)
+                exitCode = parsed.exit_code ?? parsed.exitCode ?? null
+                success = typeof parsed.success === 'boolean' ? parsed.success : null
+              } catch {
+                out = String(toolResult || '').slice(0, 2000)
+              }
+              try { send({ type: 'status', tool: toolName, phase: 'done', output: out, exit_code: exitCode, success }) } catch {}
+            }
           } catch (err) {
             toolResults[toolCall.id] = `Tool error: ${err.message}`
+            if (send && EXEC_TOOLS.has(toolName)) {
+              try { send({ type: 'status', tool: toolName, phase: 'done', output: `Tool error: ${err.message}`, exit_code: 1, success: false }) } catch {}
+            }
           }
         } else {
-          toolResults[toolCall.id] = `Unknown tool: ${toolCall.function.name}`
+          toolResults[toolCall.id] = `Unknown tool: ${toolName}`
         }
       }
 
@@ -819,6 +859,9 @@ async function processChat(req, body, send) {
           model,
           messages: [...apiMessages, ...toolMessages],
           max_tokens: 4096,
+          ...(model === VISION_MODEL
+            ? { reasoning_effort: 'none' }
+            : { reasoning_effort: 'low' }), // fast post-tool synthesis
           tools: relevantTools,
           tool_choice: 'none'
         }
