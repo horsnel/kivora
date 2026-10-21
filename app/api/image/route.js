@@ -39,8 +39,11 @@ function arrayBufferToBase64(buffer) {
   return btoa(binary)
 }
 
-// v5.15.1 — Pollinations' anonymous tier returns 402 WITH the rendered image
-// in the body (payment-flag protocol). Magic bytes decide, not status codes.
+// v5.15.2 — Pollinations anonymous protocol (observed live): 2xx + JPEG body
+// = real artwork; 402 + JPEG body = "Free limit reached" placeholder card
+// (1 free image per 45s per IP) — the body is NEVER the artwork. Accept only
+// 2xx with image magic bytes; anything else falls through (SiliconFlow
+// fallback rescues rate-limit windows).
 function isImageBody(bytes) {
   if (!bytes || bytes.length < 2000) return false
   if (bytes[0] === 0xFF && bytes[1] === 0xD8) return true // JPEG
@@ -65,8 +68,12 @@ async function fetchWithRetry(url, retries = MAX_RETRIES) {
     })
     const buffer = await res.arrayBuffer()
     const bytes = new Uint8Array(buffer)
-    if (res.ok || isImageBody(bytes)) {
-      if (!res.ok) console.warn(`[image] HTTP ${res.status} but image body present — accepting`)
+    if (res.ok && isImageBody(bytes)) {
+      return { res, buffer }
+    }
+    // 402 = anonymous rate limit — retrying into the same 45s window is
+    // pointless; surface immediately so the SiliconFlow fallback takes over.
+    if (res.status === 402) {
       return { res, buffer }
     }
     if (attempt < retries) {
@@ -203,24 +210,30 @@ export async function POST(req) {
 
     const resolvedSize = VALID_SIZES.includes(size) ? size : DEFAULT_SIZE
 
-    // ── Generate: Pollinations → SiliconFlow fallback ──
+    // ── Generate: SiliconFlow (keyed, primary) → Pollinations (free fallback) ──
+    // v5.15.3 — Pollinations' anonymous tier is 1 img/45s/IP and all CF Pages
+    // traffic shares a few egress IPs, so its window is usually exhausted in
+    // production. The keyed SiliconFlow FLUX.1-schnell endpoint is the
+    // deterministic primary; Pollinations remains the free fallback.
+    const sfKey = await getEnvVar('SILICONFLOW_API_KEY')
+    if (sfKey) {
+      try {
+        const sfResult = await generateWithSiliconFlow(prompt, resolvedSize)
+        return Response.json(sfResult)
+      } catch (sfErr) {
+        console.warn(`[image] SiliconFlow failed ("${String(sfErr?.message || sfErr).slice(0, 120)}"), trying Pollinations fallback`)
+      }
+    }
     try {
       const result = await generateWithPollinations(prompt, resolvedSize)
       return Response.json(result)
     } catch (pollErr) {
       const pollMsg = pollErr?.message || 'Unknown Pollinations error'
-      console.warn(`[image] Pollinations failed ("${pollMsg.slice(0, 120)}"), trying SiliconFlow fallback`)
-      try {
-        const sfResult = await generateWithSiliconFlow(prompt, resolvedSize)
-        return Response.json(sfResult)
-      } catch (sfErr) {
-        const sfMsg = sfErr?.message || 'Unknown SiliconFlow error'
-        console.error(`[image] Image generation failed: ${sfMsg}`)
-        return Response.json(
-          { error: 'Image generation failed.', details: { pollinations: pollMsg, siliconflow: sfMsg } },
-          { status: 502 }
-        )
-      }
+      console.error(`[image] Image generation failed: ${pollMsg}`)
+      return Response.json(
+        { error: 'Image generation failed.', details: { siliconflow: sfKey ? 'attempted — see logs' : 'no key configured', pollinations: pollMsg } },
+        { status: 502 }
+      )
     }
   } catch (err) {
     console.error('[image] Generation failed:', err)
