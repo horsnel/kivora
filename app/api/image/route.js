@@ -134,6 +134,38 @@ async function generateWithPollinations(prompt, size) {
   return await generateWithPollinationsFree(prompt, size)
 }
 
+async function generateWithSiliconFlow(prompt, size) {
+  // v5.15 — independent-vendor fallback: SiliconFlow FLUX.1-schnell (the key
+  // is already provisioned for the text chain). Rescues total Pollinations
+  // outages instead of hard-failing the feature.
+  const sfKey = await getEnvVar('SILICONFLOW_API_KEY')
+  if (!sfKey) throw new Error('no SILICONFLOW_API_KEY configured')
+  const [width, height] = size.split('x').map(Number)
+  const res = await fetch('https://api.siliconflow.cn/v1/images/generations', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${sfKey}`,
+    },
+    body: JSON.stringify({
+      model: 'black-forest-labs/FLUX.1-schnell',
+      prompt: enhancePrompt(prompt.trim()),
+      image_size: `${width}x${height}`,
+      batch_size: 1,
+      response_format: 'b64_json',
+    }),
+    signal: AbortSignal.timeout(25000),
+  })
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '')
+    throw new Error(`SiliconFlow error ${res.status}: ${errText.slice(0, 200)}`)
+  }
+  const json = await res.json()
+  const b64 = String(json?.images?.[0]?.url || '').replace(/^data:[^,]*,/, '')
+  if (!b64) throw new Error('SiliconFlow returned no image')
+  return { image: `data:image/jpeg;base64,${b64}`, provider: 'siliconflow', size, model: 'FLUX.1-schnell' }
+}
+
 // ── Main Handler ──
 
 export async function POST(req) {
@@ -156,17 +188,24 @@ export async function POST(req) {
 
     const resolvedSize = VALID_SIZES.includes(size) ? size : DEFAULT_SIZE
 
-    // ── Generate with Pollinations ──
+    // ── Generate: Pollinations → SiliconFlow fallback ──
     try {
       const result = await generateWithPollinations(prompt, resolvedSize)
       return Response.json(result)
     } catch (pollErr) {
       const pollMsg = pollErr?.message || 'Unknown Pollinations error'
-      console.error(`[image] Image generation failed: ${pollMsg}`)
-      return Response.json(
-        { error: 'Image generation failed.', details: { pollinations: pollMsg } },
-        { status: 502 }
-      )
+      console.warn(`[image] Pollinations failed ("${pollMsg.slice(0, 120)}"), trying SiliconFlow fallback`)
+      try {
+        const sfResult = await generateWithSiliconFlow(prompt, resolvedSize)
+        return Response.json(sfResult)
+      } catch (sfErr) {
+        const sfMsg = sfErr?.message || 'Unknown SiliconFlow error'
+        console.error(`[image] Image generation failed: ${sfMsg}`)
+        return Response.json(
+          { error: 'Image generation failed.', details: { pollinations: pollMsg, siliconflow: sfMsg } },
+          { status: 502 }
+        )
+      }
     }
   } catch (err) {
     console.error('[image] Generation failed:', err)
