@@ -266,30 +266,54 @@ function makeSafeMessagesSetter(rawSet) {
   }
 }
 
-// ── Image generation placeholder ───────────────────────────────
+// ── Image generation placeholder — v5.15 premium redesign ──
 // Shown while the server runs the generate_image tool (status SSE event).
-// Replaces the generic thinking orb with a branded shimmer card so image
-// requests have a purpose-built loading surface instead of a text wait.
+// Mirrors the finished AI-image card's design language (gradient accent
+// frame, dark canvas) so the transition loading → image is seamless:
+// the shimmer collapses into the very frame the picture lands in.
+// Layers: breathing accent frame → drifting aurora glow → diagonal
+// light sweep → pulsing spark badge → cycling stage copy → progress hairline.
+const IMAGE_GEN_STAGES = ['Composing the scene', 'Painting the details', 'Refining the light']
+
 function ImageGeneratingCard() {
+  const [stage, setStage] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setStage(s => (s + 1) % IMAGE_GEN_STAGES.length), 3400)
+    return () => clearInterval(t)
+  }, [])
   return (
     <div className="flex justify-start">
-      {/* v5.14 — matches the premium AI Image preview card (gradient frame,
-          HUSH accent) so the shimmer flows into the finished image card */}
       <div
-        className="image-gen-shimmer w-full max-w-md rounded-2xl p-[1px] bg-gradient-to-br from-[#FF3366]/30 via-white/[0.08] to-white/[0.02]"
+        className="image-gen-frame w-full max-w-md rounded-2xl p-[1px] bg-gradient-to-br from-[#FF3366]/45 via-[#FF3366]/10 to-white/[0.05]"
         data-image-generating="true"
       >
-        <div className="rounded-2xl bg-[#101010] border border-white/[0.04] px-6 py-10 flex flex-col items-center justify-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[#FF3366]/10 border border-[#FF3366]/25 flex items-center justify-center">
-            <svg
-              width="20" height="20" viewBox="0 0 24 24" fill="#FF3366"
-              className="image-gen-pulse"
-            >
-              <path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8L12 2z" />
-            </svg>
+        <div className="relative overflow-hidden rounded-2xl bg-[#0d0d0d] border border-white/[0.04]">
+          <div className="relative h-44 flex flex-col items-center justify-center gap-4">
+            {/* drifting aurora */}
+            <div className="image-gen-aurora absolute inset-0" aria-hidden="true" />
+            {/* diagonal light sweep */}
+            <div className="image-gen-sweep absolute inset-0" aria-hidden="true" />
+            {/* spark badge */}
+            <div className="relative z-10 w-14 h-14 rounded-2xl bg-[#FF3366]/10 border border-[#FF3366]/35 flex items-center justify-center shadow-[0_0_28px_-6px_rgba(255,51,102,0.55)]">
+              <div className="image-gen-pulse flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="#FF3366">
+                  <path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8L12 2z" />
+                </svg>
+              </div>
+            </div>
+            {/* stage copy */}
+            <div className="relative z-10 text-center px-8">
+              <p className="text-[13px] font-semibold text-white tracking-tight">
+                {IMAGE_GEN_STAGES[stage]}
+                <span className="image-gen-dots" aria-hidden="true" />
+              </p>
+              <p className="text-[11px] text-[#737373] mt-1">Crafting in high definition — this usually takes a few seconds</p>
+            </div>
+            {/* progress hairline */}
+            <div className="relative z-10 h-[3px] w-44 rounded-full bg-white/[0.07] overflow-hidden">
+              <div className="image-gen-progress h-full w-1/3 rounded-full bg-gradient-to-r from-transparent via-[#FF3366] to-transparent" />
+            </div>
           </div>
-          <p className="text-[13px] font-medium text-white">Creating your image</p>
-          <p className="text-[11px] text-[#737373]">This usually takes a few seconds</p>
         </div>
       </div>
     </div>
@@ -1235,7 +1259,7 @@ export default function ChatClient() {
       return { tone: 'quota', icon: 'clock', title: 'Slow down there', body: 'Too many requests in a row — try again in a few seconds.', actionLabel: msg.upgradeUrl ? 'Sign in for more' : null, actionHref: msg.upgradeUrl || null }
     }
     if (msg.notice === 'error' || msg.isError) {
-      return { tone: 'error', icon: 'warning', title: 'Something went wrong', body: 'Give it another try.', actionLabel: 'Try again', onAction: () => send(messages.slice(0, i)) }
+      return { tone: 'error', icon: 'warning', title: 'Something went wrong', body: 'That request hit a snag on our side — one more try usually sorts it.', actionLabel: 'Try again', onAction: () => send(messages.slice(0, i)) }
     }
     if (msg.quotaExceeded) {
       return { tone: 'quota', icon: 'alert', title: user ? 'Credits used up' : 'Free usage limit reached', body: msg.content, actionLabel: user ? 'Upgrade plan' : 'Sign in for more', actionHref: msg.upgradeUrl || (user ? '/pricing' : '/auth') }

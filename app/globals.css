@@ -1948,13 +1948,53 @@ input, textarea, select {
   animation: imageIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* ── Image generation shimmer card ───────────────────────────────
-   Placeholder surface while the server runs the generate_image tool
-   (driven by the SSE status event). Soft neutral shimmer, brand-dark. */
-.image-gen-shimmer {
-  background: linear-gradient(110deg, #111111 30%, #1d1d1d 46%, #111111 62%);
-  background-size: 200% 100%;
-  animation: shimmer 1.6s linear infinite;
+/* ── Image generation placeholder — v5.15 premium animation ──────
+   Layered surface while the server runs the generate_image tool:
+   breathing accent frame, drifting aurora glow, diagonal light sweep,
+   pulsing spark badge, typing dots and a sliding progress hairline. */
+.image-gen-frame {
+  animation: imageGenFrame 3.2s ease-in-out infinite;
+}
+@keyframes imageGenFrame {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 51, 102, 0); }
+  50%      { box-shadow: 0 0 34px -8px rgba(255, 51, 102, 0.4); }
+}
+.image-gen-aurora {
+  background:
+    radial-gradient(60% 85% at 22% 18%, rgba(255, 51, 102, 0.20), transparent 62%),
+    radial-gradient(52% 70% at 82% 28%, rgba(255, 51, 102, 0.13), transparent 65%),
+    radial-gradient(75% 90% at 50% 105%, rgba(255, 51, 102, 0.10), transparent 72%);
+  filter: blur(2px);
+  animation: imageGenAurora 7s ease-in-out infinite alternate;
+}
+@keyframes imageGenAurora {
+  from { transform: translate3d(-4%, -2%, 0) scale(1); opacity: 0.85; }
+  to   { transform: translate3d(4%, 3%, 0) scale(1.12); opacity: 1; }
+}
+.image-gen-sweep {
+  background: linear-gradient(115deg, transparent 22%, rgba(255, 255, 255, 0.05) 40%, rgba(255, 51, 102, 0.12) 50%, rgba(255, 255, 255, 0.05) 60%, transparent 78%);
+  background-size: 250% 100%;
+  animation: shimmer 2.4s linear infinite;
+}
+.image-gen-dots::after {
+  content: '';
+  display: inline-block;
+  width: 1.1em;
+  text-align: left;
+  animation: imageGenDots 1.6s steps(1, end) infinite;
+}
+@keyframes imageGenDots {
+  0%  { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+}
+.image-gen-progress {
+  animation: imageGenSlide 1.7s ease-in-out infinite;
+}
+@keyframes imageGenSlide {
+  from { transform: translateX(-130%); }
+  to   { transform: translateX(430%); }
 }
 @keyframes imageGenPulse {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -1962,4 +2002,9 @@ input, textarea, select {
 }
 .image-gen-pulse {
   animation: imageGenPulse 1.8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .image-gen-frame, .image-gen-aurora, .image-gen-sweep, .image-gen-dots::after, .image-gen-progress, .image-gen-pulse {
+    animation: none;
+  }
 }

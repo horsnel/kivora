@@ -8,6 +8,11 @@ import Link from 'next/link'
 // centered tinted icon badge, bold title, muted body and a full-width
 // action button. Used for upgrade nudges, quota / daily-limit notices
 // and error messages inside the AI chat stream.
+//
+// v5.15 — the `error` tone got a bold dedicated treatment: deep red
+// gradient surface, glowing #FF3366 frame, oversized icon badge and a
+// solid accent action button, so a failure reads as a deliberate,
+// premium state — not a washed-out afterthought.
 
 const ICON_PATHS = {
   bolt: (
@@ -45,7 +50,7 @@ const ICON_PATHS = {
 const TONES = {
   upgrade: { badge: 'bg-red-950/30 border-red-900/30', color: '#ef4444' },
   quota: { badge: 'bg-amber-950/30 border-amber-900/30', color: '#f59e0b' },
-  error: { badge: 'bg-red-950/30 border-red-900/30', color: '#ef4444' },
+  error: { badge: 'bg-[#FF3366]/15 border-[#FF3366]/40', color: '#FF3366' },
 }
 
 export default function ChatNoticeCard({
@@ -59,28 +64,48 @@ export default function ChatNoticeCard({
 }) {
   const t = TONES[tone] || TONES.error
   const glyph = ICON_PATHS[icon] || ICON_PATHS.warning
+  const isError = tone === 'error'
   return (
-    <div className="bg-[#111] border border-[#262626] rounded-2xl px-6 py-6 max-w-sm text-center shadow-2xl" data-chat-notice={tone}>
-      <div className={`w-12 h-12 border rounded-xl flex items-center justify-center mx-auto mb-4 ${t.badge}`}>
+    <div
+      className={
+        isError
+          ? // Bold error surface — deep red gradient + glowing accent frame
+            'relative overflow-hidden rounded-2xl border border-[#FF3366]/45 bg-gradient-to-b from-[#340d18] via-[#1d070d] to-[#12040a] px-6 py-7 max-w-sm text-center shadow-[0_0_40px_-8px_rgba(255,51,102,0.45)]'
+          : 'bg-[#111] border border-[#262626] rounded-2xl px-6 py-6 max-w-sm text-center shadow-2xl'
+      }
+      data-chat-notice={tone}
+    >
+      {/* Error tone: top accent hairline + corner aura */}
+      {isError && (
+        <>
+          <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#FF3366] to-transparent" />
+          <div className="pointer-events-none absolute -top-16 left-1/2 h-32 w-56 -translate-x-1/2 rounded-full bg-[#FF3366]/25 blur-3xl" />
+        </>
+      )}
+      <div className={`w-14 h-14 border rounded-2xl flex items-center justify-center mx-auto mb-4 ${t.badge} ${isError ? 'shadow-[0_0_24px_-4px_rgba(255,51,102,0.6)]' : ''}`}>
         <svg
-          width="20"
-          height="20"
+          width="26"
+          height="26"
           viewBox="0 0 24 24"
           fill="none"
           stroke={t.color}
-          strokeWidth="2"
+          strokeWidth={isError ? '2.4' : '2'}
           strokeLinecap="round"
           strokeLinejoin="round"
         >
           {glyph}
         </svg>
       </div>
-      <h3 className="text-[15px] font-bold text-white mb-2">{title}</h3>
-      {body && <p className="text-[13px] text-[#a3a3a3] leading-relaxed mb-4 break-words">{body}</p>}
+      <h3 className={`text-white mb-2 ${isError ? 'text-[17px] font-extrabold tracking-tight' : 'text-[15px] font-bold'}`}>{title}</h3>
+      {body && <p className={`text-[13px] leading-relaxed mb-4 break-words ${isError ? 'text-[#f4c9d3] font-medium' : 'text-[#a3a3a3]'}`}>{body}</p>}
       {actionLabel && actionHref && (
         <Link
           href={actionHref}
-          className="block w-full py-2.5 bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-white rounded-xl text-sm font-medium transition-colors"
+          className={
+            isError
+              ? 'block w-full py-3 bg-[#FF3366] hover:bg-[#ff1f57] text-white rounded-xl text-sm font-bold tracking-wide transition-colors shadow-[0_4px_20px_-4px_rgba(255,51,102,0.55)]'
+              : 'block w-full py-2.5 bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-white rounded-xl text-sm font-medium transition-colors'
+          }
         >
           {actionLabel}
         </Link>
@@ -88,7 +113,11 @@ export default function ChatNoticeCard({
       {actionLabel && !actionHref && onAction && (
         <button
           onClick={onAction}
-          className="w-full py-2.5 bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-white rounded-xl text-sm font-medium transition-colors"
+          className={
+            isError
+              ? 'w-full py-3 bg-[#FF3366] hover:bg-[#ff1f57] text-white rounded-xl text-sm font-bold tracking-wide transition-colors shadow-[0_4px_20px_-4px_rgba(255,51,102,0.55)] active:scale-[0.98]'
+              : 'w-full py-2.5 bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-white rounded-xl text-sm font-medium transition-colors'
+          }
         >
           {actionLabel}
         </button>

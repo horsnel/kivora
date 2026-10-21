@@ -272,6 +272,91 @@ function completeSentences(text) {
   return s
 }
 
+// ── v5.15 — visible-reply de-jargonizer ─────────────────────────────
+// Providers occasionally leak plumbing into visible content: tool-call JSON
+// emitted as text (a ```json fence or a bare line), <function=…> fragments,
+// <think> tails. This strips them so chat bubbles never show raw machinery.
+const KNOWN_TOOL_NAMES = new Set(Object.keys(toolHandlers))
+function looksLikeToolJson(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false
+  const name = String(obj.tool || obj.tool_name || obj.function || obj.name || '')
+  if (name && KNOWN_TOOL_NAMES.has(name)) return true
+  // argument-shaped payloads referencing a tool-ish key also count
+  const hasArgs = obj.arguments !== undefined || obj.parameters !== undefined || obj.args !== undefined
+  const hasPayload = ['prompt', 'query', 'code', 'url', 'location', 'files'].some(k => obj[k] !== undefined)
+  return hasArgs && hasPayload
+}
+function sanitizeVisibleReply(text) {
+  let s = String(text || '')
+  if (!s) return s
+  if (s.includes('<function=')) {
+    s = s.replace(/<function=[\s\S]*?(?:<\/function>|$)/gi, ' ')
+  }
+  if (s.includes('```')) {
+    // Unbalanced fences → the tail block is broken/jargon. Cut from the last
+    // opening fence to the end (a real terminated block is untouched).
+    const fenceCount = (s.match(/```/g) || []).length
+    if (fenceCount % 2 === 1) {
+      const lastFence = s.lastIndexOf('```')
+      if (lastFence !== -1) s = s.slice(0, lastFence)
+    }
+    // Drop closed fenced blocks whose body parses as tool-call JSON — keep
+    // real code blocks intact.
+    if (s.includes('```')) {
+      s = s.replace(/```(?:json)?\s*([\s\S]*?)```/gi, (m, body) => {
+        const t = String(body || '').trim()
+        if (!t.startsWith('{') && !t.startsWith('[')) return m
+        try {
+          if (looksLikeToolJson(JSON.parse(t))) return ''
+        } catch { /* not JSON — keep the code block */ }
+        return m
+      })
+    }
+  }
+  // Bare JSON tool-call lines ({"tool": …} / {"name": "<known tool>", …})
+  s = s.replace(/(^|\n)(\s*\{[^\n]{0,2000}\})(?=\s*(\n|$))/g, (m, pre, body) => {
+    try {
+      if (looksLikeToolJson(JSON.parse(body))) return pre
+    } catch { /* plain text — keep */ }
+    return m
+  })
+  // Tool-call narrations some models prepend ("I'll use the X tool now.")
+  s = s.replace(/^\s*I(?:'ll| will|'m going to| am going to)?(?:\s+now)?\s+(?:use|call|invoke|run)\s+(?:the|my)\s+[\w_]+\s+tool\b[^\n]*$/gim, '')
+  s = s.replace(/\n{3,}/g, '\n\n').trim()
+  // Collapse doubled spaces left by tag removal — only outside code fences
+  if (!s.includes('```')) s = s.replace(/ {2,}/g, ' ')
+  return s
+}
+function polishReply(text) {
+  return sanitizeVisibleReply(completeSentences(text))
+}
+
+// ── v5.15 — text-embedded tool-call recovery ────────────────────────
+// When a provider emits the tool call as VISIBLE text (a ```json fence or a
+// bare JSON line) instead of a native tool_calls payload, that JSON used to
+// surface in the chat bubble as gibberish. Detect it and convert it into a
+// real tool call so the tool actually executes.
+function recoverToolCallFromText(text) {
+  const s = String(text || '')
+  if (!s || !s.includes('{')) return null
+  const candidates = []
+  for (const m of s.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)) candidates.push(m[1])
+  for (const m of s.matchAll(/(^|\n)\s*(\{[^\n]{0,4000}\})\s*(?=\n|$)/g)) candidates.push(m[2])
+  for (const raw of candidates) {
+    const trimmed = raw.trim()
+    if (!trimmed.startsWith('{')) continue
+    let obj = null
+    try { obj = JSON.parse(trimmed) } catch { continue }
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) continue
+    const name = String(obj.tool || obj.tool_name || obj.function || obj.name || '').trim()
+    if (!name || !KNOWN_TOOL_NAMES.has(name)) continue
+    const args = { ...(obj.arguments || obj.parameters || obj.args || obj.params || {}) }
+    if (args.prompt === undefined && typeof obj.prompt === 'string') args.prompt = obj.prompt
+    return { name, args }
+  }
+  return null
+}
+
 export async function POST(req) {
   // 10MB cap — chat bodies carry base64 image attachments; this blocks
   // multi-hundred-MB junk requests before they reach any handler logic.
@@ -681,6 +766,28 @@ async function processChat(req, body, send) {
       }
     }
 
+    // ── v5.15 — recover tool calls emitted as visible text ──
+    // Some providers/models answer a tool-intent prompt with the tool call
+    // spelled out as content (a ```json fence or a bare JSON line) instead of
+    // a native tool_calls payload. Left as-is, the user sees raw JSON jargon
+    // and the tool never runs. Convert it into a real tool call.
+    if (useTools && (!message.tool_calls || message.tool_calls.length === 0) && message.content) {
+      const recovered = recoverToolCallFromText(message.content)
+      if (recovered) {
+        console.warn(`[chat] recovered tool call "${recovered.name}" from text content`)
+        message = {
+          role: 'assistant',
+          content: '',
+          tool_calls: [{
+            id: `recovered_${Date.now().toString(36)}`,
+            type: 'function',
+            function: { name: recovered.name, arguments: JSON.stringify(recovered.args) },
+          }],
+        }
+        chat = { choices: [{ message }] }
+      }
+    }
+
     // Handle tool calls
     if (useTools && message.tool_calls && message.tool_calls.length > 0) {
       // Pass CF credentials to tools that need them (deploy_site).
@@ -859,12 +966,20 @@ async function processChat(req, body, send) {
       let artifacts = []
 
       if (isImageOnly) {
-        // Fast path: skip second LLM call, return a minimal confirmation
-        const imgToolId = message.tool_calls[0].id
-        const imgResult = JSON.parse(toolResults[imgToolId] || '{}')
-        reply = imgResult.success
-          ? `Here's the image I generated for you! The image is displayed above.`
-          : `I wasn't able to generate the image. ${imgResult.error || 'The image generation service may be temporarily unavailable.'}`
+        // Fast path: skip second LLM call, return a minimal confirmation.
+        // v5.15 — the parse is guarded now: the tool handler returns JSON on
+        // both success and failure, but any legacy/plain-text result (or a
+        // malformed payload) used to throw here and 500 the whole request —
+        // the direct cause of the "Something went wrong" card on image gen.
+        let imgResult = {}
+        try { imgResult = JSON.parse(toolResults[message.tool_calls[0].id] || '{}') || {} } catch { imgResult = {} }
+        if (imgResult && imgResult.success && imgResult.base64) {
+          reply = `Here's your image — hot off the canvas. Want any tweaks, like a different mood, style or angle?`
+        } else {
+          // Graceful, human failure copy. The service-level retries already
+          // ran (flux → turbo → flux) before we land here, so this is honest.
+          reply = `I couldn't generate that image just now — the image service is a little busy. Give it another go in a moment and it should come through.`
+        }
       } else {
         // Normal path: second LLM call to synthesize tool results into a reply.
         // Streamed in SSE mode — this is the long generation for tool queries.
@@ -881,7 +996,7 @@ async function processChat(req, body, send) {
         const finalChat = send
           ? await aiChatComplete(finalParams, { onDelta: (v) => send({ type: 'delta', v }), stream: true })
           : await aiChatComplete(finalParams, { stream: false })
-        reply = completeSentences(finalChat.choices[0].message.content)
+        reply = polishReply(finalChat.choices[0].message.content)
         if (!reply || !String(reply).trim()) {
           // Empty second-pass reply — synthesize from the raw tool results so
           // the user still sees what the tools returned instead of a blank
@@ -1020,7 +1135,7 @@ async function processChat(req, body, send) {
     }
 
     // Normal response (no tool calls)
-    let reply = completeSentences(message.content)
+    let reply = polishReply(message.content)
 
     // ── Empty-reply hardening ──
     // Some providers occasionally return HTTP 200 with empty content (content
@@ -1035,7 +1150,7 @@ async function processChat(req, body, send) {
           messages: apiMessages.map(m => ({ role: m.role, content: m.content })),
           max_tokens: 2048,
         })
-        reply = retryChat?.choices?.[0]?.message?.content || ''
+        reply = polishReply(retryChat?.choices?.[0]?.message?.content || '')
       } catch (retryErr) {
         console.warn('[chat] empty-reply retry failed:', String(retryErr?.message || retryErr).slice(0, 100))
       }
