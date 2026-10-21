@@ -12,7 +12,6 @@ import MarkdownRenderer from '@/components/MarkdownRenderer'
 import UserAvatar from '@/components/UserAvatar'
 import ArtifactViewer from '@/components/ArtifactViewer'
 import CodePreviewCard from '@/components/CodePreviewCard'
-import VoiceOutput from '@/components/VoiceOutput'
 import VoiceSettings from '@/components/VoiceSettings'
 import { useVoiceTTS } from '@/hooks/useVoiceTTS'
 import { useTranslation } from '@/components/LanguageProvider'
@@ -22,6 +21,7 @@ import dynamic from 'next/dynamic'
 import ComingSoonPopup from '@/components/ComingSoonPopup'
 import ChatNoticeCard from '@/components/ChatNoticeCard'
 import Lightbox from '@/components/Lightbox'
+import { createPortal } from 'react-dom'
 
 // v5.11 — Live Terminal restored (client-only; xterm touches DOM)
 const XTerminal = dynamic(() => import('@/components/XTerminal'), { ssr: false })
@@ -273,23 +273,24 @@ function makeSafeMessagesSetter(rawSet) {
 function ImageGeneratingCard() {
   return (
     <div className="flex justify-start">
+      {/* v5.14 — matches the premium AI Image preview card (gradient frame,
+          HUSH accent) so the shimmer flows into the finished image card */}
       <div
-        className="image-gen-shimmer w-full max-w-md rounded-2xl border border-white/[0.06] px-6 py-10 flex flex-col items-center justify-center gap-3"
+        className="image-gen-shimmer w-full max-w-md rounded-2xl p-[1px] bg-gradient-to-br from-[#FF3366]/30 via-white/[0.08] to-white/[0.02]"
         data-image-generating="true"
       >
-        <div className="w-11 h-11 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center">
-          <svg
-            width="20" height="20" viewBox="0 0 24 24" fill="none"
-            stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-            className="image-gen-pulse"
-          >
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <path d="M21 15l-5-5L5 21" />
-          </svg>
+        <div className="rounded-2xl bg-[#101010] border border-white/[0.04] px-6 py-10 flex flex-col items-center justify-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-[#FF3366]/10 border border-[#FF3366]/25 flex items-center justify-center">
+            <svg
+              width="20" height="20" viewBox="0 0 24 24" fill="#FF3366"
+              className="image-gen-pulse"
+            >
+              <path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8L12 2z" />
+            </svg>
+          </div>
+          <p className="text-[13px] font-medium text-white">Creating your image</p>
+          <p className="text-[11px] text-[#737373]">This usually takes a few seconds</p>
         </div>
-        <p className="text-[13px] font-medium text-white">Creating your image</p>
-        <p className="text-[11px] text-[#737373]">This usually takes a few seconds</p>
       </div>
     </div>
   )
@@ -373,8 +374,10 @@ export default function ChatClient() {
   const [settingsExportFormat, setSettingsExportFormat] = useState('md')
   const [settingsPromptSaved, setSettingsPromptSaved] = useState(false)
   const [settingsExported, setSettingsExported] = useState(false)
-  const [msgMenuOpen, setMsgMenuOpen] = useState(null) // index of message with open 3-dot menu
-  const msgMenuRef = useRef(null)
+  // v5.14 — long-press bubble action card (replaces the desktop-only hover
+  // action row): { index, role, top, left, content, isImage, showExport }
+  const [bubbleAction, setBubbleAction] = useState(null)
+  const bubblePressRef = useRef({ timer: null, longFired: false, x: 0, y: 0 })
 
   // ── Streaming presentation state ──
   // streaming: a reply is actively receiving SSE deltas (drives the typing
@@ -415,17 +418,24 @@ export default function ChatClient() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [settingsOpen, settingsStack, settingsPop, settingsReset])
 
-  // Close 3-dot message menu on outside click
+  // v5.14 — bubble action card closes on any outside pointerdown or scroll
+  // (capture phase, HistoryPill pattern — the card is portal-rendered)
   useEffect(() => {
-    if (msgMenuOpen === null) return
-    function handleClick(e) {
-      if (msgMenuRef.current && !msgMenuRef.current.contains(e.target)) {
-        setMsgMenuOpen(null)
-      }
+    if (!bubbleAction) return
+    const close = (e) => {
+      const card = document.getElementById('bubble-action-card')
+      if (card && card.contains(e.target)) return
+      setBubbleAction(null)
     }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [msgMenuOpen])
+    const onScroll = () => setBubbleAction(null)
+    document.addEventListener('pointerdown', close, true)
+    const sc = scrollContainerRef.current
+    sc?.addEventListener('scroll', onScroll)
+    return () => {
+      document.removeEventListener('pointerdown', close, true)
+      sc?.removeEventListener('scroll', onScroll)
+    }
+  }, [bubbleAction])
 
   // ── Artifacts (Claude-style side panel) ──
   const [activeArtifact, setActiveArtifact] = useState(null) // { type, title, code }
@@ -777,6 +787,74 @@ export default function ChatClient() {
     setAttachedIsImage(false)
   }
 
+  // ── v5.14: long-press bubble actions ─────────────────────────────
+  // Press and hold any bubble for 450ms → a premium action card pops open
+  // (hush-pop, portal-rendered) with Copy / Read aloud / Share / Export.
+  // Replaces the desktop-only hover row — touch and mouse behave the same
+  // via pointer events. Same interaction language as the research page's
+  // long-press pill delete card.
+  const clearBubblePress = useCallback(() => {
+    if (bubblePressRef.current.timer) { clearTimeout(bubblePressRef.current.timer); bubblePressRef.current.timer = null }
+  }, [])
+  useEffect(() => clearBubblePress, [clearBubblePress])
+
+  const startBubblePress = useCallback((e, msg, index) => {
+    if (e.button !== undefined && e.button !== 0) return
+    const el = e.currentTarget
+    bubblePressRef.current.longFired = false
+    bubblePressRef.current.x = e.clientX
+    bubblePressRef.current.y = e.clientY
+    clearBubblePress()
+    bubblePressRef.current.timer = setTimeout(() => {
+      bubblePressRef.current.longFired = true
+      const rect = el?.getBoundingClientRect()
+      if (!rect) return
+      const CARD_W = 224
+      const estH = msg.role === 'user' ? 96 : 240
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - CARD_W - 8))
+      const below = rect.bottom + 8
+      const top = below + estH > window.innerHeight ? Math.max(8, rect.top - estH - 8) : below
+      setBubbleAction({ index, role: msg.role, top, left, content: msg.content, isImage: !!msg.isImage, showExport: false })
+      try { navigator.vibrate?.(15) } catch {}
+    }, 450)
+  }, [clearBubblePress])
+
+  // Moving the pointer >8px cancels the hold (desktop drag-selection still works)
+  const moveBubblePress = useCallback((e) => {
+    const p = bubblePressRef.current
+    if (!p.timer) return
+    if (Math.abs(e.clientX - p.x) > 8 || Math.abs(e.clientY - p.y) > 8) clearBubblePress()
+  }, [clearBubblePress])
+
+  // After a long-press, swallow the click that follows pointer-up so the
+  // image lightbox doesn't open on release.
+  const bubbleClickGuard = useCallback(() => {
+    if (bubblePressRef.current.longFired) { bubblePressRef.current.longFired = false; return true }
+    return false
+  }, [])
+
+  const closeBubbleAction = useCallback(() => setBubbleAction(null), [])
+
+  function bubbleCopy() {
+    if (!bubbleAction) return
+    copy(bubbleAction.content, bubbleAction.index)
+    closeBubbleAction()
+  }
+  function bubbleSpeak() {
+    if (!bubbleAction) return
+    if (tts.isSpeaking) tts.stop()
+    else tts.speak(bubbleAction.content)
+  }
+  function bubbleShare() {
+    if (!bubbleAction) return
+    copy(`${window.location.origin}/chat?share=${encodeURIComponent(String(bubbleAction.content || '').slice(0, 100))}`, bubbleAction.index)
+    closeBubbleAction()
+  }
+  function bubbleExport(format) {
+    exportChat(format)
+    closeBubbleAction()
+  }
+
   // ── Feature #2: Chat Export ──
   async function exportChat(format) {
     if (messages.length === 0) return
@@ -886,6 +964,14 @@ export default function ChatClient() {
     // Store image data separately for display rendering (avoids embedding base64 in content string for display)
     if (attachedIsImage && attachedContent) {
       userMsg.userImageData = attachedContent
+    }
+    // v5.14 — text-file attachments: `content` keeps the full [File: …]
+    // payload for the API, but the typed question is remembered separately
+    // so the conversation card renders ONLY the question — never the
+    // mirrored file body (uploading an HTML file used to dump its entire
+    // source into the bubble).
+    if (attachedFile && attachedContent && !attachedIsImage) {
+      userMsg.fileQuestion = q
     }
     newMessages = [...messages, userMsg]
     // Keep the exact conversation sent for this reply — an empty-response
@@ -2178,7 +2264,10 @@ export default function ChatClient() {
 
             {messages.map((msg, i) => {
               const notice = noticeFor(msg, i)
-              // For display: strip [File: ...] prefix but keep text, show [Image: ...] as label
+              // For display: NEVER mirror a file's raw body onto the card.
+              // New sends carry `fileQuestion` (the typed question only);
+              // legacy messages without it fall back to the parsed body,
+              // capped so a whole HTML source can't flood the bubble again.
               let displayContent = msg.content
               let hasFileAttachment = false
               let hasImageAttachment = false
@@ -2189,7 +2278,12 @@ export default function ChatClient() {
                 if (fileMatch) {
                   hasFileAttachment = true
                   attachmentName = fileMatch[1]
-                  displayContent = msg.content.replace(/^\[File: .+?\]\n/, '').replace(/^\n+/, '')
+                  if (typeof msg.fileQuestion === 'string') {
+                    displayContent = msg.fileQuestion
+                  } else {
+                    const body = msg.content.replace(/^\[File: .+?\]\n/, '').replace(/^\n+/, '')
+                    displayContent = body.length > 400 ? `${body.slice(0, 400)}…` : body
+                  }
                 }
                 const imageMatch = msg.content.match(/^\[Image: (.+?)\]/)
                 if (imageMatch) {
@@ -2203,7 +2297,16 @@ export default function ChatClient() {
 
               return (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`group ${msg.role === 'user' ? 'max-w-[65%]' : 'w-full'}`}>
+                  <div
+                    className={`group ${msg.role === 'user' ? 'max-w-[65%]' : 'w-full'}`}
+                    onPointerDown={(e) => startBubblePress(e, msg, i)}
+                    onPointerUp={clearBubblePress}
+                    onPointerLeave={clearBubblePress}
+                    onPointerCancel={clearBubblePress}
+                    onPointerMove={moveBubblePress}
+                    onContextMenu={(e) => e.preventDefault()}
+                    style={{ WebkitTouchCallout: 'none' }}
+                  >
                     {/* File/Image attachment indicator */}
                     {hasFileAttachment && (
                       <div className="flex items-center gap-1.5 mb-1.5 justify-end">
@@ -2356,23 +2459,49 @@ export default function ChatClient() {
                         <ChatNoticeCard {...notice} />
                       ) : msg.isImage && msg.imageData ? (
                         <div className="max-w-md" data-image-card="true">
-                          <div className="image-reveal rounded-2xl overflow-hidden border border-white/[0.06] bg-[#111]">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={msg.imageData} alt={msg.imagePrompt || 'AI Generated'} className="w-full h-auto" />
-                            <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 border-t border-white/[0.06]">
-                              <p className="text-[11px] text-[#737373] truncate min-w-0">
-                                {msg.imagePrompt || 'AI generated image'}
-                              </p>
-                              <a
-                                href={msg.imageUrl || msg.imageData}
-                                target={msg.imageUrl ? '_blank' : undefined}
-                                rel="noopener noreferrer"
-                                download
-                                className="inline-flex items-center gap-1.5 shrink-0 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/[0.12] rounded-lg px-2.5 py-1.5 text-[11px] text-[#e2e2e2] transition-colors"
+                          {/* v5.14 premium preview — gradient accent frame,
+                              header strip, Lightbox full view, HUSH actions */}
+                          <div className="image-reveal rounded-2xl p-[1px] bg-gradient-to-br from-[#FF3366]/35 via-white/[0.08] to-white/[0.02] shadow-[0_10px_44px_rgba(255,51,102,0.10)]">
+                            <div className="rounded-2xl overflow-hidden bg-[#101010] border border-white/[0.04]">
+                              <div className="flex items-center justify-between px-3.5 py-2.5">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#FF3366]">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8L12 2z"/></svg>
+                                    AI Image
+                                  </span>
+                                  <span className="text-[10px] text-[#525252]">flux · 1024px</span>
+                                </div>
+                                <button
+                                  onClick={() => { if (!bubbleClickGuard()) setPreviewImage(msg.imageData) }}
+                                  className="text-[#525252] hover:text-white transition-colors cursor-pointer"
+                                  title="View full size"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
+                                </button>
+                              </div>
+                              <button
+                                onClick={() => { if (!bubbleClickGuard()) setPreviewImage(msg.imageData) }}
+                                className="block w-full cursor-zoom-in"
+                                title="View full size"
                               >
-                                <IconDownload size={11} />
-                                Download
-                              </a>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={msg.imageData} alt={msg.imagePrompt || 'AI Generated'} className="w-full h-auto" />
+                              </button>
+                              <div className="flex items-center gap-3 px-3.5 py-3 border-t border-white/[0.05]">
+                                <p className="text-[11px] leading-[1.5] text-[#737373] line-clamp-2 min-w-0 flex-1">
+                                  {msg.imagePrompt || 'AI generated image'}
+                                </p>
+                                <a
+                                  href={msg.imageUrl || msg.imageData}
+                                  target={msg.imageUrl ? '_blank' : undefined}
+                                  rel="noopener noreferrer"
+                                  download
+                                  className="inline-flex items-center gap-1.5 shrink-0 bg-[#FF3366]/10 hover:bg-[#FF3366]/20 border border-[#FF3366]/25 hover:border-[#FF3366]/45 rounded-lg px-3 py-1.5 text-[11px] font-medium text-[#FF3366] transition-colors"
+                                >
+                                  <IconDownload size={11} />
+                                  Download
+                                </a>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -2394,45 +2523,9 @@ export default function ChatClient() {
                         )}
                       </div>
                     )}
-                    {msg.role === 'assistant' && (
-                      <div className="opacity-0 group-hover:opacity-100 mt-1.5 flex items-center gap-3 transition-all relative">
-                        <VoiceOutput text={msg.content} />
-                        <button
-                          onClick={() => copy(msg.content, i)}
-                          className="flex items-center justify-center text-muted hover:text-[#e2e2e2] transition-colors"
-                          title={copiedIndex === i ? t('common.copied') : t('common.copy')}
-                        >
-                          {copiedIndex === i ? <IconCheck size={12} /> : <IconCopy size={12} />}
-                        </button>
-                        {/* 3-dot menu */}
-                        <button
-                          onClick={() => setMsgMenuOpen(msgMenuOpen === i ? null : i)}
-                          className="flex items-center justify-center text-muted hover:text-[#e2e2e2] transition-colors"
-                          title="More actions"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>
-                        </button>
-                        {/* Dropdown menu */}
-                        {msgMenuOpen === i && (
-                          <div ref={msgMenuRef} className="absolute bottom-full left-0 mb-1 w-48 bg-[#242424] border border-[#333] rounded-xl shadow-xl py-1 z-50">
-                            <button
-                              onClick={() => { exportChat('md'); setMsgMenuOpen(null) }}
-                              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] text-[#ccc] hover:bg-white/8 transition-colors"
-                            >
-                              <IconDownload size={16} className="text-[#737373]" />
-                              Export Chat
-                            </button>
-                            <button
-                              onClick={() => { copy(`${window.location.origin}/chat?share=${encodeURIComponent(msg.content.slice(0, 100))}`, i); setMsgMenuOpen(null) }}
-                              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] text-[#ccc] hover:bg-white/8 transition-colors"
-                            >
-                              <IconLink size={16} className="text-[#737373]" />
-                              Copy Share Link
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    {/* v5.14 — hover action row removed: all bubble actions
+                        (Copy / Read aloud / Share / Export) now live in the
+                        long-press action card above. */}
                   </div>
                 </div>
               )
@@ -3747,6 +3840,74 @@ export default function ChatClient() {
       {/* ── v5.11 attachment preview lightbox ── */}
       {previewImage && (
         <Lightbox src={previewImage} alt={attachedFile || 'Attachment preview'} onClose={() => setPreviewImage(null)} />
+      )}
+
+      {/* ── v5.14 long-press bubble action card ── */}
+      {bubbleAction && createPortal(
+        <div
+          id="bubble-action-card"
+          role="menu"
+          className="hush-pop fixed z-[999] w-[224px] bg-[#141414] border border-[#2a2a2a] rounded-2xl shadow-2xl overflow-hidden"
+          style={{ top: bubbleAction.top, left: bubbleAction.left }}
+        >
+          <div className="px-4 pt-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#525252]">
+            {bubbleAction.role === 'user' ? 'Your message' : 'Assistant'}
+          </div>
+          <button
+            onClick={bubbleCopy}
+            className="w-full flex items-center gap-3 px-4 py-3 text-[13px] font-medium text-[#e2e2e2] hover:bg-white/[0.05] transition-colors text-left cursor-pointer"
+          >
+            {copiedIndex === bubbleAction.index
+              ? <IconCheck size={15} className="text-emerald-400" />
+              : <IconCopy size={15} className="text-[#737373]" />}
+            {copiedIndex === bubbleAction.index ? 'Copied' : 'Copy'}
+          </button>
+          {bubbleAction.role === 'assistant' && !bubbleAction.isImage && (
+            <button
+              onClick={bubbleSpeak}
+              className="w-full flex items-center gap-3 px-4 py-3 text-[13px] font-medium text-[#e2e2e2] hover:bg-white/[0.05] transition-colors text-left cursor-pointer"
+            >
+              <IconSpeaker size={15} className="text-[#737373]" />
+              {tts.isSpeaking ? 'Stop reading' : 'Read aloud'}
+            </button>
+          )}
+          {bubbleAction.role === 'assistant' && (
+            <button
+              onClick={bubbleShare}
+              className="w-full flex items-center gap-3 px-4 py-3 text-[13px] font-medium text-[#e2e2e2] hover:bg-white/[0.05] transition-colors text-left cursor-pointer"
+            >
+              <IconLink size={15} className="text-[#737373]" />
+              Copy share link
+            </button>
+          )}
+          {bubbleAction.role === 'assistant' && (
+            <>
+              <div className="h-px bg-white/[0.06]" />
+              <button
+                onClick={() => setBubbleAction(a => ({ ...a, showExport: !a.showExport }))}
+                className="w-full flex items-center gap-3 px-4 py-3 text-[13px] font-medium text-[#e2e2e2] hover:bg-white/[0.05] transition-colors text-left cursor-pointer"
+              >
+                <IconDownload size={15} className="text-[#737373]" />
+                Export chat
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className={`ml-auto text-[#525252] transition-transform ${bubbleAction.showExport ? 'rotate-180' : ''}`}><path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+              {bubbleAction.showExport && (
+                <div className="grid grid-cols-5 gap-1 px-3 pb-3">
+                  {['md', 'pdf', 'docx', 'html', 'txt'].map(fmt => (
+                    <button
+                      key={fmt}
+                      onClick={() => bubbleExport(fmt)}
+                      className="py-2 rounded-lg bg-white/[0.04] hover:bg-[#FF3366]/15 hover:text-[#FF3366] border border-white/[0.05] hover:border-[#FF3366]/30 text-[10px] font-semibold uppercase text-[#999] transition-colors cursor-pointer"
+                    >
+                      {fmt}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>,
+        document.body
       )}
     </main>
   )

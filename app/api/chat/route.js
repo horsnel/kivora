@@ -204,11 +204,20 @@ async function aiChatComplete(params, { onDelta, stream }) {
     : aiChat(p))
 
   let chat = await call(params)
-  let text = chat?.choices?.[0]?.message?.content || ''
+  // v5.14 CRITICAL fix: preserve the provider's message object (tool_calls!).
+  // Since v5.11 this wrapper rebuilt the response with ONLY `content`, which
+  // silently stripped `message.tool_calls` — so generate_image, web_search,
+  // execute_code, deploy_site and every other tool NEVER executed (the route
+  // saw an empty reply, the empty-reply fallback re-asked the model WITHOUT
+  // tools, and the user got a text description of what the AI "would do").
+  const firstMessage = chat?.choices?.[0]?.message || {}
+  let text = firstMessage.content || ''
   let finish = chat?.choices?.[0]?.finish_reason
   let rounds = 0
 
-  while (finish === 'length' && text.trim() && rounds < MAX_CONTINUATIONS) {
+  // Continuation only applies to text replies — a tool_call reply passes
+  // through untouched (executing the tool IS the continuation).
+  while (finish === 'length' && !firstMessage.tool_calls && text.trim() && rounds < MAX_CONTINUATIONS) {
     rounds += 1
     console.warn(`[chat] completion hit max_tokens (round ${rounds}) — continuing`)
     let cont
@@ -233,7 +242,11 @@ async function aiChatComplete(params, { onDelta, stream }) {
 
   return {
     choices: [{
-      message: { role: 'assistant', content: stripThinking(text) },
+      // Tool-call replies keep the FULL message (tool_calls, id, …) — content
+      // is only stripped of thinking blocks. Text replies keep the lean shape.
+      message: firstMessage.tool_calls?.length
+        ? { ...firstMessage, content: stripThinking(text) }
+        : { role: 'assistant', content: stripThinking(text) },
       finish_reason: finish || 'stop',
     }],
   }
