@@ -220,12 +220,14 @@ export async function POST(req) {
     // production. The keyed SiliconFlow FLUX.1-schnell endpoint is the
     // deterministic primary; Pollinations remains the free fallback.
     const sfKey = await getEnvVar('SILICONFLOW_API_KEY')
+    let sfDetail = sfKey ? 'not attempted' : 'no key configured'
     if (sfKey) {
       try {
         const sfResult = await generateWithSiliconFlow(prompt, resolvedSize)
         return Response.json(sfResult)
       } catch (sfErr) {
-        console.warn(`[image] SiliconFlow failed ("${String(sfErr?.message || sfErr).slice(0, 120)}"), trying Pollinations fallback`)
+        sfDetail = String(sfErr?.message || sfErr).slice(0, 220)
+        console.warn(`[image] SiliconFlow failed ("${sfDetail}"), trying Pollinations fallback`)
       }
     }
     try {
@@ -235,7 +237,7 @@ export async function POST(req) {
       const pollMsg = pollErr?.message || 'Unknown Pollinations error'
       console.error(`[image] Image generation failed: ${pollMsg}`)
       return Response.json(
-        { error: 'Image generation failed.', details: { siliconflow: sfKey ? 'attempted — see logs' : 'no key configured', pollinations: pollMsg } },
+        { error: 'Image generation failed.', details: { siliconflow: sfDetail, pollinations: pollMsg.slice(0, 220) } },
         { status: 502 }
       )
     }
