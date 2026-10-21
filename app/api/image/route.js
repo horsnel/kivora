@@ -24,8 +24,8 @@ const VALID_SIZES = [
 
 const DEFAULT_SIZE = '1024x1024'
 const POLLINATIONS_MODEL = 'flux'
-const MAX_RETRIES = 5
-const RETRY_BASE_MS = 3000
+const MAX_RETRIES = 2
+const RETRY_BASE_MS = 1500
 
 // Helper to convert ArrayBuffer to base64 efficiently (chunked for edge runtime)
 function arrayBufferToBase64(buffer) {
@@ -37,6 +37,16 @@ function arrayBufferToBase64(buffer) {
     binary += String.fromCharCode.apply(null, chunk)
   }
   return btoa(binary)
+}
+
+// v5.15.1 — Pollinations' anonymous tier returns 402 WITH the rendered image
+// in the body (payment-flag protocol). Magic bytes decide, not status codes.
+function isImageBody(bytes) {
+  if (!bytes || bytes.length < 2000) return false
+  if (bytes[0] === 0xFF && bytes[1] === 0xD8) return true // JPEG
+  if (bytes[0] === 0x89 && bytes[1] === 0x50) return true // PNG
+  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) return true // WEBP
+  return false
 }
 
 // ── Pollinations Image Generation ──
@@ -53,14 +63,19 @@ async function fetchWithRetry(url, retries = MAX_RETRIES) {
       method: 'GET',
       headers: { 'Accept': 'image/*' },
     })
-    if (res.ok) return res
-    if (res.status === 402 && attempt < retries) {
+    const buffer = await res.arrayBuffer()
+    const bytes = new Uint8Array(buffer)
+    if (res.ok || isImageBody(bytes)) {
+      if (!res.ok) console.warn(`[image] HTTP ${res.status} but image body present — accepting`)
+      return { res, buffer }
+    }
+    if (attempt < retries) {
       const delay = RETRY_BASE_MS * Math.pow(2, attempt)
-      console.warn(`[image] Pollinations 402 (queue full), retry ${attempt + 1}/${retries} in ${delay}ms`)
+      console.warn(`[image] Pollinations HTTP ${res.status} (non-image body), retry ${attempt + 1}/${retries} in ${delay}ms`)
       await new Promise(r => setTimeout(r, delay))
       continue
     }
-    return res
+    return { res, buffer }
   }
 }
 
@@ -105,16 +120,16 @@ async function generateWithPollinationsFree(prompt, size) {
   })
 
   const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?${params.toString()}`
-  const imgResponse = await fetchWithRetry(imageUrl)
+  const { res: imgResponse, buffer } = await fetchWithRetry(imageUrl)
 
-  if (!imgResponse.ok) {
-    const errorBody = await imgResponse.text()
+  const bytes = new Uint8Array(buffer)
+  if (!imgResponse.ok && !isImageBody(bytes)) {
+    const errorBody = new TextDecoder().decode(bytes.subarray(0, 200))
     throw new Error(`Pollinations free error ${imgResponse.status}: ${errorBody.slice(0, 200)}`)
   }
 
-  const imgBuffer = await imgResponse.arrayBuffer()
   const contentType = imgResponse.headers.get('content-type') || 'image/jpeg'
-  const base64 = arrayBufferToBase64(imgBuffer)
+  const base64 = arrayBufferToBase64(buffer)
   const imageData = `data:${contentType};base64,${base64}`
 
   return { image: imageData, imageUrl, provider: 'pollinations', size, model: POLLINATIONS_MODEL }
