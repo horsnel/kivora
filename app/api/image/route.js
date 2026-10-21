@@ -129,10 +129,14 @@ async function generateWithPollinationsFree(prompt, size) {
   const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?${params.toString()}`
   const { res: imgResponse, buffer } = await fetchWithRetry(imageUrl)
 
-  const bytes = new Uint8Array(buffer)
-  if (!imgResponse.ok && !isImageBody(bytes)) {
-    const errorBody = new TextDecoder().decode(bytes.subarray(0, 200))
-    throw new Error(`Pollinations free error ${imgResponse.status}: ${errorBody.slice(0, 200)}`)
+  // v5.15.3 — 2xx-only acceptance. On 402 the body is the "Free limit
+  // reached" placeholder card (1 img/45s/IP, shared CF egress) — NEVER the
+  // artwork. Accepting it here silently served users a yellow placeholder
+  // as their "generated" image.
+  if (!imgResponse.ok) {
+    const bytes = new Uint8Array(buffer)
+    const errBody = new TextDecoder().decode(bytes.subarray(0, 200))
+    throw new Error(`Pollinations free error ${imgResponse.status}: ${errBody.slice(0, 200)}`)
   }
 
   const contentType = imgResponse.headers.get('content-type') || 'image/jpeg'
