@@ -1,6 +1,7 @@
 export const runtime = 'edge' 
 import { getSupabaseAdmin } from '@/lib/supabase'
 import { rateLimit, getClientIP } from '@/lib/ratelimit'
+import { getOfficialId, ensureOfficialPosts } from '@/lib/kivoraOfficial'
 
 // ── Attachment sanitizing ──────────────────────────────────────────
 // Attachments must point at OUR Storage bucket. Everything else
@@ -78,6 +79,15 @@ export async function GET(req) {
       return Response.json({ error: 'Server configuration error' }, { status: 500 })
     }
 
+    // v5.16 — the verified Kivora account keeps its own feed current:
+    // every feed request makes sure the announcement catalog is published
+    // (no-op when everything exists; throttled to once per 10 min).
+    // Fire-and-forget — never blocks the read.
+    try { ensureOfficialPosts(admin).catch(() => {}) } catch {}
+
+    const officialId = await getOfficialId(admin).catch(() => null)
+    const markVerified = (row) => ({ ...row, author_verified: officialId ? row.user_id === officialId : false })
+
     const { searchParams } = new URL(req.url)
     const postId = searchParams.get('id')
 
@@ -100,7 +110,10 @@ export async function GET(req) {
 
       if (repliesError) throw repliesError
 
-      return Response.json({ post, replies: replies || [] })
+      return Response.json({
+        post: markVerified(post),
+        replies: (replies || []).map(markVerified),
+      })
     }
 
     // List all posts with reply count
@@ -133,7 +146,7 @@ export async function GET(req) {
     }
 
     const postsWithCounts = (posts || []).map(p => ({
-      ...p,
+      ...markVerified(p),
       reply_count: replyCounts[p.id] || 0,
     }))
 

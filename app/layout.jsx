@@ -11,6 +11,7 @@ import { CurrencyProvider } from '@/components/CurrencyToggle'
 import { LanguageProvider } from '@/components/LanguageProvider'
 import TourGuide from '@/components/TourGuide'
 import FeedbackToast from '@/components/FeedbackToast'
+import GlobalCodeRunner from '@/components/GlobalCodeRunner'
 
 // ── Font optimization via next/font ──
 // Using next/font instead of @import url() in globals.css to:
@@ -114,6 +115,10 @@ export default async function RootLayout({ children }) {
             <TourGuide />
             {/* HUSH-style action feedback (copy toasts / export cards) — global, event-driven */}
             <FeedbackToast />
+            {/* v5.16 — global Run-button terminal drawer: any code block on any
+                page runs in a slide-up terminal (chat page opts out — it hosts
+                its own embedded Live Terminal). */}
+            <GlobalCodeRunner />
           </LanguageProvider>
         </ProvidersErrorBoundary>
         {/* Service worker registration — external /sw-register.js (next/script,

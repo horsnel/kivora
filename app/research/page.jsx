@@ -14,6 +14,7 @@ import UpgradeCard from '@/components/UpgradeCard'
 import OutputMenu from '@/components/OutputMenu'
 import Lightbox from '@/components/Lightbox'
 import { parseCitationMarker, faviconUrl, domainOf, buildReferences, computeVerificationGrid, verificationStatusFor, VERIFICATION_VERDICTS } from '@/lib/citations'
+import { MarkdownCodeBlock } from '@/components/MarkdownRenderer'
 
 // ── File Upload Constants ──
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
@@ -143,6 +144,16 @@ function buildMarkdownComponents(sources) {
   const wrap = (Tag, key) => ({ children }) => (
     <Tag>{processChildrenWithCitations(children, sources, key)}</Tag>
   )
+  // v5.16 — real code blocks get the shared CodeBlock (Copy + Run button +
+  // global terminal bridge), so a runnable snippet inside a research report
+  // executes in the Live Terminal exactly like a chat code block. Inline
+  // code keeps the citation-aware wrapper.
+  const extractCodeText = (node) => {
+    if (!node) return ''
+    if (node.type === 'text') return node.value || ''
+    if (node.children) return node.children.map(extractCodeText).join('')
+    return ''
+  }
   return {
     p: wrap('p', 'p'),
     li: wrap('li', 'li'),
@@ -153,6 +164,26 @@ function buildMarkdownComponents(sources) {
     h3: wrap('h3', 'h3'),
     strong: wrap('strong', 'strong'),
     em: wrap('em', 'em'),
+    code: ({ className: codeClassName, children, node }) => {
+      const parentIsPre = node?.parent?.tagName === 'pre'
+      if (parentIsPre) return <>{children}</>
+      return <code className="font-mono text-[0.9em] bg-white/[0.08] px-1.5 py-0.5 rounded">{children}</code>
+    },
+    pre: ({ children, node }) => {
+      const codeNode = node?.children?.[0]
+      const codeClassName = codeNode?.properties?.className?.[0] || ''
+      const match = codeClassName.match(/language-(\w+)/)
+      const langLabel = match
+        ? match[1].charAt(0).toUpperCase() + match[1].slice(1)
+        : 'Code'
+      return (
+        <MarkdownCodeBlock
+          langLabel={langLabel}
+          codeText={extractCodeText(codeNode)}
+          codeClassName={codeClassName}
+        />
+      )
+    },
   }
 }
 

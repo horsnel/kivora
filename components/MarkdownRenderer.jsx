@@ -147,6 +147,13 @@ function SyntaxCode({ code, language }) {
 }
 
 /* ─── Code Block — Full preview, split view with Console ──────── */
+// Exported for pages that render markdown WITHOUT the full MarkdownRenderer
+// (e.g. research reports, which keep their own citation-aware component map)
+// so the Run button + terminal bridge exist on every code block app-wide.
+export function MarkdownCodeBlock({ langLabel, codeText, codeClassName }) {
+  return <CodeBlock langLabel={langLabel} codeText={codeText} codeClassName={codeClassName} />
+}
+
 function CodeBlock({ langLabel, codeText, codeClassName }) {
   const [copied, setCopied] = useState(false)
   const [running, setRunning] = useState(false)

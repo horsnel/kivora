@@ -1580,6 +1580,15 @@ export default function ChatClient() {
     }
   }, [])
 
+  // v5.16 — tell the global GlobalCodeRunner drawer to stand down: the chat
+  // page mirrors exec runs inside its OWN embedded Live Terminal (open/close
+  // dance timed to the conversation). Set on mount, cleared on unmount —
+  // navigation to any other page re-arms the global drawer.
+  useEffect(() => {
+    window.__kivoraChatLive = true
+    return () => { window.__kivoraChatLive = false }
+  }, [])
+
   // Preload the xterm chunk so the first auto-open is instant
   useEffect(() => { try { XTerminal.preload?.() } catch {} }, [])
 

@@ -7,6 +7,33 @@ import { IconChat, IconArrowLeft, IconPlus, IconSpinner, IconTrash, IconSend, Ic
 
 const inputClass = "w-full bg-[#0a0a0a] border border-[#262626] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#404040] focus:outline-none transition-colors"
 
+// ── Verified official badge (v5.16) ────────────────────────────────
+// The Kivora team account carries a brand-accent seal + optional team chip.
+function VerifiedBadge({ size = 13, withChip = false }) {
+  return (
+    <span className="inline-flex items-center gap-1 shrink-0">
+      <span
+        className="inline-flex items-center justify-center rounded-full"
+        style={{
+          width: size,
+          height: size,
+          background: 'linear-gradient(135deg, #FF3366, #ff7a45)',
+          boxShadow: '0 0 6px rgba(255,51,102,0.45)',
+        }}
+        title="Verified by Kivora"
+        aria-label="Verified"
+      >
+        <svg width={size * 0.62} height={size * 0.62} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      </span>
+      {withChip && (
+        <span className="text-[9px] font-bold tracking-wider uppercase text-[#FF3366]">Kivora Team</span>
+      )}
+    </span>
+  )
+}
+
 // ── Attachment constraints (mirrored in /api/forum/upload) ──────────
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/gif,.pdf,.txt,.md,.csv,.zip,.docx,.xlsx'
 const MAX_ATTACHMENTS = 6
@@ -385,6 +412,7 @@ export default function CommunityPage() {
                     <div className="flex items-center gap-3 text-[10px] text-[#525252]">
                       <span className="flex items-center gap-1">
                         <IconUser size={10} /> {post.author_name || 'Anonymous'}
+                        {post.author_verified && <VerifiedBadge size={12} />}
                       </span>
                       <span>{formatTime(post.created_at)}</span>
                       {post.reply_count > 0 && (
@@ -567,8 +595,14 @@ export default function CommunityPage() {
               </div>
               <AttachmentMedia items={selectedPost.attachments} onImageClick={setLightbox} />
               <div className="flex items-center gap-3 text-caption text-[#525252] pt-3 border-t border-[#1a1a1a]">
-                <span className="flex items-center gap-1">
-                  <IconUser size={12} /> {selectedPost.author_name || 'Anonymous'}
+                <span className="flex items-center gap-1.5">
+                  {selectedPost.author_verified ? (
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg, #FF3366, #ff7a45)' }}>K</span>
+                  ) : (
+                    <IconUser size={12} />
+                  )}
+                  <span className={selectedPost.author_verified ? 'text-white font-medium' : ''}>{selectedPost.author_name || 'Anonymous'}</span>
+                  {selectedPost.author_verified && <VerifiedBadge size={13} withChip />}
                 </span>
                 <span>{formatTime(selectedPost.created_at)}</span>
                 <span className="flex items-center gap-1">
@@ -585,10 +619,15 @@ export default function CommunityPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0">
-                            {(reply.author_name || 'A').slice(0, 1).toUpperCase()}
-                          </div>
-                          <span className="text-caption text-white font-medium">{reply.author_name || 'Anonymous'}</span>
+                          {reply.author_verified ? (
+                            <span className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg, #FF3366, #ff7a45)' }}>K</span>
+                          ) : (
+                            <div className="w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0">
+                              {(reply.author_name || 'A').slice(0, 1).toUpperCase()}
+                            </div>
+                          )}
+                          <span className="text-caption font-medium text-white">{reply.author_name || 'Anonymous'}</span>
+                          {reply.author_verified && <VerifiedBadge size={12} withChip />}
                           <span className="text-[10px] text-[#525252]">{formatTime(reply.created_at)}</span>
                         </div>
                         <p className="text-caption text-[#d4d4d4] leading-relaxed whitespace-pre-wrap mb-2">{reply.body}</p>

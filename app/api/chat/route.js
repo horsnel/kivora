@@ -191,12 +191,48 @@ async function aiChatStream(params, { onDelta }) {
 }
 
 // ── Truncation guard: complete-length continuation + sentence finisher ──
-// Providers stop at max_tokens (finish_reason 'length') or drop the stream
-// early — the user sees a reply cut mid-sentence. This wrapper continues a
-// 'length'-truncated completion up to MAX_CONTINUATIONS times (streaming the
+// Providers stop at max_tokens (finish_reason 'length') — or silently DROP
+// the stream early (finish_reason 'stop' on a mid-sentence corpse). Both
+// leave the user with a reply cut mid-thought. This wrapper continues an
+// unfinished completion up to MAX_CONTINUATIONS times (streaming the
 // continuation through the same onDelta so the client renders seamlessly),
 // then trims to the last complete sentence so a reply never ends mid-thought.
-const MAX_CONTINUATIONS = 2
+const MAX_CONTINUATIONS = 3
+
+// Heuristic: does this text end mid-thought? Catches the silent-drop case
+// that never reports finish_reason 'length'. Conservative — only fires on
+// replies long enough that an abrupt stop is never intentional. Legitimate
+// endings (closed code fence, table row ending in |, bold ending in *,
+// list/heading lines) must NOT trigger continuation.
+function looksCutOff(text) {
+  const s = String(text || '')
+  // Unbalanced code fence — a block was opened and never closed. Checked
+  // BEFORE the length guard: an unclosed fence at ANY length poisons the
+  // whole conversation (everything after renders inside the code block).
+  const fenceCount = (s.match(/```/g) || []).length
+  if (fenceCount % 2 === 1) return true
+  // Unclosed `inline code` span (single backticks, not fence markers)
+  const backtickRuns = (s.match(/`+/g) || [])
+  const singleBackticks = backtickRuns.filter(r => r.length === 1).length
+  if (singleBackticks % 2 === 1) return true
+  if (s.trim().length < 400) return false
+  const trimmed = s.trimEnd()
+  // Ends on a strong dangling token: comma, semicolon, colon, or an unclosed
+  // bracket/paren. (Pipes, asterisks, hashes, dashes are excluded — tables,
+  // bold, headings and rules end with them legitimately.)
+  if (/[,;:([{]$/.test(trimmed)) return true
+  // Last line opens a structure it never finished: a list bullet or numbered
+  // item with no content after it
+  const lastLine = trimmed.slice(trimmed.lastIndexOf('\n') + 1)
+  if (/^\s*(-|\*|\d+\.)\s*$/.test(lastLine)) return true
+  // Prose with no sentence terminator in the final stretch: the provider
+  // stopped mid-paragraph. Requires >200 chars since the last terminator.
+  if (!/[.!?)\]"'”’]\s*$/.test(trimmed) && !/```$/.test(trimmed) && !/\|$/.test(lastLine)) {
+    const lastTerminator = Math.max(trimmed.lastIndexOf('.'), trimmed.lastIndexOf('!'), trimmed.lastIndexOf('?'))
+    if (lastTerminator > 0 && lastTerminator < trimmed.length - 200) return true
+  }
+  return false
+}
 
 async function aiChatComplete(params, { onDelta, stream }) {
   const call = (p) => (stream
@@ -215,15 +251,22 @@ async function aiChatComplete(params, { onDelta, stream }) {
   let finish = chat?.choices?.[0]?.finish_reason
   let rounds = 0
 
-  // Continuation only applies to text replies — a tool_call reply passes
-  // through untouched (executing the tool IS the continuation).
-  while (finish === 'length' && !firstMessage.tool_calls && text.trim() && rounds < MAX_CONTINUATIONS) {
+  // Continuation fires when the provider honestly reported a max_tokens stop
+  // ('length') OR when the text LOOKS cut off (silent mid-stream drops report
+  // a clean 'stop' on a half-finished corpse). Only applies to text replies —
+  // a tool_call reply passes through untouched (executing the tool IS the
+  // continuation). Tools are stripped from continuation calls: a continuation
+  // that itself emits a tool_call would silently swallow the text.
+  while ((finish === 'length' || looksCutOff(text)) && !firstMessage.tool_calls && text.trim() && rounds < MAX_CONTINUATIONS) {
     rounds += 1
-    console.warn(`[chat] completion hit max_tokens (round ${rounds}) — continuing`)
+    console.warn(`[chat] completion ${finish === 'length' ? 'hit max_tokens' : 'looks cut off (silent stream drop)'} (round ${rounds}) — continuing`)
     let cont
     try {
+      const contParams = { ...params }
+      delete contParams.tools
+      delete contParams.tool_choice
       cont = await call({
-        ...params,
+        ...contParams,
         messages: [
           ...params.messages,
           { role: 'assistant', content: text },

@@ -160,10 +160,44 @@ async function generateWithPollinations(prompt, size) {
   return await generateWithPollinationsFree(prompt, size)
 }
 
+// ── v5.16 — Cloudflare Workers AI (PRIMARY: watermark-free, account-keyed) ──
+// Pollinations' anonymous tier force-stamps a "pollinations.ai" watermark even
+// with nologo=true (verified live), and its 1 img/45s/IP window is shared
+// across ALL CF Pages egress IPs. Workers AI's FLUX.1-schnell is keyed with
+// the SAME CF_API_TOKEN/CF_ACCOUNT_ID the deploy_site tool already uses,
+// has a free daily neuron allocation, and returns clean images.
+async function generateWithWorkersAI(prompt, size) {
+  const cfToken = await getEnvVar('CF_API_TOKEN')
+  const cfAccount = await getEnvVar('CF_ACCOUNT_ID')
+  if (!cfToken || !cfAccount) throw new Error('no CF_API_TOKEN/CF_ACCOUNT_ID configured')
+  const [width, height] = size.split('x').map(Number)
+  // Workers AI flux schema: width/height 256..1024
+  const w8 = Math.max(256, Math.min(1024, Math.round(width / 8) * 8))
+  const h8 = Math.max(256, Math.min(1024, Math.round(height / 8) * 8))
+  const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${cfAccount}/ai/run/@cf/black-forest-labs/flux-1-schnell`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${cfToken}`,
+    },
+    body: JSON.stringify({ prompt: enhancePrompt(prompt.trim()), steps: 4, width: w8, height: h8 }),
+    signal: AbortSignal.timeout(25000),
+  })
+  const json = await res.json().catch(() => null)
+  if (!res.ok || !json?.success) {
+    const detail = String(json?.errors?.[0]?.message || `HTTP ${res.status}`).slice(0, 200)
+    throw new Error(`Workers AI error: ${detail}`)
+  }
+  const b64 = String(json?.result?.image || '')
+  if (!b64) throw new Error('Workers AI returned no image')
+  return { image: `data:image/jpeg;base64,${b64}`, provider: 'cf-workersai', size, model: 'flux-1-schnell' }
+}
+
 async function generateWithSiliconFlow(prompt, size) {
   // v5.15 — independent-vendor fallback: SiliconFlow FLUX.1-schnell (the key
-  // is already provisioned for the text chain). Rescues total Pollinations
-  // outages instead of hard-failing the feature.
+  // is already provisioned for the text chain). Watermark-free, but the
+  // provisioned key has been observed 401-invalid — kept for when it's
+  // rotated. Rescues total Pollinations outages instead of hard-failing.
   const sfKey = await getEnvVar('SILICONFLOW_API_KEY')
   if (!sfKey) throw new Error('no SILICONFLOW_API_KEY configured')
   const [width, height] = size.split('x').map(Number)
@@ -214,11 +248,18 @@ export async function POST(req) {
 
     const resolvedSize = VALID_SIZES.includes(size) ? size : DEFAULT_SIZE
 
-    // ── Generate: SiliconFlow (keyed, primary) → Pollinations (free fallback) ──
-    // v5.15.3 — Pollinations' anonymous tier is 1 img/45s/IP and all CF Pages
-    // traffic shares a few egress IPs, so its window is usually exhausted in
-    // production. The keyed SiliconFlow FLUX.1-schnell endpoint is the
-    // deterministic primary; Pollinations remains the free fallback.
+    // ── Generate: Workers AI (keyed, watermark-free) → SiliconFlow → Pollinations ──
+    // v5.16 — watermark-free providers lead. Pollinations' anonymous tier
+    // stamps a watermark and shares one 45s window across all CF egress IPs;
+    // it is the last-resort free fallback.
+    let waDetail = 'not attempted'
+    try {
+      const waResult = await generateWithWorkersAI(prompt, resolvedSize)
+      return Response.json(waResult)
+    } catch (waErr) {
+      waDetail = String(waErr?.message || waErr).slice(0, 220)
+      console.warn(`[image] Workers AI failed ("${waDetail}"), trying SiliconFlow fallback`)
+    }
     const sfKey = await getEnvVar('SILICONFLOW_API_KEY')
     let sfDetail = sfKey ? 'not attempted' : 'no key configured'
     if (sfKey) {
@@ -237,7 +278,7 @@ export async function POST(req) {
       const pollMsg = pollErr?.message || 'Unknown Pollinations error'
       console.error(`[image] Image generation failed: ${pollMsg}`)
       return Response.json(
-        { error: 'Image generation failed.', details: { siliconflow: sfDetail, pollinations: pollMsg.slice(0, 220) } },
+        { error: 'Image generation failed.', details: { workersai: waDetail, siliconflow: sfDetail, pollinations: pollMsg.slice(0, 220) } },
         { status: 502 }
       )
     }
