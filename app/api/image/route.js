@@ -170,17 +170,16 @@ async function generateWithWorkersAI(prompt, size) {
   const cfToken = await getEnvVar('CF_API_TOKEN')
   const cfAccount = await getEnvVar('CF_ACCOUNT_ID')
   if (!cfToken || !cfAccount) throw new Error('no CF_API_TOKEN/CF_ACCOUNT_ID configured')
-  const [width, height] = size.split('x').map(Number)
-  // Workers AI flux schema: width/height 256..1024
-  const w8 = Math.max(256, Math.min(1024, Math.round(width / 8) * 8))
-  const h8 = Math.max(256, Math.min(1024, Math.round(height / 8) * 8))
+  // ⚠️ flux-1-schnell schema accepts ONLY prompt/steps — width/height are
+  // rejected outright (production-verified 2026-10-23). Output is model-fixed
+  // 1024x1024; the requested `size` is kept in the contract but not sent.
   const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${cfAccount}/ai/run/@cf/black-forest-labs/flux-1-schnell`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${cfToken}`,
     },
-    body: JSON.stringify({ prompt: enhancePrompt(prompt.trim()), steps: 4, width: w8, height: h8 }),
+    body: JSON.stringify({ prompt: enhancePrompt(prompt.trim()), steps: 4 }),
     signal: AbortSignal.timeout(25000),
   })
   const json = await res.json().catch(() => null)
