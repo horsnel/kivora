@@ -595,3 +595,14 @@ Stage Summary:
 - KNOWN LIMITS: uncited bare numbers check pool-wide (lenient — "17 unverified sources" self-counts survive); client payload truncates appended sources' snippets to 200 chars so post-hoc re-audits under-verify (gate uses full text); strict rounding (68 ≠ 68.4%) may hedge legitimately rounded figures — the honest direction per user's spec
 - Next candidates: citation hover-preview cards; "what we couldn't verify" section (user-deferred); topic-conditional protocol-term search augmentation (from v5.7 eval)
 - BROWSER (production, a16551f build): /research/r/d0e1c6941978 renders "Fabrication gate · N figures checked · M verified as-cited · re-cited/hedged" (denominator fix live), zero console errors; screenshot download/verify-fabrication-gate.png
+
+## v5.19 — DB migration applied by hand (2026-10-23)
+- User supplied the Supabase DB password → first-ever direct DDL channel (no more "SQL Editor by hand")
+- Connection: session pooler aws-0-eu-west-1.pooler.supabase.com:5432, user postgres.asfzdbpfakwpiawhhrby, PG 17.6 (direct db.<ref>.supabase.co is IPv6-only — unreachable from sandbox; region found by scanning 20 pooler hostnames)
+- Schema audit vs ALL 11 repo migration files: everything already applied (supabase base, new-features/forum, credits suite, community attachments cols, security-hardening plans FORCE RLS, fix-trigger-search-path handle_new_user+credits, colab/study/anon-usage, apex-v2 7 tables) — ONLY chat-session-meta (v5.18) was pending
+- APPLIED: chat_sessions.title text + chat_sessions.pinned boolean default false (idempotent ALTERs, verbatim from chat-session-meta-migration.sql)
+- Verified: columns live, RLS "users own chats"(ALL) covers new cols table-wide as the migration file predicted; functional probe (write→read→ROLLBACK) clean; 24 real sessions untouched
+- Gap found & fixed while wiring the read path: loadHistory's .select() didn't fetch title/pinned → cloud values never reached the sidebar. Commit 1dbc40c adds them + graceful retry-without-meta-cols for pre-migration DBs
+- Tests: v518 48/48, v517 13/13, v516 18/18; build ✓; prod chunk 7794.a3cb27c4 verified carrying "id, messages, updated_at, title, pinned" (deploy live)
+- Scripts kept (password always via env, never inline): scripts/find_pooler_region.js, db_inventory.js, db_verify_pending.js, apply_chat_session_meta.js
+- Cross-device rename/pin now FULLY live: writes → DB (localStorage mirror retained), reads → DB with local fallback
