@@ -545,14 +545,22 @@ export default function ChatClient() {
       const MAX_SESSIONS = 300
       let all = []
       let anyPageOk = false
+      // Pull the rename/pin meta columns straight from the DB (they exist once
+      // chat-session-meta-migration.sql has run). If the DB predates the
+      // migration, PostgREST rejects the unknown columns — retry once without
+      // them so history still loads and device-local meta keeps covering.
+      let metaCols = true
       while (all.length < MAX_SESSIONS) {
         const { data, error } = await supabasePublic
           .from('chat_sessions')
-          .select('id, messages, updated_at')
+          .select(metaCols ? 'id, messages, updated_at, title, pinned' : 'id, messages, updated_at')
           .eq('user_id', userId)
           .order('updated_at', { ascending: false })
           .range(all.length, all.length + PAGE - 1)
-        if (error) break
+        if (error) {
+          if (metaCols) { metaCols = false; continue }
+          break
+        }
         anyPageOk = true
         if (!data || data.length === 0) break
         all = all.concat(data)
