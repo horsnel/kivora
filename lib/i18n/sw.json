@@ -800,5 +800,8 @@
   "profile.custom_url_hint": "Chagua hapo juu au weka kiungo cha picha — avatar yako hutolewa kwenye domain yetu.",
   "tour.open_page": "Fungua ukurasa",
   "chat.history.delete": "Futa mazungumzo",
-  "chat.history.delete_confirm": "Ufute mazungumzo hii kabisa?"
+  "chat.history.delete_confirm": "Ufute mazungumzo hii kabisa?",
+  "common.delete_confirm_title": "Ufute hii?",
+  "common.delete_confirm_body": "Kitu hiki kitaondolewa kabisa. Kitendo hiki hakiwezi kurekebishwa.",
+  "common.delete_confirm_action": "Ndiyo, futa"
 }

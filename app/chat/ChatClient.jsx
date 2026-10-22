@@ -15,6 +15,7 @@ import CodePreviewCard from '@/components/CodePreviewCard'
 import VoiceSettings from '@/components/VoiceSettings'
 import { useVoiceTTS } from '@/hooks/useVoiceTTS'
 import { useTranslation } from '@/components/LanguageProvider'
+import ConfirmDialog from '@/components/ConfirmDialog'
 import { stripMarkdown } from '@/lib/stripMarkdown'
 import { reportClientError } from '@/lib/reportClientError'
 import dynamic from 'next/dynamic'
@@ -321,6 +322,8 @@ function ImageGeneratingCard() {
 }
 
 export default function ChatClient() {
+  // v5.17 — pending destructive action for the confirm card
+  const [pendingDelete, setPendingDelete] = useState(null)
   const router = useRouter()
   const searchParams = useSearchParams()
   const [messages, setMessagesRaw] = useState([])
@@ -746,7 +749,13 @@ export default function ChatClient() {
   // .eq('user_id') keeps the delete targeted even before that check.
   async function deleteSession(sid) {
     if (!user || !sid) return
-    if (!window.confirm(t('chat.history.delete_confirm') || 'Delete this conversation permanently?')) return
+    // v5.17 — gated behind the "Are you sure?" card (pendingDelete), no more
+    // native window.confirm
+    setPendingDelete({ sid })
+  }
+
+  async function performDeleteSession(sid) {
+    if (!user || !sid) return
     const prev = chatHistory
     setChatHistory(prevList => prevList.filter(s => s.id !== sid))
     if (sid === sessionId) clearChat()
@@ -1142,7 +1151,10 @@ export default function ChatClient() {
         }
         const scheduleFlush = () => {
           if (flushTimer) return
-          flushTimer = setTimeout(flushNow, 90)
+          // v5.17 — 55ms (~18Hz): closer to a keystroke cadence, still ~12x
+          // cheaper than per-token setState. The 90ms it replaces was chosen
+          // when the parse cost dominated; memo'd markdown now carries that.
+          flushTimer = setTimeout(flushNow, 55)
         }
         try {
           await streamSSE(res, (evt) => {
@@ -2329,7 +2341,7 @@ export default function ChatClient() {
               }
 
               return (
-                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div key={i} data-msg-index={i} className={`flex msg-row ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div
                     className={`group ${msg.role === 'user' ? 'max-w-[65%]' : 'w-full'}`}
                     onPointerDown={(e) => startBubblePress(e, msg, i)}
@@ -3942,6 +3954,17 @@ export default function ChatClient() {
         </div>,
         document.body
       )}
+
+      {/* v5.17 — delete confirmation card */}
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title={t('chat.history.delete_confirm') || t('common.delete_confirm_title')}
+        message={t('common.delete_confirm_body')}
+        confirmLabel={t('common.delete_confirm_action')}
+        cancelLabel={t('common.cancel')}
+        onConfirm={() => { const p = pendingDelete; setPendingDelete(null); if (p?.sid) performDeleteSession(p.sid) }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </main>
   )
 }

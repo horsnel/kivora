@@ -800,5 +800,8 @@
   "profile.custom_url_hint": "Choisissez ci-dessus ou collez un lien d'image — votre avatar est toujours servi depuis notre domaine.",
   "tour.open_page": "Ouvrir la page",
   "chat.history.delete": "Supprimer la conversation",
-  "chat.history.delete_confirm": "Supprimer définitivement cette conversation ?"
+  "chat.history.delete_confirm": "Supprimer définitivement cette conversation ?",
+  "common.delete_confirm_title": "Supprimer ?",
+  "common.delete_confirm_body": "Cet élément sera définitivement supprimé. Action irréversible.",
+  "common.delete_confirm_action": "Oui, supprimer"
 }

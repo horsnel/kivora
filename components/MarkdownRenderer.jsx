@@ -184,10 +184,13 @@ function CodeBlock({ langLabel, codeText, codeClassName }) {
     // to the conversation when the run finishes (ChatClient listens).
     try { window.dispatchEvent(new CustomEvent('kivora:code-exec-start', { detail: { code: codeText, languageId: langId } })) } catch {}
     try {
+      // v5.17 — hard 45s cap: a stalled execution server used to hang the
+      // button forever (users read it as "connection failing").
       const res = await fetch('/api/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source_code: codeText, language_id: langId })
+        body: JSON.stringify({ source_code: codeText, language_id: langId }),
+        signal: AbortSignal.timeout(45000),
       })
       const data = await res.json()
       if (data.error && !data.status) {

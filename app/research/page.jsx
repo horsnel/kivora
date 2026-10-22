@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useMemo, Suspense, memo, Fragment, Childre
 import { createPortal } from 'react-dom'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/LanguageProvider'
+import ConfirmDialog from '@/components/ConfirmDialog'
 import dynamic from 'next/dynamic'
 import remarkGfm from 'remark-gfm'
 const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false })
@@ -852,6 +853,7 @@ function ResearchPageContent() {
   const [barExpanded, setBarExpanded] = useState(false)
   const [sourcesExpanded, setSourcesExpanded] = useState(false)
   const [history, setHistory] = useState([])
+  const [pendingDelete, setPendingDelete] = useState(null) // v5.17 confirm gate
   const [progress, setProgress] = useState(0)
   const [researchStage, setResearchStage] = useState('search')
 
@@ -1566,6 +1568,11 @@ function ResearchPageContent() {
   // user + query) — failures are silent, the local list is the source of
   // truth for this UI.
   function deleteResearchItem(item) {
+    // v5.17 — confirm first; the real delete lives in performDeleteResearchItem
+    setPendingDelete(item)
+  }
+
+  function performDeleteResearchItem(item) {
     const next = loadHistory().filter(h => h.id !== item.id)
     saveHistory(next)
     setHistory(next)
@@ -3582,6 +3589,17 @@ function ResearchPageContent() {
       {previewImage && (
         <Lightbox src={previewImage} alt="Attachment preview" onClose={() => setPreviewImage(null)} />
       )}
+
+      {/* v5.17 — delete confirmation card */}
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title={t('common.delete_confirm_title')}
+        message={t('common.delete_confirm_body')}
+        confirmLabel={t('common.delete_confirm_action')}
+        cancelLabel={t('common.cancel')}
+        onConfirm={() => { const it = pendingDelete; setPendingDelete(null); if (it) performDeleteResearchItem(it) }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </main>
   )
 }

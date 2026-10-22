@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm'
 import { supabasePublic } from '@/lib/supabase'
 import { authFetch } from '@/lib/authFetch'
 import { useTranslation } from '@/components/LanguageProvider'
+import ConfirmDialog from '@/components/ConfirmDialog'
 import { MarkdownCodeBlock } from '@/components/MarkdownRenderer'
 import { IconChat, IconArrowLeft, IconPlus, IconSpinner, IconTrash, IconSend, IconUser, IconPaperclip, IconFile, IconClose, IconDownload } from '@/components/Icons'
 
@@ -190,6 +191,9 @@ export default function CommunityPage() {
   const [submitting, setSubmitting] = useState(false)
   const [newPost, setNewPost] = useState({ title: '', body: '' })
   const [replyBody, setReplyBody] = useState('')
+  // v5.17 — no delete happens without the "Are you sure?" card
+  const [pendingDelete, setPendingDelete] = useState(null) // { type: 'post'|'reply', id }
+  const [deleteBusy, setDeleteBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
 
@@ -347,6 +351,7 @@ export default function CommunityPage() {
 
   async function deletePost(postId) {
     if (!user) return
+    setDeleteBusy(true)
     try {
       await authFetch('/api/forum', {
         method: 'DELETE',
@@ -357,10 +362,13 @@ export default function CommunityPage() {
       setSelectedPost(null)
       await loadPosts()
     } catch {}
+    setDeleteBusy(false)
+    setPendingDelete(null)
   }
 
   async function deleteReply(replyId) {
     if (!user || !selectedPost) return
+    setDeleteBusy(true)
     try {
       await authFetch('/api/forum', {
         method: 'DELETE',
@@ -369,6 +377,8 @@ export default function CommunityPage() {
       })
       await loadPost(selectedPost.id)
     } catch {}
+    setDeleteBusy(false)
+    setPendingDelete(null)
   }
 
   function formatTime(dateStr) {
@@ -624,7 +634,7 @@ export default function CommunityPage() {
                 <h2 className="font-semibold text-headline-sm tracking-tight leading-snug text-muted">{selectedPost.title}</h2>
                 {user && selectedPost.user_id === user.id && (
                   <button
-                    onClick={() => deletePost(selectedPost.id)}
+                    onClick={() => setPendingDelete({ type: 'post', id: selectedPost.id })}
                     className="text-muted2 hover:text-red-500 transition-colors p-1 shrink-0"
                   >
                     <IconTrash size={14} />
@@ -678,7 +688,7 @@ export default function CommunityPage() {
                       </div>
                       {user && reply.user_id === user.id && (
                         <button
-                          onClick={() => deleteReply(reply.id)}
+                          onClick={() => setPendingDelete({ type: 'reply', id: reply.id })}
                           className="text-muted2 hover:text-red-500 transition-colors p-1 shrink-0"
                         >
                           <IconTrash size={12} />
@@ -775,6 +785,22 @@ export default function CommunityPage() {
           </button>
         </div>
       )}
+
+      {/* v5.17 — delete confirmation card */}
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title={t('common.delete_confirm_title')}
+        message={t('common.delete_confirm_body')}
+        confirmLabel={t('common.delete_confirm_action')}
+        cancelLabel={t('common.cancel')}
+        busy={deleteBusy}
+        onConfirm={() => {
+          if (!pendingDelete) return
+          if (pendingDelete.type === 'post') deletePost(pendingDelete.id)
+          else deleteReply(pendingDelete.id)
+        }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </main>
   )
 }

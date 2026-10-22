@@ -883,5 +883,8 @@
   "usage.resets_at": "Resets at",
   "usage.remaining": "{n} of {limit} free runs left today",
   "usage.upgrade_more": "Need more? Upgrade to Pro",
-  "usage.header_free": "{n}/{limit} today"
+  "usage.header_free": "{n}/{limit} today",
+  "common.delete_confirm_title": "Delete this?",
+  "common.delete_confirm_body": "This will be permanently deleted. You can't undo this.",
+  "common.delete_confirm_action": "Yes, delete"
 }

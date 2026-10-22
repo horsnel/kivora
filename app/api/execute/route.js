@@ -2,7 +2,8 @@ export const runtime = 'edge'
 
 import { rateLimit, getClientIP } from '@/lib/ratelimit'
 import { getEnvVar } from '@/lib/cfEnv'
-import { runJudge0, setJudge0Config, VALID_LANGUAGE_IDS } from '@/lib/judge0'
+import { runCodeFast } from '@/lib/runCode'
+import { VALID_LANGUAGE_IDS, setJudge0Config } from '@/lib/judge0'
 
 export async function POST(req) {
   const ip = getClientIP(req)
@@ -28,15 +29,19 @@ export async function POST(req) {
       )
     }
 
-    // Apply self-hosted / RapidAPI Judge0 config when provided
+    // v5.17 — fast lane: Wandbox (keyless, 2-6s) leads for 9 of 12 languages;
+    // a dedicated JUDGE0_URL (RapidAPI/self-hosted) flips the order. The old
+    // default-only path answered print("5") in 25-30s — users read that as a
+    // dead terminal ("connection failing").
     const judge0Url = await getEnvVar('JUDGE0_URL')
     const judge0Key = await getEnvVar('JUDGE0_API_KEY')
+    // Dedicated-instance credentials still flow into lib/judge0's module config
     setJudge0Config(judge0Url, judge0Key)
 
-    const data = await runJudge0(source_code, language_id, stdin)
+    const data = await runCodeFast(source_code, language_id, stdin, { judge0Url })
 
     if (data.error) {
-      console.error('[execute] Judge0 error:', data.error)
+      console.error('[execute] run chain error:', data.error)
       return Response.json(
         { error: 'Code execution service error', details: data.error },
         { status: 502 }
@@ -54,7 +59,8 @@ export async function POST(req) {
       },
       exit_code: data.exit_code ?? null,
       time: data.time || null,
-      memory: data.memory || null
+      memory: data.memory || null,
+      executor: data.executor || 'judge0'
     }
 
     return Response.json(result)

@@ -2039,3 +2039,10 @@ input, textarea, select {
   border: 1px solid #262626; padding: 0.45em 0.7em; text-align: left;
 }
 .community-md th { background: #141414; color: #fff; font-weight: 600; }
+
+/* ── Chat streaming perf (v5.17) ────────────────────────────────────
+   Long conversations: rows far outside the viewport skip layout/paint
+   until scrolled near — keeps every 55ms flush cheap on hour-long
+   threads. The streaming row (last) is excluded so it always paints. */
+.msg-row { content-visibility: auto; contain-intrinsic-size: auto 72px; }
+.msg-row:last-child { content-visibility: visible; }

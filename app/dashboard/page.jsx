@@ -5,6 +5,7 @@ import { supabasePublic } from '@/lib/supabase'
 import { authFetch } from '@/lib/authFetch'
 import { IconBookmark, IconChat, IconTrash, IconArrowRight, IconMail, IconClock, IconCode, IconBook, IconFlame, IconTarget, IconPlus, IconClose, IconCheck, IconSearch, IconStar, IconMoney, IconLightning, IconGlobe, IconBulb } from '@/components/Icons'
 import { useTranslation } from '@/components/LanguageProvider'
+import ConfirmDialog from '@/components/ConfirmDialog'
 import CreditPill from '@/components/CreditPill'
 import InstallPrompt from '@/components/InstallPrompt'
 
@@ -228,6 +229,8 @@ function buildWeeklyHeatmap(sessions) {
 export default function DashboardPage() {
   const router = useRouter()
   const { t } = useTranslation()
+  // v5.17 — pending destructive action for the confirm card
+  const [pendingDelete, setPendingDelete] = useState(null)
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saves, setSaves] = useState([])
@@ -336,6 +339,11 @@ export default function DashboardPage() {
       await supabasePublic.from('saved_results').delete().eq('id', id)
       setSaves(p => p.filter(s => s.id !== id))
     } catch {}
+  }
+
+  // v5.17 — deletes route through the "Are you sure?" card
+  function requestDelete(kind, id) {
+    setPendingDelete({ kind, id })
   }
 
   async function markRead(id) {
@@ -668,7 +676,7 @@ export default function DashboardPage() {
                             <span className={`text-xs font-mono font-semibold ${progress === 100 ? 'text-green-400' : 'text-muted'}`}>
                               {progress}%
                             </span>
-                            <button onClick={() => deleteGoal(goal.id)} className="text-muted2 hover:text-red-400 transition-colors">
+                            <button onClick={() => requestDelete('goal', goal.id)} className="text-muted2 hover:text-red-400 transition-colors">
                               <IconClose size={12} />
                             </button>
                           </div>
@@ -952,7 +960,7 @@ export default function DashboardPage() {
                     <button onClick={() => router.push(`/explore/${save.result_slug}`)} className="text-muted2 hover:text-white transition-colors p-1">
                       <IconArrowRight size={14} />
                     </button>
-                    <button onClick={() => deleteSave(save.id)} className="text-muted2 hover:text-red-500 transition-colors p-1">
+                    <button onClick={() => requestDelete('save', save.id)} className="text-muted2 hover:text-red-500 transition-colors p-1">
                       <IconTrash size={14} />
                     </button>
                   </div>
@@ -1016,7 +1024,7 @@ export default function DashboardPage() {
                       >
                         {expandedMsg === msg.id ? t('dashboard.hide') : t('dashboard.view')}
                       </button>
-                      <button onClick={() => deleteMessage(msg.id)} className="text-muted2 hover:text-red-500 transition-colors p-1">
+                      <button onClick={() => requestDelete('message', msg.id)} className="text-muted2 hover:text-red-500 transition-colors p-1">
                         <IconTrash size={14} />
                       </button>
                     </div>
@@ -1172,6 +1180,24 @@ export default function DashboardPage() {
           )
         )}
       </div>
+
+      {/* v5.17 — delete confirmation card */}
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title={t('common.delete_confirm_title')}
+        message={t('common.delete_confirm_body')}
+        confirmLabel={t('common.delete_confirm_action')}
+        cancelLabel={t('common.cancel')}
+        onConfirm={() => {
+          if (!pendingDelete) return
+          const { kind, id } = pendingDelete
+          setPendingDelete(null)
+          if (kind === 'save') deleteSave(id)
+          else if (kind === 'message') deleteMessage(id)
+          else if (kind === 'goal') deleteGoal(id)
+        }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </main>
   )
 }

@@ -800,5 +800,8 @@
   "profile.custom_url_hint": "Yan loke tabi lẹ́bẹẹ ọ̀nà àwòrán kan — àwòrán rẹ̀ máa ń wá láti domain wa.",
   "tour.open_page": "Ṣí ojú-iwe",
   "chat.history.delete": "Nu àwọn ìjókòó kọ̀",
-  "chat.history.delete_confirm": "Ìjókòó yìí la àwọn ìjókòó tán pátápátá?"
+  "chat.history.delete_confirm": "Ìjókòó yìí la àwọn ìjókòó tán pátápátá?",
+  "common.delete_confirm_title": "Ìparẹ́ yìí?",
+  "common.delete_confirm_body": "A yóò yọ èyìí kúrò láéláé. Àyọkà yìí kò lè dá padà.",
+  "common.delete_confirm_action": "Bẹ́ẹ̀ni, parẹ́"
 }
