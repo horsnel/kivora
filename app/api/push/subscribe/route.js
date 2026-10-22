@@ -5,6 +5,9 @@
 import { resolveUserAndAdmin } from '@/lib/authUser'
 import { getSupabaseAdmin } from '@/lib/supabase'
 
+// Required for Cloudflare Pages edge runtime
+export const runtime = 'edge'
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function POST(req) {
