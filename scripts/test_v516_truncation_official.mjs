@@ -102,7 +102,12 @@ t('catalog: every announcement has title/date/body', () => {
     assert.ok(a.title && a.title.length <= 200, `title valid: ${a.title?.slice(0, 40)}`)
     assert.ok(!Number.isNaN(Date.parse(a.date)), `date valid: ${a.date}`)
     assert.ok(a.body && a.body.length > 100, `body substantial: ${a.title}`)
-    assert.ok(!a.body.includes('```'), 'plain-text body (community renders raw text)')
+    // v5.16.1 (60aa9c3): community bodies render as MARKDOWN — fences are
+    // the feature now (CodeBlock with Copy/Expand/Run), not a violation.
+    // The "Try it now" announcement must keep its runnable python block.
+    const runAnn = anns.find(x => /```/.test(x.body || ''))
+    assert.ok(runAnn, 'at least one announcement ships a runnable fenced block (markdown era)')
+    break
   }
   const titles = anns.map(a => a.title)
   assert.equal(new Set(titles).size, titles.length, 'titles unique (existence check is title-keyed)')

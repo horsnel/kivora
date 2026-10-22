@@ -57,6 +57,17 @@ html {
   background: var(--bg);
 }
 
+/* ── v5.18 mobile polish (all pages) ───────────────────────────
+   1. Kill the grey tap flash on touch devices — dark UI + grey
+      rectangles on every tap read as broken.
+   2. overflow-x: clip guards against stray horizontal scroll from
+      long tokens/tables (clip, unlike hidden, keeps position:sticky
+      working — navbars and headers stay sticky). */
+html, body {
+  overflow-x: clip;
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   background: var(--bg);
   color: var(--text);

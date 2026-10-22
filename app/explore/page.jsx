@@ -10,6 +10,7 @@ import {
   IconLightning, IconTool, IconSpinner, IconGlobe, IconEye
 } from '@/components/Icons'
 import ThinkingState, { STAGE_CONFIGS } from '@/components/ThinkingState'
+import NoticeCard from '@/components/NoticeCard'
 
 const PILL_KEYS = [
   { key: 'make_money',  Icon: IconMoney,  query: 'make money with AI automation 2024' },
@@ -30,6 +31,16 @@ const SUGGESTIONS = [
   'Affiliate blog with Claude writing',
 ]
 
+// NoticeCard titles per error kind — i18n key home.err.<kind> overrides
+// these English fallbacks when the locale file carries a translation.
+const ERROR_TITLES = {
+  credits: 'Out of credits',
+  rate: 'Too many requests',
+  engine: 'Engine at capacity',
+  network: 'Connection problem',
+  generic: 'Could not explore',
+}
+
 export default function HomePage() {
   const router = useRouter()
   const { format } = useCurrency()
@@ -42,7 +53,12 @@ export default function HomePage() {
   const [suggestionIndex, setSuggestionIndex] = useState(0)
   const [displayText, setDisplayText] = useState('')
   const [dataLoading, setDataLoading] = useState(true)
+  // v5.18 — errors surface in the NoticeCard (the same card design as the
+  // delete confirmation). searchErrorKind picks the card's title so the
+  // exact server message ("You are out of credits for this period.") sits
+  // inside the card users already love.
   const [searchError, setSearchError] = useState('')
+  const [searchErrorKind, setSearchErrorKind] = useState('generic')
   const inputRef = useRef(null)
 
   useEffect(() => { loadData() }, [])
@@ -79,6 +95,7 @@ export default function HomePage() {
     if (!q || loading) return
     setLoading(true)
     setSearchError('')
+    setSearchErrorKind('generic')
     try {
       const res = await authFetch('/api/explore', {
         method: 'POST',
@@ -102,9 +119,16 @@ export default function HomePage() {
               ? 'Our generation engine is temporarily out of capacity. Please try again in a few minutes.'
               : (data.error || `Could not generate this exploration (${res.status}). Please try again.`)
         setSearchError(friendly)
+        setSearchErrorKind(
+          res.status === 429 ? 'rate'
+            : res.status === 402 || res.status === 403 ? 'credits'
+              : res.status >= 500 ? 'engine'
+                : 'generic'
+        )
       }
     } catch (_) {
       setSearchError('Network error. Please check your connection and try again.')
+      setSearchErrorKind('network')
     }
     setLoading(false)
   }
@@ -157,16 +181,34 @@ export default function HomePage() {
             </button>
           </div>
 
-          {/* Search error — surfaced instead of failing silently */}
-          {searchError && !loading && (
-            <div className="mt-4 mx-auto max-w-xl flex items-start gap-2 bg-red-950/40 border border-red-900/40 text-red-300 rounded-xl px-4 py-3 text-sm text-left">
-              <span className="mt-0.5 shrink-0">⚠</span>
-              <span className="flex-1">{searchError}</span>
-              <button onClick={() => setSearchError('')} className="text-red-400/60 hover:text-red-300 transition-colors shrink-0" aria-label="Dismiss">
-                <svg width={12} height={12} viewBox="0 0 12 12" fill="none"><path d="M2 2l8 8M10 2L2 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-              </button>
-            </div>
-          )}
+          {/* v5.18 — search errors now surface in the NoticeCard (same design
+              as the delete confirmation card) instead of an inline banner.
+              t() returns the key itself when missing, so compare before
+              falling back to the English titles. */}
+          {searchError && !loading && (() => {
+            const errKey = `home.err.${searchErrorKind}`
+            const translated = t(errKey)
+            const title = translated === errKey
+              ? (ERROR_TITLES[searchErrorKind] || ERROR_TITLES.generic)
+              : translated
+            return (
+              <NoticeCard
+                open
+                icon={
+                  searchErrorKind === 'credits' ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z" />
+                    </svg>
+                  ) : undefined
+                }
+                title={title}
+                message={searchError}
+                actionLabel={t('common.ok') === 'common.ok' ? 'OK' : t('common.ok')}
+                onAction={() => { setSearchError(''); inputRef.current?.focus?.() }}
+                onClose={() => setSearchError('')}
+              />
+            )
+          })()}
 
           <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2 mt-3 animate-fade-up animate-fade-up-4">
             {loading ? (

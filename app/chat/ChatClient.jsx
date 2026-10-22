@@ -207,6 +207,19 @@ function groupByDate(sessions) {
   return result
 }
 
+// ── v5.18 session meta mirror (rename / pin) ────────────────────
+// Device-local store for conversation titles and pins. The DB write is
+// attempted first (chat_sessions.title / .pinned once
+// chat-session-meta-migration.sql has run); this mirror guarantees the
+// features work even before that migration lands on the database.
+const CHAT_META_KEY = 'kivora:chat-session-meta'
+function readChatMeta() {
+  try { return JSON.parse(localStorage.getItem(CHAT_META_KEY) || '{}') || {} } catch { return {} }
+}
+function writeChatMeta(meta) {
+  try { localStorage.setItem(CHAT_META_KEY, JSON.stringify(meta)) } catch {}
+}
+
 // ── Instrumented messages-state writer ─────────────────────────
 // Three rounds of static analysis proved every setMessages site produces
 // an array, yet production still crashed with "g.map is not a function" /
@@ -405,6 +418,18 @@ export default function ChatClient() {
   // action row): { index, role, top, left, content, isImage, showExport }
   const [bubbleAction, setBubbleAction] = useState(null)
   const bubblePressRef = useRef({ timer: null, longFired: false, x: 0, y: 0 })
+
+  // ── v5.18 session action card (long-press a conversation) ──
+  // Same card design language as the delete-confirmation card, with four
+  // options: Pin, Rename, Share, Delete. Meta (title/pinned) persists to
+  // chat_sessions.title/pinned when those columns exist (see
+  // chat-session-meta-migration.sql) and ALWAYS mirrors to localStorage so
+  // rename/pin work today, device-locally, before the migration runs.
+  const [sessionAction, setSessionAction] = useState(null) // { sid, title, pinned }
+  const [sessionRenameMode, setSessionRenameMode] = useState(false)
+  const [sessionRenameValue, setSessionRenameValue] = useState('')
+  const [sessionMeta, setSessionMeta] = useState({})
+  const sessionPressRef = useRef({ timer: null, longFired: false, x: 0, y: 0 })
 
   // ── Streaming presentation state ──
   // streaming: a reply is actively receiving SSE deltas (drives the typing
@@ -756,6 +781,7 @@ export default function ChatClient() {
 
   async function performDeleteSession(sid) {
     if (!user || !sid) return
+    removeSessionMeta(sid) // v5.18 — dropped conversations leave no ghost meta
     const prev = chatHistory
     setChatHistory(prevList => prevList.filter(s => s.id !== sid))
     if (sid === sessionId) clearChat()
@@ -886,6 +912,142 @@ export default function ChatClient() {
   function bubbleExport(format) {
     exportChat(format)
     closeBubbleAction()
+  }
+
+  // ── v5.18: long-press conversation actions ──────────────────────
+  // Press and hold a conversation row for 450ms → the session action card
+  // opens (same design DNA as the delete-confirmation card) with Pin /
+  // Rename / Share / Delete. Same interaction language as the bubble
+  // long-press above: pointer events, 450ms hold, >8px movement cancels,
+  // the click that follows the hold is swallowed.
+  const clearSessionPress = useCallback(() => {
+    if (sessionPressRef.current.timer) { clearTimeout(sessionPressRef.current.timer); sessionPressRef.current.timer = null }
+  }, [])
+  useEffect(() => clearSessionPress, [clearSessionPress])
+
+  // Hydrate the rename/pin mirror once on mount
+  useEffect(() => { setSessionMeta(readChatMeta()) }, [])
+
+  const startSessionPress = useCallback((e, session) => {
+    if (e.button !== undefined && e.button !== 0) return
+    sessionPressRef.current.longFired = false
+    sessionPressRef.current.x = e.clientX
+    sessionPressRef.current.y = e.clientY
+    clearSessionPress()
+    sessionPressRef.current.timer = setTimeout(() => {
+      sessionPressRef.current.longFired = true
+      const meta = sessionMeta[session.id] || {}
+      setSessionAction({
+        sid: session.id,
+        title: meta.title || session.title || chatTitle(session),
+        pinned: !!(meta.pinned ?? session.pinned),
+      })
+      setSessionRenameMode(false)
+      setSessionRenameValue(meta.title || '')
+      try { navigator.vibrate?.(15) } catch {}
+    }, 450)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clearSessionPress, sessionMeta])
+
+  // Moving the pointer >8px cancels the hold (scrolling still works)
+  const moveSessionPress = useCallback((e) => {
+    const p = sessionPressRef.current
+    if (!p.timer) return
+    if (Math.abs(e.clientX - p.x) > 8 || Math.abs(e.clientY - p.y) > 8) clearSessionPress()
+  }, [clearSessionPress])
+
+  // After a long-press, swallow the click that follows pointer-up so the
+  // conversation doesn't also load on release.
+  const sessionClickGuard = useCallback(() => {
+    if (sessionPressRef.current.longFired) { sessionPressRef.current.longFired = false; return true }
+    return false
+  }, [])
+
+  function closeSessionAction() {
+    setSessionAction(null)
+    setSessionRenameMode(false)
+    setSessionRenameValue('')
+  }
+
+  // Escape closes the card (same rule as ConfirmDialog)
+  useEffect(() => {
+    if (!sessionAction) return
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); closeSessionAction() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [sessionAction])
+
+  // Persist a meta patch: DB first (works once chat-session-meta-migration.sql
+  // has added the columns — PostgREST rejects unknown columns before that,
+  // which we swallow), localStorage always.
+  async function persistSessionMeta(sid, patch) {
+    const meta = { ...readChatMeta(), [sid]: { ...(readChatMeta()[sid] || {}), ...patch, ts: Date.now() } }
+    writeChatMeta(meta)
+    setSessionMeta(meta)
+    if (user && supabasePublic) {
+      try {
+        await supabasePublic
+          .from('chat_sessions')
+          .update(patch)
+          .eq('id', sid)
+          .eq('user_id', user.id)
+      } catch {}
+    }
+  }
+
+  function removeSessionMeta(sid) {
+    const meta = readChatMeta()
+    if (!meta[sid]) return
+    delete meta[sid]
+    writeChatMeta(meta)
+    setSessionMeta(meta)
+  }
+
+  function commitSessionRename() {
+    if (!sessionAction) return
+    const v = sessionRenameValue.trim()
+    if (v) persistSessionMeta(sessionAction.sid, { title: v.slice(0, 120) })
+    closeSessionAction()
+  }
+
+  function toggleSessionPin() {
+    if (!sessionAction) return
+    const next = !sessionAction.pinned
+    persistSessionMeta(sessionAction.sid, { pinned: next })
+    setSessionAction(a => a ? { ...a, pinned: next } : a)
+  }
+
+  // Share = hand the full transcript to the OS share sheet (mobile-first),
+  // falling back to clipboard copy on desktop.
+  async function shareSession() {
+    if (!sessionAction) return
+    const session = chatHistory.find(s => s.id === sessionAction.sid)
+    const msgs = Array.isArray(session?.messages) ? session.messages : []
+    const title = chatTitle(session)
+    let text = `Kivora conversation — ${title}\n\n`
+    msgs.forEach(m => {
+      const c = typeof m.content === 'string' ? m.content : ''
+      text += `${m.role === 'user' ? 'You' : 'Kivora'}: ${c.slice(0, 2000)}\n\n`
+    })
+    if (text.length > 12000) text = text.slice(0, 12000) + '…'
+    const copiedFallback = async () => {
+      try {
+        await navigator.clipboard.writeText(text)
+        showVoiceToast('info', t('chat.session.shared') || 'Conversation copied — paste it anywhere')
+      } catch {}
+    }
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title, text })
+      } else {
+        await copiedFallback()
+      }
+    } catch (err) {
+      if (err?.name !== 'AbortError') await copiedFallback()
+    }
+    closeSessionAction()
   }
 
   // ── Feature #2: Chat Export ──
@@ -1418,23 +1580,37 @@ export default function ChatClient() {
     } catch {}
   }
 
-  const historyGroups = groupByDate(chatHistory)
-
-  // Filter history by search query
-  const filteredHistory = convSearch.trim()
-    ? groupByDate(chatHistory.filter(s => {
-        const title = chatTitle(s)
-        return title.toLowerCase().includes(convSearch.toLowerCase())
-      }))
-    : historyGroups
+  // ── v5.18 history pipeline: meta merge → pin split → date groups ──
+  // Renamed titles and pins come from sessionMeta (localStorage mirror,
+  // later the DB columns); pinned conversations float above the date
+  // groups under their own "Pinned" label.
+  const isSessionPinned = useCallback(s => !!(sessionMeta[s.id]?.pinned ?? s.pinned), [sessionMeta])
 
   function chatTitle(session) {
+    // renamed title wins → future DB column → derived from first user msg
+    const metaTitle = sessionMeta[session?.id]?.title
+    if (metaTitle) return metaTitle
+    if (session?.title) return session.title
     // rows can carry messages as strings/objects from legacy writes —
     // only array shapes are safe to .find() over
     const msgs = Array.isArray(session?.messages) ? session.messages : []
     const first = msgs.find(m => m?.role === 'user')
     return first?.content?.slice(0, 40) || t('chat.new')
   }
+
+  const filteredHistory = useMemo(() => {
+    const q = convSearch.trim().toLowerCase()
+    const base = q
+      ? chatHistory.filter(s => chatTitle(s).toLowerCase().includes(q))
+      : chatHistory
+    const pinned = base.filter(isSessionPinned)
+    const rest = base.filter(s => !isSessionPinned(s))
+    const groups = []
+    if (pinned.length) groups.push({ labelKey: 'chat.date.pinned', sessions: pinned })
+    groups.push(...groupByDate(rest))
+    return groups
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatHistory, convSearch, sessionMeta, isSessionPinned])
 
   const hasInput = input.trim().length > 0 || attachedFile
 
@@ -1831,13 +2007,26 @@ export default function ChatClient() {
                         }`}
                       >
                         <button
-                          onClick={() => loadSession(s)}
+                          onClick={() => { if (!sessionClickGuard()) loadSession(s) }}
+                          onPointerDown={(e) => startSessionPress(e, s)}
+                          onPointerUp={clearSessionPress}
+                          onPointerLeave={clearSessionPress}
+                          onPointerCancel={clearSessionPress}
+                          onPointerMove={moveSessionPress}
+                          onContextMenu={(e) => e.preventDefault()}
+                          style={{ WebkitTouchCallout: 'none' }}
                           className={`flex-1 min-w-0 text-left px-3 py-2 text-caption transition-colors truncate ${
                             s.id === sessionId
                               ? 'text-white'
                               : 'text-[#525252] hover:text-white'
                           }`}
                         >
+                          {(sessionMeta[s.id]?.pinned ?? s.pinned) ? (
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block mr-1 -mt-0.5 text-[#FF3366] shrink-0" aria-hidden="true">
+                              <path d="M12 17v5" />
+                              <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1Z" />
+                            </svg>
+                          ) : null}
                           {chatTitle(s)}
                         </button>
                         <button
@@ -1864,7 +2053,7 @@ export default function ChatClient() {
         </div>
 
         {/* ── Settings toggle + Profile avatar — pinned to bottom ── */}
-        <div className="p-2.5 border-t border-[#181818] shrink-0 space-y-0.5">
+        <div className="px-2.5 pt-2.5 pb-[max(10px,env(safe-area-inset-bottom))] border-t border-[#181818] shrink-0 space-y-0.5">
           <button
             onClick={() => { setSettingsOpen(!settingsOpen); if (!settingsOpen) settingsReset() }}
             className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors font-medium ${
@@ -2343,7 +2532,7 @@ export default function ChatClient() {
               return (
                 <div key={i} data-msg-index={i} className={`flex msg-row ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div
-                    className={`group ${msg.role === 'user' ? 'max-w-[65%]' : 'w-full'}`}
+                    className={`group ${msg.role === 'user' ? 'max-w-[85%] sm:max-w-[65%]' : 'w-full'}`}
                     onPointerDown={(e) => startBubblePress(e, msg, i)}
                     onPointerUp={clearBubblePress}
                     onPointerLeave={clearBubblePress}
@@ -2607,7 +2796,7 @@ export default function ChatClient() {
 
         {/* ── Expandable Chat Bar (hidden in terminal mode) ────────────────────── */}
         {!terminalMode && (
-        <div className="shrink-0 px-[min(5vw,48px)] pb-4 pt-2" style={{ overflow: 'visible' }}>
+        <div className="shrink-0 px-[min(5vw,48px)] pb-[max(16px,env(safe-area-inset-bottom))] pt-2" style={{ overflow: 'visible' }}>
           <div className="max-w-[960px] mx-auto" style={{ overflow: 'visible' }}>
             {/* Suggestion pills — above chat bar, single scrollable row */}
             {messages.length === 0 && (
@@ -3951,6 +4140,121 @@ export default function ChatClient() {
               )}
             </>
           )}
+        </div>,
+        document.body
+      )}
+
+      {/* ── v5.18 session action card — long-press a conversation ──
+          Same card design as the delete-confirmation card (same overlay,
+          same shell, same icon circle, same button treatment): Pin /
+          Rename / Share, then Delete in accent red. */}
+      {sessionAction && createPortal(
+        <div
+          className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) closeSessionAction() }}
+          role="presentation"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={sessionAction.title}
+            className="w-full max-w-[360px] bg-[#141414] border border-[#2a2a2a] rounded-2xl p-5 shadow-[0_24px_64px_rgba(0,0,0,0.6)] animate-scale-in"
+          >
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <div className="w-9 h-9 rounded-full bg-[#FF3366]/12 border border-[#FF3366]/25 flex items-center justify-center shrink-0 text-[#FF3366]" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+                </svg>
+              </div>
+              <button
+                onClick={closeSessionAction}
+                className="text-[#525252] hover:text-white transition-colors p-1 -m-1"
+                aria-label="Close"
+                tabIndex={-1}
+              >
+                <IconClose size={16} />
+              </button>
+            </div>
+
+            {sessionRenameMode ? (
+              <>
+                <h3 className="text-body text-white font-semibold leading-snug mb-1.5">{t('chat.session.rename_title') || 'Rename conversation'}</h3>
+                <p className="text-caption text-muted leading-relaxed mb-4">{sessionAction.title}</p>
+                <input
+                  autoFocus
+                  type="text"
+                  value={sessionRenameValue}
+                  onChange={e => setSessionRenameValue(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commitSessionRename() } }}
+                  maxLength={120}
+                  placeholder={t('chat.session.name_placeholder') || 'Conversation name'}
+                  className="w-full h-10 rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] px-3 text-body text-white placeholder-[#525252] outline-none focus:border-[#404040] transition-colors mb-4"
+                />
+                <div className="flex gap-2.5">
+                  <button
+                    onClick={closeSessionAction}
+                    className="flex-1 h-10 rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] text-caption text-white font-medium hover:border-[#404040] transition-colors"
+                  >
+                    {t('common.cancel') || 'Cancel'}
+                  </button>
+                  <button
+                    onClick={commitSessionRename}
+                    disabled={!sessionRenameValue.trim()}
+                    className="flex-1 h-10 rounded-xl bg-[#FF3366] text-caption text-white font-semibold hover:bg-[#e62e5c] transition-colors disabled:opacity-60"
+                  >
+                    {t('chat.session.rename_save') || 'Save'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-body text-white font-semibold leading-snug mb-1.5 truncate" title={sessionAction.title}>{sessionAction.title}</h3>
+                <p className="text-caption text-muted leading-relaxed mb-4">{t('chat.session.subtitle') || 'What would you like to do with this conversation?'}</p>
+                <div className="space-y-2">
+                  <button
+                    onClick={toggleSessionPin}
+                    className="w-full h-10 rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] text-caption text-white font-medium hover:border-[#404040] transition-colors flex items-center gap-2.5 px-3 text-left"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#737373] shrink-0" aria-hidden="true">
+                      <path d="M12 17v5" />
+                      <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1Z" />
+                    </svg>
+                    {sessionAction.pinned ? (t('chat.session.unpin') || 'Unpin') : (t('chat.session.pin') || 'Pin')}
+                  </button>
+                  <button
+                    onClick={() => setSessionRenameMode(true)}
+                    className="w-full h-10 rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] text-caption text-white font-medium hover:border-[#404040] transition-colors flex items-center gap-2.5 px-3 text-left"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#737373] shrink-0" aria-hidden="true">
+                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                    </svg>
+                    {t('chat.session.rename') || 'Rename'}
+                  </button>
+                  <button
+                    onClick={shareSession}
+                    className="w-full h-10 rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] text-caption text-white font-medium hover:border-[#404040] transition-colors flex items-center gap-2.5 px-3 text-left"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#737373] shrink-0" aria-hidden="true">
+                      <path d="M12 2v13" />
+                      <path d="m16 6-4-4-4 4" />
+                      <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" />
+                    </svg>
+                    {t('chat.session.share') || 'Share'}
+                  </button>
+                  <button
+                    onClick={() => { const sid = sessionAction.sid; closeSessionAction(); deleteSession(sid) }}
+                    className="w-full h-10 rounded-xl bg-[#FF3366] text-caption text-white font-semibold hover:bg-[#e62e5c] transition-colors flex items-center gap-2.5 px-3 text-left"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                      <path d="M10 11v6M14 11v6" />
+                    </svg>
+                    {t('chat.session.delete') || 'Delete'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>,
         document.body
       )}
