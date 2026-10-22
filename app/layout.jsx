@@ -42,11 +42,30 @@ export const metadata = {
     description: 'Tools, opportunities, and honest guides for builders worldwide.',
     type: 'website',
     siteName: 'Kivora',
+    // v5.21 — real platform imagery (was: no image at all → grey placeholder
+    // cards on X/WhatsApp/Telegram). Primary is the OG-spec 1200x630 derived
+    // from the 4K master; og-4k.jpg ships as secondary + landing-hero reuse.
+    // Absolute URLs on purpose — immune to missing/mismatched metadataBase.
+    images: [
+      {
+        url: 'https://kivora.pages.dev/og.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Kivora — Intelligence for builders everywhere',
+      },
+      {
+        url: 'https://kivora.pages.dev/og-4k.jpg',
+        width: 3840,
+        height: 2160,
+        alt: 'Kivora platform — community feed, AI chat, dev tools and study desk',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Kivora | Intelligence for builders everywhere',
     description: 'Tools, opportunities, and honest guides for builders worldwide.',
+    images: ['https://kivora.pages.dev/og.jpg'],
   },
   robots: {
     index: true,
