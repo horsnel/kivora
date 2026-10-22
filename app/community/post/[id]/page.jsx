@@ -6,6 +6,8 @@ import { getSupabaseAdmin } from '@/lib/supabase'
 import SinglePostView from '@/components/SinglePostView'
 import { notFound } from 'next/navigation'
 
+// Required for Cloudflare Pages edge runtime (same as app/explore/[slug])
+export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
 
 function stripMd(text) {

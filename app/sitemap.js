@@ -1,8 +1,8 @@
-// v5.22 — dynamic sitemap: static public routes + community posts.
-// Post URLs keep lastModified from each post's created_at so scrapers see
-// honest freshness; new announcements appear here automatically.
-import { getSupabaseAdmin } from '@/lib/supabase'
-
+// v5.22 — sitemap: static public routes only, deliberately SYNC/STATIC.
+// (An async DB-backed version was tried and broke the @cloudflare/next-on-pages
+// deploy adapter — metadata routes must stay prerenderable here. Per-post
+// URLs are still discoverable via /robots.txt + the community feed; robots
+// points scrapers at this file.)
 const BASE = 'https://kivora.pages.dev'
 
 const STATIC_ROUTES = [
@@ -26,35 +26,15 @@ const STATIC_ROUTES = [
   { path: '/terms', priority: 0.3, changeFreq: 'yearly' },
 ]
 
-export default async function sitemap() {
+// NOTE: /dashboard, /profile, /welcome and /auth are intentionally excluded —
+// they're private or auth-gated, and /dashboard is already Disallowed in
+// robots.txt (a sitemap entry there contradicts robots).
+export default function sitemap() {
   const now = new Date()
-  const entries = STATIC_ROUTES.map(({ path, priority, changeFreq }) => ({
+  return STATIC_ROUTES.map(({ path, priority, changeFreq }) => ({
     url: `${BASE}${path}`,
     lastModified: now,
     changeFrequency: changeFreq,
     priority,
   }))
-
-  try {
-    const admin = getSupabaseAdmin()
-    if (admin) {
-      const { data: posts } = await admin
-        .from('forum_posts')
-        .select('id, created_at')
-        .order('created_at', { ascending: false })
-        .limit(500)
-      for (const p of posts || []) {
-        entries.push({
-          url: `${BASE}/community/post/${p.id}`,
-          lastModified: p.created_at ? new Date(p.created_at) : now,
-          changeFrequency: 'weekly',
-          priority: 0.5,
-        })
-      }
-    }
-  } catch {
-    // Sitemap stays static-only when the DB is unreachable — never throws.
-  }
-
-  return entries
 }
