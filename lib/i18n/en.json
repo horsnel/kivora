@@ -903,5 +903,6 @@
   "welcome.why.card6.desc": "Every guide you generate feeds our wiki. The platform learns and improves with every use.",
   "welcome.why.card6.title": "Gets smarter over time",
   "welcome.why.subtitle": "Most AI tools are built for people who already have everything. We built this for everyone else.",
-  "welcome.why.title": "Why Kivora is different"
+  "welcome.why.title": "Why Kivora is different",
+  "chat.reconnecting": "Connection lost — picking up where it left off…"
 }

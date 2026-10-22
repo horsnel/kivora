@@ -505,6 +505,12 @@ export default function ChatClient() {
   const historyRef = useRef(null)
   // AbortController for the in-flight chat request — powers the stop button
   const abortRef = useRef(null)
+  // v5.20 — resumable streaming: chars already rendered for the in-flight
+  // generation (the resume offset), the reconnect banner flag, and a guard
+  // that keeps the resume loop and normal sends from interleaving.
+  const accLenRef = useRef(0)
+  const [reconnecting, setReconnecting] = useState(false)
+  const resumingRef = useRef(false)
   const modelDropdownRef = useRef(null)
   const chatBarRef = useRef(null)
   const focusDropdownRef = useRef(null)
@@ -774,6 +780,9 @@ export default function ChatClient() {
     setAttachedFile(null)
     setAttachedContent('')
     setAttachedIsImage(false)
+    // v5.20 — a reload can happen while a reply is still streaming; probe
+    // the server-side buffer and recover the generation if needed.
+    probePendingGeneration(session.id)
   }
 
   // ── Delete a conversation ──
@@ -1119,6 +1128,209 @@ export default function ChatClient() {
     }
   }
 
+  // ── v5.20 resumable streaming ────────────────────────────────
+  // When the network drops mid-response the server keeps generating in the
+  // background (ctx.waitUntil) and persists output to chat_generations.
+  // These helpers reconnect and catch up from the last rendered character.
+
+  // Shared post-processing: maps a final payload (done event, legacy JSON,
+  // or a resumed buffer payload) onto the assistant message. Lives at
+  // component scope so both the live path and the resume path share it.
+  const applyChatMeta = (msg, data, res) => {
+    // Classify gate/failure payloads into a notice kind so the renderer
+    // can show the dedicated ChatNoticeCard variant (upgrade / quota /
+    // daily-limit / rate-limit / error) instead of a generic bubble.
+    const errStatus = data.status || (res && !res.ok && res.status >= 400 ? res.status : null)
+    if (data.error && (errStatus || data.quotaExceeded)) {
+      msg.quotaExceeded = true // legacy flag — keeps restored history rendering as a notice
+      if (data.upgrade_url) msg.upgradeUrl = data.upgrade_url
+      if (errStatus === 403 || (errStatus === 402 && data.needed_plan)) msg.notice = 'upgrade'
+      else if (errStatus === 402 || data.anonLimitReached) {
+        msg.notice = 'quota'
+        if (data.anonLimitReached) msg.anonLimitReached = true
+      } else if (errStatus === 429) msg.notice = 'rate'
+      else msg.notice = 'error'
+    }
+    if (data.searchUsed) {
+      msg.searchUsed = true
+      msg.searchQuery = data.searchQuery || ''
+    }
+    if (data.codeExecuted) msg.codeExecuted = true
+    if (data.sandboxUsed) msg.sandboxUsed = true
+    if (data.gpuUsed) {
+      msg.gpuUsed = true
+      msg.accelerator = data.accelerator || 'T4'
+    }
+    if (data.remoteExecUsed) {
+      msg.remoteExecUsed = true
+      msg.execLanguage = data.execLanguage || 'python'
+    }
+    if (data.downloadFile) msg.downloadFile = data.downloadFile
+    if (data.urlRead) {
+      msg.urlRead = true
+      msg.urlReadSource = data.urlReadSource || ''
+    }
+    if (data.imageGenerated) {
+      msg.isImage = true
+      msg.imageData = data.imageData
+      msg.imagePrompt = data.imagePrompt
+      msg.imageModel = 'flux'
+      msg.imageSize = '1024x1024'
+    }
+    const liveArtifacts = sanitizeArtifactsList(data.artifacts)
+    if (liveArtifacts) msg.artifacts = liveArtifacts
+    const liveCards = sanitizeOpportunityCardsList(data.opportunityCards)
+    if (liveCards) msg.opportunityCards = liveCards
+    if (data.siteDeployed && data.deployUrl) {
+      msg.siteDeployed = true
+      msg.deployUrl = data.deployUrl
+      msg.deployProject = data.deployProject || ''
+      msg.deployHtml = data.deployHtml || ''
+      msg.deployCss = data.deployCss || ''
+      msg.deployJs = data.deployJs || ''
+    }
+    return msg
+  }
+
+  function appendAssistantDelta(v) {
+    if (!v) return
+    accLenRef.current += v.length
+    setMessages(prev => {
+      const next = [...prev]
+      const last = next[next.length - 1]
+      if (last && last.role === 'assistant') next[next.length - 1] = { ...last, content: (last.content || '') + v }
+      return next
+    })
+  }
+
+  function finalizeResumed(data, res) {
+    setStreaming(false)
+    setImageGenerating(false)
+    const assistantMsg = { role: 'assistant', content: '' }
+    if (data.error) {
+      assistantMsg.content = data.error
+    } else {
+      // done is authoritative — replaces the streamed bubble (covers the
+      // discardable preamble the forced-tool retry can emit)
+      assistantMsg.content = data.reply || "I couldn't generate a response for that. Please try sending it again."
+      if (!data.reply) assistantMsg.isError = true
+    }
+    applyChatMeta(assistantMsg, data, res)
+    setMessages(prev => { const next = [...prev]; next[next.length - 1] = assistantMsg; return next })
+  }
+
+  function resumeGiveUp() {
+    setMessages(prev => {
+      const next = [...prev]
+      const last = next[next.length - 1]
+      if (last && last.role === 'assistant') {
+        // Empty bubble (nothing ever rendered) — turn it into the error card.
+        if (!String(last.content || '').trim()) next[next.length - 1] = { role: 'assistant', content: t('chat.error.network'), isError: true }
+      } else {
+        // The drop happened before the response even opened — no bubble yet.
+        next.push({ role: 'assistant', content: t('chat.error.network'), isError: true })
+      }
+      return next
+    })
+  }
+
+  // Reconnect with backoff until the buffer hands over a terminal event.
+  // Returns 'done' | 'aborted' | 'none' | 'stalled'.
+  async function runResumeLoop(sid, offset) {
+    const waits = [500, 1000, 2000, 3500, 5000]
+    for (let attempt = 0; attempt < 10; attempt++) {
+      if (attempt > 0) await new Promise(r => setTimeout(r, waits[Math.min(attempt - 1, waits.length - 1)]))
+      if (abortRef.current?.signal?.aborted) return 'aborted'
+      try {
+        const token = user ? ((await supabasePublic?.auth?.getSession())?.data?.session?.access_token || '') : ''
+        const res = await fetch(`/api/chat/resume?sid=${encodeURIComponent(sid)}&offset=${offset}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          signal: abortRef.current?.signal,
+        })
+        if (res.status === 404 || res.status === 403) return 'none'
+        const ct = res.headers.get('content-type') || ''
+        if (ct.includes('text/event-stream') && res.body) {
+          let finalEvent = null
+          await streamSSE(res, (evt) => {
+            if (evt.type === 'delta') appendAssistantDelta(evt.v)
+            else if (evt.type === 'status' && evt.tool === 'generate_image') setImageGenerating(true)
+            else if (evt.type === 'done' || evt.type === 'error') finalEvent = evt
+          })
+          if (finalEvent) { finalizeResumed(finalEvent, res); return 'done' }
+          // stream ended without a terminal event — connection dropped
+          // again mid-recovery; fall through to the next backoff attempt
+        } else {
+          const data = await res.json().catch(() => null)
+          if (data?.status === 'done') {
+            appendAssistantDelta(data.content || '')
+            finalizeResumed(data, res)
+            return 'done'
+          }
+          if (data?.status === 'error') { finalizeResumed({ ...data }, res); return 'done' }
+          if (data?.status === 'forbidden' || data?.status === 'none') return 'none'
+          // active row without an SSE body — retry
+        }
+      } catch (e) {
+        if (e?.name === 'AbortError') return 'aborted'
+        // network error — next backoff attempt
+      }
+    }
+    return 'stalled'
+  }
+
+  // Page reloaded while a reply was streaming? Ask the buffer. Called from
+  // loadSession — the only path that repopulates an existing conversation.
+  async function probePendingGeneration(sid) {
+    try {
+      if (resumingRef.current) return
+      const token = user ? ((await supabasePublic?.auth?.getSession())?.data?.session?.access_token || '') : ''
+      const authHeaders = token ? { Authorization: `Bearer ${token}` } : {}
+      const res = await fetch(`/api/chat/resume?sid=${encodeURIComponent(sid)}&probe=1`, { headers: authHeaders })
+      if (!res.ok) return
+      const data = await res.json()
+      if (data.status === 'active') {
+        // Generation is still running server-side — open a fresh assistant
+        // bubble and catch up from the very beginning of the buffer.
+        resumingRef.current = true
+        setReconnecting(true)
+        setStreaming(true)
+        setMessages(prev => [...prev, { role: 'assistant', content: '' }])
+        accLenRef.current = 0
+        const controller = new AbortController()
+        abortRef.current = controller // stop button works during recovery too
+        let outcome = 'failed'
+        try { outcome = await runResumeLoop(sid, 0) } finally {
+          resumingRef.current = false
+          setReconnecting(false)
+          if (abortRef.current === controller) abortRef.current = null
+        }
+        if (outcome === 'none' || outcome === 'stalled' || outcome === 'failed') {
+          setStreaming(false)
+          resumeGiveUp()
+        }
+      } else if (data.status === 'done') {
+        // Finished while we were away. The final session save usually
+        // landed in the loaded transcript already — only append when the
+        // last assistant bubble does not already carry this exact reply.
+        const full = await fetch(`/api/chat/resume?sid=${encodeURIComponent(sid)}&offset=0`, { headers: authHeaders })
+        if (!full.ok) return
+        const doneData = await full.json().catch(() => null)
+        if (doneData?.status !== 'done') return
+        const reply = doneData.reply || doneData.content || ''
+        if (!String(reply).trim()) return
+        setMessages(prev => {
+          const next = [...prev]
+          const last = next[next.length - 1]
+          if (last && last.role === 'assistant' && String(last.content || '') === String(doneData.reply || '')) return next
+          const assistantMsg = { role: 'assistant', content: reply }
+          applyChatMeta(assistantMsg, doneData, full)
+          next.push(assistantMsg)
+          return next
+        })
+      }
+    } catch { /* probe is best-effort */ }
+  }
+
   async function send(retryConvo) {
     // ⚠️ Handler-reference guard: if send ever gets wired directly as an event
     // handler (onClick={send}), React passes the SyntheticEvent as retryConvo.
@@ -1129,7 +1341,7 @@ export default function ChatClient() {
     // non-array retryConvo as a normal (non-retry) send instead.
     if (retryConvo && !Array.isArray(retryConvo)) retryConvo = null
     const q = input.trim()
-    if (loading) return
+    if (loading || resumingRef.current) return // resume loop owns the stream
     if (!retryConvo && !q && !attachedFile) return
 
     // Hoisted so the retry path (retryConvo set) skips straight to the fetch
@@ -1240,63 +1452,8 @@ export default function ChatClient() {
         })
       })
 
-      // Shared post-processing: maps a final payload (done event or legacy
-      // JSON) onto the assistant message. Runs once per reply.
-      const applyChatMeta = (msg, data) => {
-        // Classify gate/failure payloads into a notice kind so the renderer
-        // can show the dedicated ChatNoticeCard variant (upgrade / quota /
-        // daily-limit / rate-limit / error) instead of a generic bubble.
-        const errStatus = data.status || (!res.ok && res.status >= 400 ? res.status : null)
-        if (data.error && (errStatus || data.quotaExceeded)) {
-          msg.quotaExceeded = true // legacy flag — keeps restored history rendering as a notice
-          if (data.upgrade_url) msg.upgradeUrl = data.upgrade_url
-          if (errStatus === 403 || (errStatus === 402 && data.needed_plan)) msg.notice = 'upgrade'
-          else if (errStatus === 402 || data.anonLimitReached) {
-            msg.notice = 'quota'
-            if (data.anonLimitReached) msg.anonLimitReached = true
-          } else if (errStatus === 429) msg.notice = 'rate'
-          else msg.notice = 'error'
-        }
-        if (data.searchUsed) {
-          msg.searchUsed = true
-          msg.searchQuery = data.searchQuery || ''
-        }
-        if (data.codeExecuted) msg.codeExecuted = true
-        if (data.sandboxUsed) msg.sandboxUsed = true
-        if (data.gpuUsed) {
-          msg.gpuUsed = true
-          msg.accelerator = data.accelerator || 'T4'
-        }
-        if (data.remoteExecUsed) {
-          msg.remoteExecUsed = true
-          msg.execLanguage = data.execLanguage || 'python'
-        }
-        if (data.downloadFile) msg.downloadFile = data.downloadFile
-        if (data.urlRead) {
-          msg.urlRead = true
-          msg.urlReadSource = data.urlReadSource || ''
-        }
-        if (data.imageGenerated) {
-          msg.isImage = true
-          msg.imageData = data.imageData
-          msg.imagePrompt = data.imagePrompt
-          msg.imageModel = 'flux'
-          msg.imageSize = '1024x1024'
-        }
-        const liveArtifacts = sanitizeArtifactsList(data.artifacts)
-        if (liveArtifacts) msg.artifacts = liveArtifacts
-        const liveCards = sanitizeOpportunityCardsList(data.opportunityCards)
-        if (liveCards) msg.opportunityCards = liveCards
-        if (data.siteDeployed && data.deployUrl) {
-          msg.siteDeployed = true
-          msg.deployUrl = data.deployUrl
-          msg.deployProject = data.deployProject || ''
-          msg.deployHtml = data.deployHtml || ''
-          msg.deployCss = data.deployCss || ''
-          msg.deployJs = data.deployJs || ''
-        }
-        return msg
-      }
+      // Shared post-processing moved to component scope (v5.20) — the
+      // resumable-stream finalizer reuses it for recovered replies.
 
       const contentType = res.headers.get('content-type') || ''
 
@@ -1305,6 +1462,7 @@ export default function ChatClient() {
         // Per-delta setState re-rendered the whole client and re-parsed the
         // growing markdown per token (the streaming freeze/glitch). Deltas
         // now accumulate and flush to state at ~10Hz instead.
+        accLenRef.current = 0
         setMessages(prev => [...prev, { role: 'assistant', content: '' }])
         setStreaming(true)
         let acc = ''
@@ -1330,6 +1488,7 @@ export default function ChatClient() {
           await streamSSE(res, (evt) => {
             if (evt.type === 'delta') {
               acc += evt.v
+              accLenRef.current = acc.length // resume offset if the network drops
               scheduleFlush()
             } else if (evt.type === 'done') {
               finalEvent = evt
@@ -1380,7 +1539,7 @@ export default function ChatClient() {
           assistantMsg.content = data.reply || acc || "I couldn't generate a response for that. Please try sending it again."
           if (!data.reply && !acc.trim()) assistantMsg.isError = true
         }
-        applyChatMeta(assistantMsg, data)
+        applyChatMeta(assistantMsg, data, res)
         setMessages(prev => { const next = [...prev]; next[next.length - 1] = assistantMsg; return next })
       } else {
         // ── Legacy JSON path (server without stream support / error JSON) ──
@@ -1388,7 +1547,7 @@ export default function ChatClient() {
         const fellBack = !data.reply && !data.error
         const assistantMsg = { role: 'assistant', content: data.reply || data.error || "I couldn't generate a response for that. Please try sending it again." }
         if (fellBack) assistantMsg.isError = true
-        applyChatMeta(assistantMsg, data)
+        applyChatMeta(assistantMsg, data, res)
         setMessages(prev => [...prev, assistantMsg])
       }
     } catch (err) {
@@ -1403,6 +1562,19 @@ export default function ChatClient() {
           if (last && last.role === 'assistant' && !last.content) next.pop()
           return next
         })
+      } else if (sid && !resumingRef.current) {
+        // v5.20 — network drop mid-generation. The server keeps generating
+        // in the background and buffers output; reconnect and catch up from
+        // the last character we rendered.
+        reportClientError(err)
+        resumingRef.current = true
+        setReconnecting(true)
+        let outcome = 'failed'
+        try { outcome = await runResumeLoop(sid, accLenRef.current) } finally {
+          resumingRef.current = false
+          setReconnecting(false)
+        }
+        if (outcome === 'none' || outcome === 'stalled' || outcome === 'failed') resumeGiveUp()
       } else {
         // Feed the forensics pipeline so real network/API failures arrive with
         // a full stack instead of being indistinguishable from silent bugs.
@@ -2772,6 +2944,15 @@ export default function ChatClient() {
                 </div>
               )
             })}
+
+            {reconnecting && (
+              <div className="flex justify-start">
+                <div className="flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] text-[#ffb84d] bg-[#ffb84d]/[0.08] border border-[#ffb84d]/[0.15]">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#ffb84d] animate-pulse" />
+                  {t('chat.reconnecting')}
+                </div>
+              </div>
+            )}
 
             {loading && imageGenerating ? (
               <ImageGeneratingCard />

@@ -4,7 +4,8 @@ import { mistralChat, mistralChatStream, setMistralApiKeys, isMistralConfigured,
 import { setJudge0Config } from '@/lib/judge0'
 import { sseResponse } from '@/lib/sse'
 import { createClient } from '@supabase/supabase-js'
-import { getEnvVar } from '@/lib/cfEnv'
+import { getEnvVar, runInBackground } from '@/lib/cfEnv'
+import { createGenRecorder } from '@/lib/genBuffer'
 import { rateLimit, anonymousRateLimit, anonymousDailyLimit, getClientIP } from '@/lib/ratelimit'
 import { safeJson } from '@/lib/payload'
 import { toolDefs, toolHandlers, TOOL_INSTRUCTIONS, filterToolsByQuery, detectRequiredTool, setToolSandboxConfig } from '@/lib/toolRegistry'
@@ -408,17 +409,35 @@ export async function POST(req) {
     return Response.json({ error: 'Payload too large or invalid JSON.' }, { status: 413 })
   }
   // Streaming mode: SSE response opens immediately, then all events
-  // (deltas + final payload / errors) flow through it.
+  // (deltas + final payload / errors) flow through it. The handler's work
+  // promise is registered with ctx.waitUntil (v5.20) so generation keeps
+  // running — and keeps persisting to the resumable-stream buffer — even
+  // after the client's network drops mid-response.
   if (body?.stream) {
-    return sseResponse((send) => processChat(req, body, send))
+    return sseResponse(
+      (send) => processChat(req, body, send),
+      (work) => { runInBackground(work) }
+    )
   }
   return processChat(req, body, null)
 }
 
-async function processChat(req, body, send) {
+async function processChat(req, body, _send) {
+  // v5.20 — every send goes through the recorder: after a client disconnect
+  // the raw send turns into a silent no-op (sseResponse swallows enqueue
+  // failures), but the recorder keeps persisting output so a reconnecting
+  // client can catch up via /api/chat/resume.
+  let send = _send
+  let genRecorder = null
+
   // JSON emission helper — in streaming mode, error payloads travel through
   // SSE error events instead of Response.json (status is carried in-band).
+  // Terminal errors are also recorded in the buffer so a reconnecting
+  // client renders the same notice card instead of waiting on a dead stream.
   const json = (payload, status) => {
+    if (genRecorder && send && status && status >= 400) {
+      try { genRecorder.fail({ status: status || 400, ...payload }) } catch {}
+    }
     if (!send) return Response.json(payload, { status: status || 200 })
     send({ type: 'error', status: status || 200, ...payload })
     return null
@@ -496,6 +515,20 @@ async function processChat(req, body, send) {
         const { data: { user: u } } = await userClient.auth.getUser()
         chatUser = u
       } catch { /* anonymous */ }
+    }
+
+    // ── v5.20 resumable-stream buffer ──
+    // Created before any gate that can terminate the request, so even a
+    // 402/429 rejection survives a reload as a renderable notice.
+    if (send && sessionId) {
+      genRecorder = createGenRecorder(admin, sessionId, chatUser?.id || null)
+      if (genRecorder) {
+        const rawSend = send
+        send = (evt) => {
+          try { genRecorder.observe(evt) } catch {}
+          rawSend(evt)
+        }
+      }
     }
 
     // Logged-in burst protection (per-account, complements the per-IP limits
@@ -659,6 +692,7 @@ async function processChat(req, body, send) {
         }
         if (send) {
           send({ type: 'delta', v: reply })
+          await genRecorder?.finish({ reply, model: 'kivora-greeting', searchUsed: false })
           send({ type: 'done', reply, model: 'kivora-greeting', searchUsed: false })
           return null
         }
@@ -1171,6 +1205,7 @@ async function processChat(req, body, send) {
       // Background wiki ingest (non-blocking — fire and forget)
       ingestToWiki(admin, { userMessage: lastUserMsg.content, assistantReply: reply, userId })
       if (send) {
+        await genRecorder?.finish(response)
         send({ type: 'done', ...response })
         return null
       }
@@ -1233,12 +1268,16 @@ async function processChat(req, body, send) {
     // Background wiki ingest (non-blocking — fire and forget)
     ingestToWiki(admin, { userMessage: lastUserMsg.content, assistantReply: reply, userId })
     if (send) {
+      await genRecorder?.finish(response)
       send({ type: 'done', ...response })
       return null
     }
     return Response.json(response)
   } catch (err) {
     console.error('[chat]', err)
+    // Record the crash so a reconnecting client gets the same terminal
+    // error instead of polling a buffer that will never resolve.
+    try { await genRecorder?.fail({ error: 'I hit a snag reaching the AI service. Please try again in a moment.' }) } catch {}
 
     // Refund credits on failure — the chat didn't complete
     if (admin && chatUser?.id) {
