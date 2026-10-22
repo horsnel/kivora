@@ -82,17 +82,11 @@ export async function GET(req) {
     // v5.16 — the verified Kivora account keeps its own feed current:
     // every feed request makes sure the announcement catalog is published
     // (no-op when everything exists; throttled to once per 10 min).
-    // Fire-and-forget — never blocks the read.
-    // `?debug=official` — temporary diagnostic: runs the ensure INLINE with
-    // force+verbose and returns the full result. Leaks no secrets (booleans
-    // + provider error strings). Remove once identity bootstrap is verified.
-    const { searchParams } = new URL(req.url)
-    if (searchParams.get('debug') === 'official') {
-      const dbg = await ensureOfficialPosts(admin, { force: true, verbose: true }).catch(e => ({ ok: false, error: String(e?.message || e) }))
-      return Response.json({ debug: true, ...dbg })
-    }
+    // Fire-and-forget — never blocks the read. Identity bootstrap verified
+    // in production 2026-10-23 (officialId 006c3e27…, 5 announcements live).
     try { ensureOfficialPosts(admin).catch(() => {}) } catch {}
 
+    const { searchParams } = new URL(req.url)
     const postId = searchParams.get('id')
     const officialId = await getOfficialId(admin).catch(() => null)
     const markVerified = (row) => ({ ...row, author_verified: officialId ? row.user_id === officialId : false })
