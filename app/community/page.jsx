@@ -1,9 +1,50 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import dynamic from 'next/dynamic'
+import remarkGfm from 'remark-gfm'
 import { supabasePublic } from '@/lib/supabase'
 import { authFetch } from '@/lib/authFetch'
 import { useTranslation } from '@/components/LanguageProvider'
+import { MarkdownCodeBlock } from '@/components/MarkdownRenderer'
 import { IconChat, IconArrowLeft, IconPlus, IconSpinner, IconTrash, IconSend, IconUser, IconPaperclip, IconFile, IconClose, IconDownload } from '@/components/Icons'
+
+// v5.16 — post bodies render as markdown so shared code blocks carry the
+// Copy + Run buttons (global terminal bridge): a runnable snippet in ANY
+// community post executes in the Live Terminal, no login required.
+const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false })
+
+function extractCodeText(node) {
+  if (!node) return ''
+  if (node.type === 'text') return node.value || ''
+  if (node.children) return node.children.map(extractCodeText).join('')
+  return ''
+}
+
+const COMMUNITY_MD_COMPONENTS = {
+  code: ({ className: codeClassName, children, node }) => {
+    const parentIsPre = node?.parent?.tagName === 'pre'
+    if (parentIsPre) return <>{children}</>
+    return <code className="font-mono text-[0.9em] bg-white/[0.08] px-1.5 py-0.5 rounded">{children}</code>
+  },
+  pre: ({ children, node }) => {
+    const codeNode = node?.children?.[0]
+    const codeClassName = codeNode?.properties?.className?.[0] || ''
+    const match = codeClassName.match(/language-(\w+)/)
+    const langLabel = match
+      ? match[1].charAt(0).toUpperCase() + match[1].slice(1)
+      : 'Code'
+    return (
+      <MarkdownCodeBlock
+        langLabel={langLabel}
+        codeText={extractCodeText(codeNode)}
+        codeClassName={codeClassName}
+      />
+    )
+  },
+  a: ({ children, href }) => (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#FF3366] hover:underline">{children}</a>
+  ),
+}
 
 const inputClass = "w-full bg-[#0a0a0a] border border-[#262626] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#404040] focus:outline-none transition-colors"
 
@@ -590,8 +631,10 @@ export default function CommunityPage() {
                   </button>
                 )}
               </div>
-              <div className="text-body text-[#d4d4d4] leading-relaxed whitespace-pre-wrap mb-4">
-                {selectedPost.body}
+              <div className="text-body text-[#d4d4d4] leading-relaxed mb-4 community-md">
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={COMMUNITY_MD_COMPONENTS}>
+                  {selectedPost.body || ''}
+                </ReactMarkdown>
               </div>
               <AttachmentMedia items={selectedPost.attachments} onImageClick={setLightbox} />
               <div className="flex items-center gap-3 text-caption text-[#525252] pt-3 border-t border-[#1a1a1a]">
