@@ -251,6 +251,24 @@ export default function WelcomePage() {
           <p className="text-[11px] sm:text-xs text-muted2 mt-4 animate-fade-up animate-fade-up-4">
             {t('welcome.cta.sub')}
           </p>
+
+          {/* v5.22 — real product visual under the hero copy */}
+          <div className="mt-12 sm:mt-16 animate-fade-up animate-fade-up-4">
+            <div className="relative max-w-3xl mx-auto">
+              <div className="absolute -inset-6 bg-red-600/10 blur-[80px] rounded-full pointer-events-none" />
+              <div className="relative rounded-2xl overflow-hidden border border-[#1f1f1f] shadow-2xl shadow-black/60">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/images/app-showcase.jpg"
+                  alt="The Kivora app — community feed with verified team updates, AI chat, dev tools and study desk"
+                  className="w-full h-auto"
+                  loading="eager"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+              </div>
+              <p className="text-[11px] text-muted2 mt-3">Live community feed · verified Kivora team updates · runnable code in every post</p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -485,6 +503,44 @@ export default function WelcomePage() {
               )
             })}
           </div>
+        </div>
+
+        {/* ── Community — the real feed, live capture (v5.22) ── */}
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-[#1a1a1a] flex items-center justify-center text-[#737373]">
+              <IconChat size={16} />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-base font-semibold tracking-tight text-white">Community</h2>
+              <p className="text-xs text-[#737373]">Share what you build, run code inside posts, hear updates from the team first</p>
+            </div>
+            <Link
+              href="/community"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#dc2626]/15 text-red-400 border border-red-500/20 hover:bg-[#dc2626]/25 transition-colors duration-300"
+            >
+              Join
+              <IconArrowRight size={12} />
+            </Link>
+          </div>
+
+          <Link
+            href="/community"
+            className="group block relative rounded-xl overflow-hidden border border-[#1a1a1a] hover:border-[#2a2a2a] transition-colors duration-300"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/community-live.jpg"
+              alt="The Kivora community feed — verified team updates, runnable code blocks, and discussions"
+              className="w-full h-auto group-hover:scale-[1.01] transition-transform duration-500"
+              loading="lazy"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent pointer-events-none" />
+            <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
+              <h3 className="text-lg sm:text-xl font-semibold text-white tracking-tight">Built in public, discussed in the open</h3>
+              <p className="text-xs sm:text-sm text-white/60 mt-0.5">Every release ships with a post from the verified Kivora team account.</p>
+            </div>
+          </Link>
         </div>
       </section>
 

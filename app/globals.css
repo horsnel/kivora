@@ -2057,3 +2057,24 @@ input, textarea, select {
    threads. The streaming row (last) is excluded so it always paints. */
 .msg-row { content-visibility: auto; contain-intrinsic-size: auto 72px; }
 .msg-row:last-child { content-visibility: visible; }
+
+/* ── Accessibility pass (v5.22) ─────────────────────────────────────
+   Keyboard focus rings: visible for keyboard users only (focus-visible),
+   brand red so they read as intentional rather than default chrome. */
+:focus-visible {
+  outline: 2px solid #FF3366;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Respect users who opt out of motion: kill animations/transitions and
+   any smooth scrolling. Decorative loops (morph logo, shimmer, carousels)
+   become static first-frames. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

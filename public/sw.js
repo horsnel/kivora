@@ -134,3 +134,44 @@ self.addEventListener('fetch', (event) => {
   // Everything else (public/ files, avatar route, etc.) — browser HTTP cache
   // handles these natively via Cache-Control headers. No interception.
 })
+
+// ── v5.22 Web Push ──────────────────────────────────────────────────
+// "Your reply finished generating while you were offline" — the chat route
+// sends this when a background generation completes after a disconnect.
+self.addEventListener('push', (event) => {
+  let data = {}
+  try { data = event.data ? event.data.json() : {} } catch {}
+  const title = String(data.title || 'Kivora').slice(0, 120)
+  const body = String(data.body || '').slice(0, 300)
+  const url = /^\/[a-z]/.test(String(data.url)) ? data.url : '/chat'
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      tag: String(data.tag || 'kivora-chat').slice(0, 60),
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      data: { url },
+    }).catch(() => {})
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const target = (event.notification.data && event.notification.data.url) || '/chat'
+  event.waitUntil(
+    (async () => {
+      const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      for (const client of clientList) {
+        try {
+          const u = new URL(client.url)
+          if (u.origin === self.location.origin && 'focus' in client) {
+            await client.focus()
+            if ('navigate' in client) { try { await client.navigate(target) } catch {} }
+            return
+          }
+        } catch {}
+      }
+      await self.clients.openWindow(target)
+    })()
+  )
+})

@@ -904,5 +904,18 @@
   "welcome.why.card6.title": "Gets smarter over time",
   "welcome.why.subtitle": "Most AI tools are built for people who already have everything. We built this for everyone else.",
   "welcome.why.title": "Why Kivora is different",
-  "chat.reconnecting": "Connection lost — picking up where it left off…"
+  "chat.reconnecting": "Connection lost — picking up where it left off…",
+  "chat.guest_banner": "You're chatting as a guest — your history stays on this device only.",
+  "profile.notifications": "Notifications",
+  "profile.notifications_desc": "Get a push when a background reply finishes generating after you go offline.",
+  "profile.notifications_enable": "Enable push notifications",
+  "profile.notifications_enabled": "Push notifications are on",
+  "profile.notifications_blocked": "Notifications are blocked in your browser settings — unblock this site to turn them on.",
+  "profile.notifications_unsupported": "This browser doesn't support push notifications.",
+  "profile.your_data": "Your data",
+  "profile.export_data": "Export my data",
+  "profile.export_desc": "Download every conversation as JSON and Markdown — yours to keep or take anywhere.",
+  "profile.exporting": "Preparing your export…",
+  "profile.export_done": "Export ready — check your downloads",
+  "profile.export_failed": "Export failed"
 }

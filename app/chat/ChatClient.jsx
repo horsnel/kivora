@@ -350,6 +350,11 @@ export default function ChatClient() {
   const [copiedIndex, setCopiedIndex] = useState(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [user, setUser] = useState(null)
+  // v5.22 — guest banner ("you're chatting as a guest") — dismissible, per-device
+  const [guestBannerClosed, setGuestBannerClosed] = useState(() => {
+    if (typeof window === 'undefined') return false
+    try { return window.localStorage.getItem('kv_guest_banner_dismissed') === '1' } catch { return false }
+  })
   const [effort, setEffort] = useState('low')
   const [showUpgrade, setShowUpgrade] = useState(null) // { name } — Pro model gate popup
   const [chatHistory, setChatHistory] = useState([])
@@ -2608,6 +2613,31 @@ export default function ChatClient() {
           </button>
         </div>
 
+        {/* ── v5.22 guest banner — chat is open to everyone; this is the upgrade nudge ── */}
+        {!user && !guestBannerClosed && (
+          <div role="status" className="shrink-0 px-4 sm:px-6 py-2 bg-[#141414]/80 border-b border-white/[0.05] flex items-center gap-3">
+            <span className="text-xs text-[#a3a3a3] flex-1 min-w-0 truncate">
+              {t('chat.guest_banner') || "You're chatting as a guest — history stays on this device only."}
+            </span>
+            <Link
+              href="/auth"
+              className="shrink-0 text-xs font-semibold text-white bg-[#dc2626] hover:bg-red-700 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              {t('nav.signin') || 'Sign in'}
+            </Link>
+            <button
+              onClick={() => {
+                setGuestBannerClosed(true)
+                try { window.localStorage.setItem('kv_guest_banner_dismissed', '1') } catch {}
+              }}
+              className="shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-[#525252] hover:text-white hover:bg-white/[0.06] transition-colors"
+              aria-label={t('common.close') || 'Dismiss'}
+            >
+              <IconClose size={13} />
+            </button>
+          </div>
+        )}
+
         {/* ── v5.11 Live Terminal (restored) ── */}
         {terminalMode ? (
           <div className="flex-1 min-h-0 flex flex-col">
@@ -2654,6 +2684,9 @@ export default function ChatClient() {
             pinnedToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120
           }}
           className="flex-1 min-h-0 overflow-y-auto overscroll-behavior-contain"
+          role="log"
+          aria-live="polite"
+          aria-label={t('chat.title') || 'Chat'}
         >
           <div className="max-w-[960px] mx-auto px-[min(5vw,48px)] py-6 space-y-4">
             {messages.length === 0 && (

@@ -7,7 +7,7 @@ import { authFetch } from '@/lib/authFetch'
 import { useTranslation } from '@/components/LanguageProvider'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { MarkdownCodeBlock } from '@/components/MarkdownRenderer'
-import { IconChat, IconArrowLeft, IconPlus, IconSpinner, IconTrash, IconSend, IconUser, IconPaperclip, IconFile, IconClose, IconDownload } from '@/components/Icons'
+import { IconChat, IconArrowLeft, IconPlus, IconSpinner, IconTrash, IconSend, IconUser, IconPaperclip, IconFile, IconClose, IconDownload, IconShare } from '@/components/Icons'
 
 // v5.16 — post bodies render as markdown so shared code blocks carry the
 // Copy + Run buttons (global terminal bridge): a runnable snippet in ANY
@@ -318,6 +318,16 @@ export default function CommunityPage() {
     setSubmitting(false)
   }
 
+  // v5.22 — share a single post: copies (or natively shares) the per-post
+  // link, which carries its own OG card via /community/post/[id].
+  async function sharePostLink(id) {
+    const url = `${window.location.origin}/community/post/${id}`
+    try {
+      if (navigator.share) await navigator.share({ url, title: 'Kivora community post' })
+      else await navigator.clipboard.writeText(url)
+    } catch {}
+  }
+
   async function createReply() {
     if (!user || !selectedPost) return
     if (!replyBody.trim()) return
@@ -478,7 +488,18 @@ export default function CommunityPage() {
                       )}
                     </div>
                   </div>
-                  <div className="shrink-0 mt-1">
+                  <div className="shrink-0 mt-1 flex items-center gap-1.5">
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Share this post"
+                      title="Share this post"
+                      onClick={(e) => { e.stopPropagation(); e.preventDefault(); sharePostLink(post.id) }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); sharePostLink(post.id) } }}
+                      className="w-8 h-8 bg-[#1a1a1a] rounded-lg flex items-center justify-center hover:bg-[#262626] transition-colors cursor-pointer"
+                    >
+                      <IconShare size={13} className="text-muted" />
+                    </span>
                     {post.reply_count > 0 && (
                       <div className="w-8 h-8 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
                         <span className="text-caption font-bold text-muted">{post.reply_count}</span>

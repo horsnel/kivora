@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabasePublic } from '@/lib/supabase'
 import { authFetch } from '@/lib/authFetch'
 import { internalAvatarUrl, resolveAvatarUrl } from '@/lib/avatar'
-import { IconCheck, IconSpinner, IconGlobe, IconMapPin, IconLink, IconWarning, IconLogout } from '@/components/Icons'
+import { IconCheck, IconSpinner, IconGlobe, IconMapPin, IconLink, IconWarning, IconLogout, IconPulse, IconDownload } from '@/components/Icons'
 import { useTranslation } from '@/components/LanguageProvider'
 
 const PRESET_AVATARS = [
@@ -63,6 +63,9 @@ export default function ProfilePage() {
   const [deleting, setDeleting] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  // v5.22 — push notifications + data export
+  const [pushState, setPushState] = useState('unknown') // off | enabled | blocked | unsupported | busy
+  const [exportState, setExportState] = useState(null) // null | busy | done | error
   const [showAvatarPicker, setShowAvatarPicker] = useState(false)
   const [toast, setToast] = useState(null) // { type: 'success'|'error', message: string }
   const [form, setForm] = useState({
@@ -198,6 +201,133 @@ export default function ProfilePage() {
       setToast({ type: 'error', message: 'Failed to sign out' })
     }
   }
+
+  // ── v5.22 Web Push notifications ────────────────────────────────
+  // "Your reply finished generating while you were offline" lives here:
+  // one toggle, one subscription, stored server-side against the account.
+  const urlBase64ToUint8Array = (b64) => {
+    const pad = '='.repeat((4 - (b64.length % 4)) % 4)
+    const bin = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'))
+    const out = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+    return out
+  }
+
+  async function refreshPushState() {
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+        setPushState('unsupported'); return
+      }
+      if (Notification.permission === 'denied') { setPushState('blocked'); return }
+      const reg = await navigator.serviceWorker.getRegistration()
+      const sub = reg ? await reg.pushManager.getSubscription() : null
+      setPushState(sub ? 'enabled' : 'off')
+    } catch { setPushState('off') }
+  }
+
+  async function enablePush() {
+    setPushState('busy')
+    try {
+      const perm = await Notification.requestPermission()
+      if (perm !== 'granted') { setPushState(perm === 'denied' ? 'blocked' : 'off'); return }
+      const { key } = await (await fetch('/api/push/key')).json()
+      if (!key) { setPushState('unsupported'); return }
+      const reg = await navigator.serviceWorker.getRegistration()
+        || await navigator.serviceWorker.register('/sw.js')
+      let sub = await reg.pushManager.getSubscription()
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(key),
+        })
+      }
+      const res = await authFetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: sub.toJSON() }),
+      })
+      if (!res.ok) throw new Error('subscribe failed')
+      setPushState('enabled')
+      setToast({ type: 'success', message: t('profile.notifications_enabled') || 'Push notifications are on' })
+    } catch (err) {
+      setPushState(Notification.permission === 'denied' ? 'blocked' : 'off')
+      setToast({ type: 'error', message: err.message || 'Could not enable notifications' })
+    }
+  }
+
+  async function disablePush() {
+    setPushState('busy')
+    try {
+      const reg = await navigator.serviceWorker.getRegistration()
+      const sub = reg ? await reg.pushManager.getSubscription() : null
+      if (sub) {
+        const endpoint = sub.endpoint
+        await sub.unsubscribe().catch(() => {})
+        await authFetch('/api/push/subscribe', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint }),
+        }).catch(() => {})
+      }
+    } catch {}
+    setPushState('off')
+  }
+
+  // ── v5.22 data export — every conversation as JSON + Markdown ──
+  async function exportMyData() {
+    setExportState('busy')
+    try {
+      const { data: { session } } = await supabasePublic.auth.getSession()
+      if (!session?.user) throw new Error('not signed in')
+      const PAGE = 100
+      let all = []
+      while (true) {
+        const { data, error } = await supabasePublic
+          .from('chat_sessions')
+          .select('id, messages, title, pinned, updated_at')
+          .eq('user_id', session.user.id)
+          .order('updated_at', { ascending: false })
+          .range(all.length, all.length + PAGE - 1)
+        if (error) throw error
+        if (!data?.length) break
+        all = all.concat(data)
+        if (data.length < PAGE) break
+      }
+      const stamp = new Date().toISOString().slice(0, 10)
+      const jsonBlob = new Blob([JSON.stringify({ exported_at: new Date().toISOString(), sessions: all }, null, 2)], { type: 'application/json' })
+      triggerDownload(jsonBlob, `kivora-export-${stamp}.json`)
+
+      const md = all.map(s => {
+        const title = s.title || 'Conversation'
+        const msgs = Array.isArray(s.messages) ? s.messages : []
+        const body = msgs.map(m => `**${m.role === 'user' ? 'You' : 'Kivora'}:** ${typeof m.content === 'string' ? m.content : ''}`).join('\n\n')
+        return `## ${title}\n\n_${s.updated_at ? s.updated_at.slice(0, 10) : ''}_\n\n${body || '_(empty)_'}\n`
+      }).join('\n---\n\n')
+      const mdBlob = new Blob([`# Kivora conversations\n\n${md}`], { type: 'text/markdown' })
+      triggerDownload(mdBlob, `kivora-conversations-${stamp}.md`)
+      setExportState('done')
+      setToast({ type: 'success', message: t('profile.export_done') || 'Export ready — check your downloads' })
+    } catch (err) {
+      setExportState('error')
+      setToast({ type: 'error', message: err.message || (t('profile.export_failed') || 'Export failed') })
+    }
+  }
+
+  function triggerDownload(blob, filename) {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = filename
+    document.body.appendChild(a); a.click(); a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 4000)
+  }
+
+  // Reflect the browser's actual push state on mount (and when the tab returns)
+  useEffect(() => {
+    refreshPushState()
+    const onVis = () => { if (document.visibilityState === 'visible') refreshPushState() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [])
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
@@ -460,6 +590,59 @@ export default function ProfilePage() {
                 className="w-full bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-[#a3a3a3] hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
               >
                 <IconLogout size={14} /> Sign out
+              </button>
+            </div>
+
+            {/* Notifications (v5.22 Web Push) */}
+            <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mt-8">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-7 h-7 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
+                  <IconPulse size={14} className="text-muted" />
+                </div>
+                <h2 className="font-semibold text-sm tracking-tight text-muted">{t('profile.notifications') || 'Notifications'}</h2>
+              </div>
+              <p className="text-xs text-muted mb-4">
+                {t('profile.notifications_desc') || 'Get a push when a background reply finishes generating after you go offline.'}
+              </p>
+              {pushState === 'unsupported' ? (
+                <p className="text-xs text-[#525252] bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl px-4 py-3">{t('profile.notifications_unsupported') || "This browser doesn't support push notifications."}</p>
+              ) : pushState === 'blocked' ? (
+                <p className="text-xs text-amber-300/90 bg-amber-950/20 border border-amber-900/30 rounded-xl px-4 py-3">{t('profile.notifications_blocked') || 'Notifications are blocked in your browser settings — unblock this site to turn them on.'}</p>
+              ) : (
+                <button
+                  onClick={pushState === 'enabled' ? disablePush : enablePush}
+                  disabled={pushState === 'busy'}
+                  className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
+                    pushState === 'enabled'
+                      ? 'bg-emerald-950/30 border border-emerald-900/40 text-emerald-400 hover:bg-emerald-950/50'
+                      : 'bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-[#a3a3a3] hover:text-white'
+                  } disabled:opacity-60`}
+                >
+                  {pushState === 'busy' ? <IconSpinner size={14} /> : <IconPulse size={14} />}
+                  {pushState === 'enabled'
+                    ? (t('profile.notifications_enabled') || 'Push notifications are on')
+                    : (t('profile.notifications_enable') || 'Enable push notifications')}
+                </button>
+              )}
+            </div>
+
+            {/* Your data (v5.22 export) */}
+            <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mt-8">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-7 h-7 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
+                  <IconDownload size={14} className="text-muted" />
+                </div>
+                <h2 className="font-semibold text-sm tracking-tight text-muted">{t('profile.your_data') || 'Your data'}</h2>
+              </div>
+              <p className="text-xs text-muted mb-4">
+                {t('profile.export_desc') || 'Download every conversation as JSON and Markdown — yours to keep or take anywhere.'}
+              </p>
+              <button
+                onClick={exportMyData}
+                disabled={exportState === 'busy'}
+                className="w-full bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-[#a3a3a3] hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {exportState === 'busy' ? <><IconSpinner size={14} /> {t('profile.exporting') || 'Preparing your export…'}</> : <><IconDownload size={14} /> {t('profile.export_data') || 'Export my data'}</>}
               </button>
             </div>
 

@@ -6,3 +6,5 @@ Disallow: /api/
 Disallow: /dashboard
 Disallow: /onboarding
 Disallow: /auth
+
+Sitemap: https://kivora.pages.dev/sitemap.xml

@@ -415,20 +415,32 @@ export async function POST(req) {
   // after the client's network drops mid-response.
   if (body?.stream) {
     return sseResponse(
-      (send) => processChat(req, body, send),
+      (send, conn) => processChat(req, body, send, conn),
       (work) => { runInBackground(work) }
     )
   }
-  return processChat(req, body, null)
+  return processChat(req, body, null, null)
 }
 
-async function processChat(req, body, _send) {
+async function processChat(req, body, _send, conn) {
   // v5.20 — every send goes through the recorder: after a client disconnect
   // the raw send turns into a silent no-op (sseResponse swallows enqueue
   // failures), but the recorder keeps persisting output so a reconnecting
   // client can catch up via /api/chat/resume.
   let send = _send
   let genRecorder = null
+
+  // v5.22 — Web Push: when the reply finishes while the client is gone, a
+  // notification is the difference between "checked back later" and
+  // "never knew". Fire-and-forget at every terminal done path below via
+  // pushIfDisconnected(); no-op for anonymous users and unconfigured keys.
+  const pushIfDisconnected = async (note) => {
+    if (!conn?.closed || !chatUser?.id || !admin) return
+    try {
+      const { sendPushToUser } = await import('@/lib/push')
+      await sendPushToUser(admin, chatUser.id, note, getEnvVar)
+    } catch {}
+  }
 
   // JSON emission helper — in streaming mode, error payloads travel through
   // SSE error events instead of Response.json (status is carried in-band).
@@ -694,6 +706,7 @@ async function processChat(req, body, _send) {
           send({ type: 'delta', v: reply })
           await genRecorder?.finish({ reply, model: 'kivora-greeting', searchUsed: false })
           send({ type: 'done', reply, model: 'kivora-greeting', searchUsed: false })
+          await pushIfDisconnected({ title: 'Kivora', body: 'Your reply is ready.', url: '/chat' })
           return null
         }
         return Response.json({ reply, model: 'kivora-greeting', searchUsed: false })
@@ -1207,6 +1220,7 @@ async function processChat(req, body, _send) {
       if (send) {
         await genRecorder?.finish(response)
         send({ type: 'done', ...response })
+        await pushIfDisconnected({ title: 'Kivora', body: 'Your reply is ready.', url: '/chat' })
         return null
       }
       return Response.json(response)
@@ -1270,6 +1284,7 @@ async function processChat(req, body, _send) {
     if (send) {
       await genRecorder?.finish(response)
       send({ type: 'done', ...response })
+      await pushIfDisconnected({ title: 'Kivora', body: 'Your reply is ready.', url: '/chat' })
       return null
     }
     return Response.json(response)
@@ -1278,6 +1293,7 @@ async function processChat(req, body, _send) {
     // Record the crash so a reconnecting client gets the same terminal
     // error instead of polling a buffer that will never resolve.
     try { await genRecorder?.fail({ error: 'I hit a snag reaching the AI service. Please try again in a moment.' }) } catch {}
+    try { await pushIfDisconnected({ title: 'Kivora', body: 'A reply hit an error in the background — it\'s saved, tap to retry.', url: '/chat', tag: 'kivora-chat-error' }) } catch {}
 
     // Refund credits on failure — the chat didn't complete
     if (admin && chatUser?.id) {

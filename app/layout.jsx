@@ -31,6 +31,10 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata = {
+  // v5.22 — explicit base so relative OG/Twitter URLs and og:url always
+  // resolve to production (metadataBase absence previously contributed to
+  // the broken social preview).
+  metadataBase: new URL('https://kivora.pages.dev'),
   title: {
     default: 'Kivora | Intelligence for builders everywhere',
     template: '%s | Kivora',
@@ -109,6 +113,30 @@ export default async function RootLayout({ children }) {
         <script
           suppressHydrationWarning
           dangerouslySetInnerHTML={{ __html: `window.__KIVORA_ENV__=${bootPayload}` }}
+        />
+        {/* v5.22 — structured data: the app entity + the org behind it */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@graph': [
+              {
+                '@type': 'SoftwareApplication',
+                name: 'Kivora',
+                applicationCategory: 'UtilitiesApplication',
+                operatingSystem: 'Web',
+                url: 'https://kivora.pages.dev',
+                description: 'Tools, opportunities, and honest guides for builders worldwide. AI chat, dev tools, study desk, and income opportunities, all free.',
+                offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+              },
+              {
+                '@type': 'Organization',
+                name: 'Kivora',
+                url: 'https://kivora.pages.dev',
+                logo: 'https://kivora.pages.dev/icon-512.png',
+              },
+            ],
+          }) }}
         />
         <ProvidersErrorBoundary>
           <LanguageProvider>

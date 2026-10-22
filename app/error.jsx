@@ -96,6 +96,14 @@ export default function Error({ error, reset }) {
   return (
     <main className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4">
       <div className="text-center max-w-md">
+        {/* Brand mark (v5.22 — matches not-found) */}
+        <div className="flex items-center justify-center gap-2 mb-10">
+          <div className="w-7 h-7 bg-[#dc2626] rounded-lg flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 32 32" fill="none"><path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95"/><path d="M16 4L26 24L16 18Z" fill="white" opacity="0.55"/><rect x="6" y="26" width="20" height="3" rx="1.5" fill="white" opacity="0.3"/></svg>
+          </div>
+          <span className="font-bold text-base">Ki<span className="text-red-500">vora</span></span>
+        </div>
+
         <div className="w-14 h-14 bg-red-950/30 border border-red-900/30 rounded-xl flex items-center justify-center mx-auto mb-6">
           <span className="text-red-400 text-xl">!</span>
         </div>
@@ -123,11 +131,14 @@ export default function Error({ error, reset }) {
             Try again
           </button>
           <Link
-            href="/research"
+            href="/"
             className="bg-[#141414] border border-[#262626] hover:border-[#3a3a3a] text-[#d4d4d4] px-5 py-2.5 rounded-xl text-sm font-medium transition-colors"
           >
-            Go to Research
+            Back to home
           </Link>
+        </div>
+        <div className="mt-6 text-xs text-muted2">
+          <Link href="/chat" className="hover:text-white transition-colors">Open chat</Link>
         </div>
       </div>
     </main>
