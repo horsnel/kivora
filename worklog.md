@@ -618,3 +618,12 @@ Stage Summary:
 - Known degradations (documented): exec terminal statuses not replayed on resume (ephemeral UX only); waitUntil cap ~30s post-disconnect on CF — longer generations that die leave frozen rows which resume reports as stalled with resend advice
 - Tests: test_v520.mjs 65/65 (incl. REAL functional recorder tests with fake admin: throttle timing, append-only, finish/fail, first-write-only user_id, sse hook forwarding) + regression 48/48, 13/13, 18/18; build ✓
 - Commit 31bfd0a. PRODUCTION FUNCTIONALLY VERIFIED (not just markers): resume 404 → {"status":"none"}; probe row inserted via pooler → probe=1 {status:done,length:44}, offset=10 sliced exactly past "The quick ", meta spread intact; stale-active row → SSE delta + {"stalled":true}; probe rows deleted after (0 remaining)
+
+## v5.21 — real social preview images (2026-10-23)
+- User report: social share previews showed a grey placeholder. Root cause: layout.jsx declared `twitter: summary_large_image` but had NO og:image / twitter:image anywhere (public/ had no og asset at all) — scrapers render an empty box
+- Fix: composed a real 4K platform visual — 3840x2160 master (`public/og-4k.jpg`, 294KB): HUSH backdrop with #FF3366 ambient glows, brand block (app icon + Carlito wordmark + "Intelligence for builders everywhere." with the hero's coral gradient on "builders"), right side carries a live capture of the public community feed in a rounded shadowed card
+- Capture method: agent-browser screenshots of production (landing, chat, community, explore probed at 1440x900; community is public and reads best — recapture trick: shoot at 2x viewport for native-crisp raster if needed; 1440 shot composed best). Composer script kept at scripts/make_og.py (Pillow)
+- Metadata: openGraph.images[1200x630 primary + 4K secondary] + twitter.images, ABSOLUTE URLs (metadataBase-proof). 1200x630 stays primary because WhatsApp/Telegram degrade multi-MB images — og.jpg is 72KB, safe everywhere
+- Verified in production ~150s after push: og:image + width/height/alt live, /og.jpg + /og-4k.jpg both 200 image/jpeg, twitter:card intact
+- Commit 4557d61. NOTE for future releases: scrapers cache OG aggressively — after changing og.jpg, re-scrape via opengraph.xyz or prepend a cache-busting query
+- Discovery: team account already posts release notes on the community page ("Update 5.16 — …" format, verified badge) — per-release announcement workflow formalized from v5.21 on: every shipped release ships with a ready-to-post community draft
