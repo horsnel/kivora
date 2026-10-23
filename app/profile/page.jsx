@@ -65,6 +65,7 @@ export default function ProfilePage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   // v5.22 — push notifications + data export
   const [pushState, setPushState] = useState('unknown') // off | enabled | blocked | unsupported | busy
+  const [testState, setTestState] = useState('idle') // v5.24 push test button: idle | busy
   const [exportState, setExportState] = useState(null) // null | busy | done | error
   const [showAvatarPicker, setShowAvatarPicker] = useState(false)
   const [toast, setToast] = useState(null) // { type: 'success'|'error', message: string }
@@ -222,6 +223,23 @@ export default function ProfilePage() {
       const reg = await navigator.serviceWorker.getRegistration()
       const sub = reg ? await reg.pushManager.getSubscription() : null
       setPushState(sub ? 'enabled' : 'off')
+      // v5.24 — server repair: a browser subscription can exist while the
+      // server row is missing (e.g. push was first enabled before the
+      // push_subscriptions migration ran, or the row was pruned). The toggle
+      // would then read "on" while the server has nothing to deliver to.
+      // Idempotent, silent re-upsert heals that drift.
+      if (sub) {
+        try {
+          const { data: { session } } = await supabasePublic.auth.getSession()
+          if (session?.user) {
+            await authFetch('/api/push/subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ subscription: sub.toJSON() }),
+            })
+          }
+        } catch {}
+      }
     } catch { setPushState('off') }
   }
 
@@ -271,6 +289,31 @@ export default function ProfilePage() {
       }
     } catch {}
     setPushState('off')
+  }
+
+  // v5.24 — one-click push-chain diagnostic. Sends a real notification via
+  // /api/push/test and translates the structured verdict into a toast:
+  // success, "nothing registered" (with the toggle reset to match server
+  // truth), or a failure carrying the server-side reason.
+  async function testPush() {
+    setTestState('busy')
+    try {
+      const res = await authFetch('/api/push/test', { method: 'POST' })
+      const data = await res.json().catch(() => null)
+      if (res.ok && data?.ok) {
+        setToast({ type: 'success', message: t('profile.push_test_sent') || 'Test sent — check your device for the notification' })
+      } else if (data?.reason === 'no_subscriptions') {
+        setPushState('off') // the toggle was ahead of server truth — align it
+        setToast({ type: 'error', message: t('profile.push_test_none') || 'No device is registered to your account yet — turn push off and on again, then allow the browser permission prompt' })
+      } else {
+        const why = data?.reason || data?.error || `HTTP ${res.status}`
+        setToast({ type: 'error', message: `${t('profile.push_test_fail') || 'Push test failed'} (${why})` })
+      }
+    } catch (err) {
+      setToast({ type: 'error', message: `${t('profile.push_test_fail') || 'Push test failed'} (${err.message || 'network'})` })
+    } finally {
+      setTestState('idle')
+    }
   }
 
   // ── v5.22 data export — every conversation as JSON + Markdown ──
@@ -609,20 +652,32 @@ export default function ProfilePage() {
               ) : pushState === 'blocked' ? (
                 <p className="text-xs text-amber-300/90 bg-amber-950/20 border border-amber-900/30 rounded-xl px-4 py-3">{t('profile.notifications_blocked') || 'Notifications are blocked in your browser settings — unblock this site to turn them on.'}</p>
               ) : (
-                <button
-                  onClick={pushState === 'enabled' ? disablePush : enablePush}
-                  disabled={pushState === 'busy'}
-                  className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
-                    pushState === 'enabled'
-                      ? 'bg-emerald-950/30 border border-emerald-900/40 text-emerald-400 hover:bg-emerald-950/50'
-                      : 'bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-[#a3a3a3] hover:text-white'
-                  } disabled:opacity-60`}
-                >
-                  {pushState === 'busy' ? <IconSpinner size={14} /> : <IconPulse size={14} />}
-                  {pushState === 'enabled'
-                    ? (t('profile.notifications_enabled') || 'Push notifications are on')
-                    : (t('profile.notifications_enable') || 'Enable push notifications')}
-                </button>
+                <>
+                  <button
+                    onClick={pushState === 'enabled' ? disablePush : enablePush}
+                    disabled={pushState === 'busy'}
+                    className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
+                      pushState === 'enabled'
+                        ? 'bg-emerald-950/30 border border-emerald-900/40 text-emerald-400 hover:bg-emerald-950/50'
+                        : 'bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-[#a3a3a3] hover:text-white'
+                    } disabled:opacity-60`}
+                  >
+                    {pushState === 'busy' ? <IconSpinner size={14} /> : <IconPulse size={14} />}
+                    {pushState === 'enabled'
+                      ? (t('profile.notifications_enabled') || 'Push notifications are on')
+                      : (t('profile.notifications_enable') || 'Enable push notifications')}
+                  </button>
+                  {pushState === 'enabled' && (
+                    <button
+                      onClick={testPush}
+                      disabled={testState === 'busy'}
+                      className="mt-2 w-full bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-[#a3a3a3] hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+                    >
+                      {testState === 'busy' ? <IconSpinner size={14} /> : <IconCheck size={14} />}
+                      {t('profile.push_test') || 'Send test notification'}
+                    </button>
+                  )}
+                </>
               )}
             </div>
 

@@ -258,63 +258,6 @@ export default function WelcomePage() {
         </p>
       </section>
 
-      {/* ── Footer ─────────────────────────────────── */}
-      <footer className="border-t border-[#141414] py-10 sm:py-12">
-        <div className="max-w-5xl mx-auto px-5 sm:px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 mb-8 sm:mb-10">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-6 h-6 bg-[#dc2626] rounded-md flex items-center justify-center">
-                  <svg width="12" height="12" viewBox="0 0 32 32" fill="none"><path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95"/><path d="M16 4L26 24L16 18Z" fill="white" opacity="0.55"/><rect x="6" y="26" width="20" height="3" rx="1.5" fill="white" opacity="0.3"/></svg>
-                </div>
-                <span className="font-bold text-sm">Ki<span className="text-red-500">vora</span></span>
-              </div>
-              <p className="text-xs text-muted leading-relaxed">{t('welcome.footer.tagline')}</p>
-            </div>
-            <div>
-              <h4 className="font-semibold text-xs uppercase tracking-widest text-muted mb-4">{t('welcome.footer.platform')}</h4>
-              <ul className="space-y-2.5">
-                {[
-                  [t('footer.explore'), '/'],
-                  [t('footer.chat'), '/chat'],
-                  [t('footer.studydesk'), '/study'],
-                  [t('footer.devtools'), '/devtools'],
-                  [t('footer.opportunities'), '/opportunities']
-                ].map(([l, h]) => (
-                  <li key={l}><Link href={h} className="text-xs text-muted hover:text-white transition-colors">{l}</Link></li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-xs uppercase tracking-widest text-muted mb-4">{t('welcome.footer.company')}</h4>
-              <ul className="space-y-2.5">
-                {[
-                  [t('footer.about'), '/about'],
-                  [t('footer.blog'), '/blog'],
-                  [t('footer.contact'), '/contact']
-                ].map(([l, h]) => (
-                  <li key={l}><Link href={h} className="text-xs text-muted hover:text-white transition-colors">{l}</Link></li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-xs uppercase tracking-widest text-muted mb-4">{t('welcome.footer.legal')}</h4>
-              <ul className="space-y-2.5">
-                {[
-                  [t('footer.privacy'), '/privacy'],
-                  [t('footer.terms'), '/terms']
-                ].map(([l, h]) => (
-                  <li key={l}><Link href={h} className="text-xs text-muted hover:text-white transition-colors">{l}</Link></li>
-                ))}
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-[#141414] pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <p className="text-xs text-muted2">&copy; {new Date().getFullYear()} Kivora. All rights reserved.</p>
-            <p className="text-xs text-muted2">product of <span className="font-black text-muted">O.L.H.M.E.S</span></p>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }

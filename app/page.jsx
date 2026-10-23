@@ -104,6 +104,18 @@ export default function WelcomePage() {
   const [query, setQuery] = useState('')
   const [scrolled, setScrolled] = useState(false)
   const [carouselIndex, setCarouselIndex] = useState(0)
+  // v5.24 — hidden admin entry, relocated here from the (now removed) global
+  // Footer: double-click the "O.L.H.M.E.S" mark in the landing footer → /admin.
+  const [adminClicks, setAdminClicks] = useState(0)
+  const adminTimer = useRef(null)
+  function handleOlhmesClick() {
+    if (adminTimer.current) clearTimeout(adminTimer.current)
+    const n = adminClicks + 1
+    setAdminClicks(n)
+    if (n >= 2) { setAdminClicks(0); router.push('/admin') }
+    else { adminTimer.current = setTimeout(() => setAdminClicks(0), 400) }
+  }
+  useEffect(() => () => adminTimer.current && clearTimeout(adminTimer.current), [])
 
   const FEATURES = [
     {
@@ -694,7 +706,7 @@ export default function WelcomePage() {
           </div>
           <div className="border-t border-[#1a1a1a] pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
             <p className="text-xs text-muted2">&copy; 2025 Kivora. All rights reserved.</p>
-            <p className="text-xs text-muted2">product of <span className="font-black text-muted">O.L.H.M.E.S</span></p>
+            <p className="text-xs text-muted2">product of <span onClick={handleOlhmesClick} className="font-black text-muted hover:text-[#525252] transition-colors cursor-default select-none" role="button" tabIndex={-1} aria-hidden="true">O.L.H.M.E.S</span></p>
           </div>
         </div>
       </footer>

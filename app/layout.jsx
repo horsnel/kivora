@@ -5,7 +5,6 @@ import { Inter, JetBrains_Mono } from 'next/font/google'
 import Navbar from '@/components/Navbar'
 import NavbarErrorBoundary from '@/components/NavbarErrorBoundary'
 import ProvidersErrorBoundary from '@/components/ProvidersErrorBoundary'
-import Footer from '@/components/Footer'
 import PageContent from '@/components/PageContent'
 import { CurrencyProvider } from '@/components/CurrencyToggle'
 import { LanguageProvider } from '@/components/LanguageProvider'
@@ -148,7 +147,6 @@ export default async function RootLayout({ children }) {
                 </NavbarErrorBoundary>
                 <PageContent>
                   {children}
-                  <Footer />
                 </PageContent>
               </div>
             </CurrencyProvider>

@@ -70,8 +70,45 @@ jobs:
       - name: Generate hash-based CSP for prerendered pages
         run: node scripts/generate-csp.mjs
 
+      # v5.24 — deploy steps ran unconditionally; without the two Cloudflare
+      # secrets the run goes red on every push. Guard them so the workflow
+      # degrades to a build-check while the Cloudflare Pages git integration
+      # remains the active deployer. When both secrets exist, this workflow
+      # OWNS the deploy and verifies it below.
+      - name: Deploy guard (secrets present?)
+        id: guard
+        env:
+          CF_TOKEN_SET: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+          CF_ACCOUNT_SET: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+        run: |
+          if [ "$CF_TOKEN_SET" = "true" ] && [ "$CF_ACCOUNT_SET" = "true" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID secrets are not set — skipping wrangler deploy. The Cloudflare Pages git integration remains the active deployer. Add both secrets (repo Settings → Secrets and variables → Actions) to let this workflow own deploys."
+          fi
+
       - name: Deploy to Cloudflare Pages
+        if: steps.guard.outputs.enabled == 'true'
         run: npx wrangler@3 pages deploy .vercel/output/static --project-name=kivora --branch=main --commit-dirty=true
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # v5.24 — post-deploy probe: production must answer /api/health with
+      # 200 after the wrangler deploy is accepted. Retries absorb propagation.
+      - name: Post-deploy probe (/api/health)
+        if: steps.guard.outputs.enabled == 'true'
+        run: |
+          ok=0
+          for i in 1 2 3 4 5; do
+            sleep 15
+            code=$(curl -s -o /tmp/health.json -w "%{http_code}" https://kivora.pages.dev/api/health || true)
+            echo "probe $i: HTTP $code"
+            if [ "$code" = "200" ]; then ok=1; break; fi
+          done
+          if [ "$ok" != "1" ]; then
+            echo "::error::production /api/health did not return 200 after deploy"
+            exit 1
+          fi
+          cat /tmp/health.json

@@ -1,0 +1,38 @@
+# Dependabot — the "updates we're missing out on" automation (v5.24).
+# Weekly PRs grouped to stay reviewable: minor+patch batched per ecosystem,
+# framework majors left out (schedule those deliberately, Next.js majors
+# change runtime semantics on Cloudflare Pages).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 8
+    groups:
+      minor-and-patch:
+        update-types:
+          - 'minor'
+          - 'patch'
+    ignore:
+      - dependency-name: 'next'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'react'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'react-dom'
+        update-types: ['version-update:semver-major']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Etc/UTC
+    groups:
+      actions:
+        patterns:
+          - '*'
