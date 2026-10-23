@@ -8,7 +8,7 @@ import dynamic from 'next/dynamic'
 import remarkGfm from 'remark-gfm'
 const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false })
 import { supabasePublic } from '@/lib/supabase'
-import { streamSSE } from '@/lib/sseClient'
+import { streamSSE, createDeltaFlusher } from '@/lib/sseClient'
 import { IconSearch, IconWrite, IconCheck, IconChartBar, IconDna, IconTrending, IconRocket, IconHeart, IconMicroscope, IconWarning, IconLock, IconTrash } from '@/components/Icons'
 import { usePlan } from '@/lib/usePlan'
 import UpgradeCard from '@/components/UpgradeCard'
@@ -1429,6 +1429,8 @@ function ResearchPageContent() {
         setReportDisplay(parts.report || '')
       }
     }
+    // v5.23 — coalesce delta renders at ~33Hz instead of per-token setState
+    const flusher = createDeltaFlusher(renderParts)
 
     return new Promise((resolve, reject) => {
       streamSSE(res, (evt) => {
@@ -1437,7 +1439,7 @@ function ResearchPageContent() {
           if (evt.reset) {
             // A streamed provider attempt failed validation — discard the
             // partial buffer already rendered for that part
-            if (evt.part) { parts[evt.part] = ''; renderParts() }
+            if (evt.part) { flusher.flushNow(); parts[evt.part] = ''; renderParts() }
             return
           }
           if (evt.phase === 'classify') { setProgress(p => Math.max(p, 8)); setResearchStage('search') }
@@ -1457,19 +1459,23 @@ function ResearchPageContent() {
           }
         } else if (evt.type === 'delta') {
           parts[evt.part] = (parts[evt.part] || '') + (evt.v || '')
-          renderParts()
+          flusher.push()
         } else if (evt.type === 'part_done') {
           partsDone.add(evt.part)
           setProgress(p => Math.max(p, evt.part === 'part2' ? 88 : 74))
+          flusher.flushNow()
           renderParts()
         } else if (evt.type === 'done') {
+          flusher.flushNow()
           resolve(evt.data || {})
         } else if (evt.type === 'error') {
+          flusher.flushNow()
           reject(new Error(evt.error || 'research stream error'))
         }
       }).then(() => {
         // Stream ended — resolve() already fired if done arrived; otherwise
         // reject so Promise.any can hand the race to the JSON fallback
+        flusher.flushNow()
         reject(new Error('research stream ended without result'))
       }).catch(err => reject(err))
     })

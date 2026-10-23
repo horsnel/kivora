@@ -7,7 +7,7 @@ import { usePlan } from '@/lib/usePlan'
 import { IconLock } from '@/components/Icons'
 import OutputMenu from '@/components/OutputMenu'
 import { sanitizeHtml } from '@/lib/sanitizeHtml'
-import { streamSSE } from '@/lib/sseClient'
+import { streamSSE, createDeltaFlusher } from '@/lib/sseClient'
 
 // ── Constants ──
 const STORAGE_KEY = 'kivora-research-history'
@@ -482,6 +482,8 @@ export default function ResearchClient() {
         setReportDisplay(parts.report || '')
       }
     }
+    // v5.23 — coalesce delta renders at ~33Hz instead of per-token setState
+    const flusher = createDeltaFlusher(renderParts)
 
     const bumpProgress = (progress, stage) => {
       setActiveResearch(prev => prev ? {
@@ -538,7 +540,7 @@ export default function ResearchClient() {
           if (evt.reset) {
             // A streamed provider attempt failed validation — discard the
             // partial buffer the client already rendered for that part
-            if (evt.part) { parts[evt.part] = ''; renderParts() }
+            if (evt.part) { flusher.flushNow(); parts[evt.part] = ''; renderParts() }
             return
           }
           if (evt.phase === 'classify') bumpProgress(8, 'search')
@@ -560,20 +562,25 @@ export default function ResearchClient() {
           }
         } else if (evt.type === 'delta') {
           parts[evt.part] = (parts[evt.part] || '') + (evt.v || '')
-          renderParts()
+          flusher.push()
         } else if (evt.type === 'part_done') {
           partsDone.add(evt.part)
           bumpProgress(evt.part === 'part2' ? 88 : 74)
+          flusher.flushNow()
           renderParts()
         } else if (evt.type === 'done') {
+          flusher.flushNow()
           finish(evt.data || {})
         } else if (evt.type === 'error') {
+          flusher.flushNow()
           fail(evt.error)
         }
       })
     } catch (err) {
       // Truncated / broken stream — surface like any other failure
       fail(err.message)
+    } finally {
+      flusher.flushNow()
     }
   }
 

@@ -126,7 +126,7 @@ check('offset ref tracks rendered chars', client.includes('accLenRef.current = a
 check('offset reset at stream start', client.includes('accLenRef.current = 0'))
 check('reconnect backoff ladder', client.includes('[500, 1000, 2000, 3500, 5000]'))
 check('resume loop hits /api/chat/resume', client.includes('/api/chat/resume?sid='))
-check('resume loop catches mid-recovery drops', client.includes("if (e?.name === 'AbortError') return 'aborted'"))
+check('resume loop catches mid-recovery drops', client.includes("if (e?.name === 'AbortError') { flushAssistantDelta(); return 'aborted' }"))
 check('finalizeResumed applies shared meta', client.includes('function finalizeResumed(data, res)'))
 check('catch path resumes instead of erroring', client.includes('await runResumeLoop(sid, accLenRef.current)'))
 check('probe on session open', client.includes('probePendingGeneration(session.id)'))

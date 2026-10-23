@@ -1197,18 +1197,37 @@ export default function ChatClient() {
     return msg
   }
 
-  function appendAssistantDelta(v) {
-    if (!v) return
-    accLenRef.current += v.length
+  // v5.23 — resume-path deltas buffer and flush at ~33Hz, same cadence as
+  // the live stream path. This used to be per-token setState: a reconnect
+  // catch-up (or a page-reload recovery replaying a large buffer) fired
+  // hundreds of renders a second and froze the tab exactly when the user
+  // was already having a bad network day.
+  // NOTE: accLenRef (the resume offset) advances at FLUSH time, not at
+  // receipt — it must only ever count characters that actually reached
+  // state, or a mid-buffer disconnect would resume past unrendered text.
+  const pendingDeltaRef = useRef('')
+  const deltaFlushTimerRef = useRef(null)
+  function flushAssistantDelta() {
+    if (deltaFlushTimerRef.current) { clearTimeout(deltaFlushTimerRef.current); deltaFlushTimerRef.current = null }
+    const buf = pendingDeltaRef.current
+    if (!buf) return
+    pendingDeltaRef.current = ''
+    accLenRef.current += buf.length
     setMessages(prev => {
       const next = [...prev]
       const last = next[next.length - 1]
-      if (last && last.role === 'assistant') next[next.length - 1] = { ...last, content: (last.content || '') + v }
+      if (last && last.role === 'assistant') next[next.length - 1] = { ...last, content: (last.content || '') + buf }
       return next
     })
   }
+  function appendAssistantDelta(v) {
+    if (!v) return
+    pendingDeltaRef.current += v
+    if (!deltaFlushTimerRef.current) deltaFlushTimerRef.current = setTimeout(flushAssistantDelta, 30)
+  }
 
   function finalizeResumed(data, res) {
+    flushAssistantDelta() // land buffered text before the authoritative replace
     setStreaming(false)
     setImageGenerating(false)
     const assistantMsg = { role: 'assistant', content: '' }
@@ -1225,6 +1244,7 @@ export default function ChatClient() {
   }
 
   function resumeGiveUp() {
+    flushAssistantDelta()
     setMessages(prev => {
       const next = [...prev]
       const last = next[next.length - 1]
@@ -1244,7 +1264,15 @@ export default function ChatClient() {
   async function runResumeLoop(sid, offset) {
     const waits = [500, 1000, 2000, 3500, 5000]
     for (let attempt = 0; attempt < 10; attempt++) {
-      if (attempt > 0) await new Promise(r => setTimeout(r, waits[Math.min(attempt - 1, waits.length - 1)]))
+      if (attempt > 0) {
+        await new Promise(r => setTimeout(r, waits[Math.min(attempt - 1, waits.length - 1)]))
+        // v5.23 bugfix — the offset was never advanced between attempts, so
+        // every retry re-fetched from the ORIGINAL position and the catch-up
+        // deltas were appended a second time (duplicated text after a flaky
+        // recovery). Resume from what has actually reached state instead.
+        flushAssistantDelta()
+        offset = accLenRef.current
+      }
       if (abortRef.current?.signal?.aborted) return 'aborted'
       try {
         const token = user ? ((await supabasePublic?.auth?.getSession())?.data?.session?.access_token || '') : ''
@@ -1276,7 +1304,7 @@ export default function ChatClient() {
           // active row without an SSE body — retry
         }
       } catch (e) {
-        if (e?.name === 'AbortError') return 'aborted'
+        if (e?.name === 'AbortError') { flushAssistantDelta(); return 'aborted' }
         // network error — next backoff attempt
       }
     }
@@ -1484,10 +1512,10 @@ export default function ChatClient() {
         }
         const scheduleFlush = () => {
           if (flushTimer) return
-          // v5.17 — 55ms (~18Hz): closer to a keystroke cadence, still ~12x
-          // cheaper than per-token setState. The 90ms it replaces was chosen
-          // when the parse cost dominated; memo'd markdown now carries that.
-          flushTimer = setTimeout(flushNow, 55)
+          // v5.23 — 30ms (~33Hz): continuous-motion cadence, halves the
+          // worst-case display latency the v5.17 55ms tuning added. Memo'd
+          // markdown carries the parse cost; 33Hz keeps it inside frame budget.
+          flushTimer = setTimeout(flushNow, 30)
         }
         try {
           await streamSSE(res, (evt) => {
@@ -1559,6 +1587,7 @@ export default function ChatClient() {
       setStreaming(false)
       setImageGenerating(false)
       if (err?.name === 'AbortError') {
+        flushAssistantDelta() // land the tail the stop button cut off
         // User pressed stop — keep whatever already streamed. If nothing
         // arrived yet, drop the empty assistant bubble instead of showing it.
         setMessages(prev => {
@@ -1571,6 +1600,7 @@ export default function ChatClient() {
         // v5.20 — network drop mid-generation. The server keeps generating
         // in the background and buffers output; reconnect and catch up from
         // the last character we rendered.
+        flushAssistantDelta() // offset must count everything already shown
         reportClientError(err)
         resumingRef.current = true
         setReconnecting(true)
@@ -2214,16 +2244,10 @@ export default function ChatClient() {
                           ) : null}
                           {chatTitle(s)}
                         </button>
-                        <button
-                          onClick={e => { e.stopPropagation(); deleteSession(s.id) }}
-                          title={t('chat.history.delete') || 'Delete conversation'}
-                          aria-label={t('chat.history.delete') || 'Delete conversation'}
-                          className="shrink-0 mr-1.5 p-1 rounded-full text-[#525252] opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-[#1f1f1f] focus:opacity-100 transition-all"
-                        >
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                          </svg>
-                        </button>
+                        {/* v5.23 — row-inline delete icon removed: on touch devices the
+                            sticky :hover state left a trash icon latched onto whichever row
+                            was last tapped, which read as a UI glitch. Delete, pin, rename
+                            and share all remain available via long-press → action sheet. */}
                       </div>
                     ))}
                   </div>

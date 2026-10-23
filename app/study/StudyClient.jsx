@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { IconBook, IconWrite, IconMicroscope, IconCode, IconSpinner } from '@/components/Icons'
 import { useSessionTracker } from '@/lib/useSessionTracker'
-import { streamSSE } from '@/lib/sseClient'
+import { streamSSE, createDeltaFlusher } from '@/lib/sseClient'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
 import ThinkingState, { STAGE_CONFIGS } from '@/components/ThinkingState'
 import Select from '@/components/Select'
@@ -289,19 +289,25 @@ export default function StudyClient() {
       })
       const contentType = res.headers.get('content-type') || ''
       if (contentType.includes('text/event-stream') && res.body) {
-        // Streaming — render tokens as they arrive
+        // Streaming — tokens coalesce into ~33Hz flushes (v5.23): per-token
+        // setState re-rendered the whole result view hundreds of times/sec.
         let acc = ''
         let finalEvent = null
-        await streamSSE(res, (evt) => {
-          if (evt.type === 'delta') {
-            acc += evt.v
-            setResult(acc)
-          } else if (evt.type === 'done') {
-            finalEvent = evt
-          } else if (evt.type === 'error') {
-            finalEvent = evt
-          }
-        })
+        const flusher = createDeltaFlusher(() => setResult(acc))
+        try {
+          await streamSSE(res, (evt) => {
+            if (evt.type === 'delta') {
+              acc += evt.v
+              flusher.push()
+            } else if (evt.type === 'done') {
+              finalEvent = evt
+            } else if (evt.type === 'error') {
+              finalEvent = evt
+            }
+          })
+        } finally {
+          flusher.flushNow()
+        }
         const data = finalEvent || {}
         const text = data.result || (data.error ? '' : acc) || data.error || t('common.error.general')
         setResult(data.error || text)
