@@ -914,6 +914,7 @@
   "profile.notifications_unsupported": "This browser doesn't support push notifications.",
   "profile.push_test": "Send test notification",
   "profile.push_test_sent": "Test sent — check your device for the notification",
+  "profile.push_test_ok": "Sent to {n} device(s). No popup? Relaunch Chrome (don't swipe it away) and check that this site's notifications are allowed in browser settings.",
   "profile.push_test_none": "No device is registered to your account yet — turn push off and on again, then allow the browser permission prompt",
   "profile.push_test_fail": "Push test failed",
   "profile.your_data": "Your data",

@@ -831,6 +831,7 @@
   "profile.notifications_unsupported": "Kivinjari hiki hakiuni arifa za push.",
   "profile.push_test": "Tuma arifa ya majaribio",
   "profile.push_test_sent": "Jaribio limetumwa — angalia arifa kwenye kifaa chako",
+  "profile.push_test_ok": "Imetumwa kwa vifaa {n}. Hakuna arifa? Anzisha upya Chrome (usiiondoe kwenye kazi za hivi karibuni) na uhakikishe kuwa arifa za tovuti hii zimeruhusiwa katika mipangilio ya kivinjari.",
   "profile.push_test_none": "Hakuna kifaa kilichosajiliwa kwenye akaunti yako bado — zima kisha washa arifa za push, kisha kubali ruhusa ya kivinjari",
   "profile.push_test_fail": "Jaribio la arifa limeshindikana",
   "profile.your_data": "Data zako",

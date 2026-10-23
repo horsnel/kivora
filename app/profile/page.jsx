@@ -66,6 +66,7 @@ export default function ProfilePage() {
   // v5.22 — push notifications + data export
   const [pushState, setPushState] = useState('unknown') // off | enabled | blocked | unsupported | busy
   const [testState, setTestState] = useState('idle') // v5.24 push test button: idle | busy
+  const [testResult, setTestResult] = useState(null) // v5.24.1 persistent inline verdict: { type: 'success'|'error', message }
   const [exportState, setExportState] = useState(null) // null | busy | done | error
   const [showAvatarPicker, setShowAvatarPicker] = useState(false)
   const [toast, setToast] = useState(null) // { type: 'success'|'error', message: string }
@@ -297,20 +298,39 @@ export default function ProfilePage() {
   // truth), or a failure carrying the server-side reason.
   async function testPush() {
     setTestState('busy')
+    setTestResult(null)
     try {
+      // Pull the freshest sw.js before sending — a stale service worker without
+      // a push handler is the #1 device-side cause of "sent but never shown".
+      try {
+        const reg = await navigator.serviceWorker.getRegistration()
+        if (reg?.update) await reg.update()
+      } catch {}
       const res = await authFetch('/api/push/test', { method: 'POST' })
       const data = await res.json().catch(() => null)
       if (res.ok && data?.ok) {
+        // v5.24.1 — the verdict lives inline (toasts auto-dismiss in 3s and
+        // were reported as "nothing happened"), with device count + a fix-it
+        // hint for the two dominant Android causes: swiped-away Chrome and
+        // per-site notifications blocked in browser settings.
+        const msg = (t('profile.push_test_ok') || 'Sent to {n} device(s). No popup? Relaunch Chrome (don\'t swipe it away) and check that this site\'s notifications are allowed in browser settings.').replace('{n}', String(data.sent ?? 1))
         setToast({ type: 'success', message: t('profile.push_test_sent') || 'Test sent — check your device for the notification' })
+        setTestResult({ type: 'success', message: msg })
       } else if (data?.reason === 'no_subscriptions') {
         setPushState('off') // the toggle was ahead of server truth — align it
-        setToast({ type: 'error', message: t('profile.push_test_none') || 'No device is registered to your account yet — turn push off and on again, then allow the browser permission prompt' })
+        const msg = t('profile.push_test_none') || 'No device is registered to your account yet — turn push off and on again, then allow the browser permission prompt'
+        setToast({ type: 'error', message: msg })
+        setTestResult({ type: 'error', message: msg })
       } else {
-        const why = data?.reason || data?.error || `HTTP ${res.status}`
-        setToast({ type: 'error', message: `${t('profile.push_test_fail') || 'Push test failed'} (${why})` })
+        const why = data?.error || data?.reason || `HTTP ${res.status}`
+        const msg = `${t('profile.push_test_fail') || 'Push test failed'} (${why})`
+        setToast({ type: 'error', message: msg })
+        setTestResult({ type: 'error', message: msg })
       }
     } catch (err) {
-      setToast({ type: 'error', message: `${t('profile.push_test_fail') || 'Push test failed'} (${err.message || 'network'})` })
+      const msg = `${t('profile.push_test_fail') || 'Push test failed'} (${err.message || 'network'})`
+      setToast({ type: 'error', message: msg })
+      setTestResult({ type: 'error', message: msg })
     } finally {
       setTestState('idle')
     }
@@ -678,6 +698,18 @@ export default function ProfilePage() {
                     </button>
                   )}
                 </>
+              )}
+              {testResult && (
+                <p
+                  role="status"
+                  className={`mt-3 text-xs leading-relaxed rounded-xl px-4 py-3 border ${
+                    testResult.type === 'success'
+                      ? 'text-emerald-300/90 bg-emerald-950/20 border-emerald-900/30'
+                      : 'text-amber-300/90 bg-amber-950/20 border-amber-900/30'
+                  }`}
+                >
+                  {testResult.message}
+                </p>
               )}
             </div>
 

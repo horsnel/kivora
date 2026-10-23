@@ -831,6 +831,7 @@
   "profile.notifications_unsupported": "Ce navigateur ne prend pas en charge les notifications push.",
   "profile.push_test": "Envoyer une notification de test",
   "profile.push_test_sent": "Test envoyé — vérifiez la notification sur votre appareil",
+  "profile.push_test_ok": "Envoyé à {n} appareil(s). Rien ne s'affiche ? Relancez Chrome (ne le balayez pas hors des récents) et vérifiez que les notifications de ce site sont autorisées dans les paramètres du navigateur.",
   "profile.push_test_none": "Aucun appareil n'est enregistré sur votre compte — désactivez puis réactivez les notifications push, puis acceptez l'invite du navigateur",
   "profile.push_test_fail": "Échec du test de notification",
   "profile.your_data": "Vos données",

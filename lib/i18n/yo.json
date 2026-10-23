@@ -831,6 +831,7 @@
   "profile.notifications_unsupported": "Aṣàwákiri yìí kò ṣe àtìlẹ́yìn fún àwọn ìfilọ push.",
   "profile.push_test": "Fi ìfilọ ìdánwò ránṣẹ́",
   "profile.push_test_sent": "Ìdánwò ti ránṣẹ́ — ṣàyèwò ìfilọ náà lórí ẹ̀rọ rẹ",
+  "profile.push_test_ok": "O ti fi ranṣẹ́ sí ẹ̀rọ {n}. Kò sí ìfilọ? Tún Chrome ṣe ìbẹ̀rẹ̀ (ma ṣe yíí kúrò nínú àwọn iṣẹ́ àìtúnṣe) kí o sì rìí pé àwọn ìfilọ ojúewé yìí ní ayè nínú àtúnṣe aṣàwákiri.",
   "profile.push_test_none": "Kò sí ẹ̀rọ tí a ti forukọsílẹ̀ fún àkkántì rẹ tìlẹ̀ — dá ìfilọ push dúró tún ṣí i, kí o sì gbà àṣẹ tí aṣàwákiri náà bẹ̀",
   "profile.push_test_fail": "Ìdánwò ìfilọ kọ́lu",
   "profile.your_data": "Data rẹ",
