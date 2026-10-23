@@ -216,12 +216,16 @@ function looksCutOff(text) {
   const backtickRuns = (s.match(/`+/g) || [])
   const singleBackticks = backtickRuns.filter(r => r.length === 1).length
   if (singleBackticks % 2 === 1) return true
+  // v5.24.2 — dangling connector word at the very end ("…the best part is",
+  // "…which means the"). No legitimate reply ends on a function word, so
+  // this fires BEFORE the length guard: silent provider drops on SHORT
+  // replies (<400 chars) previously shipped mid-thought corpses.
+  if (/\b(?:and|or|but|nor|yet|so|the|a|an|this|that|these|those|to|of|in|on|at|by|for|with|from|into|onto|over|under|about|across|after|before|between|through|during|without|within|along|across|behind|beyond|is|are|was|were|be|been|being|am|has|have|had|will|would|shall|should|can|could|may|might|must|do|does|did|not|no|also|just|only|than|then|when|while|if|because|since|though|although|however|therefore|thus|hence|which|who|whom|whose|what|where|why|how|it|its|they|their|them|he|she|his|her|we|our|us|you|your|i|my|me|as|vs|via|per|plus)\s*$/i.test(s)) return true
+  // Strong dangling token (comma / semicolon / colon / unclosed bracket) is
+  // NEVER a legitimate ending either — also fires before the length guard.
+  if (/[,;:([{]$/.test(s.trimEnd())) return true
   if (s.trim().length < 400) return false
   const trimmed = s.trimEnd()
-  // Ends on a strong dangling token: comma, semicolon, colon, or an unclosed
-  // bracket/paren. (Pipes, asterisks, hashes, dashes are excluded — tables,
-  // bold, headings and rules end with them legitimately.)
-  if (/[,;:([{]$/.test(trimmed)) return true
   // Last line opens a structure it never finished: a list bullet or numbered
   // item with no content after it
   const lastLine = trimmed.slice(trimmed.lastIndexOf('\n') + 1)
@@ -337,12 +341,43 @@ function sanitizeVisibleReply(text) {
     s = s.replace(/<function=[\s\S]*?(?:<\/function>|$)/gi, ' ')
   }
   if (s.includes('```')) {
-    // Unbalanced fences → the tail block is broken/jargon. Cut from the last
-    // opening fence to the end (a real terminated block is untouched).
+    // Unbalanced fence at the end. v5.24.2 — CLOSE it instead of amputating:
+    // cutting from the last opening fence destroyed the whole final block of
+    // a reply whose closing fence was lost to a mid-stream drop (the user
+    // watched the bubble shrink at done — "cut off responses"). The tail is
+    // only removed when it is genuinely machine jargon: empty, or an
+    // unterminated block whose body parses as a known tool-call payload.
     const fenceCount = (s.match(/```/g) || []).length
     if (fenceCount % 2 === 1) {
       const lastFence = s.lastIndexOf('```')
-      if (lastFence !== -1) s = s.slice(0, lastFence)
+      const tail = lastFence !== -1 ? s.slice(lastFence + 3) : ''
+      const tailTrimmed = tail.trim()
+      // Skip a fence language marker line (```json / ```js / ```python …) so
+      // the probe sees the block BODY — "json\n{…partial" used to dodge the
+      // { / [ check and get rendered instead of recognized as jargon.
+      const probeBody = tailTrimmed.replace(/^[a-zA-Z0-9_-]*\n/, '')
+      let tailIsToolJson = false
+      if (probeBody.startsWith('{') || probeBody.startsWith('[')) {
+        try {
+          const candidate = probeBody + (probeBody.startsWith('[') ? ']' : '}')
+          tailIsToolJson = looksLikeToolJson(JSON.parse(candidate))
+        } catch {
+          // Unterminated JSON can't parse — probe for a known tool name so a
+          // truncated tool-call block is still recognized as jargon, while a
+          // truncated real code block (const x = …) is kept.
+          try {
+            const toolRe = new RegExp(`"\\s*(?:${[...KNOWN_TOOL_NAMES].join('|')})\\s*"`)
+            tailIsToolJson = toolRe.test(probeBody)
+          } catch { /* empty tool set — keep */ }
+        }
+      }
+      if (lastFence !== -1 && (!tailTrimmed || tailIsToolJson)) {
+        s = s.slice(0, lastFence)
+      } else if (lastFence !== -1) {
+        // Real content inside the unterminated block — keep it all, just
+        // append the missing closing fence (after the block body).
+        s = tail.endsWith('\n') ? `${s}\`\`\`` : `${s}\n\`\`\``
+      }
     }
     // Drop closed fenced blocks whose body parses as tool-call JSON — keep
     // real code blocks intact.

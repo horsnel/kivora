@@ -1920,32 +1920,58 @@ input, textarea, select {
   transform: scale(0.97);
 }
 
-/* ── Chat streaming caret ────────────────────────────────────────
+/* ── Chat streaming caret — v5.24.2 modern LLM style ─────────────
    While a reply is streaming, MarkdownRenderer adds .md-streaming to the
-   prose wrapper and a blinking caret rides inline at the end of the last
-   text block (paragraph / list). Scoped to text containers only so it
-   never lands inside a code block header or breaks flex layouts. */
-@keyframes caretBlink {
-  0%, 45% { opacity: 1; }
-  50%, 100% { opacity: 0; }
+   prose wrapper. The old typewriter caret (▍ + steps() blink) is replaced
+   with the ChatGPT / Claude / Gemini feel: a soft rounded bar breathing in
+   washed HUSH red, a gentle red glow breathing over the actively-streaming
+   block, and a soft glide-in whenever a new block appears. Scoped to text
+   containers only so it never lands inside a code block header or breaks
+   flex layouts. */
+@keyframes caretBreath {
+  0%, 100% { opacity: 0.3; transform: scaleY(0.8); }
+  50% { opacity: 0.95; transform: scaleY(1); }
+}
+@keyframes streamTailWash {
+  0%, 100% { text-shadow: 0 0 0 rgba(255, 51, 102, 0); }
+  50% { text-shadow: 0 0 14px rgba(255, 51, 102, 0.16); }
+}
+@keyframes streamBlockIn {
+  from { opacity: 0.35; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.md-streaming > p:last-child,
+.md-streaming > ul:last-child,
+.md-streaming > ol:last-child,
+.md-streaming > table:last-child {
+  animation: streamBlockIn 0.22s ease-out, streamTailWash 2.4s ease-in-out 0.3s infinite;
 }
 .md-streaming > p:last-child::after,
 .md-streaming > ul:last-child::after,
 .md-streaming > ol:last-child::after,
 .md-streaming > table:last-child::after {
-  content: '▍';
+  content: '';
   display: inline-block;
-  margin-left: 2px;
-  color: #ef4444;
-  font-size: 0.95em;
-  line-height: 1;
-  vertical-align: -0.05em;
-  animation: caretBlink 1s steps(1) infinite;
+  width: 0.42em;
+  height: 1em;
+  margin-left: 3px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(255, 51, 102, 0.7), rgba(255, 51, 102, 0.28));
+  box-shadow: 0 0 9px rgba(255, 51, 102, 0.22);
+  vertical-align: -0.1em;
+  animation: caretBreath 1.15s ease-in-out infinite;
 }
 /* List caret sits after the final item, not on its own line */
 .md-streaming > ul:last-child::after,
 .md-streaming > ol:last-child::after {
   display: inline;
+}
+/* Calm the glow inside code blocks — code lines stream hard, keep the wash
+   off monospace so syntax colors stay readable */
+.md-streaming > p:last-child code,
+.md-streaming > ul:last-child code,
+.md-streaming > ol:last-child code {
+  text-shadow: none;
 }
 
 /* ── Generated image reveal ──────────────────────────────────────
