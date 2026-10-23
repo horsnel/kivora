@@ -350,7 +350,7 @@
   "devtools.running": "Inaendelea...",
   "devtools.sop_writer": "Mwandishi wa SOP",
   "devtools.sop_writer.desc": "Unda taratibu za kawaida za uendeshaji",
-  "devtools.split": 4,
+  "devtools.split": "3",
   "devtools.sql_builder": "Kijenzi cha SQL",
   "devtools.sql_builder.desc": "Kutoka Kiswahili hadi swali la SQL",
   "devtools.subtitle": "Zana 26 za AI kwa waendelezaji, waandishi na wajenga. Bure. Hakuna akaunti.",
@@ -631,7 +631,7 @@
   "opportunities.results": "matokeo",
   "opportunities.results_in": "matokeo katika {cat}",
   "opportunities.search": "Tafuta fursa...",
-  "opportunities.split": 5,
+  "opportunities.split": "11",
   "opportunities.start_time": "Wakati wa Kuanza",
   "opportunities.steps_completed": "hatua zilikamilika",
   "opportunities.tags": "Lebo",
@@ -724,7 +724,7 @@
   "study.quiz.score": "Alama:",
   "study.research": "Muhtasari wa Utafiti",
   "study.research.desc": "Bandika karatasi, pata pointi muhimu",
-  "study.split": 5,
+  "study.split": "5",
   "study.subtitle": "Zana 8 za AI kwa wanafunzi, watafiti na maprofesa. Bure, hakuna akaunti.",
   "study.timer": "Kipima muda",
   "study.title": "DeskiKusoma",
@@ -917,5 +917,9 @@
   "usage.header_free": "{n}/{limit} leo",
   "usage.remaining": "{n} kati ya {limit} zilizobaki leo",
   "usage.resets_at": "Huanza upya saa",
-  "usage.upgrade_more": "Unahitaji zaidi? Pata Pro"
+  "usage.upgrade_more": "Unahitaji zaidi? Pata Pro",
+  "common.close": "Funga",
+  "common.share": "Shiriki",
+  "community.join_hint": "Jiunge na mazungumzo kwenye ukurasa wa jumuiya.",
+  "community.open": "Fungua jumuiya"
 }

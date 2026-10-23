@@ -350,7 +350,7 @@
   "devtools.running": "Nṣiṣẹ...",
   "devtools.sop_writer": "Olukọ SOP",
   "devtools.sop_writer.desc": "Ṣẹda awọn iṣe iṣe deede",
-  "devtools.split": 3,
+  "devtools.split": "3",
   "devtools.sql_builder": "Olukọ SQL",
   "devtools.sql_builder.desc": "Gẹẹsi si ibeere SQL",
   "devtools.subtitle": "Awọn irinṣẹ AI 26 fun awọn onise, awọn olukọ, ati awọn alatunse. Ofiife. Ko si akanti nlo.",
@@ -631,7 +631,7 @@
   "opportunities.results": "abajade",
   "opportunities.results_in": "abajade ninu {cat}",
   "opportunities.search": "Wa ibanirore...",
-  "opportunities.split": 9,
+  "opportunities.split": "11",
   "opportunities.start_time": "Akoko Ibere",
   "opportunities.steps_completed": "awọn igbesẹ ti parí",
   "opportunities.tags": "Awọn aami",
@@ -724,7 +724,7 @@
   "study.quiz.score": "Igunpa:",
   "study.research": "Olujẹwọ Iwadii",
   "study.research.desc": "Fi iwe kọja, gba awọn aaye pataki",
-  "study.split": 3,
+  "study.split": "5",
   "study.subtitle": "Awọn irinṣẹ AI 8 fun awọn ẹlẹkọẹkọ, awọn oniwadii, ati awọn olukọ. Ofiife, ko si akanti nlo.",
   "study.timer": "Awari",
   "study.title": "IleEko",
@@ -917,5 +917,9 @@
   "usage.header_free": "{n}/{limit} òní",
   "usage.remaining": "{n} nínú {limit} ìgbà ọ̀fẹ́ kù òní",
   "usage.resets_at": "Ó tún bẹ̀rẹ̀ ní",
-  "usage.upgrade_more": "O fẹ́ síwájú? Gbé lọ sójú Pro"
+  "usage.upgrade_more": "O fẹ́ síwájú? Gbé lọ sójú Pro",
+  "common.close": "Ti",
+  "common.share": "Pín",
+  "community.join_hint": "Darapọ mọ ìjírórò ní ojú-iwe àwùjọ.",
+  "community.open": "Ṣí àwùjọ"
 }

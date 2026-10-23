@@ -350,7 +350,7 @@
   "devtools.running": "Running...",
   "devtools.sop_writer": "SOP Writer",
   "devtools.sop_writer.desc": "Create standard operating procedures",
-  "devtools.split": 3,
+  "devtools.split": "3",
   "devtools.sql_builder": "SQL Builder",
   "devtools.sql_builder.desc": "Plain English to SQL query",
   "devtools.subtitle": "26 AI-powered tools for developers, writers, and builders. Free. No account needed.",
@@ -639,7 +639,7 @@
   "opportunities.results": "results",
   "opportunities.results_in": "results in {cat}",
   "opportunities.search": "Search opportunities...",
-  "opportunities.split": 11,
+  "opportunities.split": "11",
   "opportunities.start_time": "Start Time",
   "opportunities.steps_completed": "steps completed",
   "opportunities.tags": "Tags",
@@ -802,7 +802,7 @@
   "study.quiz.score": "Score:",
   "study.research": "Research Summarizer",
   "study.research.desc": "Paste a paper, get the key points",
-  "study.split": 5,
+  "study.split": "5",
   "study.subtitle": "8 AI-powered tools for students, researchers, and professors. Free, no account needed.",
   "study.timer": "Timer",
   "study.title": "StudyDesk",
@@ -917,5 +917,9 @@
   "profile.export_desc": "Download every conversation as JSON and Markdown — yours to keep or take anywhere.",
   "profile.exporting": "Preparing your export…",
   "profile.export_done": "Export ready — check your downloads",
-  "profile.export_failed": "Export failed"
+  "profile.export_failed": "Export failed",
+  "common.close": "Close",
+  "common.share": "Share",
+  "community.join_hint": "Join the conversation on the community page.",
+  "community.open": "Open community"
 }

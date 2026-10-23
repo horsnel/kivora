@@ -350,7 +350,7 @@
   "devtools.running": "En cours...",
   "devtools.sop_writer": "Rédacteur de SOP",
   "devtools.sop_writer.desc": "Créez des procédures opérationnelles standard",
-  "devtools.split": 6,
+  "devtools.split": "3",
   "devtools.sql_builder": "Constructeur SQL",
   "devtools.sql_builder.desc": "Du français vers une requête SQL",
   "devtools.subtitle": "26 outils propulsés par l'IA pour développeurs, rédacteurs et bâtisseurs. Gratuit. Sans compte.",
@@ -631,7 +631,7 @@
   "opportunities.results": "résultats",
   "opportunities.results_in": "résultats dans {cat}",
   "opportunities.search": "Rechercher des opportunités...",
-  "opportunities.split": 11,
+  "opportunities.split": "11",
   "opportunities.start_time": "Délai de démarrage",
   "opportunities.steps_completed": "étapes complétées",
   "opportunities.tags": "Tags",
@@ -724,7 +724,7 @@
   "study.quiz.score": "Score :",
   "study.research": "Résumé de recherche",
   "study.research.desc": "Collez un article, obtenez les points clés",
-  "study.split": 6,
+  "study.split": "5",
   "study.subtitle": "8 outils propulsés par l'IA pour les étudiants, chercheurs et professeurs. Gratuit, sans compte.",
   "study.timer": "Minuteur",
   "study.title": "BureauEtude",
@@ -917,5 +917,9 @@
   "usage.header_free": "{n}/{limit} aujourd’hui",
   "usage.remaining": "{n} essais gratuits restants aujourd’hui sur {limit}",
   "usage.resets_at": "Réinitialisé à",
-  "usage.upgrade_more": "Besoin de plus ? Passez à Pro"
+  "usage.upgrade_more": "Besoin de plus ? Passez à Pro",
+  "common.close": "Fermer",
+  "common.share": "Partager",
+  "community.join_hint": "Rejoignez la conversation sur la page communautaire.",
+  "community.open": "Ouvrir la communauté"
 }
