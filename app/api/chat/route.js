@@ -5,7 +5,7 @@ import { setJudge0Config } from '@/lib/judge0'
 import { sseResponse } from '@/lib/sse'
 import { createClient } from '@supabase/supabase-js'
 import { getEnvVar, runInBackground } from '@/lib/cfEnv'
-import { createGenRecorder } from '@/lib/genBuffer'
+import { createGenRecorder, armDisconnectGuard } from '@/lib/genBuffer'
 import { rateLimit, anonymousRateLimit, anonymousDailyLimit, getClientIP } from '@/lib/ratelimit'
 import { safeJson } from '@/lib/payload'
 import { toolDefs, toolHandlers, TOOL_INSTRUCTIONS, filterToolsByQuery, detectRequiredTool, setToolSandboxConfig } from '@/lib/toolRegistry'
@@ -464,12 +464,19 @@ async function processChat(req, body, _send, conn) {
   // client can catch up via /api/chat/resume.
   let send = _send
   let genRecorder = null
+  // v5.24.3 — set by the disconnect guard when it finalizes an interrupted
+  // generation. The normal done paths then skip their session save + push
+  // (the guard already did both); genRecorder.finish still runs so the full
+  // reply overwrites the partial meta in the buffer when the work completes.
+  let interruptedFinalized = false
 
   // v5.22 — Web Push: when the reply finishes while the client is gone, a
   // notification is the difference between "checked back later" and
   // "never knew". Fire-and-forget at every terminal done path below via
   // pushIfDisconnected(); no-op for anonymous users and unconfigured keys.
-  const pushIfDisconnected = async (note) => {
+  // opts.force lets the disconnect guard push after it claimed the flag.
+  const pushIfDisconnected = async (note, opts = {}) => {
+    if (interruptedFinalized && !opts?.force) return
     if (!conn?.closed || !chatUser?.id || !admin) return
     try {
       const { sendPushToUser } = await import('@/lib/push')
@@ -845,6 +852,57 @@ async function processChat(req, body, _send, conn) {
       ...(relevantTools.length > 0 ? { tools: relevantTools, tool_choice: toolChoice } : {})
     }
 
+    // ── v5.24.3 — disconnect deadline guard ──
+    // If the viewer closes the tab / locks the phone mid-generation, Cloudflare
+    // kills this invocation ~30s later (waitUntil grace) — historically
+    // mid-tool-phase or mid-second-stream: buffer frozen mid-string, done
+    // never written, session never saved, push never fired. The guard watches
+    // conn.closed and finalizes deterministically at +18s: partial reply is
+    // polished (fences closed / trimmed to the last complete sentence), the
+    // session is saved, done lands in the resumable buffer, the "reply ready"
+    // push goes out — all inside the grace window. A still-connected client
+    // never triggers it, and if the work completes anyway the normal path
+    // overwrites the buffer meta with the full reply (finish is idempotent).
+    armDisconnectGuard({
+      conn,
+      delayMs: 18000,
+      isFinished: () => { try { return !!genRecorder?.snapshot?.().done } catch { return true } },
+      onDeadline: async () => {
+        interruptedFinalized = true
+        const raw = (() => { try { return genRecorder?.snapshot?.().content || '' } catch { return '' } })()
+        const reply = polishReply(raw)
+        if (!reply || !reply.trim()) {
+          // Nothing usable streamed before the drop — record an honest
+          // terminal state so a reconnecting client sees a notice instead of
+          // polling a buffer that will never resolve.
+          try { await genRecorder?.fail({ error: 'The reply was interrupted before any content arrived — please send your message again.' }) } catch {}
+          return
+        }
+        if (chatUser?.id && sessionId) {
+          try {
+            const { data: session } = await admin
+              .from('chat_sessions')
+              .select('messages')
+              .eq('id', sessionId)
+              .eq('user_id', chatUser.id)
+              .single()
+            let storedUserMsg = { ...messages.slice(-1)[0] }
+            if (hasImage) {
+              storedUserMsg = { role: 'user', content: `[Image: ${imageFileName}]${imageText ? '\n' + imageText : ''}` }
+            }
+            await admin.from('chat_sessions').upsert({
+              id: sessionId, user_id: chatUser.id,
+              messages: [...prevMessages(session), storedUserMsg, { role: 'assistant', content: reply }],
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'id' })
+          } catch (_) {}
+        }
+        try { await genRecorder?.finish({ reply, model, interrupted: true, searchUsed: false }) } catch {}
+        try { await pushIfDisconnected({ title: 'Kivora', body: 'Your reply is ready.', url: '/chat' }, { force: true }) } catch {}
+        console.warn(`[chat] disconnect guard finalized session ${sessionId || '?'} with ${reply.length} chars`)
+      },
+    })
+
     let chat
     try {
       chat = send
@@ -1139,7 +1197,9 @@ async function processChat(req, body, _send, conn) {
 
       // Save session. Identity comes from the verified JWT (chatUser),
       // never the client-supplied body userId.
-      if (chatUser?.id && sessionId) {
+      // interruptedFinalized: the disconnect guard already saved the partial
+      // reply — re-saving here would duplicate the user + assistant rows.
+      if (chatUser?.id && sessionId && !interruptedFinalized) {
         try {
           const { data: session } = await admin
             .from('chat_sessions')
@@ -1289,7 +1349,8 @@ async function processChat(req, body, _send, conn) {
 
     // Save session. Identity comes from the verified JWT (chatUser),
     // never the client-supplied body userId.
-    if (chatUser?.id && sessionId) {
+    // interruptedFinalized: the disconnect guard already saved (see above).
+    if (chatUser?.id && sessionId && !interruptedFinalized) {
       try {
         const { data: session } = await admin
           .from('chat_sessions')
