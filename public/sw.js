@@ -1,13 +1,18 @@
-// Kivora Service Worker v14 — MINIMAL-RISK CACHING
+// Kivora Service Worker v15 — MINIMAL-RISK CACHING + PUSH RECEIPT HANDSHAKE
 //
 // History: v8–v9 had caching bugs (undefined respondWith crashes, stale HTML
 // referencing old chunk hashes after deploys) → v10–v12 went full no-op.
 // v13 reintroduced caching with a strictly additive, provably-safe policy.
-// v14 is a policy-identical version bump whose ONLY job is to guarantee
+// v14 was a policy-identical version bump whose ONLY job is to guarantee
 // every client swaps onto the current worker: the install → skipWaiting →
 // activate → clients.claim → purge-foreign-caches chain forcibly retires
 // any zombie v8/v9 worker a device may still be running (those served
 // stale HTML that pinned users to dead builds across refreshes).
+// v15 (v5.24.4) keeps the v14 caching policy byte-identical and upgrades
+// the push handler: full-options display → minimal-options retry → and a
+// KIVORA_PUSH_RESULT postMessage to every open page, so the profile test
+// button can tell "never reached the device" apart from "reached but the
+// OS blocked the display" without any guesswork.
 //
 //   1. /_next/static/*        → cache-first. These URLs are content-hashed
 //                               and served immutable (see public/_headers),
@@ -24,7 +29,7 @@
 // Every respondWith() path resolves to a concrete Response — this worker can
 // never crash by resolving undefined (the v8 failure mode).
 
-const VERSION = 'kivora-v14'
+const VERSION = 'kivora-v15'
 const STATIC_CACHE = `${VERSION}-static`
 const PRECACHE = ['/offline.html']
 
@@ -135,23 +140,52 @@ self.addEventListener('fetch', (event) => {
   // handles these natively via Cache-Control headers. No interception.
 })
 
-// ── v5.22 Web Push ──────────────────────────────────────────────────
+// ── v5.22 Web Push · v5.24.4 device-receipt handshake ───────────────
 // "Your reply finished generating while you were offline" — the chat route
 // sends this when a background generation completes after a disconnect.
+// Display strategy: full options first; if the platform rejects any option
+// (icon/badge/tag quirks), retry with a minimal title+body display — a bad
+// option must never cost the notification. The outcome is always posted to
+// every open page so the profile test can produce a device-side verdict:
+//   receipt displayed=true   → Chrome DID show it (shade may be collapsed)
+//   receipt displayed=false  → reached the device, display failed (error)
+//   no receipt within 15s    → push never reached the SW (delivery layer)
 self.addEventListener('push', (event) => {
   let data = {}
-  try { data = event.data ? event.data.json() : {} } catch {}
+  try { data = event.data ? event.data.json() : {} } catch { try { data = { body: event.data ? event.data.text() : '' } } catch {} }
   const title = String(data.title || 'Kivora').slice(0, 120)
   const body = String(data.body || '').slice(0, 300)
   const url = /^\/[a-z]/.test(String(data.url)) ? data.url : '/chat'
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      tag: String(data.tag || 'kivora-chat').slice(0, 60),
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
-      data: { url },
-    }).catch(() => {})
+    (async () => {
+      let displayed = false
+      let error = null
+      try {
+        await self.registration.showNotification(title, {
+          body,
+          tag: String(data.tag || 'kivora-chat').slice(0, 60),
+          icon: '/icon-192.png',
+          badge: '/icon-192.png',
+          data: { url },
+        })
+        displayed = true
+      } catch (e1) {
+        error = String((e1 && e1.message) || e1).slice(0, 160)
+        try {
+          await self.registration.showNotification(title, { body: body || title })
+          displayed = true
+          error = null
+        } catch (e2) {
+          error = String((e2 && e2.message) || e2).slice(0, 160)
+        }
+      }
+      try {
+        const cs = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+        for (const c of cs) {
+          try { c.postMessage({ type: 'KIVORA_PUSH_RESULT', displayed, error, tag: String(data.tag || 'kivora-chat'), at: Date.now() }) } catch {}
+        }
+      } catch {}
+    })()
   )
 })
 

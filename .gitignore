@@ -39,3 +39,4 @@ scripts/deploy/kivora-deploy.env
 .wrangler
 .dev.vars*
 !.dev.vars.example
+.cf_env

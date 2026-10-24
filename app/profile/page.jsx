@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabasePublic } from '@/lib/supabase'
 import { authFetch } from '@/lib/authFetch'
@@ -66,7 +66,35 @@ export default function ProfilePage() {
   // v5.22 — push notifications + data export
   const [pushState, setPushState] = useState('unknown') // off | enabled | blocked | unsupported | busy
   const [testState, setTestState] = useState('idle') // v5.24 push test button: idle | busy
-  const [testResult, setTestResult] = useState(null) // v5.24.1 persistent inline verdict: { type: 'success'|'error', message }
+  const [testResult, setTestResult] = useState(null) // v5.24.1 persistent inline verdict: { type: 'success'|'error'|'wait', message }
+
+  // v5.24.4 — device-receipt handshake. The service worker postMessages
+  // KIVORA_PUSH_RESULT after every push display attempt (full-options →
+  // minimal-options retry). While a test receipt window is armed we surface
+  // that verdict inline, turning "server accepted it" into a real device-side
+  // verdict: displayed / display-failed (+error) / no receipt = never reached
+  // the SW (delivery layer: swiped Chrome, OS channel blocked, doze).
+  const receiptTimerRef = useRef(null)
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const onMsg = (e) => {
+      const d = e.data
+      if (!d || d.type !== 'KIVORA_PUSH_RESULT' || !receiptTimerRef.current) return
+      clearTimeout(receiptTimerRef.current)
+      receiptTimerRef.current = null
+      if (d.displayed) {
+        setTestResult({ type: 'success', message: t('profile.push_receipt_ok') || 'Confirmed on this device: Chrome received the push and displayed the notification. Nothing visible? Check the notification shade — and Android App info → Chrome → Notifications must be allowed.' })
+      } else {
+        const msg = (t('profile.push_receipt_fail') || 'The push reached this device but the notification failed to display ({err}). Refresh the page and try again — if it persists, report this exact error.').replace('{err}', d.error || 'unknown')
+        setTestResult({ type: 'error', message: msg })
+      }
+    }
+    navigator.serviceWorker.addEventListener('message', onMsg)
+    return () => {
+      navigator.serviceWorker.removeEventListener('message', onMsg)
+      if (receiptTimerRef.current) { clearTimeout(receiptTimerRef.current); receiptTimerRef.current = null }
+    }
+  }, [t])
   const [exportState, setExportState] = useState(null) // null | busy | done | error
   const [showAvatarPicker, setShowAvatarPicker] = useState(false)
   const [toast, setToast] = useState(null) // { type: 'success'|'error', message: string }
@@ -313,9 +341,21 @@ export default function ProfilePage() {
         // were reported as "nothing happened"), with device count + a fix-it
         // hint for the two dominant Android causes: swiped-away Chrome and
         // per-site notifications blocked in browser settings.
-        const msg = (t('profile.push_test_ok') || 'Sent to {n} device(s). No popup? Relaunch Chrome (don\'t swipe it away) and check that this site\'s notifications are allowed in browser settings.').replace('{n}', String(data.sent ?? 1))
+        // v5.24.4 — server success is now only the FIRST half of the verdict:
+        // arm the 15s receipt window; the SW's KIVORA_PUSH_RESULT postMessage
+        // upgrades this to a device-side verdict (displayed / failed / never
+        // reached). Type 'wait' renders amber until the receipt resolves it.
+        if (receiptTimerRef.current) clearTimeout(receiptTimerRef.current)
+        const perm = (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported'
+        const msg = (t('profile.push_receipt_wait') || 'Sent to {n} device(s) — waiting up to 15s for this device to confirm receipt (browser permission: {perm})…')
+          .replace('{n}', String(data.sent ?? 1))
+          .replace('{perm}', perm)
         setToast({ type: 'success', message: t('profile.push_test_sent') || 'Test sent — check your device for the notification' })
-        setTestResult({ type: 'success', message: msg })
+        setTestResult({ type: 'wait', message: msg })
+        receiptTimerRef.current = setTimeout(() => {
+          receiptTimerRef.current = null
+          setTestResult({ type: 'error', message: t('profile.push_receipt_none') || 'No receipt after 15s — the push never reached Chrome on this device. Relaunch Chrome (don\u2019t swipe it away), keep the screen on and this page open, check Android App info → Chrome → Notifications is allowed and battery optimization is off, then send the test again.' })
+        }, 15000)
       } else if (data?.reason === 'no_subscriptions') {
         setPushState('off') // the toggle was ahead of server truth — align it
         const msg = t('profile.push_test_none') || 'No device is registered to your account yet — turn push off and on again, then allow the browser permission prompt'
