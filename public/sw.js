@@ -1,4 +1,4 @@
-// Kivora Service Worker v15 — MINIMAL-RISK CACHING + PUSH RECEIPT HANDSHAKE
+// Kivora Service Worker v16 — MINIMAL-RISK CACHING + PUSH RECEIPT HANDSHAKE
 //
 // History: v8–v9 had caching bugs (undefined respondWith crashes, stale HTML
 // referencing old chunk hashes after deploys) → v10–v12 went full no-op.
@@ -13,6 +13,11 @@
 // KIVORA_PUSH_RESULT postMessage to every open page, so the profile test
 // button can tell "never reached the device" apart from "reached but the
 // OS blocked the display" without any guesswork.
+// v16 (v5.24.5) adds server-side receipts: every display attempt is also
+// POSTed to /api/push/receipt (keyed by an unguessable endpoint suffix),
+// so the verdict survives page closes and phone reboots — and a message
+// ping-pong lets the page verify WHICH worker version is actually
+// controlling it (zombie-worker detection).
 //
 //   1. /_next/static/*        → cache-first. These URLs are content-hashed
 //                               and served immutable (see public/_headers),
@@ -29,7 +34,7 @@
 // Every respondWith() path resolves to a concrete Response — this worker can
 // never crash by resolving undefined (the v8 failure mode).
 
-const VERSION = 'kivora-v15'
+const VERSION = 'kivora-v16'
 const STATIC_CACHE = `${VERSION}-static`
 const PRECACHE = ['/offline.html']
 
@@ -185,8 +190,33 @@ self.addEventListener('push', (event) => {
           try { c.postMessage({ type: 'KIVORA_PUSH_RESULT', displayed, error, tag: String(data.tag || 'kivora-chat'), at: Date.now() }) } catch {}
         }
       } catch {}
+      // Server-side receipt (v5.24.5): survives page closes. Keyed by the
+      // subscription endpoint's unguessable 24-char suffix; the route only
+      // accepts tails that match an existing row.
+      try {
+        let tail = ''
+        try {
+          const sub = await self.registration.pushManager.getSubscription()
+          if (sub && sub.endpoint) tail = sub.endpoint.slice(-24)
+        } catch {}
+        await fetch('/api/push/receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tail, displayed, error, sw: VERSION, at: Date.now() }),
+        })
+      } catch {}
     })()
   )
+})
+
+// v5.24.5 — zombie-worker detection: the page pings, we answer with the
+// exact version string currently controlling it.
+self.addEventListener('message', (event) => {
+  try {
+    if (event.data && event.data.type === 'KIVORA_PING' && event.source) {
+      event.source.postMessage({ type: 'KIVORA_SW_VERSION', version: VERSION })
+    }
+  } catch {}
 })
 
 self.addEventListener('notificationclick', (event) => {

@@ -26,10 +26,12 @@ export async function POST(req) {
   if (!admin) return Response.json({ ok: false, reason: 'service_unconfigured' }, { status: 503 })
 
   // Count registered devices first so the UI can tell "nothing registered"
-  // apart from "registered but delivery failed".
+  // apart from "registered but delivery failed". last_receipt (v5.24.5) is
+  // the device-side verdict from the previous test, posted by the service
+  // worker itself — it survives page closes and phone reboots.
   const { data: subs, error } = await admin
     .from('push_subscriptions')
-    .select('id, endpoint, created_at')
+    .select('id, endpoint, created_at, last_receipt')
     .eq('user_id', user.id)
   if (error) return Response.json({ ok: false, reason: 'db_error' }, { status: 500 })
 
@@ -41,6 +43,7 @@ export async function POST(req) {
   }, getEnvVar)
 
   const sent = result?.sent || 0
+  const latest = (subs || []).slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))[0] || null
   return Response.json({
     ok: sent > 0,
     reason: result?.skipped || (sent > 0 ? null : 'delivery_failed'),
@@ -48,5 +51,8 @@ export async function POST(req) {
     sent,
     total: result?.total ?? (subs?.length || 0),
     error: result?.error || null,
+    last_receipt: latest?.last_receipt || null,
+    endpoint_tail: latest?.endpoint ? String(latest.endpoint).slice(-24) : null,
+    subscription_created: latest?.created_at || null,
   })
 }

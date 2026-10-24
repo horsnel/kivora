@@ -67,6 +67,10 @@ export default function ProfilePage() {
   const [pushState, setPushState] = useState('unknown') // off | enabled | blocked | unsupported | busy
   const [testState, setTestState] = useState('idle') // v5.24 push test button: idle | busy
   const [testResult, setTestResult] = useState(null) // v5.24.1 persistent inline verdict: { type: 'success'|'error'|'wait', message }
+  // v5.24.5 — zombie-worker detection: which SW version actually controls
+  // this page (ping-pong) vs which version is deployed (fetched from /sw.js).
+  const [swVersion, setSwVersion] = useState(null)
+  const [swLatest, setSwLatest] = useState(null)
 
   // v5.24.4 — device-receipt handshake. The service worker postMessages
   // KIVORA_PUSH_RESULT after every push display attempt (full-options →
@@ -79,7 +83,9 @@ export default function ProfilePage() {
     if (!('serviceWorker' in navigator)) return
     const onMsg = (e) => {
       const d = e.data
-      if (!d || d.type !== 'KIVORA_PUSH_RESULT' || !receiptTimerRef.current) return
+      if (!d || typeof d !== 'object') return
+      if (d.type === 'KIVORA_SW_VERSION') { setSwVersion(String(d.version || '')); return }
+      if (d.type !== 'KIVORA_PUSH_RESULT' || !receiptTimerRef.current) return
       clearTimeout(receiptTimerRef.current)
       receiptTimerRef.current = null
       if (d.displayed) {
@@ -95,6 +101,20 @@ export default function ProfilePage() {
       if (receiptTimerRef.current) { clearTimeout(receiptTimerRef.current); receiptTimerRef.current = null }
     }
   }, [t])
+
+  // v5.24.5 — ask the controlling worker for its version, and learn the
+  // deployed version straight from /sw.js. A mismatch = zombie worker.
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const ping = () => { try { navigator.serviceWorker.controller?.postMessage({ type: 'KIVORA_PING' }) } catch {} }
+    ping()
+    const t1 = setTimeout(ping, 1500)
+    fetch('/sw.js').then((r) => r.text()).then((txt) => {
+      const m = txt.match(/const VERSION = '([^']+)'/)
+      if (m) setSwLatest(m[1])
+    }).catch(() => {})
+    return () => clearTimeout(t1)
+  }, [])
   const [exportState, setExportState] = useState(null) // null | busy | done | error
   const [showAvatarPicker, setShowAvatarPicker] = useState(false)
   const [toast, setToast] = useState(null) // { type: 'success'|'error', message: string }
@@ -347,9 +367,18 @@ export default function ProfilePage() {
         // reached). Type 'wait' renders amber until the receipt resolves it.
         if (receiptTimerRef.current) clearTimeout(receiptTimerRef.current)
         const perm = (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported'
-        const msg = (t('profile.push_receipt_wait') || 'Sent to {n} device(s) — waiting up to 15s for this device to confirm receipt (browser permission: {perm})…')
+        let msg = (t('profile.push_receipt_wait') || 'Sent to {n} device(s) — waiting up to 15s for this device to confirm receipt (browser permission: {perm})…')
           .replace('{n}', String(data.sent ?? 1))
           .replace('{perm}', perm)
+        // v5.24.5 — surface the PREVIOUS test's device-side receipt (posted
+        // by the SW to /api/push/receipt; survives page closes/reboots).
+        const lr = data.last_receipt
+        if (lr) {
+          const when = lr.at ? new Date(lr.at).toLocaleTimeString() : '?'
+          msg += ' ' + (lr.displayed
+            ? (t('profile.push_last_ok') || 'Previous device receipt: displayed ({sw}, {time})').replace('{sw}', lr.sw || '?').replace('{time}', when)
+            : (t('profile.push_last_fail') || 'Previous device receipt: DISPLAY FAILED ({sw}, {time}) — error: {err}').replace('{sw}', lr.sw || '?').replace('{time}', when).replace('{err}', lr.error || '?'))
+        }
         setToast({ type: 'success', message: t('profile.push_test_sent') || 'Test sent — check your device for the notification' })
         setTestResult({ type: 'wait', message: msg })
         receiptTimerRef.current = setTimeout(() => {
@@ -749,6 +778,15 @@ export default function ProfilePage() {
                   }`}
                 >
                   {testResult.message}
+                </p>
+              )}
+              {swLatest && (
+                <p role="status" className="mt-2 text-[11px] leading-relaxed text-muted">
+                  {swVersion
+                    ? (swVersion !== swLatest
+                        ? (t('profile.sw_version_stale') || 'Service worker {running} is stale — reload this page to update to {latest}').replace('{running}', swVersion).replace('{latest}', swLatest)
+                        : `${t('profile.sw_version') || 'Service worker'}: ${swVersion} ✓`)
+                    : `${t('profile.sw_version') || 'Service worker'}: … (latest ${swLatest})`}
                 </p>
               )}
             </div>
