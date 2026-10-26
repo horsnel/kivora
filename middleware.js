@@ -59,7 +59,11 @@ function applySecurityHeaders(response, pathname, cspOrNull) {
   const h = response.headers
   if (cspOrNull) h.set('Content-Security-Policy', cspOrNull)
   h.set('X-Content-Type-Options', 'nosniff')
-  h.set('X-Frame-Options', 'DENY')
+  // v5.24.6 — the Kivora Browser proxy route is EMBEDDED by our own page in
+  // a same-origin iframe. DENY here would break every proxied page. The
+  // handler sets the same value too; this keeps the two layers consistent
+  // regardless of which header wins the merge.
+  h.set('X-Frame-Options', pathname.startsWith('/api/browser/proxy') ? 'SAMEORIGIN' : 'DENY')
   h.set('Referrer-Policy', 'strict-origin-when-cross-origin')
   h.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload')
   h.set(

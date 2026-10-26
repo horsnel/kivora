@@ -30,6 +30,13 @@
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
+      "name": "Browser",
+      "short_name": "Browser",
+      "description": "Browse the whole web inside Kivora — tabs, reader mode, bookmarks",
+      "url": "/browser",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
       "name": "StudyDesk",
       "short_name": "Study",
       "description": "Homework help, essays, research and more",

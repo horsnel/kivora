@@ -42,3 +42,10 @@
   Cache-Control: no-cache
 /sw-register.js
   Cache-Control: no-cache
+
+# v5.24.6 — Kivora Browser proxy is embedded by our own page in a
+# same-origin iframe. The blanket DENY above must never reach this path;
+# the middleware + route both set SAMEORIGIN for it as well.
+/api/browser/proxy*
+  X-Frame-Options: SAMEORIGIN
+  Cache-Control: no-store

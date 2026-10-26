@@ -1,4 +1,4 @@
-// Kivora Service Worker v16 — MINIMAL-RISK CACHING + PUSH RECEIPT HANDSHAKE
+// Kivora Service Worker v17 — MINIMAL-RISK CACHING + PUSH RECEIPT HANDSHAKE
 //
 // History: v8–v9 had caching bugs (undefined respondWith crashes, stale HTML
 // referencing old chunk hashes after deploys) → v10–v12 went full no-op.
@@ -18,6 +18,9 @@
 // so the verdict survives page closes and phone reboots — and a message
 // ping-pong lets the page verify WHICH worker version is actually
 // controlling it (zombie-worker detection).
+// v17 (v5.24.6) is a policy-identical version bump riding the Kivora
+// Browser release — its only job is to move every device onto the
+// current worker so the profile version readout stays trustworthy.
 //
 //   1. /_next/static/*        → cache-first. These URLs are content-hashed
 //                               and served immutable (see public/_headers),
@@ -34,7 +37,7 @@
 // Every respondWith() path resolves to a concrete Response — this worker can
 // never crash by resolving undefined (the v8 failure mode).
 
-const VERSION = 'kivora-v16'
+const VERSION = 'kivora-v17'
 const STATIC_CACHE = `${VERSION}-static`
 const PRECACHE = ['/offline.html']
 
