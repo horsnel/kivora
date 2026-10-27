@@ -1023,5 +1023,7 @@
   "vfs.delete": "Delete",
   "vfs.deleted": "File deleted",
   "vfs.error": "Something went wrong",
-  "vfs.hint": "Files persist across sessions — the AI can re-read them anytime."
+  "vfs.hint": "Files persist across sessions — the AI can re-read them anytime.",
+  "vfs.refresh": "Refresh",
+  "vfs.count": "{n} files · {size}"
 }

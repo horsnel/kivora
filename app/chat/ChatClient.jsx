@@ -28,6 +28,8 @@ import { createPortal } from 'react-dom'
 // v5.11 — Live Terminal restored (client-only; xterm touches DOM)
 const XTerminal = dynamic(() => import('@/components/XTerminal'), { ssr: false })
 const WorkspacePanel = dynamic(() => import('@/components/chat/WorkspacePanel'), { ssr: false })
+// v5.28 — workspace file listing inside the Live Terminal drawer
+const TerminalWorkspace = dynamic(() => import('@/components/chat/TerminalWorkspace'), { ssr: false })
 
 
 
@@ -1846,6 +1848,11 @@ export default function ChatClient() {
   const [sandboxAvailable, setSandboxAvailable] = useState(false)
   const [aiSuggestion, setAiSuggestion] = useState(null)
   const xtermRef = useRef(null)
+  // v5.28 — workspace listing inside the terminal drawer; bumping the key
+  // re-fetches the listing after every executed command / exec auto-save
+  const [termWsOpen, setTermWsOpen] = useState(false)
+  const [termWsKey, setTermWsKey] = useState(0)
+  const bumpTermWs = () => setTermWsKey((k) => k + 1)
 
   useEffect(() => {
     fetch('/api/sandbox?action=health')
@@ -1966,6 +1973,7 @@ export default function ChatClient() {
     }
     queueTermWrite('', null, true)
     flushTermQueueWhenReady()
+    bumpTermWs() // v5.28 — chat-side exec runs auto-save files server-side
     // Switch back to the conversation once the user can read the tail
     if (termCloseTimerRef.current) clearTimeout(termCloseTimerRef.current)
     termCloseTimerRef.current = setTimeout(() => {
@@ -2019,6 +2027,7 @@ export default function ChatClient() {
           } else {
             termWriteln(output)
           }
+          bumpTermWs() // v5.28 — files the run created may have been auto-captured
           termPrompt()
           return
         }
@@ -2055,6 +2064,7 @@ export default function ChatClient() {
       termWriteln('Execution failed. Check your connection.', 'red')
     }
 
+    bumpTermWs() // v5.28 — refresh the workspace listing after each run
     termPrompt()
   }
 
@@ -2683,15 +2693,36 @@ export default function ChatClient() {
               {aiSuggestion && (
                 <span className="text-[10px] text-yellow-400 ml-auto animate-pulse">AI suggestion pending — Enter to run</span>
               )}
+              {/* v5.28 — toggle the persistent-workspace listing inside the drawer */}
+              <button
+                onClick={() => setTermWsOpen((o) => !o)}
+                className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${termWsOpen ? 'text-[#FF3366] bg-[#FF3366]/10' : 'text-[#525252] hover:text-white hover:bg-white/[0.06]'} ${aiSuggestion ? '' : 'ml-auto'}`}
+                title={t('vfs.title')}
+                aria-label={t('vfs.title')}
+                aria-pressed={termWsOpen}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                </svg>
+              </button>
               <button
                 onClick={() => setTerminalMode(false)}
-                className="ml-auto w-7 h-7 rounded-md flex items-center justify-center text-[#525252] hover:text-white hover:bg-white/[0.06] transition-colors"
+                className="w-7 h-7 rounded-md flex items-center justify-center text-[#525252] hover:text-white hover:bg-white/[0.06] transition-colors"
                 title="Back to chat"
                 aria-label="Back to chat"
               >
                 <IconClose size={13} />
               </button>
             </div>
+
+            {/* v5.28 — persistent workspace listing (real files, unlike the
+                ephemeral `ls` a terminal command sees on Judge0) */}
+            <TerminalWorkspace
+              visible={terminalMode && termWsOpen}
+              getToken={async () => user ? (await supabasePublic?.auth?.getSession())?.data?.session?.access_token || '' : ''}
+              t={t}
+              refreshKey={termWsKey}
+            />
 
             {/* xterm.js terminal */}
             <div className="flex-1 min-h-0 bg-[#0d0d0d] p-2 terminal-xterm-container">

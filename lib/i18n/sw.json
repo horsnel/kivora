@@ -1023,5 +1023,7 @@
   "vfs.delete": "Futa",
   "vfs.deleted": "Faili imefutwa",
   "vfs.error": "Kuna hitilafu imetokea",
-  "vfs.hint": "Faili hudumu kwenye kipindi kipya — AI inaweza kusoma tena wakati wowote."
+  "vfs.hint": "Faili hudumu kwenye kipindi kipya — AI inaweza kusoma tena wakati wowote.",
+  "vfs.refresh": "Onyesha upya",
+  "vfs.count": "faili {n} · {size}"
 }

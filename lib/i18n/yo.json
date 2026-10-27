@@ -1023,5 +1023,7 @@
   "vfs.delete": "Nu kúrò",
   "vfs.deleted": "Fáìlì ti nu",
   "vfs.error": "Àṣìṣe kan ṣẹlẹ̀",
-  "vfs.hint": "Àwọn fáìlì ń wọ́n láàárọ̀ ìgbà — AI lè tún ka wọ́n nígbà gbogbo."
+  "vfs.hint": "Àwọn fáìlì ń wọ́n láàárọ̀ ìgbà — AI lè tún ka wọ́n nígbà gbogbo.",
+  "vfs.refresh": "Ìtúnṣe",
+  "vfs.count": "fáìlì {n} · {size}"
 }
