@@ -969,5 +969,8 @@
   "browser.no_bookmarks": "Aucun favori — touchez l'étoile sur une page.",
   "browser.home": "Accueil",
   "browser.history": "Historique",
-  "browser.copied": "Lien copié"
+  "browser.copied": "Lien copié",
+  "browser.resize_handle": "Faites glisser pour redimensionner le navigateur",
+  "browser.maximize": "Pleine hauteur",
+  "browser.shrink": "Réduire"
 }

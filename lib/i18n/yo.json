@@ -969,5 +969,8 @@
   "browser.no_bookmarks": "Kò sí àmì-ìpamọ́ — tẹ àmì-ìpamọ́ lórí ojú-iwé.",
   "browser.home": "Ilé",
   "browser.history": "Ìtàn ìwádìí",
-  "browser.copied": "Ìjápọ̀ ti dákọ"
+  "browser.copied": "Ìjápọ̀ ti dákọ",
+  "browser.resize_handle": "Fà á láti yí wínrà àsààyàn padà",
+  "browser.maximize": "Gíga pípọ́",
+  "browser.shrink": "Dinku"
 }

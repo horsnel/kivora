@@ -18,7 +18,6 @@ const NAV_LINKS = [
   { labelKey: 'nav.devtools',       href: '/devtools',       Icon: IconCode,        tour: 'devtools' },
   { labelKey: 'nav.reelpen',        href: '/reelpen',        Icon: IconVideo,       tour: 'reelpen' },
   { labelKey: 'nav.3dviewer',       href: '/3d',             Icon: IconEye },
-  { labelKey: 'nav.browser',        href: '/browser',        Icon: IconGlobe },
 ]
 
 // About, Blog, Admin links removed from sidebar — About & Blog are in the footer, Admin is via O.L.H.M.E.S in footer

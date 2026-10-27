@@ -11,6 +11,7 @@ import { LanguageProvider } from '@/components/LanguageProvider'
 import TourGuide from '@/components/TourGuide'
 import FeedbackToast from '@/components/FeedbackToast'
 import GlobalCodeRunner from '@/components/GlobalCodeRunner'
+import BrowserProvider from '@/components/browser/BrowserProvider'
 
 // ── Font optimization via next/font ──
 // Using next/font instead of @import url() in globals.css to:
@@ -140,15 +141,22 @@ export default async function RootLayout({ children }) {
         <ProvidersErrorBoundary>
           <LanguageProvider>
             <CurrencyProvider>
-              {/* App shell: full viewport, sidebar + content side by side */}
-              <div className="h-dvh flex flex-col lg:flex-row overflow-hidden">
-                <NavbarErrorBoundary>
-                  <Navbar />
-                </NavbarErrorBoundary>
-                <PageContent>
-                  {children}
-                </PageContent>
-              </div>
+              {/* v5.24.7 — Kivora Browser as a DevTools-style bottom drawer:
+                  global link capture routes every cross-origin <a> on every
+                  page into the drawer instead of a new tab. Wraps the whole
+                  app shell so any page can call useBrowser(); the drawer
+                  itself is fixed-position and needs no transform ancestor. */}
+              <BrowserProvider>
+                {/* App shell: full viewport, sidebar + content side by side */}
+                <div className="h-dvh flex flex-col lg:flex-row overflow-hidden">
+                  <NavbarErrorBoundary>
+                    <Navbar />
+                  </NavbarErrorBoundary>
+                  <PageContent>
+                    {children}
+                  </PageContent>
+                </div>
+              </BrowserProvider>
             </CurrencyProvider>
             {/* Guided tour — inside LanguageProvider so it can translate; auto-starts for new users on /dashboard, replayable from the sidebar */}
             <TourGuide />

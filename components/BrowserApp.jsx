@@ -1,38 +1,29 @@
 'use client'
 // ════════════════════════════════════════════════════════════════════
-// BrowserApp — Kivora Browser (v5.24.6)
+// BrowserApp — Kivora Browser as a DevTools-style bottom drawer (v5.24.7)
 //
-// A full in-web browser rendered as a fixed full-screen surface:
-//   - multi-tab engine with per-tab history (back / forward / reload)
-//   - omnibox: URL or search (DuckDuckGo), normalized by the same
-//     core.mjs rules the server enforces
-//   - every site renders through /api/browser/proxy inside a sandboxed
-//     opaque-origin iframe (CSP frame-src 'self' compatible, XSS-safe)
-//   - reader mode via /api/browser/reader (server-side extraction)
-//   - bookmarks + history in localStorage, share, open-externally,
-//     desktop-UA toggle, night filter, safe-area aware chrome
+// Mounted once by BrowserProvider (root layout) on every page. Appears
+// exactly like the terminal drawer in browser DevTools:
+//   - slides up from the bottom edge over the current page
+//   - drag handle on top: drag to any height, release snaps to
+//     half (50dvh) / tall (85dvh) / full (100dvh); drag down to dismiss
+//   - double-tap the handle toggles half ↔ full
+//   - session survives open/close (component stays mounted, tabbed state
+//     persists) — the page behind stays alive at partial heights
+//
+// Engine (unchanged from v5.24.6, hardened):
+//   - multi-tab with per-tab history (back/forward/reload)
+//   - omnibox styled with the platform's kivora-input-wrap text bar
+//   - all sites render through /api/browser/proxy in a sandboxed
+//     opaque-origin iframe (CSP frame-src 'self' compatible)
+//   - reader mode, night filter, desktop UA, bookmarks, history, share
+//   - thick 2.2-stroke icon set + solid #262626 element lines to match
+//     the platform's visual weight
 // ════════════════════════════════════════════════════════════════════
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/LanguageProvider'
 import { normalizeInput } from '@/lib/browser/core.mjs'
 import StartPage, { faviconFor } from '@/components/browser/StartPage'
-import {
-  IconArrowLeft,
-  IconArrowRight,
-  IconClose,
-  IconPlus,
-  IconBookmark,
-  IconBookmarkFill,
-  IconShare,
-  IconExternal,
-  IconTrash,
-  IconHome,
-  IconClock,
-  IconDotsVertical,
-  IconSpinner,
-  IconBook,
-} from '@/components/Icons'
 
 const TABS_KEY = 'kv_browser_tabs_v1'
 const BM_KEY = 'kv_browser_bms_v1'
@@ -51,28 +42,67 @@ function loadJSON(key, fallback) {
   }
 }
 
-// ── tiny local icons (not in the shared set) ──────────────────────
-const IconReload = ({ size = 16, className = '' }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-    <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-    <path d="M21 3v6h-6" />
+// ── thick icon set — every chrome icon drawn at stroke 2.2 so the whole
+//    browser matches the platform's visual weight (user ask: "platform
+//    icons are thick, elements are thicker lines") ─────────────────────
+const mk = (children, filled) =>
+  function Icon({ size = 18, className = '' }) {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill={filled ? 'currentColor' : 'none'}
+        stroke={filled ? 'none' : 'currentColor'}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+        aria-hidden="true"
+      >
+        {children}
+      </svg>
+    )
+  }
+
+const IconBack = mk(<><path d="M19 12H5" /><path d="M12 19l-7-7 7-7" /></>)
+const IconFwd = mk(<><path d="M5 12h14" /><path d="M12 5l7 7-7 7" /></>)
+const IconX = mk(<><path d="M18 6L6 18" /><path d="M6 6l12 12" /></>)
+const IconPlus = mk(<><path d="M12 5v14" /><path d="M5 12h14" /></>)
+const IconReload = mk(<><path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 3v6h-6" /></>)
+const IconMoon = mk(<path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8Z" />)
+const IconDesktop = mk(<><rect x="2.5" y="4" width="19" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></>)
+const IconDots = mk(<><circle cx="12" cy="5" r="1" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="12" cy="19" r="1" fill="currentColor" stroke="none" /></>)
+const IconHome = mk(<><path d="M3 10.5L12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></>)
+const IconClock = mk(<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></>)
+const IconTrash = mk(<><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M6 6l1 14h10l1-14" /></>)
+const IconBook = mk(<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15ZM4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5" />)
+const IconShare = mk(<><path d="M12 3v13" /><path d="M8 7l4-4 4 4" /><path d="M5 12v8h14v-8" /></>)
+const IconExternal = mk(<><path d="M14 4h6v6" /><path d="M20 4l-9 9" /><path d="M19 14v6H4V5h6" /></>)
+const IconBm = mk(<path d="M6 3h12v18l-6-4.5L6 21V3Z" />)
+const IconBmFill = mk(<path d="M6 3h12v18l-6-4.5L6 21V3Z" />, true)
+const IconSearch = mk(<><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></>)
+const IconGlobe = mk(<><circle cx="12" cy="12" r="9" /><path d="M3 12h18" /><path d="M12 3a13.5 13.5 0 0 1 0 18 13.5 13.5 0 0 1 0-18Z" /></>)
+const IconChevUp = mk(<path d="M6 15l6-6 6 6" />)
+const IconChevDown = mk(<path d="M6 9l6 6 6-6" />)
+const IconSpinner = ({ size = 20, className = '' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={`animate-spin ${className}`} aria-hidden="true">
+    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.4" opacity="0.2" />
+    <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
   </svg>
 )
-const IconMoon = ({ size = 16, className = '' }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-    <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8Z" />
-  </svg>
-)
-const IconDesktop = ({ size = 16, className = '' }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-    <rect x="2.5" y="4" width="19" height="13" rx="2" />
-    <path d="M8 21h8M12 17v4" />
+const KMark = ({ size = 18, className = '' }) => (
+  <svg width={size} height={size} viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true">
+    <path d="M16 4L6 24L16 18Z" fill="#FF3366" opacity="0.95" />
+    <path d="M16 4L26 24L16 18Z" fill="#FF3366" opacity="0.55" />
   </svg>
 )
 
-export default function BrowserApp() {
+const SNAPS = ['half', 'tall', 'full']
+const PCT = { half: 0.5, tall: 0.85, full: 1 }
+
+export default function BrowserApp({ open, onClose, pending }) {
   const { t } = useTranslation()
-  const router = useRouter()
 
   const [tabs, setTabs] = useState(null) // null = not hydrated yet
   const [activeId, setActiveId] = useState(null)
@@ -85,9 +115,18 @@ export default function BrowserApp() {
   const [toast, setToast] = useState('')
   const [readerState, setReaderState] = useState({ loading: false, data: null })
 
+  // ── drawer geometry ──
+  const [snap, setSnap] = useState('half')
+  const [dragging, setDragging] = useState(false)
+  const [dragH, setDragH] = useState(null)
+
   const inputRef = useRef(null)
-  const readerCacheRef = useRef(new Map()) // `${tabId}|${url}` → reader payload
+  const panelRef = useRef(null)
+  const readerCacheRef = useRef(new Map())
   const toastTimer = useRef(null)
+  const dragRef = useRef(null)
+  const dragHRef = useRef(null)
+  const lastHandleTap = useRef(0)
 
   const activeTab = (tabs || []).find((x) => x.id === activeId) || null
   const activeUrl = activeTab ? activeTab.hist[activeTab.hi] : null
@@ -98,7 +137,7 @@ export default function BrowserApp() {
     toastTimer.current = setTimeout(() => setToast(''), 1900)
   }, [])
 
-  // ── hydrate ──
+  // ── hydrate (once) ──
   useEffect(() => {
     const savedTabs = loadJSON(TABS_KEY, [])
     const bms = loadJSON(BM_KEY, [])
@@ -122,50 +161,48 @@ export default function BrowserApp() {
         localStorage.setItem(BM_KEY, JSON.stringify(bookmarks))
         localStorage.setItem(HIST_KEY, JSON.stringify(history))
       } catch {}
-    }, 400)
+    }, 250)
     return () => clearTimeout(id)
   }, [tabs, bookmarks, history])
 
-  // ── lock page scroll behind the overlay ──
-  useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = prev
-    }
-  }, [])
-
-  // ── Escape closes chrome layers ──
+  // ── Escape: close inner layers first, then the drawer itself ──
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') {
-        setMenuOpen(false)
-        setDrawer(null)
-      }
+      if (e.key !== 'Escape') return
+      if (menuOpen) return setMenuOpen(false)
+      if (drawer) return setDrawer(null)
+      if (open) onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [menuOpen, drawer, open, onClose])
+
+  // ── openBrowser(url) requests from the global link capture ──
+  useEffect(() => {
+    if (!pending || !tabs) return
+    setMenuOpen(false)
+    setDrawer(null)
+    setTabs((prev) =>
+      (prev || []).map((x) => {
+        if (x.id !== activeId) return x
+        const hist = x.hist.slice(0, x.hi + 1)
+        hist.push(pending.url)
+        return { ...x, hist, hi: hist.length - 1, title: '', key: x.key + 1, loading: true, reader: false }
+      })
+    )
+    setHistory((prev) => [{ url: pending.url, title: '', ts: Date.now() }, ...prev.filter((h) => h.url !== pending.url)].slice(0, HIST_CAP))
+  }, [pending?.n]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── omnibox mirrors the active tab's URL ──
   useEffect(() => {
     if (!inputFocused) setInput(activeUrl || '')
   }, [activeUrl, activeId, inputFocused])
 
-  // ── helpers ──
+  // ── engine ──
   const patchTab = useCallback((id, patch) => {
     setTabs((prev) => (prev || []).map((x) => (x.id === id ? { ...x, ...(typeof patch === 'function' ? patch(x) : patch) } : x)))
   }, [])
 
-  const recordHistory = useCallback((url, title) => {
-    if (!url) return
-    setHistory((prev) => {
-      const filtered = prev.filter((h) => h.url !== url)
-      return [{ url, title: title || '', ts: Date.now() }, ...filtered].slice(0, HIST_CAP)
-    })
-  }, [])
-
-  // ── navigation core ──
   const navigate = useCallback(
     (rawUrl, opts = {}) => {
       const url = rawUrl || null // null → start page
@@ -175,7 +212,7 @@ export default function BrowserApp() {
         if (!prev) return prev
         return prev.map((x) => {
           if (x.id !== activeId) return x
-          if (url === null) return { ...x, hist: [null], hi: 0, title: '', key: x.key + 1, loading: false }
+          if (url === null) return { ...x, hist: [null], hi: 0, title: '', reader: false, key: x.key + 1, loading: false }
           if (opts.replace) {
             const hist = x.hist.slice()
             hist[x.hi] = url
@@ -186,9 +223,9 @@ export default function BrowserApp() {
           return { ...x, hist, hi: hist.length - 1, title: '', key: x.key + 1, loading: true }
         })
       })
-      if (url) recordHistory(url, '')
+      if (url) setHistory((prev) => [{ url, title: '', ts: Date.now() }, ...prev.filter((h) => h.url !== url)].slice(0, HIST_CAP))
     },
-    [activeId, recordHistory]
+    [activeId]
   )
 
   const goBack = useCallback(() => {
@@ -233,10 +270,6 @@ export default function BrowserApp() {
     },
     [activeId]
   )
-
-  const exitBrowser = useCallback(() => {
-    router.push('/dashboard')
-  }, [router])
 
   // ── per-URL effects for the ACTIVE tab ──
   const fxUrl = activeTab ? activeUrl : null
@@ -304,6 +337,7 @@ export default function BrowserApp() {
   // ── bookmarks ──
   const isBookmarked = activeUrl && bookmarks.some((b) => b.url === activeUrl)
   const toggleBookmark = () => {
+    setMenuOpen(false)
     if (!activeUrl) return
     if (isBookmarked) {
       setBookmarks((prev) => prev.filter((b) => b.url !== activeUrl))
@@ -312,7 +346,6 @@ export default function BrowserApp() {
       setBookmarks((prev) => [{ url: activeUrl, title: activeTab?.title || activeUrl, ts: Date.now() }, ...prev].slice(0, 200))
       showToast(t('browser.bookmark_added'))
     }
-    setMenuOpen(false)
   }
 
   const shareCurrent = async () => {
@@ -333,318 +366,607 @@ export default function BrowserApp() {
     showToast(t('browser.history_cleared'))
   }
 
+  // ── drag-to-resize (DevTools drawer behavior) ──
+  // Capture is DEFERRED until the pointer actually moves ≥4px. Capturing on
+  // pointerdown alone made an interrupted gesture (shade pull, edge lift,
+  // automation abort) strand the capture: every later tap was retargeted to
+  // the handle and toolbar buttons went dead — the classic "buttons don't
+  // work until a second tap" bug. A plain tap now never captures.
+  const onHandlePointerDown = (e) => {
+    if (e.button !== undefined && e.button !== 0) return
+    const panel = panelRef.current
+    if (!panel) return
+    dragRef.current = {
+      startY: e.clientY,
+      startH: panel.getBoundingClientRect().height,
+      vh: window.innerHeight || 800,
+      lastY: e.clientY,
+      lastT: performance.now(),
+      v: 0,
+      moved: false,
+      pid: e.pointerId,
+      captured: false,
+    }
+  }
+
+  const onHandlePointerMove = (e) => {
+    const d = dragRef.current
+    if (!d || e.pointerId !== d.pid) return
+    if (!d.captured) {
+      if (Math.abs(e.clientY - d.startY) < 4) return // simple tap — never capture
+      d.captured = true
+      try {
+        e.currentTarget.setPointerCapture(d.pid)
+      } catch {}
+      setDragging(true)
+    }
+    const dy = d.startY - e.clientY // up = grow
+    const h = Math.min(d.vh, Math.max(96, d.startH + dy))
+    const now = performance.now()
+    const dt = now - d.lastT
+    if (dt > 24) {
+      d.v = (d.lastY - e.clientY) / dt // > 0 = expanding
+      d.lastY = e.clientY
+      d.lastT = now
+    }
+    if (Math.abs(dy) > 4) d.moved = true
+    dragHRef.current = h
+    setDragH(h)
+  }
+
+  const onHandlePointerUp = (e) => {
+    const d = dragRef.current
+    if (!d) return
+    if (d.captured && e && e.currentTarget) {
+      try {
+        e.currentTarget.releasePointerCapture(d.pid)
+      } catch {}
+    }
+    dragRef.current = null
+    setDragging(false)
+    const h = dragHRef.current != null ? dragHRef.current : d.startH
+    dragHRef.current = null
+    setDragH(null)
+    if (!d.captured || !d.moved) return // tap on handle = no-op
+    const vh = d.vh
+    if (h >= vh * 0.9) setSnap('full')
+    else if (h < vh * 0.3) onClose() // dragged nearly shut
+    else if (d.v < -0.7 && h < vh * 0.72) onClose() // fast downward flick
+    else setSnap(h > vh * 0.66 ? 'tall' : 'half')
+  }
+
+  // Safety net — if a pointerup/cancel never reaches the handle (OS gesture
+  // interruption, tab switch, edge lift), drop any drag state so the chrome
+  // can never stay stuck in a capturing/dragging mode.
+  useEffect(() => {
+    const cleanup = () => {
+      if (!dragRef.current) return
+      dragRef.current = null
+      dragHRef.current = null
+      setDragH(null)
+      setDragging(false)
+    }
+    window.addEventListener('pointerup', cleanup)
+    window.addEventListener('pointercancel', cleanup)
+    window.addEventListener('blur', cleanup)
+    return () => {
+      window.removeEventListener('pointerup', cleanup)
+      window.removeEventListener('pointercancel', cleanup)
+      window.removeEventListener('blur', cleanup)
+    }
+  }, [])
+
+  const onHandleDoubleClick = () => {
+    const now = Date.now()
+    if (now - lastHandleTap.current < 350) {
+      setSnap((s) => (s === 'full' ? 'half' : 'full'))
+      lastHandleTap.current = 0
+      return
+    }
+    lastHandleTap.current = now
+  }
+
+  const cycleSnap = (dir) => {
+    const i = SNAPS.indexOf(snap)
+    const next = SNAPS[Math.min(SNAPS.length - 1, Math.max(0, i + dir))]
+    if (dir < 0 && i === 0) onClose()
+    else setSnap(next)
+  }
+
+  const onHandleKeyDown = (e) => {
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      cycleSnap(1)
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      cycleSnap(-1)
+    } else if (e.key === 'Home') {
+      e.preventDefault()
+      setSnap('full')
+    } else if (e.key === 'End') {
+      e.preventDefault()
+      onClose()
+    }
+  }
+
   // ── iframe src (kb busts identical-URL reloads) ──
   const iframeSrc = activeUrl
     ? `/api/browser/proxy?url=${encodeURIComponent(activeUrl)}${activeTab?.desktop ? '&ua=desktop' : ''}&kb=${activeTab?.key || 0}`
     : null
 
-  if (!tabs) {
-    return (
-      <div className="fixed inset-0 z-[100] bg-[#0a0a0a] flex items-center justify-center">
-        <IconSpinner size={22} className="text-[#FF3366]" />
-      </div>
-    )
-  }
-
   const canBack = activeTab && activeTab.hi > 0
   const canFwd = activeTab && activeTab.hi < activeTab.hist.length - 1
+  const heightStyle = dragH != null ? `${dragH}px` : `${Math.round(PCT[snap] * 100)}dvh`
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[#0a0a0a] flex flex-col select-none" role="application" aria-label={t('browser.title')}>
-      {/* ── toolbar ── */}
-      <header className="shrink-0 bg-[#0f0f0f] border-b border-white/[0.06] pt-[env(safe-area-inset-top)]">
-        <div className="flex items-center gap-1.5 px-2.5 py-2">
-          <button onClick={goBack} disabled={!canBack} aria-label={t('browser.back')} className="w-9 h-9 rounded-xl flex items-center justify-center text-[#a3a3a3] disabled:text-[#3a3a3a] hover:bg-white/[0.06] transition-colors">
-            <IconArrowLeft size={17} />
-          </button>
-          <button onClick={goForward} disabled={!canFwd} aria-label={t('browser.forward')} className="w-9 h-9 rounded-xl flex items-center justify-center text-[#a3a3a3] disabled:text-[#3a3a3a] hover:bg-white/[0.06] transition-colors">
-            <IconArrowRight size={17} />
-          </button>
+    <div
+      className="fixed inset-x-0 bottom-0 z-[9990] touch-manipulation"
+      style={{
+        transform: open ? 'translateY(0)' : 'translateY(110%)',
+        visibility: open ? 'visible' : 'hidden',
+        transition: dragging
+          ? 'none'
+          : `transform 340ms cubic-bezier(0.22, 1, 0.36, 1), visibility 0s linear ${open ? '0s' : '340ms'}`,
+        pointerEvents: open ? 'auto' : 'none',
+      }}
+      inert={open ? undefined : true}
+      aria-hidden={!open}
+    >
+      <div
+        ref={panelRef}
+        role="application"
+        aria-label={t('browser.title')}
+        className={`relative flex flex-col overflow-hidden bg-[#0d0d0d] border-t-2 border-[#FF3366] shadow-[0_-12px_48px_rgba(0,0,0,0.65)] select-none ${
+          snap === 'full' && !dragging ? 'rounded-t-none' : 'rounded-t-2xl'
+        }`}
+        style={{
+          height: heightStyle,
+          willChange: dragging ? 'height' : undefined,
+          transition: dragging ? 'none' : 'height 240ms cubic-bezier(0.22, 1, 0.36, 1)',
+        }}
+      >
+        {/* notch/status-bar clearance in full mode */}
+        {snap === 'full' && !dragging && <div className="shrink-0 h-[env(safe-area-inset-top)]" />}
 
-          <form onSubmit={submitInput} className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 bg-[#161616] border border-white/[0.07] focus-within:border-[#FF3366]/60 rounded-xl h-9 px-3 transition-colors">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#525252" strokeWidth="2" strokeLinecap="round" className="shrink-0" aria-hidden="true">
-                {activeUrl ? <path d="M12 2a10 10 0 0 0 0 20 10 10 0 0 0 0-20Zm0 0c2.5 2.4 4 5.9 4 10s-1.5 7.6-4 10c-2.5-2.4-4-5.9-4-10s1.5-7.6 4-10ZM2.5 9.5h19M2.5 14.5h19" /> : <circle cx="11" cy="11" r="7" />}
-              </svg>
-              <input
-                ref={inputRef}
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onFocus={(e) => {
-                  setInputFocused(true)
-                  e.target.select()
-                }}
-                onBlur={() => setInputFocused(false)}
-                placeholder={t('browser.url_placeholder')}
-                aria-label={t('browser.url_placeholder')}
-                autoComplete="off"
-                autoCorrect="off"
-                spellCheck="false"
-                inputMode="url"
-                className="flex-1 min-w-0 bg-transparent outline-none text-[13px] text-[#fafafa] placeholder:text-[#525252]"
-              />
-            </div>
-          </form>
-
-          {activeTab?.loading ? (
-            <button onClick={stop} aria-label={t('browser.stop')} className="w-9 h-9 rounded-xl flex items-center justify-center text-[#a3a3a3] hover:bg-white/[0.06] transition-colors">
-              <IconClose size={15} />
+        {/* ═══ drag handle — the DevTools-style grab bar ═══ */}
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label={t('browser.resize_handle')}
+          tabIndex={0}
+          onPointerDown={onHandlePointerDown}
+          onPointerMove={onHandlePointerMove}
+          onPointerUp={onHandlePointerUp}
+          onPointerCancel={onHandlePointerUp}
+          onDoubleClick={onHandleDoubleClick}
+          onKeyDown={onHandleKeyDown}
+          className="group relative shrink-0 h-10 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none outline-none focus-visible:bg-white/[0.04]"
+        >
+          <div className={`w-12 h-1.5 rounded-full transition-colors ${dragging ? 'bg-[#FF3366]' : 'bg-white/25 group-hover:bg-white/45'}`} />
+          <span className="absolute left-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#525252] hidden sm:block">
+            {t('browser.title')}
+          </span>
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setSnap((s) => (s === 'full' ? 'half' : 'full'))}
+              aria-label={snap === 'full' ? t('browser.shrink') : t('browser.maximize')}
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-[#a3a3a3] hover:text-white hover:bg-white/[0.07] active:scale-95 transition-colors"
+            >
+              {snap === 'full' ? <IconChevDown size={17} /> : <IconChevUp size={17} />}
             </button>
-          ) : (
-            <button onClick={reload} aria-label={t('browser.reload')} className="w-9 h-9 rounded-xl flex items-center justify-center text-[#a3a3a3] hover:bg-white/[0.06] transition-colors">
-              <IconReload size={15} />
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={t('common.close')}
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-[#a3a3a3] hover:text-white hover:bg-white/[0.07] active:scale-95 transition-colors"
+            >
+              <IconX size={16} />
             </button>
-          )}
-          <div className="relative">
-            <button onClick={() => setMenuOpen((v) => !v)} aria-label={t('browser.menu')} aria-expanded={menuOpen} className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${menuOpen ? 'bg-white/[0.08] text-white' : 'text-[#a3a3a3] hover:bg-white/[0.06]'}`}>
-              <IconDotsVertical size={16} />
-            </button>
-            {menuOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                <div className="absolute right-0 top-10 z-20 w-56 rounded-2xl bg-[#161616] border border-white/[0.09] shadow-2xl shadow-black/60 py-1.5 overflow-hidden">
-                  {[
-                    {
-                      icon: <IconBook size={15} />,
-                      label: t('browser.reader'),
-                      on: !!activeTab?.reader,
-                      disabled: !activeUrl,
-                      act: () => patchTab(activeId, (x) => ({ reader: !x.reader })),
-                    },
-                    {
-                      icon: <IconDesktop size={15} />,
-                      label: t('browser.desktop'),
-                      on: !!activeTab?.desktop,
-                      disabled: !activeUrl,
-                      act: () => patchTab(activeId, (x) => ({ desktop: !x.desktop, key: x.key + 1, loading: true })),
-                    },
-                    {
-                      icon: <IconMoon size={15} />,
-                      label: t('browser.night'),
-                      on: !!activeTab?.night,
-                      disabled: !activeUrl,
-                      act: () => patchTab(activeId, (x) => ({ night: !x.night })),
-                    },
-                    { divider: true },
-                    {
-                      icon: isBookmarked ? <IconBookmarkFill size={15} className="text-[#FF3366]" /> : <IconBookmark size={15} />,
-                      label: isBookmarked ? t('browser.remove_bookmark') : t('browser.add_bookmark'),
-                      disabled: !activeUrl,
-                      act: toggleBookmark,
-                    },
-                    { icon: <IconShare size={15} />, label: t('browser.share'), disabled: !activeUrl, act: shareCurrent },
-                    {
-                      icon: <IconExternal size={15} />,
-                      label: t('browser.open_external'),
-                      disabled: !activeUrl,
-                      act: () => {
-                        setMenuOpen(false)
-                        window.open(activeUrl, '_blank', 'noopener,noreferrer')
-                      },
-                    },
-                    { divider: true },
-                    { icon: <IconTrash size={15} />, label: t('browser.clear_history'), disabled: !history.length, act: clearHistory },
-                    { icon: <IconClose size={15} />, label: t('browser.exit'), act: exitBrowser },
-                  ].map((item, i) =>
-                    item.divider ? (
-                      <div key={`d${i}`} className="my-1.5 border-t border-white/[0.06]" />
-                    ) : (
-                      <button
-                        key={item.label}
-                        onClick={item.act}
-                        disabled={item.disabled}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] transition-colors ${
-                          item.on ? 'text-[#FF3366]' : 'text-[#d4d4d4]'
-                        } ${item.disabled ? 'opacity-40' : 'hover:bg-white/[0.05]'}`}
-                      >
-                        {item.icon}
-                        <span className="flex-1 text-left">{item.label}</span>
-                        {item.on && <span className="w-1.5 h-1.5 rounded-full bg-[#FF3366]" />}
-                      </button>
-                    )
-                  )}
-                </div>
-              </>
-            )}
           </div>
         </div>
-        {activeTab?.loading && <div className="h-0.5 bg-[#FF3366]/70 animate-pulse" />}
-      </header>
 
-      {/* ── tab strip ── */}
-      <nav className="shrink-0 bg-[#0c0c0c] border-b border-white/[0.05] flex items-center gap-1 px-2 py-1.5 overflow-x-auto no-scrollbar" aria-label={t('browser.tabs')}>
-        {tabs.map((x) => (
-          <button
-            key={x.id}
-            onClick={() => setActiveId(x.id)}
-            className={`group shrink-0 flex items-center gap-1.5 h-8 max-w-[150px] rounded-lg px-2.5 border transition-colors ${
-              x.id === activeId ? 'bg-[#1a1a1a] border-[#FF3366]/50 text-white' : 'bg-[#111111] border-white/[0.05] text-[#737373] hover:text-[#a3a3a3]'
-            }`}
-          >
-            {x.hist[x.hi] ? (
-              <img src={faviconFor(x.hist[x.hi])} alt="" width="14" height="14" className="rounded-sm shrink-0" onError={(e) => (e.target.style.visibility = 'hidden')} />
-            ) : (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FF3366" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="9" />
-              </svg>
-            )}
-            <span className="text-[11px] truncate flex-1 text-left">{x.hist[x.hi] ? x.title || new URL(x.hist[x.hi]).hostname : t('browser.new_tab_short')}</span>
-            <span
-              role="button"
-              aria-label={t('browser.close_tab')}
-              onClick={(e) => {
-                e.stopPropagation()
-                closeTab(x.id)
-              }}
-              className="shrink-0 -mr-0.5 w-4 h-4 rounded flex items-center justify-center hover:bg-white/10 text-[#525252] hover:text-white"
+        {/* ═══ toolbar ═══ */}
+        <header className="relative shrink-0 bg-[#111111] border-y border-[#262626]">
+          <div className="flex items-center gap-1 px-2 py-2">
+            <button
+              type="button"
+              onClick={goBack}
+              disabled={!canBack}
+              aria-label={t('browser.back')}
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-[#d4d4d4] disabled:text-[#3f3f3f] hover:bg-white/[0.07] hover:text-white active:scale-95 transition-colors"
             >
-              <IconClose size={10} />
-            </span>
-          </button>
-        ))}
-        <button onClick={newTab} aria-label={t('browser.new_tab')} className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-[#a3a3a3] hover:bg-white/[0.06] transition-colors">
-          <IconPlus size={15} />
-        </button>
-      </nav>
-
-      {/* ── content ── */}
-      <main className="flex-1 min-h-0 relative bg-[#0a0a0a]">
-        {!activeUrl ? (
-          <StartPage onNavigate={(u) => navigate(u)} recents={history} bookmarks={bookmarks} t={t} />
-        ) : activeTab?.reader ? (
-          readerState.loading ? (
-            <div className="h-full flex items-center justify-center">
-              <IconSpinner size={20} className="text-[#FF3366]" />
-            </div>
-          ) : readerState.data && !readerState.data.err && readerState.data.html ? (
-            <div className="h-full overflow-y-auto overscroll-contain">
-              <article
-                onClick={(e) => {
-                  const a = e.target.closest && e.target.closest('a')
-                  if (a && a.href) {
-                    e.preventDefault()
-                    try {
-                      navigate(new URL(a.href).href)
-                    } catch {}
-                  }
-                }}
-                className="mx-auto max-w-2xl px-5 pt-7 pb-24 select-text [&_h1]:text-[22px] [&_h1]:font-semibold [&_h1]:text-white [&_h1]:mt-7 [&_h1]:mb-3 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mt-6 [&_h2]:mb-2.5 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-[#fafafa] [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-[#fafafa] [&_h5]:text-sm [&_h5]:font-semibold [&_h5]:text-[#a3a3a3] [&_h6]:text-sm [&_h6]:font-semibold [&_h6]:text-[#737373] [&_p]:text-[15px] [&_p]:leading-7 [&_p]:text-[#d4d4d4] [&_p]:my-3.5 [&_li]:text-[14px] [&_li]:leading-6 [&_li]:text-[#d4d4d4] [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-3 [&_a]:text-[#FF3366] [&_a]:underline [&_a]:decoration-[#FF3366]/40 [&_img]:rounded-xl [&_img]:my-4 [&_img]:max-w-full [&_img]:h-auto [&_blockquote]:border-l-2 [&_blockquote]:border-[#FF3366]/60 [&_blockquote]:pl-4 [&_blockquote]:my-4 [&_blockquote]:text-[#a3a3a3] [&_pre]:bg-[#111111] [&_pre]:border [&_pre]:border-white/[0.07] [&_pre]:rounded-xl [&_pre]:p-4 [&_pre]:overflow-x-auto [&_pre]:text-[12px] [&_code]:text-[13px] [&_table]:w-full [&_table]:text-[13px] [&_td]:border-t [&_td]:border-white/[0.08] [&_td]:px-2 [&_td]:py-1.5 [&_th]:border-t [&_th]:border-white/[0.08] [&_th]:px-2 [&_th]:py-1.5 [&_th]:text-left [&_figure]:my-5 [&_figcaption]:text-[11px] [&_figcaption]:text-[#525252] [&_figcaption]:text-center [&_figcaption]:mt-2"
-              >
-                {readerState.data.title && <h1 className="!mt-0">{readerState.data.title}</h1>}
-                <div dangerouslySetInnerHTML={{ __html: readerState.data.html }} />
-              </article>
-            </div>
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center gap-3 px-8 text-center">
-              <IconBook size={26} className="text-[#3a3a3a]" />
-              <p className="text-sm text-[#737373]">{t('browser.reader_empty')}</p>
-              <button onClick={() => patchTab(activeId, { reader: false })} className="mt-1 px-5 py-2 rounded-xl bg-[#1a1a1a] border border-white/[0.08] text-[13px] text-[#d4d4d4] hover:text-white transition-colors">
-                {t('browser.exit_reader')}
-              </button>
-            </div>
-          )
-        ) : (
-          <iframe
-            key={`${activeId}-${activeTab?.key || 0}`}
-            src={iframeSrc}
-            title={activeTab?.title || activeUrl || 'Kivora Browser'}
-            onLoad={() => patchTab(activeId, { loading: false })}
-            onError={() => patchTab(activeId, { loading: false })}
-            sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals"
-            referrerPolicy="no-referrer"
-            allow="fullscreen"
-            className={`w-full h-full border-0 bg-white ${activeTab?.night ? 'kivora-night' : ''}`}
-            style={activeTab?.night ? { filter: 'invert(0.92) hue-rotate(180deg)' } : undefined}
-          />
-        )}
-      </main>
-
-      {/* ── bottom bar ── */}
-      <footer className="shrink-0 bg-[#0f0f0f] border-t border-white/[0.06] pb-[env(safe-area-inset-bottom)]">
-        <div className="grid grid-cols-4">
-          {[
-            { icon: <IconHome size={18} />, label: t('browser.home'), act: () => navigate(null) },
-            { icon: <IconClock size={18} />, label: t('browser.history'), act: () => setDrawer('history') },
-            {
-              icon: isBookmarked ? <IconBookmarkFill size={18} className="text-[#FF3366]" /> : <IconBookmark size={18} />,
-              label: t('browser.bookmarks'),
-              act: () => setDrawer('bookmarks'),
-            },
-            { icon: <IconPlus size={18} />, label: `${t('browser.new_tab_short')}${tabs.length > 1 ? ` · ${tabs.length}` : ''}`, act: newTab },
-          ].map((b) => (
-            <button key={b.label} onClick={b.act} className="flex flex-col items-center gap-1 py-2.5 text-[#737373] hover:text-[#d4d4d4] active:scale-95 transition-all min-h-[52px] justify-center">
-              {b.icon}
-              <span className="text-[10px] leading-none max-w-[90px] truncate">{b.label}</span>
+              <IconBack size={19} />
             </button>
-          ))}
-        </div>
-      </footer>
+            <button
+              type="button"
+              onClick={goForward}
+              disabled={!canFwd}
+              aria-label={t('browser.forward')}
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-[#d4d4d4] disabled:text-[#3f3f3f] hover:bg-white/[0.07] hover:text-white active:scale-95 transition-colors"
+            >
+              <IconFwd size={19} />
+            </button>
 
-      {/* ── drawers ── */}
-      {drawer && (
-        <div className="fixed inset-0 z-[110]" role="dialog" aria-modal="true">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setDrawer(null)} />
-          <div className="absolute left-0 right-0 bottom-0 max-h-[68vh] flex flex-col rounded-t-2xl bg-[#131313] border-t border-white/[0.09] shadow-2xl shadow-black/70">
-            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-white/[0.05]">
-              <h2 className="text-sm font-semibold text-white">{drawer === 'bookmarks' ? t('browser.bookmarks') : t('browser.history')}</h2>
-              <div className="flex items-center gap-2">
-                {drawer === 'history' && history.length > 0 && (
-                  <button onClick={clearHistory} className="text-[11px] text-[#737373] hover:text-[#FF3366] transition-colors">
-                    {t('browser.clear_history')}
+            {/* omnibox — the platform's own text bar (kivora-input-wrap) */}
+            <form onSubmit={submitInput} className="flex-1 min-w-0 px-0.5" role="search">
+              <div className="relative kivora-input-wrap rounded-2xl">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#525252] pointer-events-none z-10">
+                  {activeUrl ? <IconGlobe size={15} /> : <IconSearch size={15} />}
+                </span>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onFocus={(e) => {
+                    setInputFocused(true)
+                    e.target.select()
+                  }}
+                  onBlur={() => setInputFocused(false)}
+                  placeholder={t('browser.url_placeholder')}
+                  aria-label={t('browser.url_placeholder')}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck="false"
+                  inputMode="url"
+                  className="w-full bg-[#141414] border border-[#262626] rounded-2xl pl-10 pr-9 h-11 text-[13.5px] text-white placeholder:text-[#525252] transition-all focus:outline-none"
+                />
+                {input && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInput('')
+                      inputRef.current?.focus()
+                    }}
+                    aria-label={t('common.close')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white/[0.08] flex items-center justify-center text-[#a3a3a3] hover:text-white z-10"
+                  >
+                    <IconX size={10} />
                   </button>
                 )}
-                <button onClick={() => setDrawer(null)} aria-label={t('common.close')} className="w-7 h-7 rounded-lg flex items-center justify-center text-[#737373] hover:bg-white/[0.06] hover:text-white transition-colors">
-                  <IconClose size={14} />
+              </div>
+            </form>
+
+            {activeTab?.loading ? (
+              <button
+                type="button"
+                onClick={stop}
+                aria-label={t('browser.stop')}
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-[#d4d4d4] hover:bg-white/[0.07] hover:text-white active:scale-95 transition-colors"
+              >
+                <IconX size={16} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={reload}
+                aria-label={t('browser.reload')}
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-[#d4d4d4] hover:bg-white/[0.07] hover:text-white active:scale-95 transition-colors"
+              >
+                <IconReload size={17} />
+              </button>
+            )}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setMenuOpen((v) => !v)}
+                aria-label={t('browser.menu')}
+                aria-expanded={menuOpen}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+                  menuOpen ? 'bg-white/[0.1] text-white' : 'text-[#d4d4d4] hover:bg-white/[0.07] hover:text-white'
+                } active:scale-95`}
+              >
+                <IconDots size={18} />
+              </button>
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute right-0 top-11 z-40 w-60 rounded-2xl bg-[#161616] border border-[#2e2e2e] shadow-2xl shadow-black/70 py-1.5 overflow-hidden">
+                    {[
+                      {
+                        icon: <IconBook size={17} />,
+                        label: t('browser.reader'),
+                        on: !!activeTab?.reader,
+                        disabled: !activeUrl,
+                        act: () => {
+                          setMenuOpen(false)
+                          patchTab(activeId, (x) => ({ reader: !x.reader }))
+                        },
+                      },
+                      {
+                        icon: <IconDesktop size={17} />,
+                        label: t('browser.desktop'),
+                        on: !!activeTab?.desktop,
+                        disabled: !activeUrl,
+                        act: () => {
+                          setMenuOpen(false)
+                          patchTab(activeId, (x) => ({ desktop: !x.desktop, key: x.key + 1, loading: true }))
+                        },
+                      },
+                      {
+                        icon: <IconMoon size={17} />,
+                        label: t('browser.night'),
+                        on: !!activeTab?.night,
+                        disabled: !activeUrl,
+                        act: () => {
+                          setMenuOpen(false)
+                          patchTab(activeId, (x) => ({ night: !x.night }))
+                        },
+                      },
+                      { divider: true },
+                      {
+                        icon: isBookmarked ? <IconBmFill size={17} className="text-[#FF3366]" /> : <IconBm size={17} />,
+                        label: isBookmarked ? t('browser.remove_bookmark') : t('browser.add_bookmark'),
+                        disabled: !activeUrl,
+                        act: toggleBookmark,
+                      },
+                      { icon: <IconShare size={17} />, label: t('browser.share'), disabled: !activeUrl, act: shareCurrent },
+                      {
+                        icon: <IconExternal size={17} />,
+                        label: t('browser.open_external'),
+                        disabled: !activeUrl,
+                        act: () => {
+                          setMenuOpen(false)
+                          window.open(activeUrl, '_blank', 'noopener,noreferrer')
+                        },
+                      },
+                      { divider: true },
+                      { icon: <IconTrash size={17} />, label: t('browser.clear_history'), disabled: !history.length, act: clearHistory },
+                    ].map((item, i) =>
+                      item.divider ? (
+                        <div key={`d${i}`} className="my-1.5 border-t border-[#262626]" />
+                      ) : (
+                        <button
+                          type="button"
+                          key={item.label}
+                          onClick={item.act}
+                          disabled={item.disabled}
+                          className={`w-full flex items-center gap-3.5 px-4 py-3 text-[13.5px] transition-colors ${
+                            item.on ? 'text-[#FF3366]' : 'text-[#d4d4d4]'
+                          } ${item.disabled ? 'opacity-40' : 'hover:bg-white/[0.06]'}`}
+                        >
+                          {item.icon}
+                          <span className="flex-1 text-left">{item.label}</span>
+                          {item.on && <span className="w-2 h-2 rounded-full bg-[#FF3366]" />}
+                        </button>
+                      )
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+          {activeTab?.loading && <div className="absolute -bottom-px inset-x-0 h-0.5 bg-[#FF3366] animate-pulse" />}
+        </header>
+
+        {/* ═══ tab strip ═══ */}
+        <nav
+          className="shrink-0 bg-[#0d0d0d] border-b border-[#262626] flex items-center gap-1.5 px-2 py-1.5 overflow-x-auto no-scrollbar"
+          aria-label={t('browser.tabs')}
+        >
+          {(tabs || []).map((x) => (
+            <button
+              type="button"
+              key={x.id}
+              onClick={() => setActiveId(x.id)}
+              className={`group shrink-0 flex items-center gap-1.5 h-9 max-w-[160px] rounded-xl px-2.5 border transition-colors ${
+                x.id === activeId ? 'bg-[#1c1c1c] border-[#FF3366]/60 text-white' : 'bg-[#141414] border-[#262626] text-[#a3a3a3] hover:text-[#e5e5e5]'
+              }`}
+            >
+              {x.hist[x.hi] ? (
+                <img src={faviconFor(x.hist[x.hi])} alt="" width="14" height="14" className="rounded-sm shrink-0" onError={(e) => (e.target.style.visibility = 'hidden')} />
+              ) : (
+                <KMark size={13} />
+              )}
+              <span className="text-[11.5px] truncate flex-1 text-left">
+                {x.hist[x.hi] ? x.title || new URL(x.hist[x.hi]).hostname : t('browser.new_tab_short')}
+              </span>
+              <span
+                role="button"
+                aria-label={t('browser.close_tab')}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  closeTab(x.id)
+                }}
+                className="shrink-0 -mr-0.5 w-5 h-5 rounded-md flex items-center justify-center hover:bg-white/10 text-[#737373] hover:text-white"
+              >
+                <IconX size={10} />
+              </span>
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={newTab}
+            aria-label={t('browser.new_tab')}
+            className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-[#d4d4d4] hover:bg-white/[0.07] hover:text-white transition-colors"
+          >
+            <IconPlus size={17} />
+          </button>
+        </nav>
+
+        {/* ═══ content ═══ */}
+        <main className={`flex-1 min-h-0 relative bg-[#0d0d0d] ${dragging ? 'pointer-events-none' : ''}`}>
+          {!activeUrl ? (
+            <StartPage onNavigate={(u) => navigate(u)} recents={history} bookmarks={bookmarks} t={t} />
+          ) : activeTab?.reader ? (
+            readerState.loading ? (
+              <div className="h-full flex items-center justify-center">
+                <IconSpinner size={20} className="text-[#FF3366]" />
+              </div>
+            ) : readerState.data && !readerState.data.err && readerState.data.html ? (
+              <div className="h-full overflow-y-auto overscroll-contain select-text">
+                <article
+                  onClick={(e) => {
+                    const a = e.target.closest && e.target.closest('a')
+                    if (a && a.href) {
+                      e.preventDefault()
+                      try {
+                        navigate(new URL(a.href).href)
+                      } catch {}
+                    }
+                  }}
+                  className="mx-auto max-w-2xl px-5 pt-7 pb-24 [&_h1]:text-[22px] [&_h1]:font-semibold [&_h1]:text-white [&_h1]:mt-7 [&_h1]:mb-3 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mt-6 [&_h2]:mb-2.5 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-[#fafafa] [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-[#fafafa] [&_h5]:text-sm [&_h5]:font-semibold [&_h5]:text-[#a3a3a3] [&_h6]:text-sm [&_h6]:font-semibold [&_h6]:text-[#737373] [&_p]:text-[15px] [&_p]:leading-7 [&_p]:text-[#d4d4d4] [&_p]:my-3.5 [&_li]:text-[14px] [&_li]:leading-6 [&_li]:text-[#d4d4d4] [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-3 [&_a]:text-[#FF3366] [&_a]:underline [&_a]:decoration-[#FF3366]/40 [&_img]:rounded-xl [&_img]:my-4 [&_img]:max-w-full [&_img]:h-auto [&_blockquote]:border-l-2 [&_blockquote]:border-[#FF3366]/60 [&_blockquote]:pl-4 [&_blockquote]:my-4 [&_blockquote]:text-[#a3a3a3] [&_pre]:bg-[#111111] [&_pre]:border [&_pre]:border-[#262626] [&_pre]:rounded-xl [&_pre]:p-4 [&_pre]:overflow-x-auto [&_pre]:text-[12px] [&_code]:text-[13px] [&_table]:w-full [&_table]:text-[13px] [&_td]:border-t [&_td]:border-[#262626] [&_td]:px-2 [&_td]:py-1.5 [&_th]:border-t [&_th]:border-[#262626] [&_th]:px-2 [&_th]:py-1.5 [&_th]:text-left [&_figure]:my-5 [&_figcaption]:text-[11px] [&_figcaption]:text-[#525252] [&_figcaption]:text-center [&_figcaption]:mt-2"
+                >
+                  {readerState.data.title && <h1 className="!mt-0">{readerState.data.title}</h1>}
+                  <div dangerouslySetInnerHTML={{ __html: readerState.data.html }} />
+                </article>
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center gap-3 px-8 text-center">
+                <IconBook size={28} className="text-[#3a3a3a]" />
+                <p className="text-sm text-[#737373]">{t('browser.reader_empty')}</p>
+                <button
+                  type="button"
+                  onClick={() => patchTab(activeId, { reader: false })}
+                  className="mt-1 px-5 py-2.5 rounded-xl bg-[#1a1a1a] border border-[#2e2e2e] text-[13px] text-[#d4d4d4] hover:text-white transition-colors"
+                >
+                  {t('browser.exit_reader')}
                 </button>
               </div>
-            </div>
-            <div className="overflow-y-auto overscroll-contain px-2 py-2">
-              {drawer === 'bookmarks' ? (
-                bookmarks.length ? (
-                  bookmarks.map((b) => (
-                    <div key={b.url} className="group flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-white/[0.04]">
-                      <img src={faviconFor(b.url)} alt="" width="16" height="16" className="rounded shrink-0" onError={(e) => (e.target.style.visibility = 'hidden')} />
-                      <button onClick={() => navigate(b.url)} className="flex-1 min-w-0 text-left">
-                        <span className="block text-[13px] text-[#e5e5e5] truncate">{b.title || b.url}</span>
-                        <span className="block text-[11px] text-[#525252] truncate">{b.url}</span>
-                      </button>
+            )
+          ) : (
+            <>
+              {/* loading skeleton — no white flash between navigations */}
+              {activeTab?.loading && (
+                <div className="absolute inset-0 z-10 bg-[#0d0d0d] flex flex-col items-center justify-center gap-4 pointer-events-none">
+                  <div className="w-12 h-12 rounded-2xl bg-[#FF3366]/10 border border-[#FF3366]/25 flex items-center justify-center animate-pulse">
+                    <KMark size={22} />
+                  </div>
+                  <div className="w-40 h-1.5 rounded-full bg-white/[0.08] overflow-hidden">
+                    <div className="h-full w-1/3 rounded-full bg-[#FF3366]/70 animate-pulse" />
+                  </div>
+                </div>
+              )}
+              <iframe
+                key={`${activeId}-${activeTab?.key || 0}`}
+                src={iframeSrc}
+                title={activeTab?.title || activeUrl || 'Kivora Browser'}
+                onLoad={() => patchTab(activeId, { loading: false })}
+                onError={() => patchTab(activeId, { loading: false })}
+                sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals"
+                referrerPolicy="no-referrer"
+                allow="fullscreen"
+                className={`w-full h-full border-0 bg-white transition-opacity duration-150 ${activeTab?.loading ? 'opacity-0' : 'opacity-100'} ${
+                  activeTab?.night ? 'kivora-night' : ''
+                }`}
+                style={activeTab?.night ? { filter: 'invert(0.92) hue-rotate(180deg)' } : undefined}
+              />
+            </>
+          )}
+        </main>
+
+        {/* ═══ bottom bar ═══ */}
+        <footer className="shrink-0 bg-[#111111] border-t border-[#262626] pb-[env(safe-area-inset-bottom)]">
+          <div className="grid grid-cols-4">
+            {[
+              { icon: <IconHome size={20} />, label: t('browser.home'), act: () => navigate(null) },
+              { icon: <IconClock size={20} />, label: t('browser.history'), act: () => setDrawer('history') },
+              {
+                icon: isBookmarked ? <IconBmFill size={20} className="text-[#FF3366]" /> : <IconBm size={20} />,
+                label: t('browser.bookmarks'),
+                act: () => setDrawer('bookmarks'),
+              },
+              { icon: <IconPlus size={20} />, label: `${t('browser.new_tab_short')}${(tabs || []).length > 1 ? ` · ${(tabs || []).length}` : ''}`, act: newTab },
+            ].map((b) => (
+              <button
+                type="button"
+                key={b.label}
+                onClick={b.act}
+                className="flex flex-col items-center gap-1 py-3 text-[#a3a3a3] hover:text-white active:scale-95 transition-colors min-h-[56px] justify-center"
+              >
+                {b.icon}
+                <span className="text-[10px] leading-none max-w-[92px] truncate">{b.label}</span>
+              </button>
+            ))}
+          </div>
+        </footer>
+
+        {/* ═══ bookmarks / history drawers (scoped to the browser panel) ═══ */}
+        {drawer && (
+          <div className="absolute inset-0 z-50" role="dialog" aria-modal="true">
+            <div className="absolute inset-0 bg-black/60" onClick={() => setDrawer(null)} />
+            <div className="absolute left-0 right-0 bottom-0 max-h-[70%] flex flex-col rounded-t-2xl bg-[#131313] border-t border-[#2e2e2e] shadow-2xl shadow-black/70">
+              <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-[#262626]">
+                <h2 className="text-sm font-semibold text-white">{drawer === 'bookmarks' ? t('browser.bookmarks') : t('browser.history')}</h2>
+                <div className="flex items-center gap-2">
+                  {drawer === 'history' && history.length > 0 && (
+                    <button type="button" onClick={clearHistory} className="text-[11px] text-[#737373] hover:text-[#FF3366] transition-colors">
+                      {t('browser.clear_history')}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setDrawer(null)}
+                    aria-label={t('common.close')}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-[#737373] hover:bg-white/[0.06] hover:text-white transition-colors"
+                  >
+                    <IconX size={15} />
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-y-auto overscroll-contain px-2 py-2">
+                {drawer === 'bookmarks' ? (
+                  bookmarks.length ? (
+                    bookmarks.map((b) => (
+                      <div key={b.url} className="group flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-white/[0.04]">
+                        <img src={faviconFor(b.url)} alt="" width="16" height="16" className="rounded shrink-0" onError={(e) => (e.target.style.visibility = 'hidden')} />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDrawer(null)
+                            navigate(b.url)
+                          }}
+                          className="flex-1 min-w-0 text-left"
+                        >
+                          <span className="block text-[13px] text-[#e5e5e5] truncate">{b.title || b.url}</span>
+                          <span className="block text-[11px] text-[#525252] truncate">{b.url}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBookmarks((prev) => prev.filter((x) => x.url !== b.url))}
+                          aria-label={t('browser.remove_bookmark')}
+                          className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-[#525252] hover:text-[#FF3366] transition-colors"
+                        >
+                          <IconTrash size={15} />
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="px-4 py-10 text-center text-[13px] text-[#525252]">{t('browser.no_bookmarks')}</p>
+                  )
+                ) : history.length ? (
+                  history.map((h, i) => (
+                    <div key={`${h.url}-${i}`} className="group flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-white/[0.04]">
+                      <img src={faviconFor(h.url)} alt="" width="16" height="16" className="rounded shrink-0" onError={(e) => (e.target.style.visibility = 'hidden')} />
                       <button
-                        onClick={() => setBookmarks((prev) => prev.filter((x) => x.url !== b.url))}
-                        aria-label={t('browser.remove_bookmark')}
-                        className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-[#525252] hover:text-[#FF3366] transition-colors"
+                        type="button"
+                        onClick={() => {
+                          setDrawer(null)
+                          navigate(h.url)
+                        }}
+                        className="flex-1 min-w-0 text-left"
                       >
-                        <IconTrash size={14} />
+                        <span className="block text-[13px] text-[#e5e5e5] truncate">{h.title || h.url}</span>
+                        <span className="block text-[11px] text-[#525252] truncate">{h.url}</span>
                       </button>
                     </div>
                   ))
                 ) : (
-                  <p className="px-4 py-10 text-center text-[13px] text-[#525252]">{t('browser.no_bookmarks')}</p>
-                )
-              ) : history.length ? (
-                history.map((h, i) => (
-                  <div key={`${h.url}-${i}`} className="group flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-white/[0.04]">
-                    <img src={faviconFor(h.url)} alt="" width="16" height="16" className="rounded shrink-0" onError={(e) => (e.target.style.visibility = 'hidden')} />
-                    <button onClick={() => navigate(h.url)} className="flex-1 min-w-0 text-left">
-                      <span className="block text-[13px] text-[#e5e5e5] truncate">{h.title || h.url}</span>
-                      <span className="block text-[11px] text-[#525252] truncate">{h.url}</span>
-                    </button>
-                  </div>
-                ))
-              ) : (
-                <p className="px-4 py-10 text-center text-[13px] text-[#525252]">{t('browser.no_history')}</p>
-              )}
+                  <p className="px-4 py-10 text-center text-[13px] text-[#525252]">{t('browser.no_history')}</p>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ── toast ── */}
-      {toast && (
-        <div role="status" className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[120] px-4 py-2 rounded-full bg-[#1f1f1f] border border-white/[0.1] text-[12px] text-white shadow-xl shadow-black/50">
-          {toast}
-        </div>
-      )}
+        {/* ═══ toast (scoped to the panel) ═══ */}
+        {toast && (
+          <div role="status" className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-full bg-[#1f1f1f] border border-[#2e2e2e] text-[12px] text-white shadow-xl shadow-black/50">
+            {toast}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

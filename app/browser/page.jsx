@@ -1,7 +1,7 @@
-// Kivora Browser — full in-web browser (v5.24.6)
-// Server wrapper: metadata for the prerendered page; the entire browser
-// chrome lives in <BrowserApp /> (client, fixed full-screen overlay).
-import BrowserApp from '@/components/BrowserApp'
+// Kivora Browser — deep-link entry (v5.24.7)
+// The browser is a global DevTools-style drawer mounted in the root layout;
+// this route simply opens the drawer and returns the user to the app.
+import BrowserLauncher from '@/components/browser/BrowserLauncher'
 
 export const metadata = {
   title: 'Kivora Browser',
@@ -9,5 +9,5 @@ export const metadata = {
 }
 
 export default function BrowserPage() {
-  return <BrowserApp />
+  return <BrowserLauncher />
 }

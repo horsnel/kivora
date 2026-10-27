@@ -969,5 +969,8 @@
   "browser.no_bookmarks": "No bookmarks yet — tap the bookmark star on any page.",
   "browser.home": "Home",
   "browser.history": "History",
-  "browser.copied": "Link copied"
+  "browser.copied": "Link copied",
+  "browser.resize_handle": "Drag to resize the browser",
+  "browser.maximize": "Full height",
+  "browser.shrink": "Shrink"
 }

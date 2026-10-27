@@ -969,5 +969,8 @@
   "browser.no_bookmarks": "Hakuna vialamisho bado — gusa nyota ya alamisho kwenye ukurasa.",
   "browser.home": "Nyumbani",
   "browser.history": "Historia",
-  "browser.copied": "Kiungo kimenakiliwa"
+  "browser.copied": "Kiungo kimenakiliwa",
+  "browser.resize_handle": "Buruta ili kubadilisha ukubwa wa kivinjari",
+  "browser.maximize": "Urefu kamili",
+  "browser.shrink": "Punguza"
 }
