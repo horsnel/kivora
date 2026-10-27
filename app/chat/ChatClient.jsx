@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings, IconCopy as IconClipboard, IconWrite, IconFilter, IconRobot, IconTarget, IconDatabase, IconStack, IconSpeaker, IconArrowLeft, IconArrowRight, IconCube, IconLink } from '@/components/Icons'
+import BackButton from '@/components/BackButton'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { usePlan } from '@/lib/usePlan'
 import { supabasePublic } from '@/lib/supabase'
@@ -2314,19 +2315,20 @@ export default function ChatClient() {
             {/* Header */}
             <div className="flex items-center justify-center px-4 py-2 relative min-h-[44px] shrink-0">
               {settingsCurrentPage !== 'root' ? (
-                <button
+                <BackButton
                   onClick={settingsPop}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
-                >
-                  <IconArrowLeft size={16} className="text-[#ccc]" />
-                </button>
+                  label={t('common.back') || 'Back'}
+                  glyph={20}
+                  className="absolute left-3 top-1/2 -translate-y-1/2"
+                />
               ) : (
-                <button
+                <BackButton
                   onClick={() => { setSettingsOpen(false); settingsReset() }}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/8 transition-colors"
-                >
-                  <IconClose size={16} className="text-[#ccc]" />
-                </button>
+                  label={t('common.close') || 'Close'}
+                  variant="circle"
+                  glyph={18}
+                  className="absolute left-3 top-1/2 -translate-y-1/2"
+                />
               )}
               <span className="text-[17px] font-semibold tracking-tight text-white">
                 {settingsCurrentPage === 'root' && (t('chat.settings') || 'Settings')}

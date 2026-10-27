@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { IconBuild, IconPlay, IconCode, IconBulb, IconCheck, IconArrowLeft, IconEye, IconFolder, IconStar } from '@/components/Icons'
+import { IconBuild, IconPlay, IconCode, IconBulb, IconCheck, IconEye, IconFolder, IconStar } from '@/components/Icons'
+import BackButton from '@/components/BackButton'
 
 // ── Project definitions (shared with BuildClient) ──
 const PROJECTS = {
@@ -166,13 +167,14 @@ export default function BuildRoomClient() {
           <IconBuild size={40} className="mx-auto mb-4 text-[#333]" />
           <h1 className="text-xl font-semibold mb-2">Project Not Found</h1>
           <p className="text-sm text-[#737373] mb-4">This build project doesn&apos;t exist yet.</p>
-          <Link
+          <BackButton
             href="/build"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-[#111] border border-[#1a1a1a] text-[#a3a3a3] hover:bg-[#1a1a1a] hover:text-white transition-colors"
+            label="Back to Build Studio"
+            glyph={18}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-[#111] border border-[#1a1a1a] text-[#a3a3a3] hover:bg-[#1a1a1a] hover:text-white gap-1.5"
           >
-            <IconArrowLeft size={14} />
             Back to Build Studio
-          </Link>
+          </BackButton>
         </div>
       </main>
     )
@@ -203,12 +205,12 @@ export default function BuildRoomClient() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
-              <Link
+              <BackButton
                 href="/build"
-                className="w-8 h-8 rounded-lg bg-[#1a1a1a] flex items-center justify-center text-[#737373] hover:text-white transition-colors shrink-0 mt-0.5"
-              >
-                <IconArrowLeft size={14} />
-              </Link>
+                label="Back to Build Studio"
+                glyph={20}
+                className="rounded-lg text-[#737373] hover:text-white shrink-0 mt-0.5"
+              />
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-xl font-semibold tracking-tight">{project.name}</h1>

@@ -69,6 +69,61 @@ export default function BrowserProvider({ children }) {
     return () => document.removeEventListener('click', onClick, true)
   }, [openBrowser])
 
+  // ── hover prefetch (v5.25 — the browser speed weapon) ─────────────
+  // Hovering (or keyboard-focusing) an external link silently fetches it
+  // through the proxy ~120ms later. One request does double duty: it
+  // warms the edge cache for the upstream site AND caches the rewritten
+  // HTML in the browser's HTTP cache, so the real navigation that follows
+  // is served near-instantly. Mouse-only (never fires for touch taps),
+  // debounced per URL, hard-capped to protect mobile data.
+  const prefetchedRef = useRef(new Set())
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    let hoverable = false
+    try {
+      hoverable = window.matchMedia('(hover: hover) and (pointer: fine)').matches
+    } catch {}
+    if (!hoverable) return
+    let timer = null
+    let pendingUrl = null
+    const queue = (e) => {
+      const a = e.target && e.target.closest ? e.target.closest('a[href]') : null
+      if (!a || a.hasAttribute('download') || a.closest('[data-no-browser]')) return
+      const href = a.getAttribute('href') || ''
+      if (!/^https?:\/\//i.test(href)) return
+      let abs
+      try {
+        abs = new URL(href, location.href)
+      } catch {
+        return
+      }
+      if (abs.origin === location.origin) return
+      clearTimeout(timer)
+      pendingUrl = abs.href
+      timer = setTimeout(() => {
+        if (!pendingUrl || prefetchedRef.current.has(pendingUrl)) return
+        prefetchedRef.current.add(pendingUrl)
+        if (prefetchedRef.current.size > 60) prefetchedRef.current = new Set([...prefetchedRef.current].slice(-30))
+        try {
+          fetch(`/api/browser/proxy?url=${encodeURIComponent(pendingUrl)}`)
+            .then((r) => r.body && r.body.cancel())
+            .catch(() => {})
+        } catch {}
+      }, 120)
+    }
+    const onOver = (e) => {
+      if (e.pointerType && e.pointerType !== 'mouse') return
+      queue(e)
+    }
+    document.addEventListener('pointerover', onOver, true)
+    document.addEventListener('focusin', queue, true)
+    return () => {
+      document.removeEventListener('pointerover', onOver, true)
+      document.removeEventListener('focusin', queue, true)
+      clearTimeout(timer)
+    }
+  }, [])
+
   const value = useMemo(() => ({ open, openBrowser, closeBrowser, pending }), [open, openBrowser, closeBrowser, pending])
 
   return (

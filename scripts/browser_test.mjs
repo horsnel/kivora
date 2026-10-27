@@ -155,5 +155,95 @@ ok('title text not leaked into body', !art.html.startsWith('Article'))
 const thin = extractArticle('<html><body><p>tiny</p></body></html>', 'https://x.example/')
 ok('thin page → html empty', thin.html === '')
 
+console.log('── v5.25: extraHead injection (agent) ──')
+const ph = proxy
+const withAgent = rewriteHtml('<html><head><title>t</title></head><body></body></html>', 'https://site.example/', ph, '<script>AGENT()</script>')
+ok('extraHead injected after <head>', withAgent.includes('<head><base href="https://site.example/"><meta name="referrer" content="no-referrer"><script>AGENT()</script>'))
+ok('site CSP meta still dropped with extraHead', !rewriteHtml('<head><meta http-equiv="Content-Security-Policy" content="x"><link rel="stylesheet" href="a.css">', 'https://site.example/', ph, '<script>AGENT()</script>').includes('content-security-policy'))
+
+console.log('── v5.25: streaming rewriter ──')
+import { createStreamingRewriter } from '../lib/browser/core.mjs'
+// 1. head phase buffers until </head>, injects base + agent, rewrites body links across chunks
+{
+  const rw = createStreamingRewriter('https://site.example/', ph, '<script>AGENT()</script>')
+  const o1 = rw.push('<!doctype html><html><head><title>t</title>')
+  eq('head phase holds until </head>', o1, '')
+  const o2 = rw.push('</head><body><a href="/one">A</a>')
+  ok('head flushed on </head>', o2.includes('<base href="https://site.example/">'))
+  ok('agent injected in head phase', o2.includes('<script>AGENT()</script>'))
+  ok('first body link rewritten in same chunk', o2.includes(`href="${ph('https://site.example/one')}"`))
+  const o3 = rw.push('<a href="/two">B</a></body></html>')
+  ok('second chunk link rewritten', o3.includes(`href="${ph('https://site.example/two')}"`))
+  const o4 = rw.end()
+  eq('end() clean when nothing carried', o4, '')
+}
+// 2. tag split across chunk boundary (partial attribute value)
+{
+  const rw = createStreamingRewriter('https://site.example/', proxy, '')
+  rw.push('<html><head></head><body>')
+  const a = rw.push('<a hr')
+  eq('partial tag carries', a, '')
+  const b = rw.push('ef="/next">N</a>')
+  ok('carried tag rewritten when complete', b.includes(`href="${ph('https://site.example/next')}"`))
+  rw.end()
+}
+// 3. ">" inside quoted attribute values does NOT split the tag
+{
+  const rw = createStreamingRewriter('https://site.example/', proxy, '')
+  rw.push('<html><head></head><body>')
+  const out1 = rw.push('<a title="a>b" href="/q">Q')
+  ok('quoted > keeps tag intact', out1.includes(`href="${ph('https://site.example/q')}"`))
+  const out2 = rw.push('</a>')
+  eq('remainder flushed', out2.includes('</a>'), true)
+  rw.end()
+}
+// 4. degenerate page without </head> flushes at end()
+{
+  const rw = createStreamingRewriter('https://site.example/', ph, '<script>AGENT()</script>')
+  const held = rw.push('<div>no head close at all')
+  eq('nothing emitted while buffering', held, '')
+  const fin = rw.end()
+  ok('end() injects base on degenerate page', fin.includes('<base href="https://site.example/">'))
+  ok('end() injects agent', fin.includes('AGENT()'))
+}
+// 5. streaming output == buffered output for the same document
+{
+  const doc = '<html><head><title>x</title><meta http-equiv="Content-Security-Policy" content="b"></head><body><a href="/a">A</a><form action="/s"><input name=q></form><meta http-equiv="refresh" content="0; url=/r"></body></html>'
+  const buffered = rewriteHtml(doc, 'https://site.example/', ph)
+  const rw = createStreamingRewriter('https://site.example/', proxy, '')
+  let streamed = ''
+  for (let i = 0; i < doc.length; i += 7) streamed += rw.push(doc.slice(i, i + 7))
+  streamed += rw.end()
+  eq('streamed ≡ buffered (7-byte chunks)', streamed, buffered)
+}
+// 6. multi-byte UTF-8 chars survive chunked decoding (route-level behavior)
+{
+  const enc = new TextEncoder()
+  const dec = new TextDecoder()
+  const rw = createStreamingRewriter('https://site.example/', proxy, '')
+  rw.push('<html><head></head><body>')
+  const bytes = enc.encode('<p>héllo wörld — 你好 🎉 <a href="/u">Ünicode</a></p>')
+  let s = ''
+  for (let i = 0; i < bytes.length; i += 3) s += rw.push(dec.decode(bytes.slice(i, i + 3), { stream: true }))
+  s += rw.push(dec.decode()) // flush decoder
+  s += rw.end()
+  ok('utf-8 text intact', s.includes('你好 🎉'))
+  ok('utf-8 link rewritten', s.includes(`href="${ph('https://site.example/u')}"`))
+}
+
+console.log('── v5.25: DevTools agent source ──')
+import { AGENT_SRC, AGENT_TAG } from '../lib/browser/devtools-agent.mjs'
+ok('AGENT_SRC parses as JS', (() => { new Function(AGENT_SRC); return true })())
+ok('AGENT_TAG wraps in <script>', AGENT_TAG.startsWith('<script>') && AGENT_TAG.endsWith('</script>'))
+ok('agent posts with __kv_dt marker', AGENT_SRC.includes('__kv_dt: 1'))
+ok('agent targets parent', AGENT_SRC.includes('window.parent.postMessage'))
+ok('agent guards against double-install', AGENT_SRC.includes('__kv_dt_agent'))
+ok('agent hooks fetch', AGENT_SRC.includes('window.fetch = patchedFetch'))
+ok('agent hooks XHR', AGENT_SRC.includes('XMLHttpRequest.prototype.open'))
+ok('agent indirect eval (global scope)', AGENT_SRC.includes('(0, eval)(code)'))
+ok('agent find highlights', AGENT_SRC.includes('data-kv-dt-find'))
+ok('agent picker overlay', AGENT_SRC.includes('onPickerMove'))
+ok('agent title watcher debounced by change', AGENT_SRC.includes('lastTitle'))
+
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

@@ -24,6 +24,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from '@/components/LanguageProvider'
 import { normalizeInput } from '@/lib/browser/core.mjs'
 import StartPage, { faviconFor } from '@/components/browser/StartPage'
+import DevToolsDock from '@/components/browser/DevToolsDock'
+import { XGlyph } from '@/components/BackButton'
 
 const TABS_KEY = 'kv_browser_tabs_v1'
 const BM_KEY = 'kv_browser_bms_v1'
@@ -31,7 +33,7 @@ const HIST_KEY = 'kv_browser_hist_v1'
 const HIST_CAP = 150
 
 const newId = () => `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`
-const freshTab = () => ({ id: newId(), hist: [null], hi: 0, title: '', reader: false, night: false, desktop: false, key: 0 })
+const freshTab = () => ({ id: newId(), hist: [null], hi: 0, title: '', reader: false, night: false, desktop: false, key: 0, mounted: true })
 
 function loadJSON(key, fallback) {
   try {
@@ -65,9 +67,9 @@ const mk = (children, filled) =>
     )
   }
 
-const IconBack = mk(<><path d="M19 12H5" /><path d="M12 19l-7-7 7-7" /></>)
-const IconFwd = mk(<><path d="M5 12h14" /><path d="M12 5l7 7-7 7" /></>)
-const IconX = mk(<><path d="M18 6L6 18" /><path d="M6 6l12 12" /></>)
+const IconBack = mk(<path d="M15 19l-7-7 7-7" />)   // reference design #1 — chevron-back
+const IconFwd = mk(<path d="M9 5l7 7-7 7" />)
+const IconX = mk(<path d="M6 18L18 6M6 6l12 12" />) // reference design #2 — soft-circle X path
 const IconPlus = mk(<><path d="M12 5v14" /><path d="M5 12h14" /></>)
 const IconReload = mk(<><path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 3v6h-6" /></>)
 const IconMoon = mk(<path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8Z" />)
@@ -76,6 +78,7 @@ const IconDots = mk(<><circle cx="12" cy="5" r="1" fill="currentColor" stroke="n
 const IconHome = mk(<><path d="M3 10.5L12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></>)
 const IconClock = mk(<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></>)
 const IconTrash = mk(<><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M6 6l1 14h10l1-14" /></>)
+const IconCode = mk(<><path d="M8 6l-6 6 6 6" /><path d="M16 6l6 6-6 6" /></>)
 const IconBook = mk(<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15ZM4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5" />)
 const IconShare = mk(<><path d="M12 3v13" /><path d="M8 7l4-4 4 4" /><path d="M5 12v8h14v-8" /></>)
 const IconExternal = mk(<><path d="M14 4h6v6" /><path d="M20 4l-9 9" /><path d="M19 14v6H4V5h6" /></>)
@@ -115,6 +118,14 @@ export default function BrowserApp({ open, onClose, pending }) {
   const [toast, setToast] = useState('')
   const [readerState, setReaderState] = useState({ loading: false, data: null })
 
+  // ── DevTools (per-tab data via ref store + global UI state) ──
+  const [dtOpen, setDtOpen] = useState(false)
+  const [dtCollapsed, setDtCollapsed] = useState(false)
+  const [dtTab, setDtTab] = useState('console')
+  const dtStore = useRef(new Map()) // tabId → { console, net, tree, perf, meta, findCount, pickerOn, picked }
+  const [, setDtTick] = useState(0)
+  const dt = activeId ? dtStore.current.get(activeId) || null : null
+
   // ── drawer geometry ──
   const [snap, setSnap] = useState('half')
   const [dragging, setDragging] = useState(false)
@@ -127,6 +138,7 @@ export default function BrowserApp({ open, onClose, pending }) {
   const dragRef = useRef(null)
   const dragHRef = useRef(null)
   const lastHandleTap = useRef(0)
+  const frameRefs = useRef({}) // tabId → iframe element
 
   const activeTab = (tabs || []).find((x) => x.id === activeId) || null
   const activeUrl = activeTab ? activeTab.hist[activeTab.hi] : null
@@ -135,6 +147,39 @@ export default function BrowserApp({ open, onClose, pending }) {
     setToast(msg)
     clearTimeout(toastTimer.current)
     toastTimer.current = setTimeout(() => setToast(''), 1900)
+  }, [])
+
+  // ── DevTools per-tab store helpers (MUST precede every effect that
+  //    references them — a later declaration is a TDZ crash, v5.25.1) ──
+  const freshDt = () => ({ console: [], net: [], tree: null, perf: null, meta: null, findCount: null, pickerOn: false, picked: null })
+  const dtMut = useCallback((tabId, fn) => {
+    if (!tabId) return
+    let s = dtStore.current.get(tabId)
+    if (!s) {
+      s = freshDt()
+      dtStore.current.set(tabId, s)
+    }
+    fn(s)
+    setDtTick((v) => v + 1)
+  }, [])
+  const dtReset = useCallback((tabId) => {
+    if (tabId) dtStore.current.set(tabId, freshDt())
+  }, [])
+  const sendToAgent = useCallback(
+    (cmd, tabId) => {
+      const id = tabId || activeId
+      const win = id && frameRefs.current[id] && frameRefs.current[id].contentWindow
+      if (!win) return
+      try {
+        win.postMessage({ __kv_dt: 1, side: 'dock', ...cmd }, '*')
+      } catch {}
+    },
+    [activeId]
+  )
+
+  // ── engine ──
+  const patchTab = useCallback((id, patch) => {
+    setTabs((prev) => (prev || []).map((x) => (x.id === id ? { ...x, ...(typeof patch === 'function' ? patch(x) : patch) } : x)))
   }, [])
 
   // ── hydrate (once) ──
@@ -148,6 +193,7 @@ export default function BrowserApp({ open, onClose, pending }) {
       .filter((x) => x && Array.isArray(x.hist) && x.hist.length)
       .map((x) => ({ ...freshTab(), ...x, loading: false }))
     const initTabs = clean.length ? clean : [freshTab()]
+    initTabs[0] = { ...initTabs[0], mounted: true } // only the visible tab mounts up front
     setTabs(initTabs)
     setActiveId(initTabs[0].id)
   }, [])
@@ -157,7 +203,7 @@ export default function BrowserApp({ open, onClose, pending }) {
     if (!tabs) return
     const id = setTimeout(() => {
       try {
-        localStorage.setItem(TABS_KEY, JSON.stringify(tabs.map(({ loading, ...rest }) => rest)))
+        localStorage.setItem(TABS_KEY, JSON.stringify(tabs.map(({ loading, mounted, ...rest }) => rest)))
         localStorage.setItem(BM_KEY, JSON.stringify(bookmarks))
         localStorage.setItem(HIST_KEY, JSON.stringify(history))
       } catch {}
@@ -182,26 +228,124 @@ export default function BrowserApp({ open, onClose, pending }) {
     if (!pending || !tabs) return
     setMenuOpen(false)
     setDrawer(null)
+    dtReset(activeId)
     setTabs((prev) =>
       (prev || []).map((x) => {
         if (x.id !== activeId) return x
         const hist = x.hist.slice(0, x.hi + 1)
         hist.push(pending.url)
-        return { ...x, hist, hi: hist.length - 1, title: '', key: x.key + 1, loading: true, reader: false }
+        return { ...x, hist, hi: hist.length - 1, title: '', key: x.key + 1, loading: true, reader: false, mounted: true }
       })
     )
     setHistory((prev) => [{ url: pending.url, title: '', ts: Date.now() }, ...prev.filter((h) => h.url !== pending.url)].slice(0, HIST_CAP))
   }, [pending?.n]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── agent message bus (the ONLY channel into the sandboxed frames) ──
+  useEffect(() => {
+    const onMsg = (e) => {
+      let d = e.data
+      if (typeof d === 'string') {
+        try {
+          d = JSON.parse(d)
+        } catch {
+          return
+        }
+      }
+      if (!d || d.__kv_dt !== 1 || d.side !== 'agent') return
+      // attribute the message to the iframe it came from
+      let tid = null
+      for (const [id, el] of Object.entries(frameRefs.current)) {
+        if (el && el.contentWindow === e.source) {
+          tid = id
+          break
+        }
+      }
+      if (!tid) return
+      switch (d.type) {
+        case 'hello':
+          dtMut(tid, (s) => {
+            if (d.meta) s.meta = d.meta
+            if (Array.isArray(d.replay?.console) && d.replay.console.length && !s.console.length) s.console = d.replay.console.slice(-300)
+            if (Array.isArray(d.replay?.net) && d.replay.net.length && !s.net.length) s.net = d.replay.net.slice(-300)
+          })
+          if (d.meta?.title) {
+            patchTab(tid, (x) => (x.hist[x.hi] ? { title: String(d.meta.title).slice(0, 80) } : {}))
+            setHistory((prev) => prev.map((h) => (h.url === (d.meta && d.meta.url) && !h.title ? { ...h, title: String(d.meta.title).slice(0, 80) } : h)))
+          }
+          break
+        case 'nav':
+          if (d.title) patchTab(tid, (x) => (x.hist[x.hi] ? { title: String(d.title).slice(0, 80) } : {}))
+          break
+        case 'console':
+        case 'error':
+          dtMut(tid, (s) => {
+            s.console = [...s.console, { level: d.level || 'log', args: d.args || [], ts: d.ts || Date.now() }].slice(-300)
+          })
+          break
+        case 'net':
+          dtMut(tid, (s) => {
+            s.net = [...s.net, { method: d.method, url: d.url, status: d.status, ms: d.ms }].slice(-300)
+          })
+          break
+        case 'perf':
+          dtMut(tid, (s) => {
+            s.perf = d
+          })
+          break
+        case 'inspect':
+          dtMut(tid, (s) => {
+            s.tree = d.tree || null
+          })
+          break
+        case 'eval':
+          dtMut(tid, (s) => {
+            s.console = [...s.console, { level: d.ok ? 'eval-ok' : 'eval-err', args: d.ok ? [d.value == null ? '' : d.value] : [{ s: d.error || 'Error' }], ts: Date.now() }].slice(-300)
+          })
+          break
+        case 'find':
+          dtMut(tid, (s) => {
+            s.findCount = typeof d.count === 'number' ? d.count : null
+          })
+          break
+        case 'picked':
+          dtMut(tid, (s) => {
+            s.picked = d.node || null
+            s.pickerOn = false
+          })
+          break
+        default:
+          break
+      }
+    }
+    window.addEventListener('message', onMsg)
+    return () => window.removeEventListener('message', onMsg)
+  }, [dtMut, patchTab])
+
+  // ── DevTools perf subscription + on-demand inspect ──
+  useEffect(() => {
+    if (!dtOpen || !activeId) return
+    const win = frameRefs.current[activeId] && frameRefs.current[activeId].contentWindow
+    if (!win) return
+    try {
+      win.postMessage({ __kv_dt: 1, side: 'dock', type: 'perfSub', on: true }, '*')
+    } catch {}
+    return () => {
+      try {
+        win.postMessage({ __kv_dt: 1, side: 'dock', type: 'perfSub', on: false }, '*')
+      } catch {}
+    }
+  }, [dtOpen, activeId])
+
+  useEffect(() => {
+    if (!dtOpen || dtTab !== 'elements' || !activeId) return
+    const s = dtStore.current.get(activeId)
+    if (s && !s.tree) sendToAgent({ type: 'inspect' })
+  }, [dtOpen, dtTab, activeId, sendToAgent])
+
   // ── omnibox mirrors the active tab's URL ──
   useEffect(() => {
     if (!inputFocused) setInput(activeUrl || '')
   }, [activeUrl, activeId, inputFocused])
-
-  // ── engine ──
-  const patchTab = useCallback((id, patch) => {
-    setTabs((prev) => (prev || []).map((x) => (x.id === id ? { ...x, ...(typeof patch === 'function' ? patch(x) : patch) } : x)))
-  }, [])
 
   const navigate = useCallback(
     (rawUrl, opts = {}) => {
@@ -223,9 +367,12 @@ export default function BrowserApp({ open, onClose, pending }) {
           return { ...x, hist, hi: hist.length - 1, title: '', key: x.key + 1, loading: true }
         })
       })
-      if (url) setHistory((prev) => [{ url, title: '', ts: Date.now() }, ...prev.filter((h) => h.url !== url)].slice(0, HIST_CAP))
+      if (url) {
+        dtReset(activeId) // new document — fresh DevTools buffers
+        setHistory((prev) => [{ url, title: '', ts: Date.now() }, ...prev.filter((h) => h.url !== url)].slice(0, HIST_CAP))
+      }
     },
-    [activeId]
+    [activeId, dtReset]
   )
 
   const goBack = useCallback(() => {
@@ -242,8 +389,9 @@ export default function BrowserApp({ open, onClose, pending }) {
 
   const reload = useCallback(() => {
     if (!activeTab) return
+    dtReset(activeTab.id)
     patchTab(activeTab.id, (x) => ({ key: x.key + 1, loading: !!x.hist[x.hi] }))
-  }, [activeTab, patchTab])
+  }, [activeTab, patchTab, dtReset])
 
   const stop = useCallback(() => {
     if (!activeTab) return
@@ -261,6 +409,8 @@ export default function BrowserApp({ open, onClose, pending }) {
 
   const closeTab = useCallback(
     (id) => {
+      dtStore.current.delete(id)
+      delete frameRefs.current[id]
       setTabs((prev) => {
         const list = (prev || []).filter((x) => x.id !== id)
         const next = list.length ? list : [freshTab()]
@@ -270,6 +420,11 @@ export default function BrowserApp({ open, onClose, pending }) {
     },
     [activeId]
   )
+
+  const activateTab = useCallback((id) => {
+    setActiveId(id)
+    setTabs((prev) => (prev || []).map((x) => (x.id === id && !x.mounted ? { ...x, mounted: true } : x)))
+  }, [])
 
   // ── per-URL effects for the ACTIVE tab ──
   const fxUrl = activeTab ? activeUrl : null
@@ -489,11 +644,6 @@ export default function BrowserApp({ open, onClose, pending }) {
     }
   }
 
-  // ── iframe src (kb busts identical-URL reloads) ──
-  const iframeSrc = activeUrl
-    ? `/api/browser/proxy?url=${encodeURIComponent(activeUrl)}${activeTab?.desktop ? '&ua=desktop' : ''}&kb=${activeTab?.key || 0}`
-    : null
-
   const canBack = activeTab && activeTab.hi > 0
   const canFwd = activeTab && activeTab.hi < activeTab.hist.length - 1
   const heightStyle = dragH != null ? `${dragH}px` : `${Math.round(PCT[snap] * 100)}dvh`
@@ -559,9 +709,9 @@ export default function BrowserApp({ open, onClose, pending }) {
               type="button"
               onClick={onClose}
               aria-label={t('common.close')}
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-[#a3a3a3] hover:text-white hover:bg-white/[0.07] active:scale-95 transition-colors"
+              className="w-9 h-9 rounded-full bg-[#1c1c1c] text-[#a3a3a3] hover:bg-[#262626] hover:text-[#fafafa] active:scale-95 flex items-center justify-center transition-all duration-200"
             >
-              <IconX size={16} />
+              <XGlyph size={15} />
             </button>
           </div>
         </div>
@@ -694,6 +844,16 @@ export default function BrowserApp({ open, onClose, pending }) {
                           patchTab(activeId, (x) => ({ night: !x.night }))
                         },
                       },
+                      {
+                        icon: <IconCode size={17} />,
+                        label: t('bdt.open_devtools'),
+                        on: dtOpen,
+                        disabled: !activeUrl,
+                        act: () => {
+                          setMenuOpen(false)
+                          setDtOpen((v) => !v)
+                        },
+                      },
                       { divider: true },
                       {
                         icon: isBookmarked ? <IconBmFill size={17} className="text-[#FF3366]" /> : <IconBm size={17} />,
@@ -749,7 +909,7 @@ export default function BrowserApp({ open, onClose, pending }) {
             <button
               type="button"
               key={x.id}
-              onClick={() => setActiveId(x.id)}
+              onClick={() => activateTab(x.id)}
               className={`group shrink-0 flex items-center gap-1.5 h-9 max-w-[160px] rounded-xl px-2.5 border transition-colors ${
                 x.id === activeId ? 'bg-[#1c1c1c] border-[#FF3366]/60 text-white' : 'bg-[#141414] border-[#262626] text-[#a3a3a3] hover:text-[#e5e5e5]'
               }`}
@@ -785,74 +945,112 @@ export default function BrowserApp({ open, onClose, pending }) {
           </button>
         </nav>
 
-        {/* ═══ content ═══ */}
+        {/* ═══ content — the full tab stack stays mounted (session keep-alive) ═══ */}
         <main className={`flex-1 min-h-0 relative bg-[#0d0d0d] ${dragging ? 'pointer-events-none' : ''}`}>
-          {!activeUrl ? (
-            <StartPage onNavigate={(u) => navigate(u)} recents={history} bookmarks={bookmarks} t={t} />
-          ) : activeTab?.reader ? (
-            readerState.loading ? (
-              <div className="h-full flex items-center justify-center">
-                <IconSpinner size={20} className="text-[#FF3366]" />
-              </div>
-            ) : readerState.data && !readerState.data.err && readerState.data.html ? (
-              <div className="h-full overflow-y-auto overscroll-contain select-text">
-                <article
-                  onClick={(e) => {
-                    const a = e.target.closest && e.target.closest('a')
-                    if (a && a.href) {
-                      e.preventDefault()
-                      try {
-                        navigate(new URL(a.href).href)
-                      } catch {}
-                    }
+          {/* iframe stack: one sandboxed frame per mounted tab, hidden while
+              inactive. Switching tabs NEVER reloads a visited page. */}
+          {(tabs || []).map((x) => {
+            const u = x.hist[x.hi]
+            if (!x.mounted || !u) return null
+            return (
+              <div
+                key={x.id}
+                className="absolute inset-0"
+                style={{
+                  display: x.id === activeId && !x.reader ? 'block' : 'none',
+                  ...(x.night ? { filter: 'invert(0.92) hue-rotate(180deg)' } : {}),
+                }}
+              >
+                <iframe
+                  ref={(el) => {
+                    frameRefs.current[x.id] = el
                   }}
-                  className="mx-auto max-w-2xl px-5 pt-7 pb-24 [&_h1]:text-[22px] [&_h1]:font-semibold [&_h1]:text-white [&_h1]:mt-7 [&_h1]:mb-3 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mt-6 [&_h2]:mb-2.5 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-[#fafafa] [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-[#fafafa] [&_h5]:text-sm [&_h5]:font-semibold [&_h5]:text-[#a3a3a3] [&_h6]:text-sm [&_h6]:font-semibold [&_h6]:text-[#737373] [&_p]:text-[15px] [&_p]:leading-7 [&_p]:text-[#d4d4d4] [&_p]:my-3.5 [&_li]:text-[14px] [&_li]:leading-6 [&_li]:text-[#d4d4d4] [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-3 [&_a]:text-[#FF3366] [&_a]:underline [&_a]:decoration-[#FF3366]/40 [&_img]:rounded-xl [&_img]:my-4 [&_img]:max-w-full [&_img]:h-auto [&_blockquote]:border-l-2 [&_blockquote]:border-[#FF3366]/60 [&_blockquote]:pl-4 [&_blockquote]:my-4 [&_blockquote]:text-[#a3a3a3] [&_pre]:bg-[#111111] [&_pre]:border [&_pre]:border-[#262626] [&_pre]:rounded-xl [&_pre]:p-4 [&_pre]:overflow-x-auto [&_pre]:text-[12px] [&_code]:text-[13px] [&_table]:w-full [&_table]:text-[13px] [&_td]:border-t [&_td]:border-[#262626] [&_td]:px-2 [&_td]:py-1.5 [&_th]:border-t [&_th]:border-[#262626] [&_th]:px-2 [&_th]:py-1.5 [&_th]:text-left [&_figure]:my-5 [&_figcaption]:text-[11px] [&_figcaption]:text-[#525252] [&_figcaption]:text-center [&_figcaption]:mt-2"
-                >
-                  {readerState.data.title && <h1 className="!mt-0">{readerState.data.title}</h1>}
-                  <div dangerouslySetInnerHTML={{ __html: readerState.data.html }} />
-                </article>
-              </div>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center gap-3 px-8 text-center">
-                <IconBook size={28} className="text-[#3a3a3a]" />
-                <p className="text-sm text-[#737373]">{t('browser.reader_empty')}</p>
-                <button
-                  type="button"
-                  onClick={() => patchTab(activeId, { reader: false })}
-                  className="mt-1 px-5 py-2.5 rounded-xl bg-[#1a1a1a] border border-[#2e2e2e] text-[13px] text-[#d4d4d4] hover:text-white transition-colors"
-                >
-                  {t('browser.exit_reader')}
-                </button>
+                  src={`/api/browser/proxy?url=${encodeURIComponent(u)}${x.desktop ? '&ua=desktop' : ''}&kb=${x.key || 0}`}
+                  title={x.title || u || 'Kivora Browser'}
+                  onLoad={() => patchTab(x.id, { loading: false })}
+                  onError={() => patchTab(x.id, { loading: false })}
+                  sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals"
+                  referrerPolicy="no-referrer"
+                  allow="fullscreen"
+                  className="w-full h-full border-0 bg-white"
+                />
               </div>
             )
-          ) : (
-            <>
-              {/* loading skeleton — no white flash between navigations */}
-              {activeTab?.loading && (
-                <div className="absolute inset-0 z-10 bg-[#0d0d0d] flex flex-col items-center justify-center gap-4 pointer-events-none">
-                  <div className="w-12 h-12 rounded-2xl bg-[#FF3366]/10 border border-[#FF3366]/25 flex items-center justify-center animate-pulse">
-                    <KMark size={22} />
-                  </div>
-                  <div className="w-40 h-1.5 rounded-full bg-white/[0.08] overflow-hidden">
-                    <div className="h-full w-1/3 rounded-full bg-[#FF3366]/70 animate-pulse" />
-                  </div>
+          })}
+
+          {/* loading skeleton — no white flash between navigations */}
+          {activeTab?.loading && activeUrl && (
+            <div className="absolute inset-0 z-10 bg-[#0d0d0d] flex flex-col items-center justify-center gap-4 pointer-events-none">
+              <div className="w-12 h-12 rounded-2xl bg-[#FF3366]/10 border border-[#FF3366]/25 flex items-center justify-center animate-pulse">
+                <KMark size={22} />
+              </div>
+              <div className="w-40 h-1.5 rounded-full bg-white/[0.08] overflow-hidden">
+                <div className="h-full w-1/3 rounded-full bg-[#FF3366]/70 animate-pulse" />
+              </div>
+            </div>
+          )}
+
+          {/* start page — overlay so sibling tabs' frames stay alive */}
+          {!activeUrl && (
+            <div className="absolute inset-0 z-10 bg-[#0d0d0d]">
+              <StartPage onNavigate={(u) => navigate(u)} recents={history} bookmarks={bookmarks} t={t} />
+            </div>
+          )}
+
+          {/* reader mode — overlay above the live frame */}
+          {activeUrl && activeTab?.reader && (
+            <div className="absolute inset-0 z-20 bg-[#0d0d0d]">
+              {readerState.loading ? (
+                <div className="h-full flex items-center justify-center">
+                  <IconSpinner size={20} className="text-[#FF3366]" />
+                </div>
+              ) : readerState.data && !readerState.data.err && readerState.data.html ? (
+                <div className="h-full overflow-y-auto overscroll-contain select-text">
+                  <article
+                    onClick={(e) => {
+                      const a = e.target.closest && e.target.closest('a')
+                      if (a && a.href) {
+                        e.preventDefault()
+                        try {
+                          navigate(new URL(a.href).href)
+                        } catch {}
+                      }
+                    }}
+                    className="mx-auto max-w-2xl px-5 pt-7 pb-24 [&_h1]:text-[22px] [&_h1]:font-semibold [&_h1]:text-white [&_h1]:mt-7 [&_h1]:mb-3 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mt-6 [&_h2]:mb-2.5 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-[#fafafa] [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-[#fafafa] [&_h5]:text-sm [&_h5]:font-semibold [&_h5]:text-[#a3a3a3] [&_h6]:text-sm [&_h6]:font-semibold [&_h6]:text-[#737373] [&_p]:text-[15px] [&_p]:leading-7 [&_p]:text-[#d4d4d4] [&_p]:my-3.5 [&_li]:text-[14px] [&_li]:leading-6 [&_li]:text-[#d4d4d4] [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-3 [&_a]:text-[#FF3366] [&_a]:underline [&_a]:decoration-[#FF3366]/40 [&_img]:rounded-xl [&_img]:my-4 [&_img]:max-w-full [&_img]:h-auto [&_blockquote]:border-l-2 [&_blockquote]:border-[#FF3366]/60 [&_blockquote]:pl-4 [&_blockquote]:my-4 [&_blockquote]:text-[#a3a3a3] [&_pre]:bg-[#111111] [&_pre]:border [&_pre]:border-[#262626] [&_pre]:rounded-xl [&_pre]:p-4 [&_pre]:overflow-x-auto [&_pre]:text-[12px] [&_code]:text-[13px] [&_table]:w-full [&_table]:text-[13px] [&_td]:border-t [&_td]:border-[#262626] [&_td]:px-2 [&_td]:py-1.5 [&_th]:border-t [&_th]:border-[#262626] [&_th]:px-2 [&_th]:py-1.5 [&_th]:text-left [&_figure]:my-5 [&_figcaption]:text-[11px] [&_figcaption]:text-[#525252] [&_figcaption]:text-center [&_figcaption]:mt-2"
+                  >
+                    {readerState.data.title && <h1 className="!mt-0">{readerState.data.title}</h1>}
+                    <div dangerouslySetInnerHTML={{ __html: readerState.data.html }} />
+                  </article>
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center gap-3 px-8 text-center">
+                  <IconBook size={28} className="text-[#3a3a3a]" />
+                  <p className="text-sm text-[#737373]">{t('browser.reader_empty')}</p>
+                  <button
+                    type="button"
+                    onClick={() => patchTab(activeId, { reader: false })}
+                    className="mt-1 px-5 py-2.5 rounded-xl bg-[#1a1a1a] border border-[#2e2e2e] text-[13px] text-[#d4d4d4] hover:text-white transition-colors"
+                  >
+                    {t('browser.exit_reader')}
+                  </button>
                 </div>
               )}
-              <iframe
-                key={`${activeId}-${activeTab?.key || 0}`}
-                src={iframeSrc}
-                title={activeTab?.title || activeUrl || 'Kivora Browser'}
-                onLoad={() => patchTab(activeId, { loading: false })}
-                onError={() => patchTab(activeId, { loading: false })}
-                sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals"
-                referrerPolicy="no-referrer"
-                allow="fullscreen"
-                className={`w-full h-full border-0 bg-white transition-opacity duration-150 ${activeTab?.loading ? 'opacity-0' : 'opacity-100'} ${
-                  activeTab?.night ? 'kivora-night' : ''
-                }`}
-                style={activeTab?.night ? { filter: 'invert(0.92) hue-rotate(180deg)' } : undefined}
-              />
-            </>
+            </div>
+          )}
+
+          {/* ═══ DevTools dock — agent-backed inspector over the page ═══ */}
+          {dtOpen && activeUrl && (
+            <DevToolsDock
+              t={t}
+              collapsed={dtCollapsed}
+              onToggleCollapse={() => setDtCollapsed((v) => !v)}
+              onClose={() => setDtOpen(false)}
+              state={dt || { console: [], net: [] }}
+              onSend={(cmd) => sendToAgent(cmd)}
+              onClearConsole={() => dtMut(activeId, (s) => { s.console = [] })}
+              onTabChange={(id) => setDtTab(id)}
+              canInspect={!!activeUrl}
+            />
           )}
         </main>
 

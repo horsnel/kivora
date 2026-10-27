@@ -2,7 +2,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { supabasePublic } from '@/lib/supabase'
-import { IconArrowLeft, IconCheck, IconSpinner } from '@/components/Icons'
+import { IconCheck, IconSpinner } from '@/components/Icons'
+import BackButton from '@/components/BackButton'
 
 export default function ResetPage() {
   const [email, setEmail] = useState('')
@@ -28,13 +29,14 @@ export default function ResetPage() {
   return (
     <main className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        <Link
+        <BackButton
           href="/auth"
-          className="flex items-center gap-1.5 text-muted hover:text-white text-xs mb-8 transition-colors group"
+          label="Back to sign in"
+          glyph={16}
+          className="text-muted hover:text-white text-xs gap-1.5 mb-8"
         >
-          <IconArrowLeft size={12} className="group-hover:-translate-x-0.5 transition-transform" />
           Back to sign in
-        </Link>
+        </BackButton>
 
         <div className="text-center mb-8">
           <div className="w-8 h-8 bg-[#dc2626] rounded-lg flex items-center justify-center mx-auto mb-4">

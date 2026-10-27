@@ -9,6 +9,7 @@ import MarkdownRenderer from '@/components/MarkdownRenderer'
 import DataTable from '@/components/DataTable'
 import { supabasePublic } from '@/lib/supabase'
 import { authFetch } from '@/lib/authFetch'
+import BackButton from '@/components/BackButton'
 import { normalizeExploreResult } from '@/lib/exploreSchema'
 import {
   IconMoney, IconLightning, IconTool, IconArrowLeft, IconCheck,
@@ -133,11 +134,9 @@ export default function ExplorePage() {
 
   if (!data) return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4">
-      <div className="text-center">
+        <div className="text-center">
         <p className="text-muted mb-4 text-body">This opportunity wasn't found.</p>
-        <button onClick={() => router.push('/')} className="text-red-500 hover:text-red-400 text-body flex items-center gap-1 mx-auto">
-          <IconArrowLeft size={14} /> Back to home
-        </button>
+        <BackButton href="/" label="Back to home" glyph={18} className="text-red-500 hover:text-red-400 text-body gap-1 mx-auto">Back to home</BackButton>
       </div>
     </div>
   )
@@ -307,9 +306,7 @@ export default function ExplorePage() {
         </div>
 
         <div className="mt-8 sm:mt-12 border-t border-[#141414] pt-6 sm:pt-8 text-center">
-          <button onClick={() => router.push('/')} className="flex items-center gap-1.5 text-body text-muted hover:text-white transition-colors mx-auto">
-            <IconArrowLeft size={14} /> Back to explore
-          </button>
+          <BackButton href="/" label="Back to explore" glyph={18} className="text-body text-muted hover:text-white gap-1.5 mx-auto">Back to explore</BackButton>
         </div>
       </div>
     </main>

@@ -37,8 +37,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   IconDotsVertical, IconShare, IconCopy, IconCheck,
-  IconDownloadReport, IconSpinner, IconArrowLeft,
+  IconDownloadReport, IconSpinner,
 } from '@/components/Icons'
+import { XGlyph, CHEV_D } from '@/components/BackButton'
 import { showFeedback } from '@/components/FeedbackToast'
 
 // Format badge palette — same chips as the v5.9 ExportMenu
@@ -216,6 +217,19 @@ export default function OutputMenu({
             align === 'right' ? 'right-0' : 'left-0'
           } w-52 bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl shadow-2xl py-1.5 z-50 animate-scale-in overflow-hidden`}
         >
+          {/* ── header: menu name + soft-circle-X close (reference design #2) ── */}
+          <div className="flex items-center justify-between pl-4 pr-2 pt-1.5 pb-2 mb-1 border-b border-white/[0.06]">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#737373] truncate">{title}</span>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={close}
+              aria-label="Close"
+              className="shrink-0 w-7 h-7 rounded-full bg-[#1c1c1c] text-[#a3a3a3] hover:bg-[#262626] hover:text-[#fafafa] active:scale-95 flex items-center justify-center transition-all duration-200"
+            >
+              <XGlyph size={13} />
+            </button>
+          </div>
           {view === 'main' ? (
             <>
               {/* ── Main view: Share / Copy / Export ── */}
@@ -237,19 +251,25 @@ export default function OutputMenu({
                 <button role="menuitem" onClick={() => setView('export')} className={menuRow}>
                   <IconDownloadReport size={14} className="shrink-0 text-[#737373]" />
                   <span className="flex-1">{exportLabel}</span>
-                  <IconArrowLeft size={13} strokeWidth={2.75} className="shrink-0 rotate-180 text-[#737373]" />
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 rotate-180 text-[#737373]" aria-hidden="true">
+                    <path d={CHEV_D} />
+                  </svg>
                 </button>
               )}
             </>
           ) : (
             <>
-              {/* ── Export view: back row + format list ── */}
+              {/* ── Export view: chevron-back row (reference design #1, drawn
+                  inline — a BackButton here would nest a button inside a
+                  role=menuitem button, which is invalid HTML) ── */}
               <button
                 role="menuitem"
                 onClick={() => setView('main')}
                 className="w-full flex items-center gap-2.5 px-3.5 pt-0.5 pb-2 mb-1 text-[10px] text-[#737373] hover:text-white font-medium uppercase tracking-wider border-b border-white/[0.06] transition-colors text-left"
               >
-                <IconArrowLeft size={13} strokeWidth={2.75} className="shrink-0" />
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
+                  <path d={CHEV_D} />
+                </svg>
                 <span className="flex-1">{exportLabel}</span>
               </button>
               {formats.map((fmt) => (

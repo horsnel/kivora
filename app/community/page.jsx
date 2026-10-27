@@ -7,7 +7,8 @@ import { authFetch } from '@/lib/authFetch'
 import { useTranslation } from '@/components/LanguageProvider'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { MarkdownCodeBlock } from '@/components/MarkdownRenderer'
-import { IconChat, IconArrowLeft, IconPlus, IconSpinner, IconTrash, IconSend, IconUser, IconPaperclip, IconFile, IconClose, IconDownload, IconShare } from '@/components/Icons'
+import { IconChat, IconPlus, IconSpinner, IconTrash, IconSend, IconUser, IconPaperclip, IconFile, IconClose, IconDownload, IconShare } from '@/components/Icons'
+import BackButton from '@/components/BackButton'
 
 // v5.16 — post bodies render as markdown so shared code blocks carry the
 // Copy + Run buttons (global terminal bridge): a runnable snippet in ANY
@@ -521,12 +522,7 @@ export default function CommunityPage() {
       <div className="max-w-3xl mx-auto px-4 py-10">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8 animate-fade-up">
-          <button
-            onClick={() => { setView('list'); setError('') }}
-            className="w-9 h-9 bg-[#141414] rounded-xl flex items-center justify-center text-muted hover:text-white transition-colors"
-          >
-            <IconArrowLeft size={14} />
-          </button>
+          <BackButton onClick={() => { setView('list'); setError('') }} label={t('community.back')} className="-ml-2" />
           <div>
             <h1 className="font-semibold text-headline tracking-tight">{t('community.new_discussion')}</h1>
             <p className="text-muted text-caption">{t('community.start_conversation')}</p>
@@ -622,12 +618,7 @@ export default function CommunityPage() {
       <div className="max-w-3xl mx-auto px-4 py-10">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8 animate-fade-up">
-          <button
-            onClick={() => { setView('list'); setSelectedPost(null); setReplies([]) }}
-            className="w-9 h-9 bg-[#141414] rounded-xl flex items-center justify-center text-muted hover:text-white transition-colors"
-          >
-            <IconArrowLeft size={14} />
-          </button>
+          <BackButton onClick={() => { setView('list'); setSelectedPost(null); setReplies([]) }} label={t('community.back')} className="-ml-2" />
           <div>
             <h1 className="font-semibold text-headline tracking-tight">{t('community.discussion')}</h1>
             <p className="text-muted text-caption">{t('community.back')}</p>

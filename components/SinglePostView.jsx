@@ -9,7 +9,8 @@ import Link from 'next/link'
 import remarkGfm from 'remark-gfm'
 import { useTranslation } from '@/components/LanguageProvider'
 import { MarkdownCodeBlock } from '@/components/MarkdownRenderer'
-import { IconChat, IconArrowLeft, IconSpinner, IconUser, IconShare, IconCheck } from '@/components/Icons'
+import { IconChat, IconSpinner, IconUser, IconShare, IconCheck } from '@/components/Icons'
+import BackButton from '@/components/BackButton'
 
 const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false })
 
@@ -98,12 +99,14 @@ export default function SinglePostView({ postId }) {
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-        <Link
+        <BackButton
           href="/community"
-          className="inline-flex items-center gap-2 text-sm text-[#737373] hover:text-white transition-colors mb-6"
+          label={t('community.back') || 'Back to community'}
+          glyph={18}
+          className="text-sm text-[#737373] hover:text-white gap-2 mb-6"
         >
-          <IconArrowLeft size={15} /> {t('community.back') || 'Back to community'}
-        </Link>
+          {t('community.back') || 'Back to community'}
+        </BackButton>
 
         {error && (
           <div className="bg-[#141414] border border-white/[0.06] rounded-xl px-5 py-8 text-center">

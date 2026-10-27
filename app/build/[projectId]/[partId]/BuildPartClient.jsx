@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { IconBuild, IconCode, IconBulb, IconPlay, IconCheck, IconArrowLeft, IconEye, IconFolder, IconStar, IconSend, IconCopy } from '@/components/Icons'
+import { IconBuild, IconCode, IconBulb, IconPlay, IconCheck, IconEye, IconFolder, IconStar, IconSend, IconCopy } from '@/components/Icons'
+import BackButton from '@/components/BackButton'
 
 // ── Mode tabs ──
 const MODES = [
@@ -159,13 +160,14 @@ export default function BuildPartClient() {
           <IconBuild size={40} className="mx-auto mb-4 text-[#333]" />
           <h1 className="text-xl font-semibold mb-2">Part Not Found</h1>
           <p className="text-sm text-[#737373] mb-4">This build part doesn&apos;t exist.</p>
-          <Link
+          <BackButton
             href={`/build/${projectId || ''}`}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-[#111] border border-[#1a1a1a] text-[#a3a3a3] hover:bg-[#1a1a1a] hover:text-white transition-colors"
+            label="Back to Project"
+            glyph={18}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-[#111] border border-[#1a1a1a] text-[#a3a3a3] hover:bg-[#1a1a1a] hover:text-white gap-1.5"
           >
-            <IconArrowLeft size={14} />
             Back to Project
-          </Link>
+          </BackButton>
         </div>
       </main>
     )
@@ -342,12 +344,12 @@ scene.add(light);`,
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
-              <Link
+              <BackButton
                 href={`/build/${projectId}`}
-                className="w-8 h-8 rounded-lg bg-[#1a1a1a] flex items-center justify-center text-[#737373] hover:text-white transition-colors shrink-0"
-              >
-                <IconArrowLeft size={14} />
-              </Link>
+                label="Back to Project"
+                glyph={20}
+                className="rounded-lg text-[#737373] hover:text-white shrink-0"
+              />
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <h1 className="text-lg font-semibold tracking-tight truncate">{part.name}</h1>
