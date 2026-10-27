@@ -9,7 +9,15 @@
 //   1. Own open/close state for the drawer (state survives open/close —
 //      reopening restores the previous session instantly).
 //   2. openBrowser(url) — open the drawer and navigate the active tab.
-//   3. Global link capture: EVERY cross-origin <a href> on every page is
+//      v5.26: the pending navigation is passed to <BrowserApp pending>
+//      as a PROP — before this fix the URL was set in context but never
+//      reached the engine, so a tapped link opened the drawer WITHOUT
+//      loading the site (the reported "link touched → nothing loads").
+//   3. v5.26 session restore: the drawer's open state is persisted. If
+//      the app is refreshed / swiped away while browsing, the NEXT app
+//      start re-opens the drawer on the last visited page automatically
+//      (an explicit close marks the session ended — no auto-reopen).
+//   4. Global link capture: EVERY cross-origin <a href> on every page is
 //      intercepted (capture-phase, before Next.js/anchor default) and
 //      routed into the browser drawer instead of leaving the app or
 //      spawning a browser tab. mailto/tel/#/same-origin/download links
@@ -19,6 +27,21 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import BrowserApp from '@/components/BrowserApp'
 
 const BrowserCtx = createContext(null)
+const SESS_KEY = 'kv_browser_session_v1'
+
+function readSess() {
+  try {
+    return JSON.parse(localStorage.getItem(SESS_KEY) || 'null') || {}
+  } catch {
+    return {}
+  }
+}
+
+function writeSess(patch) {
+  try {
+    localStorage.setItem(SESS_KEY, JSON.stringify({ ...readSess(), ...patch, ts: Date.now() }))
+  } catch {}
+}
 
 export function useBrowser() {
   const ctx = useContext(BrowserCtx)
@@ -33,10 +56,28 @@ export default function BrowserProvider({ children }) {
 
   const openBrowser = useCallback((url) => {
     setOpen(true)
+    writeSess({ open: true }) // killed mid-session → auto-restore next launch
     if (url) setPending({ url: String(url), n: ++nRef.current })
   }, [])
 
-  const closeBrowser = useCallback(() => setOpen(false), [])
+  const closeBrowser = useCallback(() => {
+    setOpen(false)
+    writeSess({ open: false }) // explicit close ends the session
+  }, [])
+
+  // ── v5.26 session restore — "the last page always comes back" ──
+  // Refresh / app swipe-away while browsing re-opens the drawer on the
+  // previously visited pages. Tabs themselves are restored by
+  // BrowserApp (kv_browser_tabs_v1); here we only restore open state.
+  // Deliberate close (writeSess open:false) disables the auto-reopen.
+  useEffect(() => {
+    let t
+    try {
+      const sess = readSess()
+      if (sess.open) t = setTimeout(() => setOpen(true), 350) // let the page settle first
+    } catch {}
+    return () => clearTimeout(t)
+  }, [])
 
   // ── global external-link capture ──────────────────────────────────
   // One delegated capture-phase listener upgrades every cross-origin
@@ -132,7 +173,7 @@ export default function BrowserProvider({ children }) {
       {/* Always mounted (like GlobalCodeRunner) — hidden via transform so
           the browsing session survives open/close cycles. Renders nothing
           on the server; hydrates once. */}
-      <BrowserApp open={open} onClose={closeBrowser} />
+      <BrowserApp open={open} onClose={closeBrowser} pending={pending} />
     </BrowserCtx.Provider>
   )
 }

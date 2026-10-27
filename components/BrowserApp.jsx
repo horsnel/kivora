@@ -28,6 +28,7 @@ import DevToolsDock from '@/components/browser/DevToolsDock'
 import { XGlyph } from '@/components/BackButton'
 
 const TABS_KEY = 'kv_browser_tabs_v1'
+const SESS_KEY = 'kv_browser_session_v1' // { activeId, open, ts } — shared with BrowserProvider
 const BM_KEY = 'kv_browser_bms_v1'
 const HIST_KEY = 'kv_browser_hist_v1'
 const HIST_CAP = 150
@@ -105,7 +106,7 @@ const SNAPS = ['half', 'tall', 'full']
 const PCT = { half: 0.5, tall: 0.85, full: 1 }
 
 export default function BrowserApp({ open, onClose, pending }) {
-  const { t } = useTranslation()
+  const { t, lang } = useTranslation()
 
   const [tabs, setTabs] = useState(null) // null = not hydrated yet
   const [activeId, setActiveId] = useState(null)
@@ -182,23 +183,32 @@ export default function BrowserApp({ open, onClose, pending }) {
     setTabs((prev) => (prev || []).map((x) => (x.id === id ? { ...x, ...(typeof patch === 'function' ? patch(x) : patch) } : x)))
   }, [])
 
-  // ── hydrate (once) ──
+  // ── hydrate (once) — v5.26: restore the LAST-ACTIVE tab, not tab #1 ──
+  // Tabs persist to localStorage; the session key adds which tab was on
+  // screen when the app went away. Only the restored active tab mounts
+  // up front — the freshTab() spread defaults mounted:true, so every
+  // restored tab would otherwise load its iframe SIMULTANEOUSLY on
+  // refresh (N parallel proxy fetches on mobile data). Inactive tabs
+  // mount lazily on activateTab(), exactly like brand-new ones.
   useEffect(() => {
     const savedTabs = loadJSON(TABS_KEY, [])
     const bms = loadJSON(BM_KEY, [])
     const hist = loadJSON(HIST_KEY, [])
+    const sess = loadJSON(SESS_KEY, null)
     setBookmarks(Array.isArray(bms) ? bms : [])
     setHistory(Array.isArray(hist) ? hist : [])
     const clean = (Array.isArray(savedTabs) ? savedTabs : [])
       .filter((x) => x && Array.isArray(x.hist) && x.hist.length)
-      .map((x) => ({ ...freshTab(), ...x, loading: false }))
+      .map((x) => ({ ...freshTab(), ...x, loading: false, mounted: false }))
     const initTabs = clean.length ? clean : [freshTab()]
-    initTabs[0] = { ...initTabs[0], mounted: true } // only the visible tab mounts up front
+    const want = sess && sess.activeId
+    const act = initTabs.find((x) => x.id === want) || initTabs.find((x) => x.hist[x.hi]) || initTabs[0]
+    act.mounted = true
     setTabs(initTabs)
-    setActiveId(initTabs[0].id)
+    setActiveId(act.id)
   }, [])
 
-  // ── persist (debounced) ──
+  // ── persist (debounced) — tabs + the last-active tab id (v5.26) ──
   useEffect(() => {
     if (!tabs) return
     const id = setTimeout(() => {
@@ -206,10 +216,13 @@ export default function BrowserApp({ open, onClose, pending }) {
         localStorage.setItem(TABS_KEY, JSON.stringify(tabs.map(({ loading, mounted, ...rest }) => rest)))
         localStorage.setItem(BM_KEY, JSON.stringify(bookmarks))
         localStorage.setItem(HIST_KEY, JSON.stringify(history))
+        try {
+          localStorage.setItem(SESS_KEY, JSON.stringify({ ...(loadJSON(SESS_KEY, {}) || {}), activeId, ts: Date.now() }))
+        } catch {}
       } catch {}
     }, 250)
     return () => clearTimeout(id)
-  }, [tabs, bookmarks, history])
+  }, [tabs, bookmarks, history, activeId])
 
   // ── Escape: close inner layers first, then the drawer itself ──
   useEffect(() => {
@@ -313,13 +326,18 @@ export default function BrowserApp({ open, onClose, pending }) {
             s.pickerOn = false
           })
           break
+        case 'close':
+          // error pages post this from their "Back to Kivora" button —
+          // the only sane exit from inside the opaque-origin frame
+          onClose()
+          break
         default:
           break
       }
     }
     window.addEventListener('message', onMsg)
     return () => window.removeEventListener('message', onMsg)
-  }, [dtMut, patchTab])
+  }, [dtMut, patchTab, onClose])
 
   // ── DevTools perf subscription + on-demand inspect ──
   useEffect(() => {
@@ -411,14 +429,18 @@ export default function BrowserApp({ open, onClose, pending }) {
     (id) => {
       dtStore.current.delete(id)
       delete frameRefs.current[id]
-      setTabs((prev) => {
-        const list = (prev || []).filter((x) => x.id !== id)
-        const next = list.length ? list : [freshTab()]
-        if (id === activeId) setActiveId(next[Math.max(0, next.length - 1)].id)
-        return next
-      })
+      const list = (tabs || []).filter((x) => x.id !== id)
+      const next = list.length ? list : [freshTab()]
+      if (id === activeId) {
+        const nx = next[Math.max(0, next.length - 1)]
+        setActiveId(nx.id)
+        // land on a lazily-restored tab → mount it now (blank otherwise)
+        setTabs(next.map((x) => (x.id === nx.id && !x.mounted ? { ...x, mounted: true } : x)))
+      } else {
+        setTabs(next)
+      }
     },
-    [activeId]
+    [activeId, tabs]
   )
 
   const activateTab = useCallback((id) => {
@@ -965,7 +987,7 @@ export default function BrowserApp({ open, onClose, pending }) {
                   ref={(el) => {
                     frameRefs.current[x.id] = el
                   }}
-                  src={`/api/browser/proxy?url=${encodeURIComponent(u)}${x.desktop ? '&ua=desktop' : ''}&kb=${x.key || 0}`}
+                  src={`/api/browser/proxy?url=${encodeURIComponent(u)}${x.desktop ? '&ua=desktop' : ''}&lang=${lang}&kb=${x.key || 0}`}
                   title={x.title || u || 'Kivora Browser'}
                   onLoad={() => patchTab(x.id, { loading: false })}
                   onError={() => patchTab(x.id, { loading: false })}

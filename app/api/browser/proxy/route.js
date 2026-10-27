@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════
-// GET|POST /api/browser/proxy — Kivora Browser fetch engine (v5.25)
+// GET|POST /api/browser/proxy — Kivora Browser fetch engine (v5.26)
 //
 // Server-side fetch + rewrite pipeline that lets the in-app browser
 // render arbitrary public sites inside a SANDBOXED same-origin iframe:
@@ -8,24 +8,45 @@
 //                injects <base> + the DevTools agent, body chunks are
 //                rewritten incrementally — first paint happens as soon
 //                as the upstream site starts responding
-//   - Binary:    images / PDFs / fonts stream straight through
-//   - Speed:     upstream fetches set cf.cacheEverything, so repeat
-//                visits are served from Cloudflare's edge cache BEFORE
-//                the isolate even runs; rewritten HTML gets a short
-//                browser-side cache window (back/forward is instant,
-//                reload still busts via &kb=)
-//   - Failures:  branded error page (HTTP 200) so the sandboxed iframe
-//                shows a usable UI even when the target site is down;
+//   - Binary:    images / PDFs / fonts / media stream straight through
+//                (Range + Content-Range forwarded so audio/video seek)
+//   - Speed:     upstream fetches set cf.cacheEverything+cacheTtlByStatus,
+//                so repeat visits are served from Cloudflare's edge cache
+//                BEFORE the isolate even runs; rewritten HTML gets a
+//                short browser-side cache window (back/forward is
+//                instant, reload still busts via &kb=)
+//   - Failures:  branded, LOCALE-AWARE error page (HTTP 200) so the
+//                sandboxed iframe shows a usable UI when the target site
+//                is down, requires a login, or refuses embedded browsers;
 //                &diag=1 returns machine-readable JSON instead (tests)
 //
-// v5.25 NOTE on runtime context: this route deliberately does NOT use
-// getRequestContext()/caches.default/waitUntil. The installed
-// @cloudflare/next-on-pages build exposes NO runtime exports from the
-// bare specifier (verified in node_modules) — a static import yields
-// `undefined` and every request 500s. Edge caching therefore rides on
-// the fetch `cf` object, which is handled by the runtime BELOW the
-// isolate and cannot throw here. Same lesson as the v5.22 edge-runtime
-// one: no exotic APIs on the hot path.
+// v5.26 — "some sites fail with key errors / unauthorized access":
+//   1. Full browser-like request identity. Many sites (esp. Python
+//      backends) do request.headers['Referer'] / ['Sec-Fetch-Mode'] and
+//      CRASH with a bare KeyError when a header is absent; others 403
+//      hotlink-protection when Referer is missing. We now send the full
+//      navigation-grade set: sec-fetch-{mode,dest,site,user},
+//      sec-ch-ua* client hints matched to the UA brand, and a SELF
+//      referer (target's own origin — never leaks Kivora as referrer,
+//      never leaks the user's URL to third parties).
+//   2. Error responses are NEVER edge-cached: cacheTtl is replaced by
+//      cacheTtlByStatus (mutually exclusive with cacheTtl) — 2xx cached
+//      briefly, 404 for 30s, 401/403/429/5xx NOT AT ALL. A poisoned
+//      "unauthorized" edge entry can no longer stick for an hour.
+//   3. Upstream 4xx/5xx HTML is intercepted and replaced with the
+//      branded error page (the site's own bot-challenge/HTTP-error page
+//      is useless inside a sandboxed frame — its scripts can't finish).
+//      The page gets Retry + Close buttons (Close posts the standard
+//      agent-protocol envelope; BrowserApp handles type:'close').
+//   4. &lang= (client locale) picks the error-page language with an
+//      Accept-Language fallback.
+//
+// v5.25 NOTE on runtime context still applies: this route deliberately
+// does NOT use getRequestContext()/caches.default/waitUntil. The
+// installed @cloudflare/next-on-pages build exposes NO runtime exports
+// from the bare specifier — a static import yields `undefined` and
+// every request 500s. Edge caching rides on the fetch `cf` object,
+// which is handled by the runtime BELOW the isolate and cannot throw.
 //
 // No cookies, no credentials. runtime=edge is MANDATORY for
 // next-on-pages (v5.22 lesson).
@@ -42,8 +63,99 @@ const DESKTOP_UA =
 
 const FETCH_TIMEOUT = 15000
 const HTML_EDGE_TTL = 60 // seconds at Cloudflare's edge (fresh enough for news, fast enough to feel instant)
-const ASSET_EDGE_TTL = 6 * 3600 // binaries through the proxy are stable per-URL
 const HTML_BROWSER_TTL = 120 // browser HTTP cache for rewritten HTML (reload busts via &kb=)
+const ASSET_BROWSER_TTL = 6 * 3600 // binaries through the proxy are stable per-URL
+
+// Edge-cache policy by upstream status — the cf object is handled below
+// the isolate. `0` = do not cache. cacheTtlByStatus is MUTUALLY
+// EXCLUSIVE with cacheTtl, hence the replacement (v5.26: errors were
+// edge-cached for the full TTL before — a poisoned unauthorized page
+// could stick for everyone).
+const EDGE_CACHE_BY_STATUS = {
+  '200-299': HTML_EDGE_TTL,
+  '404': 30, // missing assets/tooltip fetches get a short shield
+  '401': 0,
+  '403': 0,
+  '429': 0,
+  '500-599': 0,
+}
+
+// ── locale-aware error-page strings (inline: edge bundle stays lean) ──
+const ERR_LOCALES = {
+  en: {
+    title: "This page couldn't be loaded",
+    retry: 'Try again',
+    back: 'Back to Kivora Browser',
+    blocked: 'The address was blocked by Kivora Browser (unsupported scheme or non-public host).',
+    net: 'The site refused the connection or does not exist.',
+    timeout: 'The site took too long to respond (15s timeout).',
+    auth: 'This site requires an account or refuses embedded browsers.',
+    notfound: 'The page was not found on this site.',
+    rate: 'The site is receiving too many requests right now — try again in a moment.',
+    server: 'The site is having problems right now.',
+    status: 'The site responded with an error.',
+  },
+  fr: {
+    title: "Cette page n'a pas pu être chargée",
+    retry: 'Réessayer',
+    back: 'Retour au navigateur Kivora',
+    blocked: "L'adresse a été bloquée par le navigateur Kivora (schéma non pris en charge ou hôte non public).",
+    net: "Le site a refusé la connexion ou n'existe pas.",
+    timeout: 'Le site a mis trop de temps à répondre (délai de 15 s dépassé).',
+    auth: 'Ce site exige un compte ou refuse les navigateurs intégrés.',
+    notfound: 'La page est introuvable sur ce site.',
+    rate: 'Le site reçoit trop de requêtes — réessayez dans un instant.',
+    server: 'Le site rencontre des problèmes en ce moment.',
+    status: 'Le site a répondu avec une erreur.',
+  },
+  sw: {
+    title: 'Ukurasa huu haukufunguliwa',
+    retry: 'Jaribu tena',
+    back: 'Rudi kwa Kivora Browser',
+    blocked: 'Anwani imezuiwa na Kivora Browser (muundo usiotumika au mwenyeji asiye wa umma).',
+    net: 'Tovuti imetakata muunganisho au haipo.',
+    timeout: 'Tovuti imechukua muda mrefu kupitia (mpaka wa sekunde 15).',
+    auth: 'Tovuti hii inahitaji akaunti au inazuia vivinjari vilivyopachikwa.',
+    notfound: 'Ukurasa haupatikani kwenye tovuti hii.',
+    rate: 'Tovuti inapokea maombi mengi mno — jaribu tena baada ya kidogo.',
+    server: 'Tovuti ina matatizo kwa sasa.',
+    status: 'Tovuti ilijibu kwa hitilafu.',
+  },
+  yo: {
+    title: 'Ko ṣeé ṣiṣe láti gbé ojú-iṣẹ̀ yìí kalẹ̀',
+    retry: 'Gbìyànjú lẹ́ẹ̀kansi',
+    back: 'Padà sí Kivora Browser',
+    blocked: 'Àdírẹ́sì yìí ti díwọ́ nípasẹ̀ Kivora Browser (èdè àmì tí kò tọ́ tàbí olùgbé tí kò wà ní gbangba).',
+    net: 'Ojú-iṣẹ̀ náà kọ̀ láti bà ìbánisọ̀rọ̀ pọ̀ tàbí kò sí.',
+    timeout: 'Ojú-iṣẹ̀ náà pẹ́ jù láti fèsì (ààyà díẹ 15).',
+    auth: 'Ojú-iṣẹ̀ yìí nílò àkántì tàbí ó dì àwọn aṣàwákiri tí a fi sọ mó.',
+    notfound: 'Ojú-iṣẹ̀ náà kò wà ní ojú-iṣẹ̀ yìí.',
+    rate: 'Ojú-iṣẹ̀ náà ń gba àwọn ibẹ̀rẹ̀ púpọ̀ jù — gbìyànjú lẹ́ẹ̀kansi láìpẹ́.',
+    server: 'Ojú-iṣẹ̀ náà ní ìṣòró ní báyìí.',
+    status: 'Ojú-iṣẹ̀ náà dáhùn pẹ̀lú àṣìṣe.',
+  },
+}
+
+function pickLocale(u, req) {
+  const q = (u.searchParams.get('lang') || '').toLowerCase().slice(0, 2)
+  if (q && ERR_LOCALES[q]) return q
+  try {
+    const al = (req.headers.get('accept-language') || '').toLowerCase()
+    for (const part of al.split(',')) {
+      const code = part.split(';')[0].trim().slice(0, 2)
+      if (ERR_LOCALES[code]) return code
+    }
+  } catch {}
+  return 'en'
+}
+
+function reasonFor(status) {
+  if (status === 401 || status === 403) return 'auth'
+  if (status === 404 || status === 410) return 'notfound'
+  if (status === 429) return 'rate'
+  if (status >= 500) return 'server'
+  return 'status'
+}
 
 function baseHeaders(extra) {
   return {
@@ -54,19 +166,32 @@ function baseHeaders(extra) {
   }
 }
 
-function errorPage(target, reason, status) {
+function errorPage(target, reasonKey, lang, opts = {}) {
+  const L = ERR_LOCALES[lang] || ERR_LOCALES.en
   const safe = String(target || '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
+  const status = opts.status || ''
+  const retry = opts.retryHref || 'javascript:void(0)'
+  // Close posts the standard agent-protocol envelope (stringified — the
+  // dock's message bus JSON.parses strings). BrowserApp maps type:'close'.
   const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kivora Browser</title></head>
 <body style="margin:0;background:#0a0a0a;color:#fafafa;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px">
-<div style="max-width:420px;text-align:center">
+<div style="max-width:440px;text-align:center">
 <div style="width:52px;height:52px;border-radius:16px;background:#141414;border:1px solid #262626;display:flex;align-items:center;justify-content:center;margin:0 auto 18px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF3366" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3.5 9h17M3.5 15h17M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg></div>
-<h1 style="font-size:18px;font-weight:600;margin:0 0 8px">This page couldn't be loaded</h1>
+${status ? `<div style="display:inline-block;padding:2px 10px;border-radius:999px;background:#1c1c1c;border:1px solid #2e2e2e;color:#FF3366;font-size:11px;font-weight:700;letter-spacing:.08em;margin-bottom:12px">HTTP ${status}</div>` : ''}
+<h1 style="font-size:18px;font-weight:600;margin:0 0 8px">${L.title}</h1>
 <p style="font-size:13px;line-height:1.6;color:#737373;margin:0 0 6px;word-break:break-all">${safe}</p>
-<p style="font-size:12px;color:#525252;margin:0 0 22px">${reason}</p>
-<a href="/browser" style="display:inline-block;padding:10px 22px;border-radius:12px;background:#FF3366;color:#fff;font-size:13px;font-weight:600;text-decoration:none">Back to Kivora Browser</a>
-</div></body></html>`
+<p style="font-size:12px;color:#525252;margin:0 0 22px">${L[reasonKey] || L.status}</p>
+<div style="display:flex;gap:10px;justify-content:center">
+<a href="${retry}" data-kv-retry="1" style="display:inline-block;padding:10px 22px;border-radius:12px;background:#FF3366;color:#fff;font-size:13px;font-weight:600;text-decoration:none">${L.retry}</a>
+<button type="button" data-kv-close="1" style="display:inline-block;padding:10px 22px;border-radius:12px;background:#1a1a1a;border:1px solid #2e2e2e;color:#d4d4d4;font-size:13px;font-weight:600;cursor:pointer">${L.back}</button>
+</div>
+</div>
+<script>(function(){var q=function(s){return document.querySelector(s)};
+if(q('[data-kv-retry]')&&q('[data-kv-retry]').getAttribute('href')==='javascript:void(0)'){q('[data-kv-retry]').addEventListener('click',function(){try{location.replace(location.pathname+location.search+'&rj='+Date.now())}catch(e){}})}
+var c=q('[data-kv-close]');if(c){c.addEventListener('click',function(){try{parent.postMessage(JSON.stringify({__kv_dt:1,side:'agent',type:'close'}),'*')}catch(e){}})}})()</script>
+</body></html>`
   return new Response(html, {
-    status,
+    status: 200,
     headers: baseHeaders({ 'cache-control': 'no-store', 'content-type': 'text/html; charset=utf-8' }),
   })
 }
@@ -76,11 +201,39 @@ function charsetOf(ct) {
   return m ? m[1] : 'utf-8'
 }
 
+// ── navigation-grade request identity (v5.26) ──
+// Sites crash (Python KeyError on missing headers) or 403 (hotlink /
+// bot checks) when a "real browser" request lacks these. The referer is
+// the TARGET'S OWN ORIGIN — satisfies self-referer checks without
+// leaking anything about Kivora or the user to third parties.
+function upstreamHeaders(req, target, desktop, isGet) {
+  const origin = new URL(target).origin + '/'
+  return {
+    'user-agent': desktop ? DESKTOP_UA : MOBILE_UA,
+    accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'accept-language': 'en-US,en;q=0.9,fr;q=0.8,sw;q=0.7,yo;q=0.6',
+    referer: origin,
+    'sec-fetch-mode': 'navigate',
+    'sec-fetch-dest': 'document',
+    'sec-fetch-site': 'none',
+    ...(isGet ? { 'sec-fetch-user': '?1' } : {}),
+    'sec-ch-ua': '"Chromium";v="125", "Google Chrome";v="125", "Not-A.Brand";v="99"',
+    'sec-ch-ua-mobile': desktop ? '?0' : '?1',
+    'sec-ch-ua-platform': desktop ? '"Windows"' : '"Android"',
+    'upgrade-insecure-requests': '1',
+    ...(req.headers.get('range') ? { range: req.headers.get('range') } : {}),
+    ...(req.method === 'POST' && req.headers.get('content-type')
+      ? { 'content-type': req.headers.get('content-type') }
+      : {}),
+  }
+}
+
 async function handle(req) {
   const t0 = Date.now()
   const u = new URL(req.url)
   const diag = u.searchParams.get('diag') === '1'
   const desktop = u.searchParams.get('ua') === 'desktop'
+  const lang = pickLocale(u, req)
   const targetRaw = u.searchParams.get('url') || ''
   const isGet = req.method === 'GET'
 
@@ -88,45 +241,58 @@ async function handle(req) {
   const v = validateTarget(targetRaw)
   if (!v.ok) {
     if (diag) return Response.json({ ok: false, reason: v.reason }, { status: 403, headers: { 'cache-control': 'no-store' } })
-    return errorPage(targetRaw, 'The address was blocked by Kivora Browser (unsupported scheme or non-public host).', 200)
+    return errorPage(targetRaw, 'blocked', lang)
   }
   const target = v.url
 
-  // ── Upstream fetch (cf.cacheEverything = edge cache below the isolate) ──
+  // ── Upstream fetch (edge cache below the isolate, errors never cached) ──
+  // ua=desktop deliberately SKIPS the edge cache: the cache key is the
+  // upstream URL, so a desktop fetch would otherwise collide with the
+  // mobile-cached variant of the same page.
   const ac = new AbortController()
   const timer = setTimeout(() => ac.abort(), FETCH_TIMEOUT)
   let res
   try {
     res = await fetch(target, {
       method: isGet ? 'GET' : 'POST',
-      headers: {
-        'user-agent': desktop ? DESKTOP_UA : MOBILE_UA,
-        accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'accept-language': 'en-US,en;q=0.9,fr;q=0.8,sw;q=0.7',
-        'sec-fetch-site': 'none',
-        'upgrade-insecure-requests': '1',
-        ...(req.headers.get('range') ? { range: req.headers.get('range') } : {}),
-        ...(req.method === 'POST' && req.headers.get('content-type')
-          ? { 'content-type': req.headers.get('content-type') }
-          : {}),
-      },
+      headers: upstreamHeaders(req, target, desktop, isGet),
       redirect: 'follow',
       signal: ac.signal,
       // Workers-only fetch option — silently ignored off-Cloudflare.
-      // Cacheable GETs get served from the nearest colo on repeat visits.
-      cf: isGet ? { cacheEverything: true, cacheTtl: HTML_EDGE_TTL } : undefined,
+      cf: isGet && !desktop ? { cacheEverything: true, cacheTtlByStatus: EDGE_CACHE_BY_STATUS } : undefined,
       body: req.method === 'POST' ? await req.arrayBuffer() : undefined,
     })
   } catch (e) {
     clearTimeout(timer)
-    const reason = ac.signal.aborted ? 'The site took too long to respond (15s timeout).' : 'The site refused the connection or does not exist.'
+    const reasonKey = ac.signal.aborted ? 'timeout' : 'net'
     if (diag) return Response.json({ ok: false, reason: ac.signal.aborted ? 'timeout' : 'network_error', detail: String(e?.message || '').slice(0, 160) }, { status: 502, headers: { 'cache-control': 'no-store' } })
-    return errorPage(target, reason, 200)
+    return errorPage(target, reasonKey, lang)
   }
   clearTimeout(timer)
 
   const finalUrl = res.url || target
   const ct = (res.headers.get('content-type') || '').toLowerCase()
+
+  // ── Upstream 4xx/5xx: the site's own error/bot-challenge page is
+  //    useless inside a sandboxed frame — replace with the branded,
+  //    locale-aware page. diag returns machine-readable JSON (tests). ──
+  if (res.status >= 400) {
+    if (diag) {
+      return Response.json(
+        { ok: false, status: res.status, finalUrl, contentType: ct, ms: Date.now() - t0, reason: reasonFor(res.status) },
+        { status: res.status, headers: { 'cache-control': 'no-store' } }
+      )
+    }
+    if (ct.includes('text/html') || ct.includes('application/xhtml') || ct === '' || !ct.includes('/')) {
+      const retryHref = `/api/browser/proxy?url=${encodeURIComponent(targetRaw)}${desktop ? '&ua=desktop' : ''}&lang=${lang}&rj=${Date.now()}`
+      return errorPage(target, reasonFor(res.status), lang, { status: res.status, retryHref })
+    }
+    // non-HTML 4xx (a missing image, etc.) — pass the status through
+    return new Response(res.body, {
+      status: res.status,
+      headers: baseHeaders({ 'content-type': ct || 'application/octet-stream', 'cache-control': 'no-store' }),
+    })
+  }
 
   // ── HTML pipeline: STREAM + rewrite on the fly ──
   const isHtml = ct.includes('text/html') || ct.includes('application/xhtml')
@@ -169,6 +335,13 @@ async function handle(req) {
   }
 
   // ── Everything else streams through byte-for-byte ──
+  // Range-aware passthrough: forward the headers media elements need to
+  // seek (audio/video issue Range requests against the proxy URL).
+  const rangeHeaders = {}
+  for (const h of ['content-range', 'accept-ranges', 'content-length']) {
+    const val = res.headers.get(h)
+    if (val) rangeHeaders[h] = val
+  }
   if (diag) {
     return Response.json(
       { ok: res.ok, status: res.status, finalUrl, contentType: ct, ms: Date.now() - t0, streamed: true },
@@ -180,7 +353,8 @@ async function handle(req) {
     headers: baseHeaders({
       'content-type': ct || 'application/octet-stream',
       ...(ct.includes('pdf') ? { 'content-disposition': 'inline' } : {}),
-      ...(isGet ? { 'cache-control': `private, max-age=${ASSET_EDGE_TTL}` } : { 'cache-control': 'no-store' }),
+      ...rangeHeaders,
+      ...(isGet ? { 'cache-control': `private, max-age=${ASSET_BROWSER_TTL}` } : { 'cache-control': 'no-store' }),
     }),
   })
 }
