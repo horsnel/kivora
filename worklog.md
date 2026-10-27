@@ -677,3 +677,24 @@ Stage Summary:
 - TESTS: scripts/browser_test.mjs 96/96 — caught: head/title text leaking into reader body candidate (fixed by stripping head/title pre-selection); adapter build ✓ (/browser prerendered, CSP hashed 32 routes); deployed via local next-on-pages binary + wrangler@3
 - LIVE VERIFIED: SSRF 403s, example.com/wikipedia/DDG-search(10 proxy-rewritten results) render, SAMEORIGIN+no-store+x-kivora-proxy headers, reader JSON; agent-browser E2E vs production: full golden path incl. reader, 3-tab switching, night filter, bookmark persistence, back-nav — 0 console errors (7 screenshots in download/)
 - Push saga frozen: FCM 201×2 + endpoint alive vs zero device receipts; SW v17 receipts + ping-pong stay armed — profile readout will show kivora-v17 on next device visit
+
+---
+Task ID: 8
+Agent: main (Z.ai)
+Task: v5.24.7 — user feedback: browser must not be a sidebar page; make it a DevTools-terminal-style drawer (draggable to full height), route all external links through it, thicker icons/lines, fix sluggish buttons, redesign omnibox to the platform text bar
+
+Work Log:
+- Recon: platform text bar = kivora-input-wrap (gradient focus ring) + bg #141414 / border #262626 / rounded-2xl (explore hero, chat composer); Icons.jsx stroke weight; z-map (content <= z-50, modals z-[100]+); GlobalCodeRunner = the existing slide-up drawer pattern the user referenced; external anchors live in community/research/blog/explore/markdown renderer/SinglePostView/CodePreviewCard/ArtifactViewer
+- Architecture: BrowserProvider (root layout, wraps app shell) owns open/pending state + renders BrowserApp always-mounted (translateY(110%) hidden, session survives open/close); delegated CAPTURE-phase click listener intercepts every cross-origin <a> app-wide (mailto/tel/#/same-origin/download/[data-no-browser] exempt) → openBrowser(url) — one mechanism covers all current AND future pages incl. markdown-generated links
+- BrowserApp rewritten as drawer: drag handle (role=separator, pointer events, velocity-aware snap half 50dvh / tall 85dvh / full 100dvh, flick-down or <30% dismisses, dbl-tap toggles half/full, ArrowUp/Down/Home/End resize), navbar link removed, /browser → BrowserLauncher (openBrowser + router.replace('/'))
+- ROOT-CAUSE FIX for "buttons not working / slow": stranded setPointerCapture — capture-on-pointerdown + interrupted gesture (shade pull / edge lift / automation abort) retargeted ALL pointer events to the handle; click trace proved pointerup@handle instead of the tapped button. Fix: capture deferred until >=4px real movement (plain taps never capture) + window pointerup/pointercancel/blur safety net; menu now closes after every toggle; transition-all removed (colors only); 44px targets, touch-manipulation
+- Chrome redesign: dedicated 2.2-stroke icon set (mk() factory, 18 icons), solid #262626 element lines, 2px #FF3366 top edge on handle, omnibox = kivora-input-wrap rounded-2xl with left glyph + right clear button, loading skeleton (opacity-0 iframe + KMark pulse) kills the white flash, notch spacer in full snap, toast/drawers scoped inside panel
+- i18n +3 keys (browser.resize_handle/maximize/shrink) ×4 = 974 parity; usage audit 579/0; browser_test.mjs 96/96 (core untouched)
+- Builds: 3× next-on-pages (caught IconGlobe still used by Navbar language dropdown after import trim — restored import, kept nav-link removal); generate-csp 32 routes; deployed ×3 (drag fix + menu-close ride the final b7b44235 deploy)
+- E2E vs production (390×844): find-text clicks proved unreliable for the drawer (automation quirk — raw coordinate clicks are the truthful simulation); raw-mouse verified: link click opens drawer IN PLACE (URL preserved, no new tab), Close/maximize toggle 844/844, omnibox→https://wikipedia.org (title resolves, proxied), Reader (h1 extracted), Night filter (invert+hue-rotate on iframe), multi-tab (2 tabs + start page), /browser deep link → home + drawer, nav link gone, SAMEORIGIN+x-kivora-proxy intact, 0 console/page errors
+
+Stage Summary:
+- v5.24.7 (be9da99) live: browser is now a DevTools-style global drawer on every page; external links everywhere open in it; drag handle snaps 50/85/100% with flick-to-dismiss
+- GOTCHA (recurring): agent-browser find role/text clicks can misfire on the drawer (hit-target/actionability quirks) — use mouse move/down/up at eval'd coordinates for truthful interaction tests; elementFromPoint at button center returns the inner SVG (bubbles fine for real users)
+- GOTCHA: pointer capture on pointerdown is a footgun — defer to first movement or interrupted gestures strand capture and eat all taps (universal lesson for any draggable surface)
+- Push saga untouched: SW v17 receipts + version ping-pong remain armed for the next device retest
