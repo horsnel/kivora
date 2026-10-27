@@ -27,6 +27,7 @@ import { createPortal } from 'react-dom'
 
 // v5.11 — Live Terminal restored (client-only; xterm touches DOM)
 const XTerminal = dynamic(() => import('@/components/XTerminal'), { ssr: false })
+const WorkspacePanel = dynamic(() => import('@/components/chat/WorkspacePanel'), { ssr: false })
 
 
 
@@ -383,6 +384,8 @@ export default function ChatClient() {
   // ── Voice TTS (Text-to-Speech) ──
   const tts = useVoiceTTS()
   const [voiceSettingsOpen, setVoiceSettingsOpen] = useState(false)
+  // v5.27 — persistent agent workspace (files the AI saves live here)
+  const [wsOpen, setWsOpen] = useState(false)
   const [comingSoonFeature, setComingSoonFeature] = useState(null)
 
   function showVoiceToast(type, message) {
@@ -3242,6 +3245,17 @@ export default function ChatClient() {
                       </svg>
                     </button>
 
+                    {/* v5.27 — Workspace: files the AI creates persist here */}
+                    <button
+                      className="chat-toolbar-btn"
+                      onClick={() => setWsOpen(true)}
+                      title={t('vfs.title')}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                      </svg>
+                    </button>
+
                     {/* v5.13 — terminal icon removed: the AI opens Live Terminal
                         automatically when it runs code, and returns to chat
                         when the process finishes */}
@@ -4516,6 +4530,14 @@ export default function ChatClient() {
         cancelLabel={t('common.cancel')}
         onConfirm={() => { const p = pendingDelete; setPendingDelete(null); if (p?.sid) performDeleteSession(p.sid) }}
         onCancel={() => setPendingDelete(null)}
+      />
+
+      {/* v5.27 — agent workspace panel (persistent AI file system) */}
+      <WorkspacePanel
+        open={wsOpen}
+        onClose={() => setWsOpen(false)}
+        t={t}
+        getToken={async () => user ? (await supabasePublic?.auth?.getSession())?.data?.session?.access_token || '' : ''}
       />
     </main>
   )

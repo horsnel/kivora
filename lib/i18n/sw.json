@@ -1013,5 +1013,15 @@
   "bdt.offline": "Nje ya mtandao",
   "bdt.ua": "Wakala wa mtumiaji",
   "bdt.empty_device": "Taarifa za kifaa huonekana ukurasa unapofunguka.",
-  "common.back": "Nyuma"
+  "common.back": "Nyuma",
+  "vfs.title": "Faili za eneo la kazi",
+  "vfs.subtitle": "Kuhifadhiwa na AI · kudumu",
+  "vfs.empty": "Hakuna faili bado — chochote kinachotengenezwa na AI kwenye terminal kinahifadhiwa hapa kiotomatiki.",
+  "vfs.signin": "Ingia ili kuhifadhi faili ambazo AI hutengeneza kwako.",
+  "vfs.signin_cta": "Ingia",
+  "vfs.download": "Pakua",
+  "vfs.delete": "Futa",
+  "vfs.deleted": "Faili imefutwa",
+  "vfs.error": "Kuna hitilafu imetokea",
+  "vfs.hint": "Faili hudumu kwenye kipindi kipya — AI inaweza kusoma tena wakati wowote."
 }

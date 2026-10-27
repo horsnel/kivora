@@ -1013,5 +1013,15 @@
   "bdt.offline": "Kúrò ọ̀nà-ayé",
   "bdt.ua": "Aṣojú olùmúlò",
   "bdt.empty_device": "Àwọn àlàyé ẹ̀rọ ń hàn nígbà tí ojú-iwe bá gbà.",
-  "common.back": "Padà"
+  "common.back": "Padà",
+  "vfs.title": "Àwọn fáìlì ibi iṣẹ́",
+  "vfs.subtitle": "Tí AI fipamọ́ · wọ́n ń péré",
+  "vfs.empty": "Kò sí fáìlì síbẹ̀síbẹ̀ — ohunkóhun tí AI bá ṣe nínú tẹ́mínálì yóò fipamọ́ ibí láìrò̀yè.",
+  "vfs.signin": "Wọlé kí o lè fi àwọn fáìlì tí AI ṣe fún ọ pamọ́.",
+  "vfs.signin_cta": "Wọlé",
+  "vfs.download": "Gbàsílẹ̀",
+  "vfs.delete": "Nu kúrò",
+  "vfs.deleted": "Fáìlì ti nu",
+  "vfs.error": "Àṣìṣe kan ṣẹlẹ̀",
+  "vfs.hint": "Àwọn fáìlì ń wọ́n láàárọ̀ ìgbà — AI lè tún ka wọ́n nígbà gbogbo."
 }

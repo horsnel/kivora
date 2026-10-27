@@ -1013,5 +1013,15 @@
   "bdt.offline": "Offline",
   "bdt.ua": "User agent",
   "bdt.empty_device": "Device info appears when a page loads.",
-  "common.back": "Back"
+  "common.back": "Back",
+  "vfs.title": "Workspace files",
+  "vfs.subtitle": "Saved by the AI · persistent",
+  "vfs.empty": "No files yet — anything the AI creates in the terminal is saved here automatically.",
+  "vfs.signin": "Sign in to keep the files the AI creates for you.",
+  "vfs.signin_cta": "Sign in",
+  "vfs.download": "Download",
+  "vfs.delete": "Delete",
+  "vfs.deleted": "File deleted",
+  "vfs.error": "Something went wrong",
+  "vfs.hint": "Files persist across sessions — the AI can re-read them anytime."
 }

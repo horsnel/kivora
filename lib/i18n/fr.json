@@ -1013,5 +1013,15 @@
   "bdt.offline": "Hors ligne",
   "bdt.ua": "Agent utilisateur",
   "bdt.empty_device": "Les infos appareil apparaissent au chargement.",
-  "common.back": "Retour"
+  "common.back": "Retour",
+  "vfs.title": "Fichiers de travail",
+  "vfs.subtitle": "Enregistrés par l'IA · persistants",
+  "vfs.empty": "Aucun fichier — tout ce que l’IA crée dans le terminal est enregistré ici automatiquement.",
+  "vfs.signin": "Connectez-vous pour conserver les fichiers que l’IA crée pour vous.",
+  "vfs.signin_cta": "Se connecter",
+  "vfs.download": "Télécharger",
+  "vfs.delete": "Supprimer",
+  "vfs.deleted": "Fichier supprimé",
+  "vfs.error": "Une erreur est survenue",
+  "vfs.hint": "Les fichiers persistent entre les sessions — l’IA peut les relire à tout moment."
 }
