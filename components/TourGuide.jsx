@@ -29,17 +29,17 @@ import { useTranslation } from '@/components/LanguageProvider'
 const STORAGE_KEY = 'kivora_tour_done_v1'
 
 // One stylesheet for the whole tour, injected once per page load.
+// v5.30.2 — COLOURS ARE OWNED BY globals.css's original driver theme
+// (#141414 card, rgba(255,255,255,0.08) border, #dc2626 buttons/links).
+// This sheet deliberately declares ZERO colors — only geometry (bigger
+// card), motion (pop-in, hover-lift, press) and layout (footer, pill),
+// so the tour keeps its exact original palette with no drift.
 const TOUR_CSS = `
 .kv-tour-pop.driver-popover {
-  background: #111111;
-  border: 1px solid #262626;
-  border-radius: 20px;
-  padding: 24px 26px 20px;
   width: max-content;
-  max-width: min(440px, calc(100vw - 40px));
   min-width: min(340px, calc(100vw - 40px));
-  color: #e2e2e2;
-  box-shadow: 0 24px 64px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.45);
+  max-width: min(440px, calc(100vw - 40px)) !important;
+  padding: 22px 24px 18px !important;
   animation: kvTourPop 380ms cubic-bezier(0.22, 1, 0.36, 1);
   transform-origin: center;
   overflow: visible;
@@ -50,65 +50,22 @@ const TOUR_CSS = `
   100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
 }
 .kv-tour-pop .driver-popover-title {
-  color: #fafafa;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: 17px !important;
   line-height: 1.3;
   margin: 2px 0 10px;
-  padding-right: 28px;
-}
-.kv-tour-pop .driver-popover-title::before {
-  content: '';
-  display: block;
-  width: 30px;
-  height: 3px;
-  border-radius: 999px;
-  margin-bottom: 12px;
-  background: linear-gradient(90deg, #FF3366, #ff7a9c);
-  animation: kvTourBar 2.4s ease-in-out infinite;
-}
-@keyframes kvTourBar {
-  0%, 100% { transform: scaleX(1); opacity: 1; }
-  50%      { transform: scaleX(0.55); opacity: 0.6; }
+  padding-right: 26px;
 }
 .kv-tour-pop .driver-popover-description {
-  color: #a3a3a3;
-  font-size: 14px;
+  font-size: 13.5px !important;
   line-height: 1.65;
   margin-bottom: 4px;
 }
-/* "Open page" launcher — rendered inside the description HTML */
-.kv-tour-pop .tour-open-wrap { margin-top: 14px; }
+/* "Open page" launcher — geometry/motion only; globals.css owns its
+   original #dc2626 → #b91c1c colors untouched */
 .kv-tour-pop .tour-open-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 9px 16px;
-  border-radius: 12px;
-  background: #FF3366;
-  color: #ffffff;
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  text-decoration: none;
-  cursor: pointer;
-  transition: transform 180ms cubic-bezier(0.22,1,0.36,1), box-shadow 180ms, background 180ms;
-  box-shadow: 0 6px 20px rgba(255,51,102,0.28);
+  transition: transform 150ms ease, background 150ms ease;
 }
-.kv-tour-pop .tour-open-link::after {
-  content: '→';
-  font-size: 13px;
-  line-height: 1;
-  transition: transform 180ms cubic-bezier(0.22,1,0.36,1);
-}
-.kv-tour-pop .tour-open-link:hover {
-  background: #ff4d78;
-  transform: translateY(-1px);
-  box-shadow: 0 10px 26px rgba(255,51,102,0.4);
-}
-.kv-tour-pop .tour-open-link:hover::after { transform: translateX(3px); }
-.kv-tour-pop .tour-open-link:active { transform: translateY(0) scale(0.97); }
+.kv-tour-pop .tour-open-link:hover { transform: translateY(-1px); }
 /* Footer: progress pill left, Back/Next right (driver renders progress
    as the footer's first child, navBtns flex-grow:1 → natural layout) */
 .kv-tour-pop .driver-popover-footer {
@@ -138,83 +95,20 @@ const TOUR_CSS = `
   text-transform: uppercase;
   padding: 3px 9px;
   border-radius: 999px;
-  background: rgba(255,51,102,0.07);
-  border: 1px solid rgba(255,51,102,0.2);
-  color: rgba(255,51,102,0.85);
+  background: rgba(220,38,38,0.08);
+  border: 1px solid rgba(220,38,38,0.25);
+  color: #dc2626;
   margin-right: auto;
 }
 .kv-tour-pop .driver-popover-navigation-btns button {
-  font-family: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
-  padding: 9px 18px;
-  border-radius: 12px;
   cursor: pointer;
-  transition: transform 150ms cubic-bezier(0.22,1,0.36,1), background 150ms, border-color 150ms, color 150ms;
+  transition: transform 150ms cubic-bezier(0.22,1,0.36,1), background 150ms, border-color 150ms;
 }
-.kv-tour-pop .driver-popover-navigation-btns button.driver-popover-next-btn {
-  background: #FF3366;
-  color: #fff;
-  border: 1px solid transparent;
-  box-shadow: 0 4px 14px rgba(255,51,102,0.25);
-}
-.kv-tour-pop .driver-popover-navigation-btns button.driver-popover-next-btn:hover {
-  background: #ff4d78;
-  transform: translateY(-1px);
-}
-.kv-tour-pop .driver-popover-navigation-btns button.driver-popover-next-btn:active { transform: scale(0.96); }
-.kv-tour-pop .driver-popover-navigation-btns button.driver-popover-prev-btn {
-  background: #1a1a1a;
-  color: #a3a3a3;
-  border: 1px solid #262626;
-}
-.kv-tour-pop .driver-popover-navigation-btns button.driver-popover-prev-btn:hover {
-  border-color: #3a3a3a;
-  color: #fafafa;
-}
-.kv-tour-pop .driver-popover-navigation-btns button.driver-popover-prev-btn:active { transform: scale(0.96); }
+.kv-tour-pop .driver-popover-navigation-btns button:hover { transform: translateY(-1px); }
+.kv-tour-pop .driver-popover-navigation-btns button:active { transform: scale(0.96); }
 .kv-tour-pop .driver-popover-footer .driver-popover-btn-disabled {
   opacity: 0.45;
   pointer-events: none;
-}
-/* Soft-circle close — the DevTools dock glyph (content is a text ×) */
-.kv-tour-pop .driver-popover-close-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  top: 14px;
-  right: 14px;
-  border-radius: 999px;
-  background: #1c1c1c;
-  color: #a3a3a3;
-  border: 1px solid #262626;
-  font-size: 15px;
-  line-height: 1;
-  transition: background 150ms, color 150ms, transform 150ms, border-color 150ms;
-}
-.kv-tour-pop .driver-popover-close-btn:hover {
-  background: #262626;
-  color: #fafafa;
-  border-color: #3a3a3a;
-  transform: scale(1.08);
-}
-/* Arrow pointing at the spotlight */
-.kv-tour-pop.driver-popover .driver-popover-arrow {
-  border-color: transparent;
-}
-.kv-tour-pop.driver-popover .driver-popover-arrow-side-bottom.driver-popover-arrow {
-  border-bottom-color: #111111;
-}
-.kv-tour-pop.driver-popover .driver-popover-arrow-side-top.driver-popover-arrow {
-  border-top-color: #111111;
-}
-.kv-tour-pop.driver-popover .driver-popover-arrow-side-left.driver-popover-arrow {
-  border-left-color: #111111;
-}
-.kv-tour-pop.driver-popover .driver-popover-arrow-side-right.driver-popover-arrow {
-  border-right-color: #111111;
 }
 /* Spotlight: give the highlighted element breathing room */
 .kv-tour-stage-fixed { will-change: transform; }
@@ -225,7 +119,7 @@ function injectTourCss() {
   if (styleInjected) return
   styleInjected = true
   const el = document.createElement('style')
-  el.setAttribute('data-kv-tour', 'v5.30')
+  el.setAttribute('data-kv-tour', 'v5.30.2')
   el.textContent = TOUR_CSS
   document.head.appendChild(el)
 }

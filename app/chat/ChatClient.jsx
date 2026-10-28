@@ -3230,12 +3230,15 @@ export default function ChatClient() {
 
                       {focusDropdownOpen && (
                         <div className="chat-focus-dropdown">
-                          {/* v5.30 — terminal-style header (DevTools dock language) */}
-                          <div className="chat-dd-head">
-                            <span className="chat-dd-dot" />
-                            <span className="chat-dd-title">{t('chat.dd.focus')}</span>
-                            <span className="chat-dd-pill">{t(FOCUS_MODES.find(m => m.id === focusMode)?.labelKey || '')}</span>
+                          {/* v5.30.2 — the EXACT ComingSoonCard design: same card,
+                              same colors as the popup the voice icon opened */}
+                          <button type="button" className="chat-csc-x" onClick={() => setFocusDropdownOpen(false)} aria-label="Close">
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 2l10 10M12 2L2 12" /></svg>
+                          </button>
+                          <div className="chat-csc-badge">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" /></svg>
                           </div>
+                          <div className="chat-csc-heading">{t('chat.dd.focus')}</div>
                           {FOCUS_MODES.map(m => (
                             <button
                               key={m.id}
@@ -3247,7 +3250,7 @@ export default function ChatClient() {
                                 <span className="chat-focus-label">{t(m.labelKey)}</span>
                                 <span className="chat-focus-desc">{t(m.descKey)}</span>
                               </div>
-                              {m.id === focusMode && <IconCheck size={14} className="text-[#FF3366] shrink-0 ml-auto" />}
+                              {m.id === focusMode && <IconCheck size={14} className="text-[#ef4444] shrink-0 ml-auto" />}
                             </button>
                           ))}
                         </div>
@@ -3299,12 +3302,15 @@ export default function ChatClient() {
 
                       {modelChipDropdownOpen && (
                         <div className="chat-model-dropdown">
-                          {/* v5.30 — terminal-style header (DevTools dock language) */}
-                          <div className="chat-dd-head">
-                            <span className="chat-dd-dot" />
-                            <span className="chat-dd-title">{t('chat.dd.model')}</span>
-                            <span className="chat-dd-pill">{currentModel.short}</span>
+                          {/* v5.30.2 — the EXACT ComingSoonCard design: same card,
+                              same colors as the popup the voice icon opened */}
+                          <button type="button" className="chat-csc-x" onClick={() => setModelChipDropdownOpen(false)} aria-label="Close">
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 2l10 10M12 2L2 12" /></svg>
+                          </button>
+                          <div className="chat-csc-badge">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" /><path d="M2 12h20" /><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10A15 15 0 0 1 12 2z" /></svg>
                           </div>
+                          <div className="chat-csc-heading">{t('chat.dd.model')}</div>
                           {ALL_MODELS.map(m => (
                             <button
                               key={m.id}
@@ -3330,7 +3336,7 @@ export default function ChatClient() {
                                 </div>
                                 <div className="chat-model-tag">{m.tag}</div>
                               </div>
-                              {m.id === model && <IconCheck size={14} className="text-[#FF3366] shrink-0" />}
+                              {m.id === model && <IconCheck size={14} className="text-[#ef4444] shrink-0" />}
                             </button>
                           ))}
                         </div>
@@ -3370,12 +3376,15 @@ export default function ChatClient() {
 
                       {proMode && proTypeDropdownOpen && (
                         <div className="chat-pro-dropdown">
-                          {/* v5.30 — terminal-style header (DevTools dock language) */}
-                          <div className="chat-dd-head">
-                            <span className="chat-dd-dot" />
-                            <span className="chat-dd-title">{t('chat.dd.pro')}</span>
-                            <span className="chat-dd-pill">{t(PRO_MODES.find(m => m.id === proModeType)?.labelKey || '')}</span>
+                          {/* v5.30.2 — the EXACT ComingSoonCard design: same card,
+                              same colors as the popup the voice icon opened */}
+                          <button type="button" className="chat-csc-x" onClick={() => setProTypeDropdownOpen(false)} aria-label="Close">
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 2l10 10M12 2L2 12" /></svg>
+                          </button>
+                          <div className="chat-csc-badge">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" /></svg>
                           </div>
+                          <div className="chat-csc-heading">{t('chat.dd.pro')}</div>
                           {PRO_MODES.map(m => (
                             <button
                               key={m.id}
@@ -3386,7 +3395,7 @@ export default function ChatClient() {
                                 <span className="chat-pro-option-label">{t(m.labelKey)}</span>
                                 <span className="chat-pro-option-desc">{t(m.descKey)}</span>
                               </div>
-                              {m.id === proModeType && <IconCheck size={14} className="text-[#FF3366] shrink-0" />}
+                              {m.id === proModeType && <IconCheck size={14} className="text-[#ef4444] shrink-0" />}
                             </button>
                           ))}
                         </div>
@@ -3778,20 +3787,25 @@ export default function ChatClient() {
           line-height: 1;
         }
 
-        /* ── v5.30 Terminal-style dropdown cards ───────────────────
-           Design language lifted from the Live Terminal / DevTools dock:
-           #0d0d0d panel, #111 strip header with pulse dot + mono uppercase
-           title + accent status pill, #262626 walls, cubic-bezier motion. */
+        /* ── v5.30.2 — the EXACT ComingSoonCard design ─────────────
+           Same card + same colors as the popup the text-bar voice icon
+           used to open (components/ComingSoonPopup.jsx): #111 surface,
+           #262626 walls, 16px radius, centered red icon badge + bold
+           white heading, rows dressed as the popup's "Got it" button
+           (#1a1a1a, #262626 border, #3a3a3a hover) and the selected row
+           in the popup's red-tinted tile treatment with #ef4444 check.
+           One design language across popup, settings voice card and
+           these three menus — zero drift. */
 
         .chat-model-dropdown,
         .chat-focus-dropdown,
         .chat-pro-dropdown {
-          background: #0d0d0d;
+          background: #111111;
           border: 1px solid #262626;
-          border-radius: 14px;
-          box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.45);
+          border-radius: 16px;
+          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.55), 0 12px 28px -8px rgba(0,0,0,0.4);
           overflow: hidden;
-          padding: 0 0 4px;
+          padding: 14px 12px 12px;
           max-width: calc(100vw - 32px);
         }
         .chat-model-dropdown {
@@ -3828,115 +3842,93 @@ export default function ChatClient() {
           from { opacity: 0; transform: translateY(7px) scale(0.97); }
           to { opacity: 1; transform: translateY(0) scale(1); }
         }
-        @keyframes chatDdPulse {
-          0%, 100% { opacity: 1; box-shadow: 0 0 6px rgba(255,51,102,0.55); }
-          50% { opacity: 0.35; box-shadow: 0 0 2px rgba(255,51,102,0.25); }
-        }
-        /* Terminal header strip — mirror of the Live Terminal drawer header */
-        .chat-dd-head {
+        /* Popup card chrome — close ×, red icon badge, bold white heading */
+        .chat-csc-x {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          width: 26px;
+          height: 26px;
           display: flex;
           align-items: center;
-          gap: 8px;
-          height: 36px;
-          padding: 0 12px;
-          margin-bottom: 4px;
-          background: #111111;
-          border-bottom: 1px solid #262626;
-          flex-shrink: 0;
-        }
-        .chat-dd-dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: #FF3366;
-          flex-shrink: 0;
-          animation: chatDdPulse 2.2s ease-in-out infinite;
-        }
-        .chat-dd-title {
-          font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
+          justify-content: center;
+          border-radius: 8px;
           color: #737373;
-          white-space: nowrap;
+          transition: color 0.15s, background 0.15s;
         }
-        .chat-dd-pill {
-          margin-left: auto;
-          font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
-          font-size: 9px;
-          font-weight: 600;
-          letter-spacing: 0.05em;
-          text-transform: uppercase;
-          padding: 2px 7px;
-          border-radius: 5px;
-          color: rgba(255,51,102,0.85);
-          background: rgba(255,51,102,0.08);
-          border: 1px solid rgba(255,51,102,0.22);
-          max-width: 118px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+        .chat-csc-x:hover {
+          background: #1a1a1a;
+          color: #ffffff;
         }
-        .chat-model-option {
+        .chat-csc-badge {
+          width: 40px;
+          height: 40px;
+          margin: 0 auto 10px;
+          background: rgba(69,10,10,0.3);
+          border: 1px solid rgba(127,29,29,0.3);
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .chat-csc-heading {
+          text-align: center;
+          font-size: 15px;
+          font-weight: 700;
+          color: #ffffff;
+          margin-bottom: 12px;
+        }
+        /* Rows — the popup's "Got it" button recipe, stacked */
+        .chat-model-option,
+        .chat-focus-option,
+        .chat-pro-option {
           width: 100%;
           text-align: left;
-          padding: 8px 12px;
+          padding: 9px 12px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          transition: background 0.15s;
-          border: none;
-          background: none;
+          gap: 10px;
+          margin-bottom: 8px;
+          border-radius: 12px;
+          border: 1px solid #262626;
+          background: #1a1a1a;
           cursor: pointer;
           font-family: inherit;
+          transition: background 0.15s, border-color 0.15s;
         }
-        .chat-model-option:hover {
-          background: rgba(255,255,255,0.05);
+        .chat-model-option:last-child,
+        .chat-focus-option:last-child,
+        .chat-pro-option:last-child {
+          margin-bottom: 0;
         }
-        .chat-model-option-active {
-          background: rgba(255,255,255,0.06) !important;
-          box-shadow: inset 2px 0 0 #FF3366;
+        .chat-model-option:hover,
+        .chat-focus-option:hover,
+        .chat-pro-option:hover {
+          border-color: #3a3a3a;
+        }
+        /* Selected — the popup's red-tinted icon-tile treatment */
+        .chat-model-option-active,
+        .chat-model-option-active:hover,
+        .chat-focus-option-active,
+        .chat-focus-option-active:hover,
+        .chat-pro-option-active,
+        .chat-pro-option-active:hover {
+          background: rgba(69,10,10,0.3);
+          border-color: rgba(127,29,29,0.3);
         }
         .chat-model-name {
           font-size: 13px;
           font-weight: 500;
-          color: #e2e2e2;
-        }
-        .chat-model-option:not(.chat-model-option-active) .chat-model-name {
-          color: #a3a3a3;
-        }
-        .chat-model-option:hover .chat-model-name {
-          color: #e2e2e2;
+          color: #ffffff;
         }
         .chat-model-tag {
           font-size: 11px;
-          color: #525252;
+          color: #a3a3a3;
           margin-top: 1px;
         }
 
-        /* ── Focus mode dropdown ──
-           (container styling lives in the shared v5.30 terminal-card block) */
-        .chat-focus-option {
-          width: 100%;
-          text-align: left;
-          padding: 10px 12px;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          transition: background 0.15s;
-          border: none;
-          background: none;
-          cursor: pointer;
-          font-family: inherit;
-        }
-        .chat-focus-option:hover {
-          background: rgba(255,255,255,0.05);
-        }
-        .chat-focus-option-active {
-          background: rgba(255,255,255,0.06) !important;
-          box-shadow: inset 2px 0 0 #FF3366;
-        }
+        /* ── Focus mode rows (shared ComingSoonCard recipe above) ── */
         .chat-focus-icon {
           font-size: 16px;
           width: 24px;
@@ -3951,17 +3943,11 @@ export default function ChatClient() {
         .chat-focus-label {
           font-size: 13px;
           font-weight: 500;
-          color: #e2e2e2;
-        }
-        .chat-focus-option:not(.chat-focus-option-active) .chat-focus-label {
-          color: #a3a3a3;
-        }
-        .chat-focus-option:hover .chat-focus-label {
-          color: #e2e2e2;
+          color: #ffffff;
         }
         .chat-focus-desc {
           font-size: 11px;
-          color: #525252;
+          color: #a3a3a3;
           margin-top: 1px;
         }
 
@@ -4019,28 +4005,7 @@ export default function ChatClient() {
           background-color: white;
         }
 
-        /* ── Pro mode dropdown ──
-           (container styling lives in the shared v5.30 terminal-card block) */
-        .chat-pro-option {
-          width: 100%;
-          text-align: left;
-          padding: 10px 12px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          transition: background 0.15s;
-          border: none;
-          background: none;
-          cursor: pointer;
-          font-family: inherit;
-        }
-        .chat-pro-option:hover {
-          background: rgba(255,255,255,0.05);
-        }
-        .chat-pro-option-active {
-          background: rgba(255,255,255,0.06) !important;
-          box-shadow: inset 2px 0 0 #FF3366;
-        }
+        /* ── Pro mode rows (shared ComingSoonCard recipe above) ── */
         .chat-pro-text {
           display: flex;
           flex-direction: column;
@@ -4049,17 +4014,11 @@ export default function ChatClient() {
         .chat-pro-option-label {
           font-size: 13px;
           font-weight: 500;
-          color: #e2e2e2;
-        }
-        .chat-pro-option:not(.chat-pro-option-active) .chat-pro-option-label {
-          color: #a3a3a3;
-        }
-        .chat-pro-option:hover .chat-pro-option-label {
-          color: #e2e2e2;
+          color: #ffffff;
         }
         .chat-pro-option-desc {
           font-size: 11px;
-          color: #525252;
+          color: #a3a3a3;
           margin-top: 1px;
         }
 
