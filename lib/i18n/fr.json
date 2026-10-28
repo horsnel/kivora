@@ -1025,5 +1025,8 @@
   "vfs.error": "Une erreur est survenue",
   "vfs.hint": "Les fichiers persistent entre les sessions — l’IA peut les relire à tout moment.",
   "vfs.refresh": "Actualiser",
-  "vfs.count": "{n} fichiers · {size}"
+  "vfs.count": "{n} fichiers · {size}",
+  "chat.dd.focus": "Focus",
+  "chat.dd.model": "Modèle",
+  "chat.dd.pro": "Mode Pro"
 }

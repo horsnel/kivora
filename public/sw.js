@@ -1,4 +1,4 @@
-// Kivora Service Worker v17 — MINIMAL-RISK CACHING + PUSH RECEIPT HANDSHAKE
+// Kivora Service Worker v18 — BROWSER COOKIE JAR PIPE + MINIMAL-RISK CACHING
 //
 // History: v8–v9 had caching bugs (undefined respondWith crashes, stale HTML
 // referencing old chunk hashes after deploys) → v10–v12 went full no-op.
@@ -21,6 +21,15 @@
 // v17 (v5.24.6) is a policy-identical version bump riding the Kivora
 // Browser release — its only job is to move every device onto the
 // current worker so the profile version readout stays trustworthy.
+// v18 (v5.30) — KIVORA BROWSER SIGN-IN: intercepts /api/browser/proxy
+// requests (GET navigations AND POST form submissions — the only API
+// route this worker ever touches) and pipes a client-held cookie jar:
+//   load jar → attach as `x-kv-jar` → proxy forwards cookies upstream →
+//   proxy captures Set-Cookie at every redirect hop → response carries
+//   the updated jar in `x-kv-cookies` → stored back (Cache API, keyed by
+//   the `ks` browser-session id). The jar NEVER touches page JS: the
+//   response header is not CORS-safelisted, so the sandboxed iframe
+//   (opaque origin) cannot read it — only this worker can.
 //
 //   1. /_next/static/*        → cache-first. These URLs are content-hashed
 //                               and served immutable (see public/_headers),
@@ -37,9 +46,62 @@
 // Every respondWith() path resolves to a concrete Response — this worker can
 // never crash by resolving undefined (the v8 failure mode).
 
-const VERSION = 'kivora-v17'
+const VERSION = 'kivora-v18'
 const STATIC_CACHE = `${VERSION}-static`
+const JAR_CACHE = `${VERSION}-jar`
 const PRECACHE = ['/offline.html']
+
+// ── v5.30 cookie jar storage (Cache API as a tiny KV) ──
+// Keyed by the sanitized browser-session id from the proxy URL's `ks`
+// param. Values are JSON jars: { [scope]: [{ n, v, exp? }] }. A synthetic
+// https URL is the cache key — it is never fetched.
+const jarUrlFor = (sid) => `https://kv-jar.kivora.internal/${sid}`
+
+async function jarLoad(sid) {
+  try {
+    const cache = await caches.open(JAR_CACHE)
+    const hit = await cache.match(jarUrlFor(sid))
+    return hit ? await hit.json() : {}
+  } catch {
+    return {}
+  }
+}
+
+async function jarSave(sid, jar) {
+  try {
+    const cache = await caches.open(JAR_CACHE)
+    await cache.put(jarUrlFor(sid), new Response(JSON.stringify(jar || {}), { headers: { 'content-type': 'application/json' } }))
+  } catch {}
+}
+
+// Mirror of core.mjs cookiesForHost (the SW is a classic script — no
+// module imports). host === scope, or a subdomain of it.
+function kvHostMatches(host, scope) {
+  return host === scope || host.endsWith('.' + scope)
+}
+
+function kvCookiesForHost(jar, host) {
+  try {
+    const h = String(host || '').toLowerCase()
+    if (!h) return ''
+    const now = Date.now()
+    const seen = new Set()
+    const parts = []
+    for (const scope of Object.keys(jar || {})) {
+      if (!kvHostMatches(h, scope)) continue
+      for (const c of jar[scope] || []) {
+        if (!c || !c.n) continue
+        if (c.exp && Date.parse(c.exp) <= now) continue
+        if (seen.has(c.n)) continue
+        seen.add(c.n)
+        parts.push(`${c.n}=${c.v}`)
+      }
+    }
+    return parts.join('; ').slice(0, 6144)
+  } catch {
+    return ''
+  }
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -56,7 +118,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
       const keys = await caches.keys()
-      await Promise.all(keys.filter((k) => k !== STATIC_CACHE).map((k) => caches.delete(k)))
+      await Promise.all(keys.filter((k) => k !== STATIC_CACHE && k !== JAR_CACHE).map((k) => caches.delete(k)))
       await self.clients.claim()
     })()
   )
@@ -65,9 +127,6 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request
 
-  // Only handle same-origin GETs; everything else passes through untouched.
-  if (req.method !== 'GET') return
-
   let url
   try {
     url = new URL(req.url)
@@ -75,6 +134,53 @@ self.addEventListener('fetch', (event) => {
     return
   }
   if (url.origin !== self.location.origin) return
+
+  // ── v5.30 — Kivora Browser proxy: the ONLY API route this worker
+  // touches, because it is the one route whose behavior depends on
+  // client-held session state (the cookie jar). GET navigations and POST
+  // form submissions both flow through here.
+  if (url.pathname === '/api/browser/proxy') {
+    event.respondWith(
+      (async () => {
+        try {
+          const sid = (url.searchParams.get('ks') || '').replace(/[^\w-]/g, '').slice(0, 64)
+          let jar = {}
+          if (sid) jar = await jarLoad(sid)
+          let cookieHost = ''
+          try {
+            cookieHost = new URL(url.searchParams.get('url') || '').hostname.toLowerCase()
+          } catch {}
+          const cookieStr = sid ? kvCookiesForHost(jar, cookieHost) : ''
+          const headers = new Headers(req.headers)
+          headers.set('x-kv-sw', '1') // the proxy ignores jars without this
+          if (cookieStr) headers.set('x-kv-jar', JSON.stringify(jar))
+          const res = await fetch(req, { headers })
+          // Persist the updated jar. The response header is deliberately
+          // NOT CORS-safelisted → invisible to the sandboxed iframe's JS.
+          if (sid) {
+            const updated = res.headers.get('x-kv-cookies')
+            if (updated) {
+              try {
+                const parsed = JSON.parse(updated)
+                if (parsed && typeof parsed === 'object') await jarSave(sid, parsed)
+              } catch {}
+            }
+          }
+          return res
+        } catch {
+          try {
+            return await fetch(event.request)
+          } catch (e2) {
+            return new Response('Proxy unreachable', { status: 504, headers: { 'Content-Type': 'text/plain' } })
+          }
+        }
+      })()
+    )
+    return
+  }
+
+  // Only handle same-origin GETs; everything else passes through untouched.
+  if (req.method !== 'GET') return
 
   // NEVER touch API routes — SSE streaming (/api/chat etc.) must bypass the SW.
   if (url.pathname.startsWith('/api/')) return

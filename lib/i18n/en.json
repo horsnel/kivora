@@ -1025,5 +1025,8 @@
   "vfs.error": "Something went wrong",
   "vfs.hint": "Files persist across sessions — the AI can re-read them anytime.",
   "vfs.refresh": "Refresh",
-  "vfs.count": "{n} files · {size}"
+  "vfs.count": "{n} files · {size}",
+  "chat.dd.focus": "Focus",
+  "chat.dd.model": "Model",
+  "chat.dd.pro": "Pro mode"
 }

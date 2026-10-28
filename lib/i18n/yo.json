@@ -1025,5 +1025,8 @@
   "vfs.error": "Àṣìṣe kan ṣẹlẹ̀",
   "vfs.hint": "Àwọn fáìlì ń wọ́n láàárọ̀ ìgbà — AI lè tún ka wọ́n nígbà gbogbo.",
   "vfs.refresh": "Ìtúnṣe",
-  "vfs.count": "fáìlì {n} · {size}"
+  "vfs.count": "fáìlì {n} · {size}",
+  "chat.dd.focus": "Ìfókúsì",
+  "chat.dd.model": "Modéèlù",
+  "chat.dd.pro": "Ọ̀nà Pro"
 }

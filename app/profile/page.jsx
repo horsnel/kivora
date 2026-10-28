@@ -1,10 +1,10 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabasePublic } from '@/lib/supabase'
 import { authFetch } from '@/lib/authFetch'
 import { internalAvatarUrl, resolveAvatarUrl } from '@/lib/avatar'
-import { IconCheck, IconSpinner, IconGlobe, IconMapPin, IconLink, IconWarning, IconLogout, IconPulse, IconDownload } from '@/components/Icons'
+import { IconCheck, IconSpinner, IconGlobe, IconMapPin, IconLink, IconWarning, IconLogout, IconDownload } from '@/components/Icons'
 import { useTranslation } from '@/components/LanguageProvider'
 
 const PRESET_AVATARS = [
@@ -63,58 +63,9 @@ export default function ProfilePage() {
   const [deleting, setDeleting] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  // v5.22 — push notifications + data export
-  const [pushState, setPushState] = useState('unknown') // off | enabled | blocked | unsupported | busy
-  const [testState, setTestState] = useState('idle') // v5.24 push test button: idle | busy
-  const [testResult, setTestResult] = useState(null) // v5.24.1 persistent inline verdict: { type: 'success'|'error'|'wait', message }
-  // v5.24.5 — zombie-worker detection: which SW version actually controls
-  // this page (ping-pong) vs which version is deployed (fetched from /sw.js).
-  const [swVersion, setSwVersion] = useState(null)
-  const [swLatest, setSwLatest] = useState(null)
-
-  // v5.24.4 — device-receipt handshake. The service worker postMessages
-  // KIVORA_PUSH_RESULT after every push display attempt (full-options →
-  // minimal-options retry). While a test receipt window is armed we surface
-  // that verdict inline, turning "server accepted it" into a real device-side
-  // verdict: displayed / display-failed (+error) / no receipt = never reached
-  // the SW (delivery layer: swiped Chrome, OS channel blocked, doze).
-  const receiptTimerRef = useRef(null)
-  useEffect(() => {
-    if (!('serviceWorker' in navigator)) return
-    const onMsg = (e) => {
-      const d = e.data
-      if (!d || typeof d !== 'object') return
-      if (d.type === 'KIVORA_SW_VERSION') { setSwVersion(String(d.version || '')); return }
-      if (d.type !== 'KIVORA_PUSH_RESULT' || !receiptTimerRef.current) return
-      clearTimeout(receiptTimerRef.current)
-      receiptTimerRef.current = null
-      if (d.displayed) {
-        setTestResult({ type: 'success', message: t('profile.push_receipt_ok') || 'Confirmed on this device: Chrome received the push and displayed the notification. Nothing visible? Check the notification shade — and Android App info → Chrome → Notifications must be allowed.' })
-      } else {
-        const msg = (t('profile.push_receipt_fail') || 'The push reached this device but the notification failed to display ({err}). Refresh the page and try again — if it persists, report this exact error.').replace('{err}', d.error || 'unknown')
-        setTestResult({ type: 'error', message: msg })
-      }
-    }
-    navigator.serviceWorker.addEventListener('message', onMsg)
-    return () => {
-      navigator.serviceWorker.removeEventListener('message', onMsg)
-      if (receiptTimerRef.current) { clearTimeout(receiptTimerRef.current); receiptTimerRef.current = null }
-    }
-  }, [t])
-
-  // v5.24.5 — ask the controlling worker for its version, and learn the
-  // deployed version straight from /sw.js. A mismatch = zombie worker.
-  useEffect(() => {
-    if (!('serviceWorker' in navigator)) return
-    const ping = () => { try { navigator.serviceWorker.controller?.postMessage({ type: 'KIVORA_PING' }) } catch {} }
-    ping()
-    const t1 = setTimeout(ping, 1500)
-    fetch('/sw.js').then((r) => r.text()).then((txt) => {
-      const m = txt.match(/const VERSION = '([^']+)'/)
-      if (m) setSwLatest(m[1])
-    }).catch(() => {})
-    return () => clearTimeout(t1)
-  }, [])
+  // v5.30 — web-push UI removed (the profile Notifications card): the push
+  // chain never proved reliable on real devices, so the surface is gone.
+  // Backend routes (/api/push/*, lib/push.js) stay for a future rebuild.
   const [exportState, setExportState] = useState(null) // null | busy | done | error
   const [showAvatarPicker, setShowAvatarPicker] = useState(false)
   const [toast, setToast] = useState(null) // { type: 'success'|'error', message: string }
@@ -252,159 +203,6 @@ export default function ProfilePage() {
     }
   }
 
-  // ── v5.22 Web Push notifications ────────────────────────────────
-  // "Your reply finished generating while you were offline" lives here:
-  // one toggle, one subscription, stored server-side against the account.
-  const urlBase64ToUint8Array = (b64) => {
-    const pad = '='.repeat((4 - (b64.length % 4)) % 4)
-    const bin = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'))
-    const out = new Uint8Array(bin.length)
-    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
-    return out
-  }
-
-  async function refreshPushState() {
-    try {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
-        setPushState('unsupported'); return
-      }
-      if (Notification.permission === 'denied') { setPushState('blocked'); return }
-      const reg = await navigator.serviceWorker.getRegistration()
-      const sub = reg ? await reg.pushManager.getSubscription() : null
-      setPushState(sub ? 'enabled' : 'off')
-      // v5.24 — server repair: a browser subscription can exist while the
-      // server row is missing (e.g. push was first enabled before the
-      // push_subscriptions migration ran, or the row was pruned). The toggle
-      // would then read "on" while the server has nothing to deliver to.
-      // Idempotent, silent re-upsert heals that drift.
-      if (sub) {
-        try {
-          const { data: { session } } = await supabasePublic.auth.getSession()
-          if (session?.user) {
-            await authFetch('/api/push/subscribe', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ subscription: sub.toJSON() }),
-            })
-          }
-        } catch {}
-      }
-    } catch { setPushState('off') }
-  }
-
-  async function enablePush() {
-    setPushState('busy')
-    try {
-      const perm = await Notification.requestPermission()
-      if (perm !== 'granted') { setPushState(perm === 'denied' ? 'blocked' : 'off'); return }
-      const { key } = await (await fetch('/api/push/key')).json()
-      if (!key) { setPushState('unsupported'); return }
-      const reg = await navigator.serviceWorker.getRegistration()
-        || await navigator.serviceWorker.register('/sw.js')
-      let sub = await reg.pushManager.getSubscription()
-      if (!sub) {
-        sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(key),
-        })
-      }
-      const res = await authFetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription: sub.toJSON() }),
-      })
-      if (!res.ok) throw new Error('subscribe failed')
-      setPushState('enabled')
-      setToast({ type: 'success', message: t('profile.notifications_enabled') || 'Push notifications are on' })
-    } catch (err) {
-      setPushState(Notification.permission === 'denied' ? 'blocked' : 'off')
-      setToast({ type: 'error', message: err.message || 'Could not enable notifications' })
-    }
-  }
-
-  async function disablePush() {
-    setPushState('busy')
-    try {
-      const reg = await navigator.serviceWorker.getRegistration()
-      const sub = reg ? await reg.pushManager.getSubscription() : null
-      if (sub) {
-        const endpoint = sub.endpoint
-        await sub.unsubscribe().catch(() => {})
-        await authFetch('/api/push/subscribe', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ endpoint }),
-        }).catch(() => {})
-      }
-    } catch {}
-    setPushState('off')
-  }
-
-  // v5.24 — one-click push-chain diagnostic. Sends a real notification via
-  // /api/push/test and translates the structured verdict into a toast:
-  // success, "nothing registered" (with the toggle reset to match server
-  // truth), or a failure carrying the server-side reason.
-  async function testPush() {
-    setTestState('busy')
-    setTestResult(null)
-    try {
-      // Pull the freshest sw.js before sending — a stale service worker without
-      // a push handler is the #1 device-side cause of "sent but never shown".
-      try {
-        const reg = await navigator.serviceWorker.getRegistration()
-        if (reg?.update) await reg.update()
-      } catch {}
-      const res = await authFetch('/api/push/test', { method: 'POST' })
-      const data = await res.json().catch(() => null)
-      if (res.ok && data?.ok) {
-        // v5.24.1 — the verdict lives inline (toasts auto-dismiss in 3s and
-        // were reported as "nothing happened"), with device count + a fix-it
-        // hint for the two dominant Android causes: swiped-away Chrome and
-        // per-site notifications blocked in browser settings.
-        // v5.24.4 — server success is now only the FIRST half of the verdict:
-        // arm the 15s receipt window; the SW's KIVORA_PUSH_RESULT postMessage
-        // upgrades this to a device-side verdict (displayed / failed / never
-        // reached). Type 'wait' renders amber until the receipt resolves it.
-        if (receiptTimerRef.current) clearTimeout(receiptTimerRef.current)
-        const perm = (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported'
-        let msg = (t('profile.push_receipt_wait') || 'Sent to {n} device(s) — waiting up to 15s for this device to confirm receipt (browser permission: {perm})…')
-          .replace('{n}', String(data.sent ?? 1))
-          .replace('{perm}', perm)
-        // v5.24.5 — surface the PREVIOUS test's device-side receipt (posted
-        // by the SW to /api/push/receipt; survives page closes/reboots).
-        const lr = data.last_receipt
-        if (lr) {
-          const when = lr.at ? new Date(lr.at).toLocaleTimeString() : '?'
-          msg += ' ' + (lr.displayed
-            ? (t('profile.push_last_ok') || 'Previous device receipt: displayed ({sw}, {time})').replace('{sw}', lr.sw || '?').replace('{time}', when)
-            : (t('profile.push_last_fail') || 'Previous device receipt: DISPLAY FAILED ({sw}, {time}) — error: {err}').replace('{sw}', lr.sw || '?').replace('{time}', when).replace('{err}', lr.error || '?'))
-        }
-        setToast({ type: 'success', message: t('profile.push_test_sent') || 'Test sent — check your device for the notification' })
-        setTestResult({ type: 'wait', message: msg })
-        receiptTimerRef.current = setTimeout(() => {
-          receiptTimerRef.current = null
-          setTestResult({ type: 'error', message: t('profile.push_receipt_none') || 'No receipt after 15s — the push never reached Chrome on this device. Relaunch Chrome (don\u2019t swipe it away), keep the screen on and this page open, check Android App info → Chrome → Notifications is allowed and battery optimization is off, then send the test again.' })
-        }, 15000)
-      } else if (data?.reason === 'no_subscriptions') {
-        setPushState('off') // the toggle was ahead of server truth — align it
-        const msg = t('profile.push_test_none') || 'No device is registered to your account yet — turn push off and on again, then allow the browser permission prompt'
-        setToast({ type: 'error', message: msg })
-        setTestResult({ type: 'error', message: msg })
-      } else {
-        const why = data?.error || data?.reason || `HTTP ${res.status}`
-        const msg = `${t('profile.push_test_fail') || 'Push test failed'} (${why})`
-        setToast({ type: 'error', message: msg })
-        setTestResult({ type: 'error', message: msg })
-      }
-    } catch (err) {
-      const msg = `${t('profile.push_test_fail') || 'Push test failed'} (${err.message || 'network'})`
-      setToast({ type: 'error', message: msg })
-      setTestResult({ type: 'error', message: msg })
-    } finally {
-      setTestState('idle')
-    }
-  }
-
   // ── v5.22 data export — every conversation as JSON + Markdown ──
   async function exportMyData() {
     setExportState('busy')
@@ -452,14 +250,6 @@ export default function ProfilePage() {
     document.body.appendChild(a); a.click(); a.remove()
     setTimeout(() => URL.revokeObjectURL(url), 4000)
   }
-
-  // Reflect the browser's actual push state on mount (and when the tab returns)
-  useEffect(() => {
-    refreshPushState()
-    const onVis = () => { if (document.visibilityState === 'visible') refreshPushState() }
-    document.addEventListener('visibilitychange', onVis)
-    return () => document.removeEventListener('visibilitychange', onVis)
-  }, [])
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
@@ -723,72 +513,6 @@ export default function ProfilePage() {
               >
                 <IconLogout size={14} /> Sign out
               </button>
-            </div>
-
-            {/* Notifications (v5.22 Web Push) */}
-            <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-6 mt-8">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-7 h-7 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
-                  <IconPulse size={14} className="text-muted" />
-                </div>
-                <h2 className="font-semibold text-sm tracking-tight text-muted">{t('profile.notifications') || 'Notifications'}</h2>
-              </div>
-              <p className="text-xs text-muted mb-4">
-                {t('profile.notifications_desc') || 'Get a push when a background reply finishes generating after you go offline.'}
-              </p>
-              {pushState === 'unsupported' ? (
-                <p className="text-xs text-[#525252] bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl px-4 py-3">{t('profile.notifications_unsupported') || "This browser doesn't support push notifications."}</p>
-              ) : pushState === 'blocked' ? (
-                <p className="text-xs text-amber-300/90 bg-amber-950/20 border border-amber-900/30 rounded-xl px-4 py-3">{t('profile.notifications_blocked') || 'Notifications are blocked in your browser settings — unblock this site to turn them on.'}</p>
-              ) : (
-                <>
-                  <button
-                    onClick={pushState === 'enabled' ? disablePush : enablePush}
-                    disabled={pushState === 'busy'}
-                    className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
-                      pushState === 'enabled'
-                        ? 'bg-emerald-950/30 border border-emerald-900/40 text-emerald-400 hover:bg-emerald-950/50'
-                        : 'bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-[#a3a3a3] hover:text-white'
-                    } disabled:opacity-60`}
-                  >
-                    {pushState === 'busy' ? <IconSpinner size={14} /> : <IconPulse size={14} />}
-                    {pushState === 'enabled'
-                      ? (t('profile.notifications_enabled') || 'Push notifications are on')
-                      : (t('profile.notifications_enable') || 'Enable push notifications')}
-                  </button>
-                  {pushState === 'enabled' && (
-                    <button
-                      onClick={testPush}
-                      disabled={testState === 'busy'}
-                      className="mt-2 w-full bg-[#1a1a1a] border border-[#262626] hover:border-[#3a3a3a] text-[#a3a3a3] hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
-                    >
-                      {testState === 'busy' ? <IconSpinner size={14} /> : <IconCheck size={14} />}
-                      {t('profile.push_test') || 'Send test notification'}
-                    </button>
-                  )}
-                </>
-              )}
-              {testResult && (
-                <p
-                  role="status"
-                  className={`mt-3 text-xs leading-relaxed rounded-xl px-4 py-3 border ${
-                    testResult.type === 'success'
-                      ? 'text-emerald-300/90 bg-emerald-950/20 border-emerald-900/30'
-                      : 'text-amber-300/90 bg-amber-950/20 border-amber-900/30'
-                  }`}
-                >
-                  {testResult.message}
-                </p>
-              )}
-              {swLatest && (
-                <p role="status" className="mt-2 text-[11px] leading-relaxed text-muted">
-                  {swVersion
-                    ? (swVersion !== swLatest
-                        ? (t('profile.sw_version_stale') || 'Service worker {running} is stale — reload this page to update to {latest}').replace('{running}', swVersion).replace('{latest}', swLatest)
-                        : `${t('profile.sw_version') || 'Service worker'}: ${swVersion} ✓`)
-                    : `${t('profile.sw_version') || 'Service worker'}: … (latest ${swLatest})`}
-                </p>
-              )}
             </div>
 
             {/* Your data (v5.22 export) */}

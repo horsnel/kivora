@@ -1025,5 +1025,8 @@
   "vfs.error": "Kuna hitilafu imetokea",
   "vfs.hint": "Faili hudumu kwenye kipindi kipya — AI inaweza kusoma tena wakati wowote.",
   "vfs.refresh": "Onyesha upya",
-  "vfs.count": "faili {n} · {size}"
+  "vfs.count": "faili {n} · {size}",
+  "chat.dd.focus": "Focus",
+  "chat.dd.model": "Modeli",
+  "chat.dd.pro": "Hali ya Pro"
 }

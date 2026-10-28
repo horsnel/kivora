@@ -247,3 +247,105 @@ ok('agent title watcher debounced by change', AGENT_SRC.includes('lastTitle'))
 
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
+
+// ════════════════════════════════════════════════════════════════════
+// v5.30 — cookie jar primitives (Kivora Browser sign-in)
+// ════════════════════════════════════════════════════════════════════
+console.log('── v5.30: cookie jar primitives ──')
+import { parseJar, serializeJar, cookiesForHost, mergeSetCookies } from '../lib/browser/core.mjs'
+
+ok('parseJar: valid round-trip', (() => {
+  const jar = parseJar('{"example.com":[{"n":"sid","v":"abc"}]}')
+  return jar['example.com']?.[0]?.n === 'sid' && jar['example.com']?.[0]?.v === 'abc'
+})())
+ok('parseJar: garbage → {}', JSON.stringify(parseJar('not json')) === '{}')
+ok('parseJar: array root → {}', JSON.stringify(parseJar('[1,2]')) === '{}')
+ok('parseJar: non-string cookie fields dropped', (() => {
+  const jar = parseJar('{"a.com":[{"n":1},{"n":"ok","v":"1"}]}')
+  return jar['a.com'].length === 1 && jar['a.com'][0].n === 'ok'
+})())
+
+// attach semantics
+const jar1 = { 'example.com': [{ n: 'host', v: '1' }], 'cdn.example.com': [{ n: 'cdn', v: '2' }] }
+eq('cookiesForHost: exact host', cookiesForHost(jar1, 'example.com'), 'host=1')
+eq('cookiesForHost: subdomain inherits domain scope', cookiesForHost(jar1, 'www.example.com'), 'host=1')
+eq('cookiesForHost: sibling host does NOT leak', cookiesForHost(jar1, 'other.com'), '')
+eq('cookiesForHost: deeper subdomain of host scope does not match', cookiesForHost({ 'www.example.com': [{ n: 'a', v: '1' }] }, 'example.com'), '')
+ok('cookiesForHost: expired entries dropped', (() => {
+  const j = { 'a.com': [{ n: 'dead', v: '1', exp: '2001-01-01T00:00:00Z' }, { n: 'alive', v: '2' }] }
+  return cookiesForHost(j, 'a.com') === 'alive=2'
+})())
+
+// merge semantics — the login flow
+const jar2 = {}
+mergeSetCookies(jar2, ['session=abc123; Path=/; HttpOnly; SameSite=Lax'], 'example.com')
+eq('merge: host-only set-cookie', cookiesForHost(jar2, 'example.com'), 'session=abc123')
+mergeSetCookies(jar2, ['track=1; Domain=.example.com; Max-Age=3600'], 'www.example.com')
+ok('merge: Domain attr suffix-match → domain scope', (() => {
+  const got = cookiesForHost(jar2, 'api.example.com')
+  return got === 'track=1' // session is host-only on example.com, must NOT leak to api.
+})())
+ok('merge: Domain attr for unrelated domain ignored', (() => {
+  const j = {}
+  mergeSetCookies(j, ['x=1; Domain=.evil.com'], 'example.com')
+  return JSON.stringify(j) === '{}'
+})())
+ok('merge: Max-Age=0 deletes', (() => {
+  const j = { 'a.com': [{ n: 'sid', v: '1' }] }
+  mergeSetCookies(j, ['sid=; Max-Age=0'], 'a.com')
+  return cookiesForHost(j, 'a.com') === ''
+})())
+ok('merge: past Expires deletes', (() => {
+  const j = { 'a.com': [{ n: 'sid', v: '1' }] }
+  mergeSetCookies(j, ['sid=; Expires=Thu, 01 Jan 1970 00:00:00 GMT'], 'a.com')
+  return cookiesForHost(j, 'a.com') === ''
+})())
+ok('merge: Max-Age converts to absolute future exp', (() => {
+  const j = {}
+  mergeSetCookies(j, ['sid=1; Max-Age=3600'], 'a.com')
+  const e = j['a.com'][0].exp
+  return typeof e === 'string' && Date.parse(e) > Date.now() + 3500 * 1000
+})())
+ok('merge: same-name flip host↔domain does not duplicate', (() => {
+  const j = {}
+  mergeSetCookies(j, ['sid=1'], 'a.com')
+  mergeSetCookies(j, ['sid=2; Domain=.a.com'], 'www.a.com')
+  const forHost = cookiesForHost(j, 'www.a.com')
+  return forHost === 'sid=2' && cookiesForHost(j, 'a.com') === 'sid=2'
+})())
+ok('merge: per-scope cap enforced', (() => {
+  const j = {}
+  const list = []
+  for (let i = 0; i < 60; i++) list.push(`c${i}=v${i}`)
+  mergeSetCookies(j, list, 'a.com')
+  return j['a.com'].length === 50 && j['a.com'][0].n === 'c10'
+})())
+ok('merge: malformed set-cookie ignored', (() => {
+  const j = {}
+  mergeSetCookies(j, ['garbage-without-equals; Path=/', '=novalue', 'ok=1'], 'a.com')
+  return cookiesForHost(j, 'a.com') === 'ok=1'
+})())
+
+// jar caps + round trip
+ok('serializeJar: round-trip', (() => {
+  const j = parseJar(serializeJar({ 'a.com': [{ n: 'x', v: 'y' }] }))
+  return j['a.com']?.[0]?.v === 'y'
+})())
+ok('serializeJar: total cap keeps JSON under limit', (() => {
+  const j = {}
+  for (let s = 0; s < 40; s++) {
+    const scope = `s${s}.example.com`
+    j[scope] = [{ n: 'big', v: 'x'.repeat(3000) }]
+  }
+  const json = serializeJar(j)
+  return json.length <= 12 * 1024 + 10
+})())
+
+// end-to-end login simulation (what the proxy does across redirect hops)
+ok('login flow simulation: 302-set cookie survives to next hop', (() => {
+  const j = {}
+  // hop 1: POST /login → 302 with Set-Cookie on the 302 (the v5.26 bug)
+  mergeSetCookies(j, ['kvsession=ticket-9; Path=/; HttpOnly'], 'portal.example.com')
+  // hop 2: GET /dashboard — jar must carry the cookie
+  return cookiesForHost(j, 'portal.example.com') === 'kvsession=ticket-9'
+})())

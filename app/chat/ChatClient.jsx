@@ -20,7 +20,7 @@ import ConfirmDialog from '@/components/ConfirmDialog'
 import { stripMarkdown } from '@/lib/stripMarkdown'
 import { reportClientError } from '@/lib/reportClientError'
 import dynamic from 'next/dynamic'
-import ComingSoonPopup from '@/components/ComingSoonPopup'
+import { ComingSoonCard } from '@/components/ComingSoonPopup'
 import ChatNoticeCard from '@/components/ChatNoticeCard'
 import Lightbox from '@/components/Lightbox'
 import { createPortal } from 'react-dom'
@@ -385,10 +385,8 @@ export default function ChatClient() {
 
   // ── Voice TTS (Text-to-Speech) ──
   const tts = useVoiceTTS()
-  const [voiceSettingsOpen, setVoiceSettingsOpen] = useState(false)
   // v5.27 — persistent agent workspace (files the AI saves live here)
   const [wsOpen, setWsOpen] = useState(false)
-  const [comingSoonFeature, setComingSoonFeature] = useState(null)
 
   function showVoiceToast(type, message) {
     if (voiceToastTimer.current) clearTimeout(voiceToastTimer.current)
@@ -2419,15 +2417,9 @@ export default function ChatClient() {
                       <span className="text-[20px] text-[#888]">›</span>
                     </button>
 
-                    {/* Full Voice Settings shortcut */}
-                    <div className="pt-4">
-                      <button
-                      onClick={() => { setSettingsOpen(false); settingsReset(); setComingSoonFeature('Voice Settings') }}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-[14px] text-[15px] font-medium bg-[#141414] text-[#737373] active:bg-[#1c1c1c] transition-colors"
-                      >
-                        <IconSpeaker size={16} /> Full Voice Settings Panel
-                      </button>
-                    </div>
+                    {/* Full Voice Settings shortcut — v5.30 removed: the Voice
+                        row above now opens the exact same coming-soon card
+                        inline, so this modal shortcut was pure duplication */}
                   </div>
                 )}
 
@@ -2561,23 +2553,14 @@ export default function ChatClient() {
                   </div>
                 )}
 
-                {/* ══════ VOICE — Coming Soon ══════ */}
+                {/* ══════ VOICE — the exact same card the text-bar voice icon
+                        used to open (v5.30 unification: one design, one
+                        source of truth — components/ComingSoonPopup.jsx) ══════ */}
                 {settingsCurrentPage === 'voice' && (
-                  <div className="py-6 text-center">
-                    <div className="w-12 h-12 bg-red-950/30 border border-red-900/30 rounded-xl flex items-center justify-center mx-auto mb-4">
-                      <IconSpeaker size={20} className="text-red-400" />
+                  <div className="py-6 flex justify-center">
+                    <div className="w-full max-w-[360px]">
+                      <ComingSoonCard feature="Voice Settings" onClose={settingsPop} />
                     </div>
-                    <h4 className="text-white font-semibold mb-2">Voice Settings — Coming Soon</h4>
-                    <p className="text-sm text-[#a3a3a3] mb-4">
-                      Voice input and output features are currently in development.
-                      They will be available for Max and Team plan subscribers.
-                    </p>
-                    <button
-                      onClick={() => setSettingsOpen(false)}
-                      className="px-4 py-2 bg-[#141414] border border-[#262626] hover:border-[#3a3a3a] text-white rounded-xl text-sm font-medium transition-colors"
-                    >
-                      Close
-                    </button>
                   </div>
                 )}
 
@@ -3247,6 +3230,12 @@ export default function ChatClient() {
 
                       {focusDropdownOpen && (
                         <div className="chat-focus-dropdown">
+                          {/* v5.30 — terminal-style header (DevTools dock language) */}
+                          <div className="chat-dd-head">
+                            <span className="chat-dd-dot" />
+                            <span className="chat-dd-title">{t('chat.dd.focus')}</span>
+                            <span className="chat-dd-pill">{t(FOCUS_MODES.find(m => m.id === focusMode)?.labelKey || '')}</span>
+                          </div>
                           {FOCUS_MODES.map(m => (
                             <button
                               key={m.id}
@@ -3258,7 +3247,7 @@ export default function ChatClient() {
                                 <span className="chat-focus-label">{t(m.labelKey)}</span>
                                 <span className="chat-focus-desc">{t(m.descKey)}</span>
                               </div>
-                              {m.id === focusMode && <IconCheck size={14} className="text-[#ef4444] shrink-0 ml-auto" />}
+                              {m.id === focusMode && <IconCheck size={14} className="text-[#FF3366] shrink-0 ml-auto" />}
                             </button>
                           ))}
                         </div>
@@ -3291,14 +3280,9 @@ export default function ChatClient() {
                         automatically when it runs code, and returns to chat
                         when the process finishes */}
 
-                    {/* Voice Settings — Coming Soon */}
-                    <button
-                      className={`chat-toolbar-btn ${voiceSettingsOpen ? 'chat-toolbar-btn-active' : ''}`}
-                      onClick={() => setComingSoonFeature('Voice Settings')}
-                      title="Voice settings (coming soon)"
-                    >
-                      <IconSpeaker size={16} />
-                    </button>
+                    {/* v5.30 — voice icon removed: Voice settings live in
+                        Chat Settings → Voice (same card, always available).
+                        The AI reads aloud via the TTS engine without this chip. */}
 
                     {/* Model chip — model selector dropdown (logged in only) */}
                     {user && (
@@ -3315,6 +3299,12 @@ export default function ChatClient() {
 
                       {modelChipDropdownOpen && (
                         <div className="chat-model-dropdown">
+                          {/* v5.30 — terminal-style header (DevTools dock language) */}
+                          <div className="chat-dd-head">
+                            <span className="chat-dd-dot" />
+                            <span className="chat-dd-title">{t('chat.dd.model')}</span>
+                            <span className="chat-dd-pill">{currentModel.short}</span>
+                          </div>
                           {ALL_MODELS.map(m => (
                             <button
                               key={m.id}
@@ -3340,7 +3330,7 @@ export default function ChatClient() {
                                 </div>
                                 <div className="chat-model-tag">{m.tag}</div>
                               </div>
-                              {m.id === model && <IconCheck size={14} className="text-red-500 shrink-0" />}
+                              {m.id === model && <IconCheck size={14} className="text-[#FF3366] shrink-0" />}
                             </button>
                           ))}
                         </div>
@@ -3380,6 +3370,12 @@ export default function ChatClient() {
 
                       {proMode && proTypeDropdownOpen && (
                         <div className="chat-pro-dropdown">
+                          {/* v5.30 — terminal-style header (DevTools dock language) */}
+                          <div className="chat-dd-head">
+                            <span className="chat-dd-dot" />
+                            <span className="chat-dd-title">{t('chat.dd.pro')}</span>
+                            <span className="chat-dd-pill">{t(PRO_MODES.find(m => m.id === proModeType)?.labelKey || '')}</span>
+                          </div>
                           {PRO_MODES.map(m => (
                             <button
                               key={m.id}
@@ -3390,7 +3386,7 @@ export default function ChatClient() {
                                 <span className="chat-pro-option-label">{t(m.labelKey)}</span>
                                 <span className="chat-pro-option-desc">{t(m.descKey)}</span>
                               </div>
-                              {m.id === proModeType && <IconCheck size={14} className="text-[#1d9bf0] shrink-0" />}
+                              {m.id === proModeType && <IconCheck size={14} className="text-[#FF3366] shrink-0" />}
                             </button>
                           ))}
                         </div>
@@ -3429,13 +3425,8 @@ export default function ChatClient() {
 
       </div>
 
-      {/* ── Voice Settings — Coming Soon Popup ── */}
-      {comingSoonFeature && (
-        <ComingSoonPopup
-          feature={comingSoonFeature}
-          onClose={() => setComingSoonFeature(null)}
-        />
-      )}
+      {/* ── v5.30 — ComingSoonPopup removed with the text-bar voice icon:
+              the exact same card now lives in Chat Settings → Voice ══ */}
 
       {/* ── Pro model gate — upgrade prompt ── */}
       {showUpgrade && (
@@ -3787,29 +3778,105 @@ export default function ChatClient() {
           line-height: 1;
         }
 
-        /* ── Model dropdown (reuses toolbar-btn) ── */
+        /* ── v5.30 Terminal-style dropdown cards ───────────────────
+           Design language lifted from the Live Terminal / DevTools dock:
+           #0d0d0d panel, #111 strip header with pulse dot + mono uppercase
+           title + accent status pill, #262626 walls, cubic-bezier motion. */
 
+        .chat-model-dropdown,
+        .chat-focus-dropdown,
+        .chat-pro-dropdown {
+          background: #0d0d0d;
+          border: 1px solid #262626;
+          border-radius: 14px;
+          box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.45);
+          overflow: hidden;
+          padding: 0 0 4px;
+          max-width: calc(100vw - 32px);
+        }
         .chat-model-dropdown {
           position: absolute;
           bottom: calc(100% + 8px);
           left: 50%;
           transform: translateX(-50%);
-          width: 220px;
-          background: #0f0f0f;
-          border: 1px solid rgba(255,255,255,0.06);
-          border-radius: 12px;
-          box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+          width: 240px;
           z-index: 100;
-          padding: 4px 0;
-          animation: dropUp 0.15s ease-out;
+          animation: chatDdUpC 240ms cubic-bezier(0.22,1,0.36,1);
         }
-        @keyframes dropUp {
-          from { opacity: 0; transform: translateX(-50%) translateY(4px); }
-          to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .chat-focus-dropdown {
+          position: absolute;
+          bottom: calc(100% + 8px);
+          left: 50%;
+          transform: translateX(-50%);
+          width: 272px;
+          z-index: 100;
+          animation: chatDdUpC 240ms cubic-bezier(0.22,1,0.36,1);
         }
-        @keyframes dropUpRight {
-          from { opacity: 0; transform: translateY(4px); }
-          to { opacity: 1; transform: translateY(0); }
+        .chat-pro-dropdown {
+          position: absolute;
+          bottom: calc(100% + 8px);
+          right: 0;
+          width: 272px;
+          z-index: 100;
+          animation: chatDdUpR 240ms cubic-bezier(0.22,1,0.36,1);
+        }
+        @keyframes chatDdUpC {
+          from { opacity: 0; transform: translateX(-50%) translateY(7px) scale(0.97); }
+          to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+        }
+        @keyframes chatDdUpR {
+          from { opacity: 0; transform: translateY(7px) scale(0.97); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes chatDdPulse {
+          0%, 100% { opacity: 1; box-shadow: 0 0 6px rgba(255,51,102,0.55); }
+          50% { opacity: 0.35; box-shadow: 0 0 2px rgba(255,51,102,0.25); }
+        }
+        /* Terminal header strip — mirror of the Live Terminal drawer header */
+        .chat-dd-head {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          height: 36px;
+          padding: 0 12px;
+          margin-bottom: 4px;
+          background: #111111;
+          border-bottom: 1px solid #262626;
+          flex-shrink: 0;
+        }
+        .chat-dd-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #FF3366;
+          flex-shrink: 0;
+          animation: chatDdPulse 2.2s ease-in-out infinite;
+        }
+        .chat-dd-title {
+          font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: #737373;
+          white-space: nowrap;
+        }
+        .chat-dd-pill {
+          margin-left: auto;
+          font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+          font-size: 9px;
+          font-weight: 600;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+          padding: 2px 7px;
+          border-radius: 5px;
+          color: rgba(255,51,102,0.85);
+          background: rgba(255,51,102,0.08);
+          border: 1px solid rgba(255,51,102,0.22);
+          max-width: 118px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .chat-model-option {
           width: 100%;
@@ -3825,10 +3892,11 @@ export default function ChatClient() {
           font-family: inherit;
         }
         .chat-model-option:hover {
-          background: rgba(255,255,255,0.04);
+          background: rgba(255,255,255,0.05);
         }
         .chat-model-option-active {
-          background: rgba(255,255,255,0.04) !important;
+          background: rgba(255,255,255,0.06) !important;
+          box-shadow: inset 2px 0 0 #FF3366;
         }
         .chat-model-name {
           font-size: 13px;
@@ -3847,21 +3915,8 @@ export default function ChatClient() {
           margin-top: 1px;
         }
 
-        /* ── Focus mode dropdown ── */
-        .chat-focus-dropdown {
-          position: absolute;
-          bottom: calc(100% + 8px);
-          left: 50%;
-          transform: translateX(-50%);
-          width: 260px;
-          background: #0f0f0f;
-          border: 1px solid rgba(255,255,255,0.06);
-          border-radius: 12px;
-          box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-          z-index: 100;
-          padding: 4px 0;
-          animation: dropUp 0.15s ease-out;
-        }
+        /* ── Focus mode dropdown ──
+           (container styling lives in the shared v5.30 terminal-card block) */
         .chat-focus-option {
           width: 100%;
           text-align: left;
@@ -3876,10 +3931,11 @@ export default function ChatClient() {
           font-family: inherit;
         }
         .chat-focus-option:hover {
-          background: rgba(255,255,255,0.04);
+          background: rgba(255,255,255,0.05);
         }
         .chat-focus-option-active {
-          background: rgba(255,255,255,0.04) !important;
+          background: rgba(255,255,255,0.06) !important;
+          box-shadow: inset 2px 0 0 #FF3366;
         }
         .chat-focus-icon {
           font-size: 16px;
@@ -3963,20 +4019,8 @@ export default function ChatClient() {
           background-color: white;
         }
 
-        /* ── Pro mode dropdown ── */
-        .chat-pro-dropdown {
-          position: absolute;
-          bottom: calc(100% + 8px);
-          right: 0;
-          width: 260px;
-          background: #0f0f0f;
-          border: 1px solid rgba(255,255,255,0.06);
-          border-radius: 12px;
-          box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-          z-index: 100;
-          padding: 4px 0;
-          animation: dropUpRight 0.15s ease-out;
-        }
+        /* ── Pro mode dropdown ──
+           (container styling lives in the shared v5.30 terminal-card block) */
         .chat-pro-option {
           width: 100%;
           text-align: left;
@@ -3991,10 +4035,11 @@ export default function ChatClient() {
           font-family: inherit;
         }
         .chat-pro-option:hover {
-          background: rgba(255,255,255,0.04);
+          background: rgba(255,255,255,0.05);
         }
         .chat-pro-option-active {
-          background: rgba(255,255,255,0.04) !important;
+          background: rgba(255,255,255,0.06) !important;
+          box-shadow: inset 2px 0 0 #FF3366;
         }
         .chat-pro-text {
           display: flex;
@@ -4234,10 +4279,10 @@ export default function ChatClient() {
             transform: none;
           }
           .chat-focus-dropdown {
-            animation: dropUpRight 0.15s ease-out;
+            animation: chatDdUpR 240ms cubic-bezier(0.22,1,0.36,1);
           }
           .chat-model-dropdown {
-            animation: dropUpRight 0.15s ease-out;
+            animation: chatDdUpR 240ms cubic-bezier(0.22,1,0.36,1);
           }
           /* Settings voice speed slider */
           input[type="range"].settings-voice-slider::-webkit-slider-thumb {

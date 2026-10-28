@@ -105,8 +105,30 @@ const KMark = ({ size = 18, className = '' }) => (
 const SNAPS = ['half', 'tall', 'full']
 const PCT = { half: 0.5, tall: 0.85, full: 1 }
 
+// v5.30 — stable per-device browser-session id. The service worker keys
+// the cookie jar on it (Cache API), so signed-in sites survive browser
+// open/close just like a real browser profile. Not tied to the account:
+// cookies are a device concept, like localStorage.
+const KS_KEY = 'kv_browser_ks_v1'
+function browserSessionId() {
+  try {
+    let v = localStorage.getItem(KS_KEY)
+    if (!v || !/^ks[\w-]{8,64}$/.test(v)) {
+      const bytes = new Uint8Array(12)
+      crypto.getRandomValues(bytes)
+      v = 'ks' + Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+      localStorage.setItem(KS_KEY, v)
+    }
+    return v
+  } catch {
+    return 'ks-fallback'
+  }
+}
+
 export default function BrowserApp({ open, onClose, pending }) {
   const { t, lang } = useTranslation()
+  const ksRef = useRef(null)
+  if (!ksRef.current) ksRef.current = browserSessionId()
 
   const [tabs, setTabs] = useState(null) // null = not hydrated yet
   const [activeId, setActiveId] = useState(null)
@@ -987,7 +1009,7 @@ export default function BrowserApp({ open, onClose, pending }) {
                   ref={(el) => {
                     frameRefs.current[x.id] = el
                   }}
-                  src={`/api/browser/proxy?url=${encodeURIComponent(u)}${x.desktop ? '&ua=desktop' : ''}&lang=${lang}&kb=${x.key || 0}`}
+                  src={`/api/browser/proxy?url=${encodeURIComponent(u)}${x.desktop ? '&ua=desktop' : ''}&lang=${lang}&ks=${ksRef.current}&kb=${x.key || 0}`}
                   title={x.title || u || 'Kivora Browser'}
                   onLoad={() => patchTab(x.id, { loading: false })}
                   onError={() => patchTab(x.id, { loading: false })}
