@@ -312,10 +312,12 @@ async function handle(req) {
         redirect: 'manual',
         signal: ac.signal,
         // Workers-only fetch option — silently ignored off-Cloudflare.
-        // Edge cache ONLY on an anonymous first hop: a cookie-carrying
-        // fetch must never poison the shared anonymous copy, and hops >0
-        // are usually login/redirect endpoints (never worth caching).
-        cf: hop === 0 && isGet && !desktop && !cookieStr
+        // Edge cache ONLY for truly anonymous traffic (no ks): CF's cache
+        // strips Set-Cookie from cached entries (verified live — a cached
+        // login-csrftoken GET would silently kill sign-in), so browser
+        // sessions with a session id never ride the shared cache.
+        // Hops >0 are login/redirect endpoints — never cached either.
+        cf: hop === 0 && isGet && !desktop && !cookieStr && !ks
           ? { cacheEverything: true, cacheTtlByStatus: EDGE_CACHE_BY_STATUS }
           : undefined,
         body: method === 'POST' ? body : undefined,
