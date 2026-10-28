@@ -26,6 +26,7 @@ import { normalizeInput } from '@/lib/browser/core.mjs'
 import StartPage, { faviconFor } from '@/components/browser/StartPage'
 import DevToolsDock from '@/components/browser/DevToolsDock'
 import { XGlyph } from '@/components/BackButton'
+import MarkdownRenderer from '@/components/MarkdownRenderer'
 
 const TABS_KEY = 'kv_browser_tabs_v1'
 const SESS_KEY = 'kv_browser_session_v1' // { activeId, open, ts } — shared with BrowserProvider
@@ -34,7 +35,7 @@ const HIST_KEY = 'kv_browser_hist_v1'
 const HIST_CAP = 150
 
 const newId = () => `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`
-const freshTab = () => ({ id: newId(), hist: [null], hi: 0, title: '', reader: false, night: false, desktop: false, key: 0, mounted: true })
+const freshTab = () => ({ id: newId(), ks: freshKsId(), hist: [null], hi: 0, title: '', reader: false, night: false, desktop: false, key: 0, mounted: true })
 
 function loadJSON(key, fallback) {
   try {
@@ -77,6 +78,7 @@ const IconMoon = mk(<path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8
 const IconDesktop = mk(<><rect x="2.5" y="4" width="19" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></>)
 const IconDots = mk(<><circle cx="12" cy="5" r="1" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="12" cy="19" r="1" fill="currentColor" stroke="none" /></>)
 const IconHome = mk(<><path d="M3 10.5L12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></>)
+const IconSparkle = mk(<><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" /><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z" /></>)
 const IconClock = mk(<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></>)
 const IconTrash = mk(<><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M6 6l1 14h10l1-14" /></>)
 const IconCode = mk(<><path d="M8 6l-6 6 6 6" /><path d="M16 6l6 6-6 6" /></>)
@@ -109,14 +111,22 @@ const PCT = { half: 0.5, tall: 0.85, full: 1 }
 // the cookie jar on it (Cache API), so signed-in sites survive browser
 // open/close just like a real browser profile. Not tied to the account:
 // cookies are a device concept, like localStorage.
+// v5.30.3 — PER-TAB COOKIE PROFILES: every TAB carries its own `ks`
+// (persisted in the tab object), so each tab is an isolated site-session
+// profile — sign in as two different users in two tabs, no bleed. The
+// device-level id below remains as the fallback for tabs created before
+// per-tab profiles existed.
 const KS_KEY = 'kv_browser_ks_v1'
+function freshKsId() {
+  const bytes = new Uint8Array(12)
+  crypto.getRandomValues(bytes)
+  return 'ks' + Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+}
 function browserSessionId() {
   try {
     let v = localStorage.getItem(KS_KEY)
     if (!v || !/^ks[\w-]{8,64}$/.test(v)) {
-      const bytes = new Uint8Array(12)
-      crypto.getRandomValues(bytes)
-      v = 'ks' + Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+      v = freshKsId()
       localStorage.setItem(KS_KEY, v)
     }
     return v
@@ -135,7 +145,9 @@ export default function BrowserApp({ open, onClose, pending }) {
   const [input, setInput] = useState('')
   const [inputFocused, setInputFocused] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [drawer, setDrawer] = useState(null) // 'bookmarks' | 'history' | null
+  const [drawer, setDrawer] = useState(null) // 'bookmarks' | 'history' | 'ai' | null
+  // v5.30.3 — page-aware AI actions (summarize / links / facts / translate)
+  const [aiRes, setAiRes] = useState(null) // { task, url, loading, result, error }
   const [bookmarks, setBookmarks] = useState([])
   const [history, setHistory] = useState([])
   const [toast, setToast] = useState('')
@@ -409,6 +421,7 @@ export default function BrowserApp({ open, onClose, pending }) {
       })
       if (url) {
         dtReset(activeId) // new document — fresh DevTools buffers
+        setAiRes(null) // fresh page → fresh page-actions panel
         setHistory((prev) => [{ url, title: '', ts: Date.now() }, ...prev.filter((h) => h.url !== url)].slice(0, HIST_CAP))
       }
     },
@@ -437,6 +450,29 @@ export default function BrowserApp({ open, onClose, pending }) {
     if (!activeTab) return
     patchTab(activeTab.id, { loading: false })
   }, [activeTab, patchTab])
+
+  // ── v5.30.3 page-aware AI actions ────────────────────────────────
+  // One POST per action; the answer renders as markdown in the drawer.
+  // Server metering: anonymous 5/day, free 15/day (same family as
+  // DevTools) — the drawer surfaces the daily-limit error verbatim.
+  const runPageAction = useCallback(
+    async (task) => {
+      if (!activeUrl || aiRes?.loading) return
+      setAiRes({ task, url: activeUrl, loading: true })
+      try {
+        const r = await fetch('/api/browser/ask', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ url: activeUrl, task, lang }),
+        })
+        const d = await r.json().catch(() => ({}))
+        setAiRes({ task, url: activeUrl, loading: false, result: d.result, error: d.error })
+      } catch {
+        setAiRes({ task, url: activeUrl, loading: false, error: 'Network error — try again.' })
+      }
+    },
+    [activeUrl, aiRes?.loading, lang]
+  )
 
   const newTab = useCallback(() => {
     const tab = freshTab()
@@ -1009,7 +1045,7 @@ export default function BrowserApp({ open, onClose, pending }) {
                   ref={(el) => {
                     frameRefs.current[x.id] = el
                   }}
-                  src={`/api/browser/proxy?url=${encodeURIComponent(u)}${x.desktop ? '&ua=desktop' : ''}&lang=${lang}&ks=${ksRef.current}&kb=${x.key || 0}`}
+                  src={`/api/browser/proxy?url=${encodeURIComponent(u)}${x.desktop ? '&ua=desktop' : ''}&lang=${lang}&ks=${x.ks || ksRef.current}&kb=${x.key || 0}`}
                   title={x.title || u || 'Kivora Browser'}
                   onLoad={() => patchTab(x.id, { loading: false })}
                   onError={() => patchTab(x.id, { loading: false })}
@@ -1100,7 +1136,7 @@ export default function BrowserApp({ open, onClose, pending }) {
 
         {/* ═══ bottom bar ═══ */}
         <footer className="shrink-0 bg-[#111111] border-t border-[#262626] pb-[env(safe-area-inset-bottom)]">
-          <div className="grid grid-cols-4">
+          <div className="grid grid-cols-5">
             {[
               { icon: <IconHome size={20} />, label: t('browser.home'), act: () => navigate(null) },
               { icon: <IconClock size={20} />, label: t('browser.history'), act: () => setDrawer('history') },
@@ -1109,6 +1145,7 @@ export default function BrowserApp({ open, onClose, pending }) {
                 label: t('browser.bookmarks'),
                 act: () => setDrawer('bookmarks'),
               },
+              { icon: <IconSparkle size={20} className={aiRes?.loading ? 'text-[#FF3366] animate-pulse' : ''} />, label: t('browser.ai.actions'), act: () => setDrawer('ai') },
               { icon: <IconPlus size={20} />, label: `${t('browser.new_tab_short')}${(tabs || []).length > 1 ? ` · ${(tabs || []).length}` : ''}`, act: newTab },
             ].map((b) => (
               <button
@@ -1130,7 +1167,7 @@ export default function BrowserApp({ open, onClose, pending }) {
             <div className="absolute inset-0 bg-black/60" onClick={() => setDrawer(null)} />
             <div className="absolute left-0 right-0 bottom-0 max-h-[70%] flex flex-col rounded-t-2xl bg-[#131313] border-t border-[#2e2e2e] shadow-2xl shadow-black/70">
               <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-[#262626]">
-                <h2 className="text-sm font-semibold text-white">{drawer === 'bookmarks' ? t('browser.bookmarks') : t('browser.history')}</h2>
+                <h2 className="text-sm font-semibold text-white">{drawer === 'ai' ? t('browser.ai.title') : drawer === 'bookmarks' ? t('browser.bookmarks') : t('browser.history')}</h2>
                 <div className="flex items-center gap-2">
                   {drawer === 'history' && history.length > 0 && (
                     <button type="button" onClick={clearHistory} className="text-[11px] text-[#737373] hover:text-[#FF3366] transition-colors">
@@ -1148,7 +1185,55 @@ export default function BrowserApp({ open, onClose, pending }) {
                 </div>
               </div>
               <div className="overflow-y-auto overscroll-contain px-2 py-2">
-                {drawer === 'bookmarks' ? (
+                {drawer === 'ai' ? (
+                  /* v5.30.3 — page-aware AI actions panel */
+                  <div className="px-2 pb-2">
+                    {!activeUrl ? (
+                      <p className="px-2 py-10 text-center text-[13px] text-[#525252]">{t('browser.ai.hint')}</p>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            ['summarize', t('browser.ai.summarize')],
+                            ['links', t('browser.ai.links')],
+                            ['facts', t('browser.ai.facts')],
+                            ['translate', t('browser.ai.translate')],
+                          ].map(([task, label]) => (
+                            <button
+                              key={task}
+                              type="button"
+                              disabled={aiRes?.loading}
+                              onClick={() => runPageAction(task)}
+                              className={`h-10 rounded-xl text-[12.5px] font-medium border transition-colors disabled:opacity-50 ${
+                                aiRes?.task === task
+                                  ? 'bg-[#FF3366]/15 border-[#FF3366]/40 text-white'
+                                  : 'bg-[#1a1a1a] border-[#262626] hover:border-[#3a3a3a] text-[#e5e5e5]'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="mt-3 min-h-[80px] rounded-xl bg-[#0f0f0f] border border-[#262626] p-4">
+                          {aiRes?.loading ? (
+                            <div className="flex items-center gap-2.5 text-[12.5px] text-[#737373]">
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" className="animate-spin text-[#FF3366]"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.4" opacity="0.2" /><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" /></svg>
+                              {t('browser.ai.running')}
+                            </div>
+                          ) : aiRes?.error ? (
+                            <p className="text-[12.5px] text-[#ff6b81] leading-relaxed">{aiRes.error}</p>
+                          ) : aiRes?.result ? (
+                            <div className="text-[13px] max-h-[46dvh] overflow-y-auto overscroll-contain">
+                              <MarkdownRenderer content={aiRes.result} />
+                            </div>
+                          ) : (
+                            <p className="text-[12.5px] text-[#525252]">{activeUrl}</p>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : drawer === 'bookmarks' ? (
                   bookmarks.length ? (
                     bookmarks.map((b) => (
                       <div key={b.url} className="group flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-white/[0.04]">

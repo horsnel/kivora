@@ -62,7 +62,7 @@
 //
 // The jar rides in headers (never in the URL) and stays on the user's
 // device — the proxy itself remains 100% stateless.
-import { validateTarget, createStreamingRewriter, rewriteHtml, parseJar, serializeJar, cookiesForHost, mergeSetCookies } from '@/lib/browser/core.mjs'
+import { validateTarget, createStreamingRewriter, rewriteHtml, parseJar, serializeJar, cookiesForHost, mergeSetCookies, stripTrackers, isTrackerHost } from '@/lib/browser/core.mjs'
 import { AGENT_TAG } from '@/lib/browser/devtools-agent.mjs'
 
 export const runtime = 'edge'
@@ -284,7 +284,7 @@ async function handle(req) {
     if (diag) return Response.json({ ok: false, reason: v.reason }, { status: 403, headers: { 'cache-control': 'no-store' } })
     return errorPage(targetRaw, 'blocked', lang)
   }
-  const target = v.url
+  const target = stripTrackers(v.url) // v5.30.3 — sites never see utm_/fbclid tails
 
   // ── Client cookie jar (SW-owned; see header comment) ──
   const jar = jarFromRequest(req)
@@ -305,6 +305,12 @@ async function handle(req) {
   let finalUrl = target
   try {
     for (let hop = 0; hop < 6; hop++) {
+      // v5.30.3 tracker wall — pure analytics/ad beacons get an empty 204,
+      // never an upstream fetch (covers every subresource too)
+      if (isTrackerHost(new URL(currentTarget).hostname)) {
+        clearTimeout(timer)
+        return new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } })
+      }
       const cookieStr = cookiesForHost(jar, new URL(currentTarget).hostname)
       const hopRes = await fetch(currentTarget, {
         method,
@@ -340,7 +346,7 @@ async function handle(req) {
           if (diag) return Response.json({ ok: false, reason: nv.reason, viaRedirect: true }, { status: 403, headers: { 'cache-control': 'no-store' } })
           return errorPage(next.href, 'blocked', lang)
         }
-        currentTarget = nv.url
+        currentTarget = stripTrackers(nv.url)
         if (hopRes.status === 301 || hopRes.status === 302 || hopRes.status === 303) {
           method = 'GET'
           body = undefined
