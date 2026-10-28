@@ -146,8 +146,17 @@ async function ingestToWiki(admin, { userMessage, assistantReply, userId }) {
 // v5.11: image messages SKIP Mistral — its pixtral/small vision tiers are
 // weak at person/celebrity identification. The legacy chain (lib/groq.js)
 // runs an image-aware provider order (qwen3.8-27b → Gemini → Mistral) instead.
+// v5.29: FORCED tool_choice requests SKIP Mistral too. The free-tier ladder's
+// head model (open-mistral-nemo, 12B) is unreliable at named-function
+// tool_choice — in production it repeatedly answered "Clone the repo …" with
+// prose and a fabricated "permission issue" instead of calling sandbox_git
+// (3/3 probes), even with the call forced. The legacy chain's head
+// (SiliconFlow → gpt-oss-120b) reliably honors forced calls — image, weather,
+// QR and deploy forcing have worked through it for months — so intent-locked
+// requests go straight there.
 async function aiChat(params) {
-  if (isMistralConfigured() && !messagesHaveImage(params.messages)) {
+  const forcedToolCall = params?.tool_choice && typeof params.tool_choice === 'object' && params.tool_choice?.type === 'function'
+  if (isMistralConfigured() && !forcedToolCall && !messagesHaveImage(params.messages)) {
     try {
       const m = await mistralChat({
         messages: params.messages,
@@ -173,7 +182,8 @@ async function aiChat(params) {
 // ENTIRE generation and emitted one giant delta — dead air, then a wall of
 // text. That's the "not seamless" bug.
 async function aiChatStream(params, { onDelta }) {
-  if (isMistralConfigured() && !messagesHaveImage(params.messages)) {
+  const forcedToolCall = params?.tool_choice && typeof params.tool_choice === 'object' && params.tool_choice?.type === 'function'
+  if (isMistralConfigured() && !forcedToolCall && !messagesHaveImage(params.messages)) {
     try {
       const m = await mistralChatStream({
         messages: params.messages,
@@ -1166,6 +1176,13 @@ async function processChat(req, body, _send, conn) {
       } else {
         // Normal path: second LLM call to synthesize tool results into a reply.
         // Streamed in SSE mode — this is the long generation for tool queries.
+        // v5.29 CRITICAL: NO tools in this pass. Sending `tools` with
+        // tool_choice:'none' made gpt-oss-120b on Groq hard-fail the entire
+        // request with 400 "Tool choice is none, but model called a tool"
+        // (the model sees tool results in context and wants to follow up).
+        // This 503'd the user AFTER the tools had already executed — the
+        // clone/save succeeded but the reply died. Synthesis is pure prose;
+        // stripping the definitions removes the failure mode at the source.
         const finalParams = {
           model,
           messages: [...apiMessages, ...toolMessages],
@@ -1173,8 +1190,6 @@ async function processChat(req, body, _send, conn) {
           ...(model === VISION_MODEL
             ? { reasoning_effort: 'none' }
             : { reasoning_effort: 'low' }), // fast post-tool synthesis
-          tools: relevantTools,
-          tool_choice: 'none'
         }
         const finalChat = send
           ? await aiChatComplete(finalParams, { onDelta: (v) => send({ type: 'delta', v }), stream: true })
@@ -1410,14 +1425,17 @@ async function processChat(req, body, _send, conn) {
     // Generic friendly error — never expose the underlying provider's HTML
     // error page (e.g. Cerebras's Cloudflare WAF 403 challenge page) or
     // provider-specific status codes. Detailed providerOutcomes stay server-
-    // side EXCEPT a sanitized copy (provider names + HTTP statuses only —
-    // no keys, no payloads) attached as `debug`, so vision-chain outages are
-    // diagnosable from a single production request.
+    // side EXCEPT a sanitized copy (provider names + HTTP statuses + short
+    // validation messages — no keys, no payloads) attached as `debug`, so
+    // outages are diagnosable from a single production request. v5.29: the
+    // error text matters — a bare 400 vs "tools_unsupported" are different
+    // bugs and the former hid the Groq misconfiguration for weeks.
     const debugOutcomes = Array.isArray(err?.providerOutcomes)
       ? err.providerOutcomes.map(o => ({
           provider: o.name,
           status: o.status,
           http_status: o.http_status,
+          error: String(o.error || '').replace(/sk-[A-Za-z0-9_-]+/g, '[redacted]').slice(0, 140) || undefined,
         }))
       : undefined
     return json({
