@@ -738,3 +738,27 @@ Forensics (Supabase session messages, live CF tail, sanitized 503 debug payloads
 Shipped: workspace tools into keywords+default set; clone/save-to-workspace intent forcing; forced-tool requests bypass Mistral; Mistral ladder prefers mistral-small-latest when tools present; VFS tarball clone runs FIRST in sandbox_git; synthesis strips tools; anti-fabrication + desktop-files-to-workspace rules; gemini 2.5 map; sanitized 503 error text. Commit d0a13a3.
 
 Verification: 40/40 router, 128/128 v5.28, 41/41 v5.27, 73/73 v5.26, 8/8 v5.23, 12/12+20/20 prod E2E; live clone loop 3× consecutive (chat → sandbox_git → VFS → file in tab → API-readable). Known-pre-existing: v5.20 1 fail; sambanova key needs replacement; gemini blocks CF egress region.
+
+## v5.30 / v5.30.1 (2026-10-28) — cookie-jar sign-in + UI unification + push removal
+
+User report: browser loaded some sites but not all and could not sign in anywhere; plus 6 UI tasks (terminal-style dropdowns, voice card, voice icon removal, tour upgrade, push UI removal).
+
+Root cause (sign-in): the proxy dropped every Set-Cookie and redirect:'follow' hid the login 302 that sets session cookies. Shipped: client-held cookie jar (SW v18 Cache-API keyed by `ks` → x-kv-jar header → per-hop capture in a manual 6-hop redirect loop → x-kv-cookies back), Origin header for CSRF, cache-poisoning guard (edge cache gated off whenever `ks` present — CF strips Set-Cookie on cache hits). Commit df91a19 + 5db8458. 16/16 live cookie E2E.
+
+UI: focus/pro/model dropdowns got an invented "DevTools terminal" style; voice settings now render the exact ComingSoonCard via the exported ComingSoonCard; text-bar voice icon removed; driver.js tour got size/motion upgrades; push-notification card removed from profile (backend kept).
+
+## v5.30.2 (2026-10-28) — faithful reference restore (user correction)
+
+User: the dropdowns should have looked like THE card the voice icon opened (ComingSoonCard), not a new terminal style; the tour must keep its original colors.
+
+- ChatClient focus/pro/model menus rebuilt as the literal ComingSoonCard: #111/#262626/16px/shadow-2xl card, centered red icon badge + bold white heading, rows as the popup's "Got it" button (#1a1a1a → #3a3a3a hover), selected row in the red-tinted tile treatment, #ef4444 checks. chat-dd-* + pulse keyframes deleted.
+- TourGuide TOUR_CSS now declares ZERO colors — geometry/motion only (bigger card via !important padding/max-width that v5.30 silently failed to apply); globals.css's original driver theme (#141414 card, #dc2626 buttons/links) owns every color again; new progress pill recolored #dc2626. Commit bc17419.
+
+## v5.30.3 (2026-10-28) — per-tab cookie profiles + page-aware AI actions + tracker wall
+
+- Per-tab cookie profiles: each browser tab carries its own `ks` (persisted in tab state; device-level id stays as legacy fallback) → isolated site sessions per tab; two tabs = two different signed-in users, zero bleed.
+- Page-aware AI actions: POST /api/browser/ask (SSRF wall via validateTarget, desktop UA fetch, extractArticle/extractTitle or link extraction, Mistral → groqChat fallback, featureUsage meter browser_ai 5 anon/15 free/day); BrowserApp sparkle in the 5-slot bottom bar opens an AI drawer (summarize / extract links / key facts / translate page) rendering markdown results; i18n 8 keys ×4 locales. Known limit: session-less fetch (jar not wired) — follow-up.
+- Tracker wall: core.mjs stripTrackers (utm_*/fbclid/gclid/… 30 params) + isTrackerHost (37 suffixes); proxy strips tracker params at entry and every redirect hop, returns 204 for pure analytics/ad beacons before any upstream fetch.
+- Fix during E2E: extractArticle returns {title, html, wordCount} — htmlToText was treating it as a string (live 500); now uses art.html when substantial.
+
+Verification: 125/125 browser core, 40/40 router, 24/24 tracker, i18n 1038×4; prod: cookie E2E 16/16, gtag via proxy → 204, httpbin redirect chain shows utm stripped origin-side, summarize + links tasks answered by mistral on kivora.pages.dev. Commits 00425b8 (+bc17419). Prod 031d9bd1.
