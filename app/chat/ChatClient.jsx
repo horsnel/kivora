@@ -3230,29 +3230,36 @@ export default function ChatClient() {
 
                       {focusDropdownOpen && (
                         <div className="chat-focus-dropdown">
-                          {/* v5.30.2 — the EXACT ComingSoonCard design: same card,
-                              same colors as the popup the voice icon opened */}
-                          <button type="button" className="chat-csc-x" onClick={() => setFocusDropdownOpen(false)} aria-label="Close">
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 2l10 10M12 2L2 12" /></svg>
-                          </button>
-                          <div className="chat-csc-badge">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" /></svg>
-                          </div>
-                          <div className="chat-csc-heading">{t('chat.dd.focus')}</div>
-                          {FOCUS_MODES.map(m => (
-                            <button
-                              key={m.id}
-                              onClick={() => { setFocusMode(m.id); setFocusDropdownOpen(false) }}
-                              className={`chat-focus-option ${m.id === focusMode ? 'chat-focus-option-active' : ''}`}
-                            >
-                              <span className="chat-focus-icon"><m.Icon size={14} /></span>
-                              <div className="chat-focus-text">
-                                <span className="chat-focus-label">{t(m.labelKey)}</span>
-                                <span className="chat-focus-desc">{t(m.descKey)}</span>
-                              </div>
-                              {m.id === focusMode && <IconCheck size={14} className="text-[#ef4444] shrink-0 ml-auto" />}
+                          {/* v5.30.4 — the EXACT Live Terminal card: same chrome +
+                              colors as the terminal on the Dev tools page */}
+                          <div className="chat-term-head">
+                            <div className="chat-term-head-l">
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00ff41" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="4 17 10 11 4 5" />
+                                <line x1="12" y1="19" x2="20" y2="19" />
+                              </svg>
+                              <span className="chat-term-title">{t('chat.dd.focus')}</span>
+                              <span className="chat-term-chip">{t(FOCUS_MODES.find(m => m.id === focusMode)?.labelKey || '')}</span>
+                            </div>
+                            <button type="button" className="chat-term-x" onClick={() => setFocusDropdownOpen(false)} aria-label="Close">
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                             </button>
-                          ))}
+                          </div>
+                          <div className="chat-term-body">
+                            {FOCUS_MODES.map(m => (
+                              <button
+                                key={m.id}
+                                onClick={() => { setFocusMode(m.id); setFocusDropdownOpen(false) }}
+                                className={`chat-focus-option ${m.id === focusMode ? 'chat-focus-option-active' : ''}`}
+                              >
+                                <span className="chat-term-prompt">{m.id === focusMode ? '$' : ''}</span>
+                                <span className="chat-term-rowtext">
+                                  <span className="chat-focus-label">{t(m.labelKey)}</span>
+                                  <span className="chat-focus-desc">{t(m.descKey)}</span>
+                                </span>
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -3302,43 +3309,51 @@ export default function ChatClient() {
 
                       {modelChipDropdownOpen && (
                         <div className="chat-model-dropdown">
-                          {/* v5.30.2 — the EXACT ComingSoonCard design: same card,
-                              same colors as the popup the voice icon opened */}
-                          <button type="button" className="chat-csc-x" onClick={() => setModelChipDropdownOpen(false)} aria-label="Close">
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 2l10 10M12 2L2 12" /></svg>
-                          </button>
-                          <div className="chat-csc-badge">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" /><path d="M2 12h20" /><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10A15 15 0 0 1 12 2z" /></svg>
-                          </div>
-                          <div className="chat-csc-heading">{t('chat.dd.model')}</div>
-                          {ALL_MODELS.map(m => (
-                            <button
-                              key={m.id}
-                              onClick={() => {
-                                if (!modelAllowed(m)) {
-                                  setShowUpgrade({ name: m.name })
-                                  setModelChipDropdownOpen(false)
-                                  return
-                                }
-                                setModel(m.id); setModelChipDropdownOpen(false)
-                              }}
-                              className={`chat-model-option ${m.id === model ? 'chat-model-option-active' : ''}`}
-                            >
-                              <div>
-                                <div className="chat-model-name flex items-center gap-1.5">
-                                  {m.name}
-                                  {m.pro && (
-                                    <span className="flex items-center gap-0.5 text-[8px] font-bold tracking-[0.5px] px-[4px] py-[1px] rounded-[3px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.15)]">
-                                      {!modelAllowed(m) && <IconLock size={8} />}
-                                      Pro
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="chat-model-tag">{m.tag}</div>
-                              </div>
-                              {m.id === model && <IconCheck size={14} className="text-[#ef4444] shrink-0" />}
+                          {/* v5.30.4 — the EXACT Live Terminal card: same chrome +
+                              colors as the terminal on the Dev tools page */}
+                          <div className="chat-term-head">
+                            <div className="chat-term-head-l">
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00ff41" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="4 17 10 11 4 5" />
+                                <line x1="12" y1="19" x2="20" y2="19" />
+                              </svg>
+                              <span className="chat-term-title">{t('chat.dd.model')}</span>
+                              <span className="chat-term-chip">{currentModel.short}</span>
+                            </div>
+                            <button type="button" className="chat-term-x" onClick={() => setModelChipDropdownOpen(false)} aria-label="Close">
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                             </button>
-                          ))}
+                          </div>
+                          <div className="chat-term-body">
+                            {ALL_MODELS.map(m => (
+                              <button
+                                key={m.id}
+                                onClick={() => {
+                                  if (!modelAllowed(m)) {
+                                    setShowUpgrade({ name: m.name })
+                                    setModelChipDropdownOpen(false)
+                                    return
+                                  }
+                                  setModel(m.id); setModelChipDropdownOpen(false)
+                                }}
+                                className={`chat-model-option ${m.id === model ? 'chat-model-option-active' : ''}`}
+                              >
+                                <span className="chat-term-prompt">{m.id === model ? '$' : ''}</span>
+                                <span className="chat-term-rowtext">
+                                  <span className="chat-model-name flex items-center gap-1.5">
+                                    {m.name}
+                                    {m.pro && (
+                                      <span className="flex items-center gap-0.5 text-[8px] font-bold tracking-[0.5px] px-[4px] py-[1px] rounded-[3px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.15)]">
+                                        {!modelAllowed(m) && <IconLock size={8} />}
+                                        Pro
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className="chat-model-tag">{m.tag}</span>
+                                </span>
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -3376,28 +3391,36 @@ export default function ChatClient() {
 
                       {proMode && proTypeDropdownOpen && (
                         <div className="chat-pro-dropdown">
-                          {/* v5.30.2 — the EXACT ComingSoonCard design: same card,
-                              same colors as the popup the voice icon opened */}
-                          <button type="button" className="chat-csc-x" onClick={() => setProTypeDropdownOpen(false)} aria-label="Close">
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 2l10 10M12 2L2 12" /></svg>
-                          </button>
-                          <div className="chat-csc-badge">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" /></svg>
-                          </div>
-                          <div className="chat-csc-heading">{t('chat.dd.pro')}</div>
-                          {PRO_MODES.map(m => (
-                            <button
-                              key={m.id}
-                              onClick={() => { setProModeType(m.id); setProTypeDropdownOpen(false) }}
-                              className={`chat-pro-option ${m.id === proModeType ? 'chat-pro-option-active' : ''}`}
-                            >
-                              <div className="chat-pro-text">
-                                <span className="chat-pro-option-label">{t(m.labelKey)}</span>
-                                <span className="chat-pro-option-desc">{t(m.descKey)}</span>
-                              </div>
-                              {m.id === proModeType && <IconCheck size={14} className="text-[#ef4444] shrink-0" />}
+                          {/* v5.30.4 — the EXACT Live Terminal card: same chrome +
+                              colors as the terminal on the Dev tools page */}
+                          <div className="chat-term-head">
+                            <div className="chat-term-head-l">
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00ff41" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="4 17 10 11 4 5" />
+                                <line x1="12" y1="19" x2="20" y2="19" />
+                              </svg>
+                              <span className="chat-term-title">{t('chat.dd.pro')}</span>
+                              <span className="chat-term-chip">{t(PRO_MODES.find(m => m.id === proModeType)?.labelKey || '')}</span>
+                            </div>
+                            <button type="button" className="chat-term-x" onClick={() => setProTypeDropdownOpen(false)} aria-label="Close">
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                             </button>
-                          ))}
+                          </div>
+                          <div className="chat-term-body">
+                            {PRO_MODES.map(m => (
+                              <button
+                                key={m.id}
+                                onClick={() => { setProModeType(m.id); setProTypeDropdownOpen(false) }}
+                                className={`chat-pro-option ${m.id === proModeType ? 'chat-pro-option-active' : ''}`}
+                              >
+                                <span className="chat-term-prompt">{m.id === proModeType ? '$' : ''}</span>
+                                <span className="chat-term-rowtext">
+                                  <span className="chat-pro-option-label">{t(m.labelKey)}</span>
+                                  <span className="chat-pro-option-desc">{t(m.descKey)}</span>
+                                </span>
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -3787,25 +3810,24 @@ export default function ChatClient() {
           line-height: 1;
         }
 
-        /* ── v5.30.2 — the EXACT ComingSoonCard design ─────────────
-           Same card + same colors as the popup the text-bar voice icon
-           used to open (components/ComingSoonPopup.jsx): #111 surface,
-           #262626 walls, 16px radius, centered red icon badge + bold
-           white heading, rows dressed as the popup's "Got it" button
-           (#1a1a1a, #262626 border, #3a3a3a hover) and the selected row
-           in the popup's red-tinted tile treatment with #ef4444 check.
-           One design language across popup, settings voice card and
-           these three menus — zero drift. */
+        /* ── v5.30.4 — the EXACT Live Terminal card ─────────────
+           Same card + same colors as the terminal that appears on the
+           Dev tools page (components/GlobalCodeRunner.jsx): #0d0d0d body,
+           #2a2a2a walls, 16px radius, #111/#222 header bar carrying the
+           green terminal glyph + mono uppercase label + status chip, and
+           rows dressed as terminal output lines (#d4d4d4 mono, white/4
+           hover, #00ff41 prompt marker on the selected line). Zero drift
+           from the reference card. */
 
         .chat-model-dropdown,
         .chat-focus-dropdown,
         .chat-pro-dropdown {
-          background: #111111;
-          border: 1px solid #262626;
+          background: #0d0d0d;
+          border: 1px solid #2a2a2a;
           border-radius: 16px;
-          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.55), 0 12px 28px -8px rgba(0,0,0,0.4);
+          box-shadow: 0 12px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.02);
           overflow: hidden;
-          padding: 14px 12px 12px;
+          padding: 0;
           max-width: calc(100vw - 32px);
         }
         .chat-model-dropdown {
@@ -3842,112 +3864,138 @@ export default function ChatClient() {
           from { opacity: 0; transform: translateY(7px) scale(0.97); }
           to { opacity: 1; transform: translateY(0) scale(1); }
         }
-        /* Popup card chrome — close ×, red icon badge, bold white heading */
-        .chat-csc-x {
-          position: absolute;
-          top: 10px;
-          right: 10px;
-          width: 26px;
-          height: 26px;
+        /* Terminal card chrome — green glyph + mono uppercase label +
+           status chip + rounded-lg close, straight off the Live Terminal */
+        .chat-term-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          height: 44px;
+          padding: 0 8px 0 16px;
+          background: #111111;
+          border-bottom: 1px solid #222222;
+          flex-shrink: 0;
+        }
+        .chat-term-head-l {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+        }
+        .chat-term-title {
+          font-family: var(--font-mono);
+          font-size: 12px;
+          color: #a3a3a3;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .chat-term-chip {
+          font-size: 10px;
+          font-weight: 500;
+          padding: 2px 8px;
+          border-radius: 999px;
+          color: #4ade80;
+          border: 1px solid rgba(74,222,128,0.27);
+          background: rgba(74,222,128,0.07);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 104px;
+          flex-shrink: 0;
+        }
+        .chat-term-x {
+          width: 28px;
+          height: 28px;
+          border-radius: 8px;
+          flex-shrink: 0;
           display: flex;
           align-items: center;
           justify-content: center;
-          border-radius: 8px;
           color: #737373;
           transition: color 0.15s, background 0.15s;
         }
-        .chat-csc-x:hover {
-          background: #1a1a1a;
+        .chat-term-x:hover {
           color: #ffffff;
+          background: #222222;
         }
-        .chat-csc-badge {
-          width: 40px;
-          height: 40px;
-          margin: 0 auto 10px;
-          background: rgba(69,10,10,0.3);
-          border: 1px solid rgba(127,29,29,0.3);
-          border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+        /* Terminal body — output lines, not pills */
+        .chat-term-body {
+          padding: 6px 0 8px;
         }
-        .chat-csc-heading {
-          text-align: center;
-          font-size: 15px;
+        .chat-term-prompt {
+          width: 16px;
+          flex-shrink: 0;
+          color: #00ff41;
           font-weight: 700;
-          color: #ffffff;
-          margin-bottom: 12px;
+          font-size: 12px;
+          line-height: 1.5;
+          font-family: var(--font-mono);
+          text-align: left;
         }
-        /* Rows — the popup's "Got it" button recipe, stacked */
+        .chat-term-rowtext {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+        }
+        /* Rows — terminal lines: mono #d4d4d4, white/4 hover, no borders */
         .chat-model-option,
         .chat-focus-option,
         .chat-pro-option {
           width: 100%;
           text-align: left;
-          padding: 9px 12px;
+          padding: 7px 14px 7px 12px;
           display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          margin-bottom: 8px;
-          border-radius: 12px;
-          border: 1px solid #262626;
-          background: #1a1a1a;
+          align-items: flex-start;
+          justify-content: flex-start;
+          gap: 8px;
+          border: 0;
+          border-radius: 0;
+          background: transparent;
           cursor: pointer;
-          font-family: inherit;
-          transition: background 0.15s, border-color 0.15s;
-        }
-        .chat-model-option:last-child,
-        .chat-focus-option:last-child,
-        .chat-pro-option:last-child {
-          margin-bottom: 0;
+          font-family: var(--font-mono);
+          transition: background 0.12s;
         }
         .chat-model-option:hover,
         .chat-focus-option:hover,
         .chat-pro-option:hover {
-          border-color: #3a3a3a;
+          background: rgba(255,255,255,0.04);
         }
-        /* Selected — the popup's red-tinted icon-tile treatment */
         .chat-model-option-active,
         .chat-model-option-active:hover,
         .chat-focus-option-active,
         .chat-focus-option-active:hover,
         .chat-pro-option-active,
         .chat-pro-option-active:hover {
-          background: rgba(69,10,10,0.3);
-          border-color: rgba(127,29,29,0.3);
+          background: rgba(255,255,255,0.05);
         }
         .chat-model-name {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 500;
-          color: #ffffff;
+          color: #d4d4d4;
+        }
+        .chat-model-option-active .chat-model-name,
+        .chat-focus-option-active .chat-focus-label,
+        .chat-pro-option-active .chat-pro-option-label {
+          color: #fafafa;
         }
         .chat-model-tag {
           font-size: 11px;
-          color: #a3a3a3;
+          color: #525252;
           margin-top: 1px;
         }
 
-        /* ── Focus mode rows (shared ComingSoonCard recipe above) ── */
-        .chat-focus-icon {
-          font-size: 16px;
-          width: 24px;
-          text-align: center;
-          flex-shrink: 0;
-        }
-        .chat-focus-text {
-          display: flex;
-          flex-direction: column;
-          min-width: 0;
-        }
+        /* ── Focus mode rows (shared Live Terminal recipe above) ── */
         .chat-focus-label {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 500;
-          color: #ffffff;
+          color: #d4d4d4;
         }
         .chat-focus-desc {
           font-size: 11px;
-          color: #a3a3a3;
+          color: #525252;
           margin-top: 1px;
         }
 
@@ -4005,20 +4053,15 @@ export default function ChatClient() {
           background-color: white;
         }
 
-        /* ── Pro mode rows (shared ComingSoonCard recipe above) ── */
-        .chat-pro-text {
-          display: flex;
-          flex-direction: column;
-          min-width: 0;
-        }
+        /* ── Pro mode rows (shared Live Terminal recipe above) ── */
         .chat-pro-option-label {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 500;
-          color: #ffffff;
+          color: #d4d4d4;
         }
         .chat-pro-option-desc {
           font-size: 11px;
-          color: #a3a3a3;
+          color: #525252;
           margin-top: 1px;
         }
 

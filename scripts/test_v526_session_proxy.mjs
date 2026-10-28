@@ -138,7 +138,7 @@ ok(!has(app, "initTabs[0] = { ...initTabs[0], mounted: true }"), 'old first-tab-
 ok(!/pending=\{pending\}/.test(app) || has(app, 'props pending') || has(app, '{ open, onClose, pending }'), 'BrowserApp still declares pending prop')
 ok(has(route, 'const EDGE_CACHE_BY_STATUS'), 'cache policy is a named constant')
 ok(has(route, "export const runtime = 'edge'"), 'edge runtime retained (n-o-p mandatory)')
-ok(has(route, "redirect: 'follow'"), 'redirect following retained')
+ok(has(route, "redirect: 'manual'"), 'redirect following retained (v5.30 manual cookie-capturing loop)')
 
 console.log(`\n${pass} passed, ${fail} failed`)
 if (fail) {

@@ -107,14 +107,39 @@ ok('mailto untouched', out.includes('href="mailto:a@b.c"'))
 ok('javascript untouched', out.includes('href="javascript:void(0)"'))
 ok('ssrf link left as-is (host blocked)', out.includes('href="https://127.0.0.1/x"'))
 ok('img untouched (base handles it)', out.includes('src="/img.png"'))
-ok('form action proxied', out.includes(`action="/api/browser/proxy?url=${encodeURIComponent('https://site.example/submit')}"`))
-ok('action-less form got proxy action', (out.match(/<form action="/g) || []).length === 2)
+// v5.30.4 — GET forms: a GET submission REPLACES the query string, so the
+// proxy target must ride as a hidden input (action is the bare proxy path)
+ok('GET form action is bare proxy path', /<form action="\/api\/browser\/proxy"[^>]*>/i.test(out))
+ok('GET form carries hidden url', out.includes(`<input type="hidden" name="url" value="${escAttr('https://site.example/submit')}">`))
+ok('GET form keeps its own method', /<form action="\/api\/browser\/proxy" method="get">/.test(out))
+// POST form: query survives the submission → action keeps url= (query-bearing)
+ok('POST form action keeps proxy url', out.includes(`action="/api/browser/proxy?url=${encodeURIComponent('https://site.example/page')}"`))
+ok('exactly 2 forms rewritten', (out.match(/<form\b/gi) || []).length === 2)
 // meta refresh
 out = rewriteHtml(`<meta http-equiv="refresh" content="0; url=/landing">`, TARGET, proxy)
 ok('meta refresh url proxied', out.includes(encodeURIComponent('https://site.example/landing')))
 out = rewriteHtml(`<html><head></head></html>`, 'https://x.example/a?b=1', proxy)
 ok('base escapes query', out.includes(`<base href="https://x.example/a?b=1">`))
 ok('escAttr escapes quotes', escAttr('a"b<c'), 'a&quot;b&lt;c')
+
+console.log('── rewriteHtml: desktop mode + formHidden carrier ──')
+out = rewriteHtml(
+  `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>D</title></head><body><form action="/search"><input name="q"></form></body></html>`,
+  TARGET,
+  proxy,
+  '',
+  {
+    desktop: true,
+    formHidden: (abs) => `<input type="hidden" name="url" value="${escAttr(abs)}"><input type="hidden" name="ks" value="tab1">`,
+  }
+)
+ok('site viewport dropped in desktop mode', !/width=device-width/.test(out))
+ok('desktop viewport injected', out.includes('<meta name="viewport" content="width=1280">'))
+ok('desktop GET form uses hidden carrier', out.includes('name="ks" value="tab1"'))
+ok('desktop GET form url hidden field', out.includes(`<input type="hidden" name="url" value="${escAttr('https://site.example/search')}">`))
+out = rewriteHtml(`<html><head><meta name="viewport" content="width=device-width"></head><body></body></html>`, TARGET, proxy)
+ok('mobile mode keeps site viewport', out.includes('width=device-width'))
+ok('mobile mode injects no viewport', !out.includes('width=1280'))
 
 console.log('── extractTitle ──')
 eq('title tag', extractTitle('<title>Hello &amp; World</title>'), 'Hello & World')

@@ -8,7 +8,6 @@ import ProvidersErrorBoundary from '@/components/ProvidersErrorBoundary'
 import PageContent from '@/components/PageContent'
 import { CurrencyProvider } from '@/components/CurrencyToggle'
 import { LanguageProvider } from '@/components/LanguageProvider'
-import TourGuide from '@/components/TourGuide'
 import FeedbackToast from '@/components/FeedbackToast'
 import GlobalCodeRunner from '@/components/GlobalCodeRunner'
 import BrowserProvider from '@/components/browser/BrowserProvider'
@@ -158,8 +157,6 @@ export default async function RootLayout({ children }) {
                 </div>
               </BrowserProvider>
             </CurrencyProvider>
-            {/* Guided tour — inside LanguageProvider so it can translate; auto-starts for new users on /dashboard, replayable from the sidebar */}
-            <TourGuide />
             {/* HUSH-style action feedback (copy toasts / export cards) — global, event-driven */}
             <FeedbackToast />
             {/* v5.16 — global Run-button terminal drawer: any code block on any

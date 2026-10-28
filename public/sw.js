@@ -30,6 +30,12 @@
 //   the `ks` browser-session id). The jar NEVER touches page JS: the
 //   response header is not CORS-safelisted, so the sandboxed iframe
 //   (opaque origin) cannot read it — only this worker can.
+// v19 (v5.30.4) — BROWSER SPEED: anonymous proxy HTML (no cookies for
+//   the target host in the jar, no Set-Cookie in the response) is cached
+//   PER DEVICE for 60s, so revisits and back/forward are instant while
+//   cookie-carrying pages still hit the network every time. Also: the
+//   jar cache name is now version-INDEPENDENT (kivora-jar-v1) so worker
+//   upgrades stop orphaning everyone's signed-in sessions.
 //
 //   1. /_next/static/*        → cache-first. These URLs are content-hashed
 //                               and served immutable (see public/_headers),
@@ -46,9 +52,14 @@
 // Every respondWith() path resolves to a concrete Response — this worker can
 // never crash by resolving undefined (the v8 failure mode).
 
-const VERSION = 'kivora-v18'
+const VERSION = 'kivora-v19'
 const STATIC_CACHE = `${VERSION}-static`
-const JAR_CACHE = `${VERSION}-jar`
+// v19 — version-INDEPENDENT: cookie jars must survive worker bumps
+// (previously every deploy silently signed the user out of every site).
+const JAR_CACHE = 'kivora-jar-v1'
+const PROXY_CACHE = `${VERSION}-proxy-html`
+const PROXY_HTML_TTL = 60 * 1000
+const PROXY_HTML_MAX = 80
 const PRECACHE = ['/offline.html']
 
 // ── v5.30 cookie jar storage (Cache API as a tiny KV) ──
@@ -118,7 +129,9 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
       const keys = await caches.keys()
-      await Promise.all(keys.filter((k) => k !== STATIC_CACHE && k !== JAR_CACHE).map((k) => caches.delete(k)))
+      // kivora-jar-* persists across versions (signed-in sessions survive
+      // deploys); everything else stale is purged.
+      await Promise.all(keys.filter((k) => k !== STATIC_CACHE && k !== JAR_CACHE && k !== PROXY_CACHE && !k.startsWith('kivora-jar-')).map((k) => caches.delete(k)))
       await self.clients.claim()
     })()
   )
@@ -151,6 +164,24 @@ self.addEventListener('fetch', (event) => {
             cookieHost = new URL(url.searchParams.get('url') || '').hostname.toLowerCase()
           } catch {}
           const cookieStr = sid ? kvCookiesForHost(jar, cookieHost) : ''
+          // ── v19 per-device HTML cache ── only truly anonymous GET pages
+          // (no cookies for this host, no jar-bearing POST, reload-busting
+          // &kb= keys the URL) — a cache hit can never serve someone's
+          // logged-in copy because cookie'd pages never enter the cache.
+          const cacheable =
+            req.method === 'GET' &&
+            !cookieStr &&
+            !url.searchParams.has('diag')
+          if (cacheable) {
+            try {
+              const hit = await caches.match(req)
+              if (hit) {
+                const at = Number(hit.headers.get('x-kv-cached-at') || 0)
+                if (at && Date.now() - at < PROXY_HTML_TTL) return hit
+                await caches.delete(req)
+              }
+            } catch {}
+          }
           const headers = new Headers(req.headers)
           headers.set('x-kv-sw', '1') // the proxy ignores jars without this
           if (cookieStr) headers.set('x-kv-jar', JSON.stringify(jar))
@@ -165,6 +196,31 @@ self.addEventListener('fetch', (event) => {
                 if (parsed && typeof parsed === 'object') await jarSave(sid, parsed)
               } catch {}
             }
+          }
+          // cache store: anonymous HTML with no Set-Cookie activity only
+          if (
+            cacheable &&
+            res.status === 200 &&
+            !res.headers.get('x-kv-cookies') &&
+            (res.headers.get('content-type') || '').includes('text/html')
+          ) {
+            try {
+              const buf = await res.clone().arrayBuffer()
+              const stamped = new Response(buf, {
+                status: res.status,
+                statusText: res.statusText,
+                headers: new Headers(res.headers),
+              })
+              stamped.headers.set('x-kv-cached-at', String(Date.now()))
+              const cache = await caches.open(PROXY_CACHE)
+              await cache.put(req, stamped)
+              const keys = await cache.keys()
+              if (keys.length > PROXY_HTML_MAX) {
+                for (const oldKey of keys.slice(0, keys.length - PROXY_HTML_MAX)) {
+                  await cache.delete(oldKey)
+                }
+              }
+            } catch {}
           }
           return res
         } catch {

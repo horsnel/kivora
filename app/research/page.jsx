@@ -604,7 +604,7 @@ function HistoryPill({ item, active, onLoad, onDelete, compact }) {
         onPointerLeave={clearPress}
         onPointerCancel={clearPress}
         onContextMenu={(e) => e.preventDefault()}
-        className={`flex items-center gap-1.5 bg-transparent border font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em] whitespace-nowrap shrink-0 select-none touch-pan-y rounded-full hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px ${compact ? 'text-[11px] max-w-[160px] px-3 py-1.5' : 'text-[12px] max-w-[180px] px-3.5 py-2'} ${
+        className={`flex items-center gap-1.5 bg-transparent border font-normal cursor-pointer transition-all duration-200 tracking-[-0.01em] whitespace-nowrap shrink-0 select-none rounded-full hover:bg-[#0f0f0f] hover:border-[#2a2a2a] hover:text-white hover:-translate-y-px ${compact ? 'text-[11px] max-w-[160px] px-3 py-1.5' : 'text-[12px] max-w-[180px] px-3.5 py-2'} ${
           active ? 'border-red-500/40 text-red-400' : 'border-[#1f1f1f] text-[#525252]'
         }`}
       >

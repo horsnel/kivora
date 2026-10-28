@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabasePublic } from '@/lib/supabase'
 import { authFetch } from '@/lib/authFetch'
-import { IconBookmark, IconChat, IconTrash, IconArrowRight, IconMail, IconClock, IconCode, IconBook, IconFlame, IconTarget, IconPlus, IconClose, IconCheck, IconSearch, IconStar, IconMoney, IconLightning, IconGlobe, IconBulb } from '@/components/Icons'
+import { IconBookmark, IconChat, IconTrash, IconArrowRight, IconMail, IconClock, IconCode, IconBook, IconFlame, IconTarget, IconPlus, IconClose, IconCheck, IconSearch, IconStar, IconMoney, IconLightning, IconGlobe } from '@/components/Icons'
 import { useTranslation } from '@/components/LanguageProvider'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import CreditPill from '@/components/CreditPill'
@@ -495,22 +495,12 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-[#0a0a0a]">
       <InstallPrompt />
       <div className="max-w-5xl mx-auto px-4 py-10">
-        {/* Header — title left, Replay tour at the far opposite end */}
+        {/* Header — title + account email */}
         <div className="flex items-center justify-between gap-3 mb-8 animate-fade-up">
           <div>
             <h1 className="font-semibold text-headline tracking-tight">{t('dashboard.title')}</h1>
             <p className="text-muted text-caption">{user?.email}</p>
           </div>
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent('kivora:start-tour'))}
-            title={t('tour.replay')}
-            aria-label={t('tour.replay')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-[#525252] hover:text-white hover:bg-[#141414] transition-colors shrink-0"
-          >
-            <IconBulb size={14} />
-            {t('tour.replay')}
-          </button>
         </div>
 
         {/* Stats — credits tile (CreditPill) sits alongside the counters */}

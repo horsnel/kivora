@@ -62,7 +62,7 @@
 //
 // The jar rides in headers (never in the URL) and stays on the user's
 // device — the proxy itself remains 100% stateless.
-import { validateTarget, createStreamingRewriter, rewriteHtml, parseJar, serializeJar, cookiesForHost, mergeSetCookies, stripTrackers, isTrackerHost } from '@/lib/browser/core.mjs'
+import { validateTarget, createStreamingRewriter, rewriteHtml, parseJar, serializeJar, cookiesForHost, mergeSetCookies, stripTrackers, isTrackerHost, escAttr } from '@/lib/browser/core.mjs'
 import { AGENT_TAG } from '@/lib/browser/devtools-agent.mjs'
 
 export const runtime = 'edge'
@@ -72,7 +72,7 @@ const MOBILE_UA =
 const DESKTOP_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
 
-const FETCH_TIMEOUT = 15000
+const FETCH_TIMEOUT = 20000 // v5.30.4: 15s timed out on slow origins mid-redirect-chain
 const HTML_EDGE_TTL = 60 // seconds at Cloudflare's edge (fresh enough for news, fast enough to feel instant)
 const HTML_BROWSER_TTL = 120 // browser HTTP cache for rewritten HTML (reload busts via &kb=)
 const ASSET_BROWSER_TTL = 6 * 3600 // binaries through the proxy are stable per-URL
@@ -403,17 +403,50 @@ async function handle(req) {
   const isHtml = ct.includes('text/html') || ct.includes('application/xhtml')
   // v5.30 — the session id rides inside every rewritten navigation URL so
   // the SW can keep attaching the jar as the user browses the site.
-  const buildHref = (abs) => `/api/browser/proxy?url=${encodeURIComponent(abs)}${ks ? `&ks=${ks}` : ''}`
+  // v5.30.4 — desktop mode also rides along: without this, the FIRST page
+  // loaded by the parent gets the desktop UA but every link tapped inside
+  // the iframe silently fell back to mobile (desktop mode "not working").
+  const buildHref = (abs) => `/api/browser/proxy?url=${encodeURIComponent(abs)}${desktop ? '&ua=desktop' : ''}${ks ? `&ks=${ks}` : ''}`
+  // GET forms submit to the BARE proxy path (a GET submission replaces the
+  // whole query) — the target/session ride as hidden inputs instead.
+  const formHidden = (abs) =>
+    `<input type="hidden" name="url" value="${escAttr(abs)}">${ks ? `<input type="hidden" name="ks" value="${escAttr(ks)}">` : ''}${desktop ? '<input type="hidden" name="ua" value="desktop">' : ''}`
   if (isHtml && res.body) {
     const enc = new TextEncoder()
-    const dec = new TextDecoder(charsetOf(ct))
-    const rewriter = createStreamingRewriter(finalUrl, buildHref, AGENT_TAG)
+    // v5.30.4 — charset honesty: the header usually declares utf-8, but
+    // plenty of sites declare the real charset only in a <meta> tag.
+    // Sniff the first chunk (decoded per header) for a meta charset; if it
+    // names something else we re-decode EVERYTHING with the right decoder.
+    const headerCharset = charsetOf(ct).toLowerCase()
+    let dec = new TextDecoder(headerCharset)
+    let charsetSettled = headerCharset !== 'utf-8' // non-utf8 headers are trusted as-is
+    const rewriter = createStreamingRewriter(finalUrl, buildHref, AGENT_TAG, { desktop, formHidden })
 
     const stream = new TransformStream({
       transform(chunk, ctrl) {
-        // bytes → string (streaming decoder keeps multi-byte chars intact
-        // across chunk borders) → rewrite → bytes
-        const out = rewriter.push(dec.decode(chunk, { stream: true }))
+        let text
+        if (!charsetSettled) {
+          charsetSettled = true
+          const utf8 = dec.decode(chunk, { stream: true })
+          const m = /<meta[^>]+charset\s*=\s*["']?([\w-]+)/i.exec(utf8.slice(0, 2048))
+          const metaCharset = m ? m[1].toLowerCase() : ''
+          if (metaCharset && metaCharset !== 'utf-8' && metaCharset !== 'utf8') {
+            try {
+              dec = new TextDecoder(metaCharset)
+              text = dec.decode(chunk, { stream: true })
+            } catch {
+              dec = new TextDecoder(headerCharset)
+              text = utf8
+            }
+          } else {
+            text = utf8
+          }
+        } else {
+          // bytes → string (streaming decoder keeps multi-byte chars intact
+          // across chunk borders) → rewrite → bytes
+          text = dec.decode(chunk, { stream: true })
+        }
+        const out = rewriter.push(text)
         if (out) ctrl.enqueue(enc.encode(out))
       },
       flush(ctrl) {
