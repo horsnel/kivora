@@ -722,3 +722,19 @@ Stage Summary:
 - 127 + 20 + 41 + 73 + 8 = 269 greens this round (1 pre-existing v5.20 failure, verified not ours)
 - Deploy-critical lesson for every future wrangler-direct deploy: source scripts/build_env.sh BEFORE npx next-on-pages (not just npm run build) AND rm -rf .next when NEXT_PUBLIC values change
 - Suggested next: workspace file listing inside sandbox_git result cards, clone progress events, or pinned repos in the Workspace panel
+
+## v5.29 (2026-10-28) — tool router + provider chain fixes
+
+User report: AI said "permission issue" cloning a repo, file tab stayed empty, and Electron/C++ project requests got code dumps as chat text.
+
+Forensics (Supabase session messages, live CF tail, sanitized 503 debug payloads):
+- Session "Clone a gaming repo" + Electron session had ZERO tool calls — model never invoked anything; failures were fabricated.
+- filterToolsByQuery matched no category for those queries → default set had no workspace tools → sandbox_git/sandbox_file unreachable.
+- Forced tool_choice went to Mistral free-tier ladder head open-mistral-nemo (12B) — flaky at named-function forcing (3/3 prose in prod, tool call on preview).
+- Prod DOES have a Cloudflare Sandbox (KIVORA_SANDBOX_URL); its ephemeral `git clone` fails "Permission denied" (/workspace unwritable) and the handler RETURNED that instead of falling to the VFS tarball clone.
+- Synthesis pass sent tools + tool_choice:'none' → Groq gpt-oss-120b 400s "Tool choice is none, but model called a tool" AFTER tools had executed → user-visible 503.
+- Chain rot: sambanova key dead (401), gemini 2.0 retired (404), openrouter out of credits (402), cerebras WAF (403) — only SiliconFlow healthy.
+
+Shipped: workspace tools into keywords+default set; clone/save-to-workspace intent forcing; forced-tool requests bypass Mistral; Mistral ladder prefers mistral-small-latest when tools present; VFS tarball clone runs FIRST in sandbox_git; synthesis strips tools; anti-fabrication + desktop-files-to-workspace rules; gemini 2.5 map; sanitized 503 error text. Commit d0a13a3.
+
+Verification: 40/40 router, 128/128 v5.28, 41/41 v5.27, 73/73 v5.26, 8/8 v5.23, 12/12+20/20 prod E2E; live clone loop 3× consecutive (chat → sandbox_git → VFS → file in tab → API-readable). Known-pre-existing: v5.20 1 fail; sambanova key needs replacement; gemini blocks CF egress region.
