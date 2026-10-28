@@ -777,3 +777,14 @@ User (paraphrased): "look at how the terminal appears in the Dev tools page — 
 - Test hygiene: scripts/swc_check.mjs (real JSX syntax validation via Next's bundled SWC — node --check silently skips JSX); v526 stale 'redirect: follow' assertion updated to the v5.30 manual cookie-capturing loop; v528 i18n assertion now parity-based instead of a hardcoded count. Dead suites (ExportMenu/toolRegistry files removed long ago) documented as pre-existing.
 
 Verification: browser core 134/134 (new GET-form/desktop/formHidden coverage), v526 73/73, v528 127/127, v527 41/41 + 12/12 + 20/20, research stream 109/109, disconnect guard 15/15, gate 14/14, send button 21/21, v518 48/48, v523 8/8, vfs 42/42, grid 67/67; SWC pass on all touched JSX; prod: SW v19 + kivora-jar-v1 + proxy-html cache live, agent hook live (fetch/XHR/beacon rewrite confirmed in served HTML), Wikipedia GET form carries hidden url carrier, ua=desktop swaps viewport + serves vector skin, tracker wall still 204. Commit b621c2a, prod 5678a7b1.
+
+## v5.30.5 (2026-10-29) — the menus now APPEAR exactly like the terminal, not just look like it
+
+User: "Not the color, but the exact way the terminal card slides up when you hit run in the Dev tools page. Focus/pro/model menus should slide up too and be as large as the terminal card that slides."
+
+- Read GlobalCodeRunner.jsx end to end and extracted the entrance verbatim: wrapper `fixed inset-x-0 bottom-0 z-[9997] transition-transform duration-300 ease-out` with `translateY(110%) ⇄ translateY(0)` and pointer-events gated; card `max-w-4xl` (896px) with `mx-3 sm:mx-auto mb-3`, rounded-2xl, #2a2a2a border, upward shadow `0 -12px 48px rgba(0,0,0,0.6)`; body fixed 300px.
+- Rebuilt focus/pro/model as three latched bottom sheets mounted at overlay level (siblings of the upgrade modal — transform-free fixed territory): same wrapper, same card metrics, same 300px body with the terminal's thin #262626 scrollbar. GlobalCodeRunner's mount pattern replicated (latch on first open, then transform swaps play the slide both ways; first open appears instantly — same as the terminal's first run).
+- Old anchored popovers (absolute, 240/272px, 240ms pop keyframes chatDdUpC/R) fully removed; mobile media overrides for the popovers removed too (the sheet is responsive via mx-3 like the terminal).
+- Outside-click handlers now ignore clicks inside `.chat-sheet-wrap` (the sheet is no longer inside the trigger refs); bar collapse and pathname change explicitly close sheets (the old inline menus unmounted with the expanded bar — latched sheets needed the explicit close).
+
+Verification: SWC pass on ChatClient; i18n audit 0 missing (no key changes); browser core 134/134, v528 128/128, send button 21/21, gate 14/14, vfs 42/42, grid 67/67. Prod 5c739a14: chunk 7794 carries chat-sheet-wrap + translateY(110%), zero chatDdUp/chat-csc-badge orphans. Commit a0da187.
