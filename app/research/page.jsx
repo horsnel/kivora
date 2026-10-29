@@ -382,7 +382,7 @@ function VerificationGridBlock({ sources, report, supportCheck, statCheck }) {
             : <><path d="M12 8v4" /><path d="M12 16h.01" /></>}
         </svg>
         <span className="verification-summary-title">Verification</span>
-        <span className={`verification-badge verification-badge-${grid.verdict}`}>
+        <span className="verification-summary-badge">
           {grid.verdict === 'verified' ? '✓' : '⚠'} {verdict.label} · {grid.score}%
         </span>
         <span className="verification-summary-meta">{grid.verified} verified · {grid.counts.UNV || 0} unverified</span>
@@ -2947,6 +2947,18 @@ function ResearchPageContent() {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+        /* v5.30.8 — collapsed-row verdict pill mirrors the references sources pill */
+        .verification-summary-badge {
+          font-size: 10px;
+          font-weight: 500;
+          color: #a3a3a3;
+          padding: 2px 8px;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid rgba(255,255,255,0.08);
+          white-space: nowrap;
+          flex-shrink: 0;
         }
         .verification-popup {
           position: absolute;

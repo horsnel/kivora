@@ -813,3 +813,9 @@ Verification: SWC pass on ChatClient + dashboard page; i18n 624 static keys, 0 m
 - Recovery: extracted the real rotated key (iat 2026-06) from the last-known-good deployment's baked bundle (ca35a5d0 → app/layout chunk, the createClient fallback literal; lib/supabase.js prefers window.__KIVORA_ENV__ over it), validated via GoTrue health 200 + password-grant 400-invalid-creds (not 401), redeployed → SSR boot payload + layout chunk now carry the real key, fabricated key zero hits
 - Hardening: build-test.sh + dev-test.sh stale keys swapped to the rotated one (public-by-design, already baked in every prod bundle) so future env rebuilds can't be poisoned from the repo
 - Live verified: boot payload iat 1781259201, layout chunk baked key real, chat chunk 7794.1dd6f661… carries v5.30.7 terminal-clone markers (chat-sheet-wrap ×7, translateY(110%) ×3, #00ff41 ×4, zero HUSH/popover residue)
+
+## v5.30.8 — research verification pill matches the references sources pill
+- Collapsed Verification summary row: the verdict badge ("⚠ Weak · 0%") was a mono 5px-radius rounded rect (verification-badge-*) — user wanted a small pill matching the References row's "N sources" pill
+- New .verification-summary-badge = exact mirror of .references-summary-badge (10px/500 #a3a3a3, padding 2px 8px, radius 999px, white/5 bg, white/8 border, nowrap, shrink-0); applied to the collapsed row only — the expanded popup keeps the verdict-tinted badge
+- Test hygiene: test_research_citations had 2 stale assertions (meta-row Link button + setLinkCopied feedback — UI removed when share moved to the export menu) → rewritten to assert the current permalink-share-via-export-menu reality; suite back to 210/210
+- Regression: verification grid 67/67, citations 210/210, stream 109/109
