@@ -1,7 +1,7 @@
 #!/bin/bash
 cd /home/z/my-project/kivora
 export NEXT_PUBLIC_SUPABASE_URL=https://asfzdbpfakwpiawhhrby.supabase.co
-export NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzZnpkYnBmYWt3cGlhd2hocmJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI1MDQwMzMsImV4cCI6MjA1ODA4MDAzM30.fake
+export NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzZnpkYnBmYWt3cGlhd2hocmJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNTkyMDEsImV4cCI6MjA5NjgzNTIwMX0.o3URcLqseAz73ihycPk1byX_gK6Nz6GsrFqRP_u-Fr8
 export PORT=3456
 ./node_modules/.bin/next dev --port 3456 2>&1 &
 sleep 15

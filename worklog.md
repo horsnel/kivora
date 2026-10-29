@@ -806,3 +806,10 @@ Verification: SWC pass on ChatClient + dashboard page; i18n 624 static keys, 0 m
 - Back on the sheets: #00ff41 glyph + $ prompt, mono uppercase 12px #a3a3a3 titles, #111/#222 44px header, green selection chip, mono #d4d4d4 rows, #525252 descs — all via the shared chat-term-* classes; zero chat-sheet-* renamed-class residue
 - Kept: dashboard header email removal (dashboard/page.jsx untouched), slide-up mechanism/latch/896px/300px body (never changed in .6)
 - Regression 134 + 127 + 21 + 14 + 42 + 67 green; swc OK
+
+## v5.30.7 hotfix — prod login restored (deploy baked a bad Supabase anon key)
+- Root cause: sandbox reset wiped kivora-deploy.env; rebuild attempt #1 used a from-memory anon key (fabricated signature — auth/v1 → 401 Invalid API key) so v5.30.7's first prod build inlined a dead key into both the chunk fallback and the SSR window.__KIVORA_ENV__ boot payload → nobody could log in
+- Attempt #2 with build-test.sh's committed key ALSO failed: that key is stale (pre-rotation, iat 2025-03) — a landmine waiting in two test scripts
+- Recovery: extracted the real rotated key (iat 2026-06) from the last-known-good deployment's baked bundle (ca35a5d0 → app/layout chunk, the createClient fallback literal; lib/supabase.js prefers window.__KIVORA_ENV__ over it), validated via GoTrue health 200 + password-grant 400-invalid-creds (not 401), redeployed → SSR boot payload + layout chunk now carry the real key, fabricated key zero hits
+- Hardening: build-test.sh + dev-test.sh stale keys swapped to the rotated one (public-by-design, already baked in every prod bundle) so future env rebuilds can't be poisoned from the repo
+- Live verified: boot payload iat 1781259201, layout chunk baked key real, chat chunk 7794.1dd6f661… carries v5.30.7 terminal-clone markers (chat-sheet-wrap ×7, translateY(110%) ×3, #00ff41 ×4, zero HUSH/popover residue)
