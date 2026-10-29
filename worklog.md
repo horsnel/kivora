@@ -788,3 +788,14 @@ User: "Not the color, but the exact way the terminal card slides up when you hit
 - Outside-click handlers now ignore clicks inside `.chat-sheet-wrap` (the sheet is no longer inside the trigger refs); bar collapse and pathname change explicitly close sheets (the old inline menus unmounted with the expanded bar — latched sheets needed the explicit close).
 
 Verification: SWC pass on ChatClient; i18n audit 0 missing (no key changes); browser core 134/134, v528 128/128, send button 21/21, gate 14/14, vfs 42/42, grid 67/67. Prod 5c739a14: chunk 7794 carries chat-sheet-wrap + translateY(110%), zero chatDdUp/chat-csc-badge orphans. Commit a0da187.
+
+## v5.30.6 (2026-10-29) — the sheets lose the terminal colours; dashboard email removed
+
+User: "They all still have the terminal page colours" + "Remove the email address on the header at the dashboard page".
+
+- The Live Terminal was only ever the reference for card FORMAT and ENTRANCE, not palette. Stripped every terminal dressing from the three sheets: green #00ff41 glyph, $ prompt markers, mono font, uppercase title, green status chip all deleted; chat-term-* renamed chat-sheet-* (39 refs). New skin is the app's own hush-pop card language: #141414 body, #2a2a2a walls, white/6 header divider, normal-case 13px/600 #e2e2e2 title, neutral white/6 selection pill, UI-font rows #e2e2e2 with #737373 descs, white/4 hover, and the HUSH #FF3366 accent on the selected row (rgba(255,51,102,0.08) row wash). Slide-up entrance, size and latch untouched from v5.30.5.
+- Dashboard header: the account-email subtitle under the title removed (user?.email render deleted; user still used elsewhere; IconMail untouched — admin tab + empty state).
+
+Note: sandbox had reset mid-session (repo rolled back to v5.23.1 snapshot, deploy env file wiped) — recovered via git fetch + hard reset to pushed origin/main (5ea46ee), npm install, env file recreated from known credentials.
+
+Verification: SWC pass on ChatClient + dashboard page; i18n 624 static keys, 0 missing; browser core 134/134, v528 127/127, send button 21/21, gate 14/14, vfs 42/42, grid 67/67. Prod ca35a5d0: live chunk 7794.8d3a571db606f00e carries chat-sheet-wrap + chat-sheet-head + FF3366 with zero chat-term-/00ff41 refs; shipped dashboard chunk no longer contains the user.email render. Commit 2b8a9a5.
