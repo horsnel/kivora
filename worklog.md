@@ -799,3 +799,10 @@ User: "They all still have the terminal page colours" + "Remove the email addres
 Note: sandbox had reset mid-session (repo rolled back to v5.23.1 snapshot, deploy env file wiped) — recovered via git fetch + hard reset to pushed origin/main (5ea46ee), npm install, env file recreated from known credentials.
 
 Verification: SWC pass on ChatClient + dashboard page; i18n 624 static keys, 0 missing; browser core 134/134, v528 127/127, send button 21/21, gate 14/14, vfs 42/42, grid 67/67. Prod ca35a5d0: live chunk 7794.8d3a571db606f00e carries chat-sheet-wrap + chat-sheet-head + FF3366 with zero chat-term-/00ff41 refs; shipped dashboard chunk no longer contains the user.email render. Commit 2b8a9a5.
+
+## v5.30.7 — sheet palette decision reversed: the Live Terminal clone is the FULL clone
+- User ruling: the HUSH palette is strictly for the notifications card — the Focus/Pro/Model sheets should be "exactly what was described" in the Live Terminal walkthrough: mechanism AND format AND terminal palette
+- v5.30.6 HUSH reskin reversed on app/chat/ChatClient.jsx (git reverse-apply of the a0da187..2b8a9a5 ChatClient diff → file now byte-identical to v5.30.5; version tags bumped to v5.30.7)
+- Back on the sheets: #00ff41 glyph + $ prompt, mono uppercase 12px #a3a3a3 titles, #111/#222 44px header, green selection chip, mono #d4d4d4 rows, #525252 descs — all via the shared chat-term-* classes; zero chat-sheet-* renamed-class residue
+- Kept: dashboard header email removal (dashboard/page.jsx untouched), slide-up mechanism/latch/896px/300px body (never changed in .6)
+- Regression 134 + 127 + 21 + 14 + 42 + 67 green; swc OK
