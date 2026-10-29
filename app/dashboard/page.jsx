@@ -495,12 +495,9 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-[#0a0a0a]">
       <InstallPrompt />
       <div className="max-w-5xl mx-auto px-4 py-10">
-        {/* Header — title + account email */}
+        {/* Header */}
         <div className="flex items-center justify-between gap-3 mb-8 animate-fade-up">
-          <div>
-            <h1 className="font-semibold text-headline tracking-tight">{t('dashboard.title')}</h1>
-            <p className="text-muted text-caption">{user?.email}</p>
-          </div>
+          <h1 className="font-semibold text-headline tracking-tight">{t('dashboard.title')}</h1>
         </div>
 
         {/* Stats — credits tile (CreditPill) sits alongside the counters */}

@@ -3363,12 +3363,13 @@ export default function ChatClient() {
       {/* ── v5.30 — ComingSoonPopup removed with the text-bar voice icon:
               the exact same card now lives in Chat Settings → Voice ══ */}
 
-      {/* ═══ v5.30.5 — Focus / Pro / Model menus: bottom sheets that SLIDE UP
-          exactly like the Dev tools Live Terminal (components/GlobalCodeRunner.jsx):
+      {/* ═══ v5.30.6 — Focus / Pro / Model menus: bottom sheets that SLIDE UP
+          like the Dev tools Live Terminal (components/GlobalCodeRunner.jsx):
           fixed inset-x-0 bottom-0 wrapper, translateY(110%) → translateY(0) over
           300ms ease-out with pointer-events gated, max-w-4xl card with
           mx-3 sm:mx-auto mb-3, 300px body. Latched after first open so the
-          slide plays both ways — same mount pattern as the terminal. ═══ */}
+          slide plays both ways. Skin is the app's own HUSH theme — #141414
+          card, white/6 dividers, #FF3366 accent on the selected row. ═══ */}
       {focusSheetMounted && (
         <div
           className="chat-sheet-wrap"
@@ -3376,28 +3377,23 @@ export default function ChatClient() {
           aria-hidden={!focusDropdownOpen}
         >
           <div className="chat-focus-dropdown">
-            <div className="chat-term-head">
-              <div className="chat-term-head-l">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00ff41" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="4 17 10 11 4 5" />
-                  <line x1="12" y1="19" x2="20" y2="19" />
-                </svg>
-                <span className="chat-term-title">{t('chat.dd.focus')}</span>
-                <span className="chat-term-chip">{t(FOCUS_MODES.find(m => m.id === focusMode)?.labelKey || '')}</span>
+            <div className="chat-sheet-head">
+              <div className="chat-sheet-head-l">
+                <span className="chat-sheet-title">{t('chat.dd.focus')}</span>
+                <span className="chat-sheet-chip">{t(FOCUS_MODES.find(m => m.id === focusMode)?.labelKey || '')}</span>
               </div>
-              <button type="button" className="chat-term-x" onClick={() => setFocusDropdownOpen(false)} aria-label="Close">
+              <button type="button" className="chat-sheet-x" onClick={() => setFocusDropdownOpen(false)} aria-label="Close">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
             </div>
-            <div className="chat-term-body">
+            <div className="chat-sheet-body">
               {FOCUS_MODES.map(m => (
                 <button
                   key={m.id}
                   onClick={() => { setFocusMode(m.id); setFocusDropdownOpen(false) }}
                   className={`chat-focus-option ${m.id === focusMode ? 'chat-focus-option-active' : ''}`}
                 >
-                  <span className="chat-term-prompt">{m.id === focusMode ? '$' : ''}</span>
-                  <span className="chat-term-rowtext">
+                  <span className="chat-sheet-rowtext">
                     <span className="chat-focus-label">{t(m.labelKey)}</span>
                     <span className="chat-focus-desc">{t(m.descKey)}</span>
                   </span>
@@ -3415,20 +3411,16 @@ export default function ChatClient() {
           aria-hidden={!modelChipDropdownOpen}
         >
           <div className="chat-model-dropdown">
-            <div className="chat-term-head">
-              <div className="chat-term-head-l">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00ff41" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="4 17 10 11 4 5" />
-                  <line x1="12" y1="19" x2="20" y2="19" />
-                </svg>
-                <span className="chat-term-title">{t('chat.dd.model')}</span>
-                <span className="chat-term-chip">{currentModel.short}</span>
+            <div className="chat-sheet-head">
+              <div className="chat-sheet-head-l">
+                <span className="chat-sheet-title">{t('chat.dd.model')}</span>
+                <span className="chat-sheet-chip">{currentModel.short}</span>
               </div>
-              <button type="button" className="chat-term-x" onClick={() => setModelChipDropdownOpen(false)} aria-label="Close">
+              <button type="button" className="chat-sheet-x" onClick={() => setModelChipDropdownOpen(false)} aria-label="Close">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
             </div>
-            <div className="chat-term-body">
+            <div className="chat-sheet-body">
               {ALL_MODELS.map(m => (
                 <button
                   key={m.id}
@@ -3442,8 +3434,7 @@ export default function ChatClient() {
                   }}
                   className={`chat-model-option ${m.id === model ? 'chat-model-option-active' : ''}`}
                 >
-                  <span className="chat-term-prompt">{m.id === model ? '$' : ''}</span>
-                  <span className="chat-term-rowtext">
+                  <span className="chat-sheet-rowtext">
                     <span className="chat-model-name flex items-center gap-1.5">
                       {m.name}
                       {m.pro && (
@@ -3469,28 +3460,23 @@ export default function ChatClient() {
           aria-hidden={!proTypeDropdownOpen}
         >
           <div className="chat-pro-dropdown">
-            <div className="chat-term-head">
-              <div className="chat-term-head-l">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00ff41" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="4 17 10 11 4 5" />
-                  <line x1="12" y1="19" x2="20" y2="19" />
-                </svg>
-                <span className="chat-term-title">{t('chat.dd.pro')}</span>
-                <span className="chat-term-chip">{t(PRO_MODES.find(m => m.id === proModeType)?.labelKey || '')}</span>
+            <div className="chat-sheet-head">
+              <div className="chat-sheet-head-l">
+                <span className="chat-sheet-title">{t('chat.dd.pro')}</span>
+                <span className="chat-sheet-chip">{t(PRO_MODES.find(m => m.id === proModeType)?.labelKey || '')}</span>
               </div>
-              <button type="button" className="chat-term-x" onClick={() => setProTypeDropdownOpen(false)} aria-label="Close">
+              <button type="button" className="chat-sheet-x" onClick={() => setProTypeDropdownOpen(false)} aria-label="Close">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
             </div>
-            <div className="chat-term-body">
+            <div className="chat-sheet-body">
               {PRO_MODES.map(m => (
                 <button
                   key={m.id}
                   onClick={() => { setProModeType(m.id); setProTypeDropdownOpen(false) }}
                   className={`chat-pro-option ${m.id === proModeType ? 'chat-pro-option-active' : ''}`}
                 >
-                  <span className="chat-term-prompt">{m.id === proModeType ? '$' : ''}</span>
-                  <span className="chat-term-rowtext">
+                  <span className="chat-sheet-rowtext">
                     <span className="chat-pro-option-label">{t(m.labelKey)}</span>
                     <span className="chat-pro-option-desc">{t(m.descKey)}</span>
                   </span>
@@ -3851,18 +3837,16 @@ export default function ChatClient() {
           line-height: 1;
         }
 
-        /* ── v5.30.5 — menus SLIDE UP like the Dev tools Live Terminal ──
-           Same entrance as components/GlobalCodeRunner.jsx: a fixed
-           inset-x-0 bottom-0 wrapper (z-[9997], translateY(110%) ⇄
-           translateY(0), transition-transform 300ms ease-out, pointer-
-           events gated) carrying the same card: max-w-4xl (896px),
-           mx-3 sm:mx-auto mb-3, rounded-2xl, #0d0d0d body, #2a2a2a walls,
-           upward shadow 0 -12px 48px, 300px body with the terminal's thin
-           #262626 scrollbar. Header + row chrome below is unchanged from
-           the Live Terminal copy: #111/#222 header bar with the green
-           terminal glyph + mono uppercase label + status chip, rows as
-           terminal output lines (#d4d4d4 mono, white/4 hover, #00ff41
-           prompt marker on the selected line). Zero drift. */
+        /* ── v5.30.6 — slide-up sheets, HUSH skin ──
+           Entrance + size still exactly the Dev tools Live Terminal
+           (components/GlobalCodeRunner.jsx): fixed inset-x-0 bottom-0
+           wrapper, translateY(110%) ⇄ translateY(0) @ 300ms ease-out,
+           pointer-events gated, max-w-4xl (896px) card with
+           mx-3 sm:mx-auto mb-3, rounded-2xl, 300px body. The SKIN is the
+           app's own (hush-pop card language): #141414 body, #2a2a2a walls,
+           white/6 divider header, #e2e2e2 rows in the UI font — no mono,
+           no uppercase, no green, no $ prompts. Selected rows wear the
+           #FF3366 accent. */
 
         .chat-sheet-wrap {
           position: fixed;
@@ -3880,7 +3864,7 @@ export default function ChatClient() {
           width: auto;
           max-width: 896px;
           margin: 0 12px 12px;
-          background: #0d0d0d;
+          background: #141414;
           border: 1px solid #2a2a2a;
           border-radius: 16px;
           box-shadow: 0 -12px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.02);
@@ -3894,49 +3878,47 @@ export default function ChatClient() {
             margin-inline: auto;
           }
         }
-        /* Terminal card chrome — green glyph + mono uppercase label +
-           status chip + rounded-lg close, straight off the Live Terminal */
-        .chat-term-head {
+        /* Sheet header — app drawer bar: card bg, white/6 divider,
+           normal-case title, neutral selection pill, app close button */
+        .chat-sheet-head {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          height: 44px;
+          height: 48px;
           padding: 0 8px 0 16px;
-          background: #111111;
-          border-bottom: 1px solid #222222;
+          background: transparent;
+          border-bottom: 1px solid rgba(255,255,255,0.06);
           flex-shrink: 0;
         }
-        .chat-term-head-l {
+        .chat-sheet-head-l {
           display: flex;
           align-items: center;
           gap: 10px;
           min-width: 0;
         }
-        .chat-term-title {
-          font-family: var(--font-mono);
-          font-size: 12px;
-          color: #a3a3a3;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
+        .chat-sheet-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: #e2e2e2;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
-        .chat-term-chip {
-          font-size: 10px;
+        .chat-sheet-chip {
+          font-size: 11px;
           font-weight: 500;
-          padding: 2px 8px;
+          padding: 2px 9px;
           border-radius: 999px;
-          color: #4ade80;
-          border: 1px solid rgba(74,222,128,0.27);
-          background: rgba(74,222,128,0.07);
+          color: #a3a3a3;
+          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.06);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          max-width: 104px;
+          max-width: 128px;
           flex-shrink: 0;
         }
-        .chat-term-x {
+        .chat-sheet-x {
           width: 28px;
           height: 28px;
           border-radius: 8px;
@@ -3947,42 +3929,33 @@ export default function ChatClient() {
           color: #737373;
           transition: color 0.15s, background 0.15s;
         }
-        .chat-term-x:hover {
+        .chat-sheet-x:hover {
           color: #ffffff;
           background: #222222;
         }
         /* Terminal body — the same 300px stage as the Live Terminal; rows
            flow from the top, thin #262626 scrollbar when a list overflows */
-        .chat-term-body {
+        .chat-sheet-body {
           height: 300px;
           overflow-y: auto;
           padding: 6px 0 8px;
         }
-        .chat-term-body::-webkit-scrollbar { width: 3px; }
-        .chat-term-body::-webkit-scrollbar-thumb { background: #262626; border-radius: 2px; }
-        .chat-term-body::-webkit-scrollbar-track { background: transparent; }
-        .chat-term-prompt {
-          width: 16px;
-          flex-shrink: 0;
-          color: #00ff41;
-          font-weight: 700;
-          font-size: 12px;
-          line-height: 1.5;
-          font-family: var(--font-mono);
-          text-align: left;
-        }
-        .chat-term-rowtext {
+        .chat-sheet-body::-webkit-scrollbar { width: 3px; }
+        .chat-sheet-body::-webkit-scrollbar-thumb { background: #262626; border-radius: 2px; }
+        .chat-sheet-body::-webkit-scrollbar-track { background: transparent; }
+        .chat-sheet-rowtext {
           display: flex;
           flex-direction: column;
           min-width: 0;
         }
-        /* Rows — terminal lines: mono #d4d4d4, white/4 hover, no borders */
+        /* Rows — app menu rows: UI font, #e2e2e2 text, white/5 hover,
+           #FF3366 accent on the selected row */
         .chat-model-option,
         .chat-focus-option,
         .chat-pro-option {
           width: 100%;
           text-align: left;
-          padding: 7px 14px 7px 12px;
+          padding: 10px 16px;
           display: flex;
           align-items: flex-start;
           justify-content: flex-start;
@@ -3991,7 +3964,6 @@ export default function ChatClient() {
           border-radius: 0;
           background: transparent;
           cursor: pointer;
-          font-family: var(--font-mono);
           transition: background 0.12s;
         }
         .chat-model-option:hover,
@@ -4005,33 +3977,33 @@ export default function ChatClient() {
         .chat-focus-option-active:hover,
         .chat-pro-option-active,
         .chat-pro-option-active:hover {
-          background: rgba(255,255,255,0.05);
+          background: rgba(255,51,102,0.08);
         }
         .chat-model-name {
-          font-size: 12px;
+          font-size: 13px;
           font-weight: 500;
-          color: #d4d4d4;
+          color: #e2e2e2;
         }
         .chat-model-option-active .chat-model-name,
         .chat-focus-option-active .chat-focus-label,
         .chat-pro-option-active .chat-pro-option-label {
-          color: #fafafa;
+          color: #FF3366;
         }
         .chat-model-tag {
           font-size: 11px;
-          color: #525252;
+          color: #737373;
           margin-top: 1px;
         }
 
-        /* ── Focus mode rows (shared Live Terminal recipe above) ── */
+        /* ── Focus mode rows (shared sheet recipe above) ── */
         .chat-focus-label {
-          font-size: 12px;
+          font-size: 13px;
           font-weight: 500;
-          color: #d4d4d4;
+          color: #e2e2e2;
         }
         .chat-focus-desc {
           font-size: 11px;
-          color: #525252;
+          color: #737373;
           margin-top: 1px;
         }
 
@@ -4089,15 +4061,15 @@ export default function ChatClient() {
           background-color: white;
         }
 
-        /* ── Pro mode rows (shared Live Terminal recipe above) ── */
+        /* ── Pro mode rows (shared sheet recipe above) ── */
         .chat-pro-option-label {
-          font-size: 12px;
+          font-size: 13px;
           font-weight: 500;
-          color: #d4d4d4;
+          color: #e2e2e2;
         }
         .chat-pro-option-desc {
           font-size: 11px;
-          color: #525252;
+          color: #737373;
           margin-top: 1px;
         }
 
