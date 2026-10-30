@@ -1,5 +1,6 @@
 export const runtime = 'edge' 
 import { groq, MODEL, groqChat, GroqError, getPrimaryClientAsync, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
+import { SUGGESTIONS_TAIL } from '@/lib/suggestions'
 import { mistralChat, mistralChatStream, MistralError, setMistralApiKeys } from '@/lib/mistral'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit, getClientIP } from '@/lib/ratelimit'
@@ -248,7 +249,7 @@ export async function POST(req) {
       },
       {
         role: 'user',
-        content: promptFn(payload || {})
+        content: promptFn(payload || {}) + SUGGESTIONS_TAIL
       }
     ]
 

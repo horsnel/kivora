@@ -2509,7 +2509,7 @@ function ResearchPageContent() {
         }
         .chat-toolbar-btn-active:hover {
           background-color: rgba(220, 38, 38, 0.18) !important;
-          color: #f87171 !important;
+          color: #fb923c !important;
         }
 
         .chat-submit-btn {
@@ -2663,7 +2663,7 @@ function ResearchPageContent() {
            brackets. Hover brightens them so users know they're interactive. */
         .citation-number,
         .report-body sup.citation-number {
-          color: #f87171;
+          color: #fb923c;
           font-size: 0.72em;
           font-weight: 600;
           cursor: pointer;
@@ -2697,7 +2697,7 @@ function ResearchPageContent() {
           transition: border-color 0.15s, transform 0.15s, background 0.15s;
         }
         .cite-chip:hover {
-          border-color: #f87171;
+          border-color: #fb923c;
           background: #1f1414;
           transform: translateY(-1px);
         }
@@ -2720,9 +2720,9 @@ function ResearchPageContent() {
         }
         .cite-dot-verified { background: #34d399; }
         .cite-dot-review { background: #fbbf24; }
-        .cite-dot-unverified { background: #f87171; }
+        .cite-dot-unverified { background: #fb923c; }
         .cite-fallback {
-          color: #f87171;
+          color: #fb923c;
           font-size: 0.72em;
           font-weight: 600;
           padding: 0 1px;
@@ -2877,7 +2877,7 @@ function ResearchPageContent() {
           font-family: ui-monospace, monospace;
           font-size: 9px;
           font-weight: 600;
-          color: #f87171;
+          color: #fb923c;
           flex-shrink: 0;
           min-width: 22px;
         }
@@ -3029,9 +3029,9 @@ function ResearchPageContent() {
         }
         .verification-badge-weak,
         .verification-badge-none {
-          color: #f87171;
-          background: rgba(248, 113, 113, 0.08);
-          border: 1px solid rgba(248, 113, 113, 0.25);
+          color: #fb923c;
+          background: rgba(251, 146, 60, 0.08);
+          border: 1px solid rgba(251, 146, 60, 0.25);
         }
         .verification-bar {
           display: flex;
@@ -3054,7 +3054,7 @@ function ResearchPageContent() {
         .verification-count { font-weight: 600; }
         .verification-count-ok { color: #34d399; }
         .verification-count-warn { color: #fbbf24; }
-        .verification-count-bad { color: #f87171; }
+        .verification-count-bad { color: #fb923c; }
         .verification-count-quiet { color: #525252; font-size: 10px; }
         .verification-sep { color: #2a2a2a; }
         .verification-desc {
@@ -3115,9 +3115,9 @@ function ResearchPageContent() {
           border: 1px solid rgba(251, 191, 36, 0.2);
         }
         .verification-flag-chip-unverified {
-          color: #f87171;
-          background: rgba(248, 113, 113, 0.08);
-          border: 1px solid rgba(248, 113, 113, 0.2);
+          color: #fb923c;
+          background: rgba(251, 146, 60, 0.08);
+          border: 1px solid rgba(251, 146, 60, 0.2);
         }
         .verification-flag-more { font-size: 10px; color: #525252; }
         .verification-footer {
@@ -3135,7 +3135,7 @@ function ResearchPageContent() {
         .report-content ul { margin-bottom: 0.75rem; padding-left: 0.25rem; }
         .report-content li { font-size: 0.875rem; color: #a0a0a0; line-height: 1.7; padding-left: 0.25rem; }
         .report-content strong { color: #fff; font-weight: 600; }
-        .report-content a { color: #f87171; text-decoration: underline; text-underline-offset: 2px; }
+        .report-content a { color: #fb923c; text-decoration: underline; text-underline-offset: 2px; }
         .report-content hr { border-color: #1a1a1a; margin: 1rem 0; }
 
         /* ─── Report body (cardless, Claude-style) ─── */
@@ -3186,7 +3186,7 @@ function ResearchPageContent() {
         .report-body ol { margin-bottom: 1rem; padding-left: 1.25rem; }
         .report-body li { font-size: 0.95rem; color: #c8c8c8; line-height: 1.7; padding-left: 0.25rem; margin-bottom: 0.4rem; }
         .report-body strong { color: #e8e8e8; font-weight: 600; }
-        .report-body a { color: #f87171; text-decoration: underline; text-underline-offset: 2px; }
+        .report-body a { color: #fb923c; text-decoration: underline; text-underline-offset: 2px; }
         .report-body a:hover { color: #fca5a5; }
         /* Dashed separator — subtle dash line between sections. */
         .report-body hr {

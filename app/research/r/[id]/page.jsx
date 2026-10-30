@@ -106,7 +106,7 @@ function PermalinkView() {
                 </svg>
                 Verification
               </h2>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${grid.verdict === 'verified' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : grid.verdict === 'mixed' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' : 'bg-red-500/10 text-red-400 border border-red-500/30'}`}>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${grid.verdict === 'verified' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : grid.verdict === 'mixed' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' : 'bg-orange-500/10 text-orange-400 border border-orange-500/30'}`}>
                 {grid.verdict === 'verified' ? '✓' : '⚠'} {verdict.label} · {grid.score}%
               </span>
             </div>
@@ -115,7 +115,7 @@ function PermalinkView() {
               <span className="text-[#404040]">·</span>
               <span className="text-amber-400">{grid.counts.P3 || 0} community</span>
               <span className="text-[#404040]">·</span>
-              <span className="text-red-400">{grid.counts.UNV || 0} unverified</span>
+              <span className="text-orange-400">{grid.counts.UNV || 0} unverified</span>
               <span className="text-[#404040]">·</span>
               <span className="text-[#525252]">{grid.citedCount} of {grid.totalSources} sources cited</span>
             </div>
@@ -127,7 +127,7 @@ function PermalinkView() {
                 </div>
                 {(supportCheck.items || []).slice(0, 5).map((it, i) => (
                   <div key={i} className="flex items-start gap-2 mt-2 text-[11px]">
-                    <span className={`px-1.5 py-0.5 rounded font-medium shrink-0 ${it.verdict === 'repaired' ? 'bg-emerald-500/10 text-emerald-400' : it.verdict === 'partial' ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'}`}>
+                    <span className={`px-1.5 py-0.5 rounded font-medium shrink-0 ${it.verdict === 'repaired' ? 'bg-emerald-500/10 text-emerald-400' : it.verdict === 'partial' ? 'bg-amber-500/10 text-amber-400' : 'bg-orange-500/10 text-orange-400'}`}>
                       {it.verdict === 'repaired' ? `✓ repaired → [${it.source}]` : it.verdict === 'partial' ? '⚠ partial' : '✗ unsupported'}
                     </span>
                     <span className="text-[#a0a0a0] min-w-0">{(it.claim || '').replace(/\s+/g, ' ').slice(0, 120)}</span>
@@ -145,7 +145,7 @@ function PermalinkView() {
                 </div>
                 {(statCheck.items || []).slice(0, 5).map((it, i) => (
                   <div key={i} className="flex items-start gap-2 mt-2 text-[11px]">
-                    <span className={`px-1.5 py-0.5 rounded font-medium shrink-0 ${it.action === 'repaired' ? 'bg-emerald-500/10 text-emerald-400' : it.action === 'rewritten' ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'}`}>
+                    <span className={`px-1.5 py-0.5 rounded font-medium shrink-0 ${it.action === 'repaired' ? 'bg-emerald-500/10 text-emerald-400' : it.action === 'rewritten' ? 'bg-amber-500/10 text-amber-400' : 'bg-orange-500/10 text-orange-400'}`}>
                       {it.action === 'repaired' ? '✓ repaired' : it.action === 'rewritten' ? '⚠ hedged' : '✗ removed'}
                     </span>
                     <span className="text-[#a0a0a0] min-w-0">{(it.sentence || '').replace(/\s+/g, ' ').slice(0, 120)}</span>

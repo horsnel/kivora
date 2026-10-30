@@ -11,6 +11,7 @@ import { useSessionTracker } from '@/lib/useSessionTracker'
 import { streamSSE, createDeltaFlusher } from '@/lib/sseClient'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
+import { splitSuggestions } from '@/lib/suggestions'
 import { authFetch } from '@/lib/authFetch'
 import OutputMenu from '@/components/OutputMenu'
 import UpgradeCard from '@/components/UpgradeCard'
@@ -294,6 +295,36 @@ export default function DevToolsClient() {
     return result
   }
 
+  // ── v5.30.9 follow-up suggestion pills ────────────────────────────
+  // The model ends every tool answer with a <!--SUGGESTIONS block (see
+  // lib/suggestions.js); splitSuggestions strips it from the visible output
+  // and we render the lines as pills that refill the tool's primary input
+  // and auto-run. Primary input field per tool mirrors validate().
+  const PRIMARY_FIELD = {
+    code_explainer: 'code', code_reviewer: 'reviewCode', regex: 'description',
+    sql_builder: 'sqlDesc', terminal: 'terminalCmd', git_helper: 'gitCmd',
+    regex_tester: 'regexPattern', json_formatter: 'json', csv_analyser: 'csvData',
+    data_to_schema: 'schemaDesc', api_analyzer: 'endpoint', env_checker: 'envContent',
+    jwt_decoder: 'jwtToken', base64: 'base64Input', readme: 'info',
+    email_writer: 'emailContext', text_improver: 'textInput', translator: 'translateText',
+    summariser: 'summariseText', pitch_writer: 'pitchProduct', job_desc: 'jobTitle',
+    sop_writer: 'sopProcess', cold_email: 'coldTarget', diff_checker: 'diffOriginal',
+    math_solver: 'mathEquation', api_tester: 'apiTesterUrl',
+  }
+  const [pendingRun, setPendingRun] = useState(false)
+  useEffect(() => {
+    if (!pendingRun) return
+    setPendingRun(false)
+    run()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingRun])
+  function runSuggestion(q) {
+    const field = PRIMARY_FIELD[active]
+    if (!field || loading) return
+    setForm(prev => ({ ...prev, [field]: q }))
+    setPendingRun(true) // run() reads form from the render AFTER the refill
+  }
+
   async function run() {
     if (!validate()) return
     // End previous session if exists
@@ -519,6 +550,10 @@ export default function DevToolsClient() {
       return '__ERROR__'
     }
   })()
+
+  // v5.30.9 — strip the <!--SUGGESTIONS tail from everything the user sees
+  // (render + copy/export) and expose the parsed follow-ups for the pills
+  const { body: visibleResult, suggestions: followUps } = splitSuggestions(result)
 
   return (
     <main className="min-h-screen bg-[#0a0a0a]">
@@ -1021,13 +1056,13 @@ export default function DevToolsClient() {
               {/* v5.10 — single 3-dot menu: Share / Copy / Export */}
               {result && (
                 <OutputMenu
-                  getText={() => stripMarkdown(result)}
+                  getText={() => stripMarkdown(visibleResult)}
                   copyLabel={t('common.copy')}
                   copiedLabel={t('feedback.copied')}
                   onCopied={handleDevCopied}
                   shareData={() => ({
                     title: t('devtools.output'),
-                    text: stripMarkdown(result),
+                    text: stripMarkdown(visibleResult),
                   })}
                   shareFallbackLabel={t('feedback.copied')}
                   shareLabel={t('menu.share')}
@@ -1043,7 +1078,25 @@ export default function DevToolsClient() {
             {gate
               ? <UpgradeCard gate={gate} onDismiss={() => setGate(null)} />
               : result
-              ? <MarkdownRenderer content={result} className="flex-1 min-h-0 overflow-auto hush-scroll overscroll-behavior-contain max-h-[min(600px,72dvh)]" />
+              ? (
+                <div className="flex flex-col flex-1 min-h-0">
+                  <MarkdownRenderer content={visibleResult} className="flex-1 min-h-0 overflow-auto hush-scroll overscroll-behavior-contain max-h-[min(600px,72dvh)]" />
+                  {followUps.length > 0 && (
+                    <div className="shrink-0 flex flex-wrap gap-2 pt-3">
+                      {followUps.map((q, i) => (
+                        <button
+                          key={i}
+                          onClick={() => runSuggestion(q)}
+                          disabled={loading}
+                          className="text-[11px] px-3 py-1.5 rounded-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.08)] text-[#a3a3a3] hover:text-white hover:bg-[rgba(255,255,255,0.09)] hover:border-[rgba(255,255,255,0.16)] transition-colors text-left disabled:opacity-50"
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
               : diffResult
               ? (
                 <div className="flex-1 min-h-0 overflow-auto hush-scroll overscroll-behavior-contain max-h-[min(600px,72dvh)]">

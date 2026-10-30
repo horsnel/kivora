@@ -8,6 +8,7 @@ import ThinkingState, { STAGE_CONFIGS } from '@/components/ThinkingState'
 import Select from '@/components/Select'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
+import { splitSuggestions } from '@/lib/suggestions'
 import { authFetch } from '@/lib/authFetch'
 import UpgradeCard from '@/components/UpgradeCard'
 import OutputMenu from '@/components/OutputMenu'
@@ -400,6 +401,35 @@ export default function ReelPenClient() {
     return true
   }
 
+  // ── v5.30.9 follow-up suggestion pills ────────────────────────────
+  // Primary input field per tool mirrors validate(); a pill refills it and
+  // auto-runs on the next render (pendingRun latch).
+  const PRIMARY_FIELD = {
+    lyrics_writer: 'lyricsTheme', artist_bio: 'artistName', epk_builder: 'epkArtistName',
+    press_release: 'pressTitle', marketing_plan: 'marketingAudience', social_kit: 'socialInfo',
+    beat_description: 'beatVibe', script_writer: 'sceneDesc', character_builder: 'charName',
+    plot_outline: 'plotPremise', pitch_deck: 'pitchLogline', synopsis_writer: 'synopsisOutline',
+    dialogue_polisher: 'dialogueRaw', review_responder: 'reviewText', casting_brief: 'castingCharacter',
+    contract_reviewer: 'contractText', royalty_estimator: 'royaltyPlays', budget_planner: 'budgetNotes',
+    distribution_strategy: 'distMarket', merch_ideas: 'merchProject',
+  }
+  const [pendingRun, setPendingRun] = useState(false)
+  useEffect(() => {
+    if (!pendingRun) return
+    setPendingRun(false)
+    run()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingRun])
+  function runSuggestion(q) {
+    const field = PRIMARY_FIELD[active]
+    if (!field || loading) return
+    setForm(prev => ({ ...prev, [field]: q }))
+    setPendingRun(true)
+  }
+
+  // v5.30.9 — strip the <!--SUGGESTIONS tail from what the user sees/exports
+  const { body: visibleResult, suggestions: followUps } = splitSuggestions(result)
+
   async function run() {
     if (!validate()) return
     if (sessionRef.current) { endSession(sessionRef.current); sessionRef.current = null }
@@ -469,7 +499,7 @@ export default function ReelPenClient() {
   async function exportReport(format) {
     if (!result) return
     const title = t(currentTool.labelKey) || active
-    const payload = { title, subtitle: 'ReelPen', body: result }
+    const payload = { title, subtitle: 'ReelPen', body: visibleResult }
     if (format === 'md') {
       const { exportReportAsMarkdown, buildReportFilename, downloadBlob } = await import('@/lib/fileExportClient')
       downloadBlob(exportReportAsMarkdown(payload), buildReportFilename(title, 'md'))
@@ -1065,7 +1095,23 @@ export default function ReelPenClient() {
             ) : gate ? (
               <UpgradeCard gate={gate} onDismiss={() => setGate(null)} />
             ) : result ? (
-              <MarkdownRenderer content={result} className="flex-1 min-h-0 overflow-auto hush-scroll overscroll-behavior-contain max-h-[min(600px,72dvh)]" />
+              <div className="flex flex-col flex-1 min-h-0">
+                <MarkdownRenderer content={visibleResult} className="flex-1 min-h-0 overflow-auto hush-scroll overscroll-behavior-contain max-h-[min(600px,72dvh)]" />
+                {followUps.length > 0 && (
+                  <div className="shrink-0 flex flex-wrap gap-2 pt-3">
+                    {followUps.map((q, i) => (
+                      <button
+                        key={i}
+                        onClick={() => runSuggestion(q)}
+                        disabled={loading}
+                        className="text-[11px] px-3 py-1.5 rounded-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.08)] text-[#a3a3a3] hover:text-white hover:bg-[rgba(255,255,255,0.09)] hover:border-[rgba(255,255,255,0.16)] transition-colors text-left disabled:opacity-50"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="flex-1 flex items-center justify-center">
                 {loading ? (
