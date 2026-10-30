@@ -297,10 +297,7 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
             onClick={onClose}
           >
             <UserAvatar user={user} size={24} />
-            <div className="min-w-0">
-              <p className="text-sm text-white font-medium truncate">{displayName}</p>
-              <p className="text-[10px] text-[#737373] truncate">{user.email}</p>
-            </div>
+            <p className="min-w-0 text-sm text-white font-medium truncate">{displayName}</p>
           </Link>
         ) : (
           <Link

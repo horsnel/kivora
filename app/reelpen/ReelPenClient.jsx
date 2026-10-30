@@ -8,7 +8,7 @@ import ThinkingState, { STAGE_CONFIGS } from '@/components/ThinkingState'
 import Select from '@/components/Select'
 import { useTranslation } from '@/components/LanguageProvider'
 import { stripMarkdown } from '@/lib/stripMarkdown'
-import { splitSuggestions } from '@/lib/suggestions'
+import { splitSuggestions, SUGGESTION_PILL_CLASS } from '@/lib/suggestions'
 import { authFetch } from '@/lib/authFetch'
 import UpgradeCard from '@/components/UpgradeCard'
 import OutputMenu from '@/components/OutputMenu'
@@ -1098,13 +1098,13 @@ export default function ReelPenClient() {
               <div className="flex flex-col flex-1 min-h-0">
                 <MarkdownRenderer content={visibleResult} className="flex-1 min-h-0 overflow-auto hush-scroll overscroll-behavior-contain max-h-[min(600px,72dvh)]" />
                 {followUps.length > 0 && (
-                  <div className="shrink-0 flex flex-wrap gap-2 pt-3">
+                  <div className="shrink-0 flex flex-wrap items-center gap-2 pt-3">
                     {followUps.map((q, i) => (
                       <button
                         key={i}
                         onClick={() => runSuggestion(q)}
                         disabled={loading}
-                        className="text-[11px] px-3 py-1.5 rounded-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.08)] text-[#a3a3a3] hover:text-white hover:bg-[rgba(255,255,255,0.09)] hover:border-[rgba(255,255,255,0.16)] transition-colors text-left disabled:opacity-50"
+                        className={SUGGESTION_PILL_CLASS}
                       >
                         {q}
                       </button>
