@@ -826,3 +826,18 @@ Verification: SWC pass on ChatClient + dashboard page; i18n 624 static keys, 0 m
 - Follow-up suggestion pills on DevTools / StudyDesk / ReelPen: lib/suggestions.js ships SUGGESTIONS_TAIL (appended to every tool prompt in the 3 API routes — model ends answers with a <!--SUGGESTIONS block: 3 ready-to-run ≤60-char inputs) + splitSuggestions() (strips complete/streaming block from output, never flashes the raw marker). Clients parse result → visibleResult (also used for copy/export), render pills under the output box; click refills the tool's primary input (PRIMARY_FIELD maps mirror validate()) and auto-runs via a pendingRun latch (run() reads form state one render later)
 - GOTCHA: the output-box class is the Tailwind arbitrary value max-h-[min(600px,72dvh)] — two rounds of string-match failures came from misreading it as max-h-in(600px,72dvh)]
 - Regression: 134 + 127 + 21 + 14 + 42 + 67 + 210 + 109 all green; swc/node --check clean on all touched files
+
+## v5.30.10 — sidebar email removed · unified suggestion pills · red inventory
+- Sidebar email removed (user ask): Navbar.jsx SidebarContent profile row now avatar + display name only (email <p> deleted; min-w-0 kept on the name for truncate). Shared by desktop sidebar + mobile overlay; email remains only as displayName fallback
+- Pill unification: SUGGESTION_PILL_CLASS exported from lib/suggestions.js (single source, explicit 11px/16px metrics + font-sans + nowrap/ellipsis, row items-center), imported by all 3 tool clients; SUGGESTIONS_TAIL spec tightened to 30–48 chars with similar lengths for even widths
+- Red inventory (user ask, report only): 35 distinct reds / 9 roles — #FF3366 HUSH accent (~134×), Tailwind danger ladder (~580×, --red vars), pink/rose accents, xterm/F44336/ff5f56 terminal reds, logo+PWA icon reds, Google/HTML5 brand reds, error-boundary maroons, 3D materials, mermaid vendor
+- INCIDENT: deploy pair (23b45893 complete → a08a555b canonical MISSING all app/* chunks — site couldn't hydrate). Fixed by --no-build redeploy (39679173). CF Pages double-deployment per run is systematic; ALWAYS verify canonical deployment's self-referenced chunks before signing off
+- Regression: 724 assertions green
+
+## v5.30.11 — Focus/Pro/Model sheets rebuilt as share-popup style bottom cards
+- User reference: share-popup HTML (drag handle, centered title, 3-col icon grid, bottom action bar). The three chat sheets rebuilt to that card language: chat-dd-card (#111, 500px max, flush bottom, rounded-t-24), chat-dd-handle, chat-dd-title, chat-dd-grid (3col), chat-dd-tile (60px r16, saturated per-option tint, white icon 26), chat-dd-label/sub (2-line clamp sub), chat-dd-tile-active (white double ring) + chat-dd-badge (green check), chat-dd-tile-locked + chat-dd-badge-lock (gated Pro models keep upgrade modal), chat-dd-actions (50px circles)
+- Tints: All #4a7fb5, Academic #a855f7, Writing #00C9A7, Math #facc15, Code #4ade80; reasoning #FF3366, prosearch #2AABEE; Nova 3 #10a37f, Nova 1.9 #38bdf8, Vision #615CED, R1 #4D6BFE. PRO_MODES gained Icon fields (IconBulb/IconGlobe); models gained Icon+IconRobot etc.
+- Action bars: Focus [Reset→All | Done], Model [Default→DEFAULT_MODEL | Done], Pro [Turn off→proMode(false) | Done]; i18n chat.dd.{done,reset,default,turnoff} ×4 locales (en/fr/sw/yo)
+- Slide-up mechanism untouched (chat-sheet-wrap latch, translateY(110%)⇄0, 300ms, z-9997); old chat-term-* sheet chrome fully removed (Live Terminal itself untouched)
+- Deploy pair note: second deployment (1d6b67e9) canonical is healthy (self-referenced app/* all 200); stale-HTML cross-build probes are a false-404 trap — always probe a page's OWN chunk refs
+- Regression: 725 assertions green (incl. v5.28 terminal 128), i18n audit 0 missing, swc OK
