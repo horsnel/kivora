@@ -1012,5 +1012,9 @@
   "vfs.count": "{n} files · {size}",
   "chat.dd.focus": "Focus",
   "chat.dd.model": "Model",
-  "chat.dd.pro": "Pro mode"
+  "chat.dd.pro": "Pro mode",
+  "chat.dd.done": "Done",
+  "chat.dd.reset": "Reset",
+  "chat.dd.default": "Default",
+  "chat.dd.turnoff": "Turn off"
 }

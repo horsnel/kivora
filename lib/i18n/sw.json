@@ -1012,5 +1012,9 @@
   "vfs.count": "faili {n} · {size}",
   "chat.dd.focus": "Focus",
   "chat.dd.model": "Modeli",
-  "chat.dd.pro": "Hali ya Pro"
+  "chat.dd.pro": "Hali ya Pro",
+  "chat.dd.done": "Sawa",
+  "chat.dd.reset": "Weka upya",
+  "chat.dd.default": "Chaguo-msingi",
+  "chat.dd.turnoff": "Zima"
 }

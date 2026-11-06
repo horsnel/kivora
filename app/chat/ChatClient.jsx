@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings, IconCopy as IconClipboard, IconWrite, IconFilter, IconRobot, IconTarget, IconDatabase, IconStack, IconSpeaker, IconArrowLeft, IconArrowRight, IconCube, IconLink } from '@/components/Icons'
+import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings, IconCopy as IconClipboard, IconWrite, IconFilter, IconRobot, IconTarget, IconDatabase, IconStack, IconSpeaker, IconArrowLeft, IconArrowRight, IconCube, IconLink, IconStar } from '@/components/Icons'
 import BackButton from '@/components/BackButton'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { usePlan } from '@/lib/usePlan'
@@ -34,15 +34,15 @@ const TerminalWorkspace = dynamic(() => import('@/components/chat/TerminalWorksp
 
 
 const MODELS = [
-  { id: 'openai/gpt-oss-120b', name: 'Nova 3', tag: 'Premium · Detailed', short: 'Nova 3', pro: false },
-  { id: 'openai/gpt-oss-20b', name: 'Nova 1.9', tag: 'Free · Fast', short: 'Nova 1.9', pro: false },
-  { id: 'qwen/qwen3.8-27b', name: 'Nova Vision', tag: 'Multimodal · 131K', short: 'Vision', pro: false },
+  { id: 'openai/gpt-oss-120b', name: 'Nova 3', tag: 'Premium · Detailed', short: 'Nova 3', pro: false, Icon: IconStack, tint: '#10a37f' },
+  { id: 'openai/gpt-oss-20b', name: 'Nova 1.9', tag: 'Free · Fast', short: 'Nova 1.9', pro: false, Icon: IconLightning, tint: '#38bdf8' },
+  { id: 'qwen/qwen3.8-27b', name: 'Nova Vision', tag: 'Multimodal · 131K', short: 'Vision', pro: false, Icon: IconCube, tint: '#615CED' },
 ]
 
 // Reasoning / specialty models — shown in the selectors with a Pro badge;
 // the API rejects them for non-Pro plans (server-side gate).
 const EXTRA_MODELS = [
-  { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1', tag: 'Reasoning · Pro', short: 'R1', pro: true },
+  { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1', tag: 'Reasoning · Pro', short: 'R1', pro: true, Icon: IconRobot, tint: '#4D6BFE' },
 ]
 
 const ALL_MODELS = [...MODELS, ...EXTRA_MODELS]
@@ -103,16 +103,16 @@ const MORPH_SHAPES = [
 ]
 
 const FOCUS_MODES = [
-  { id: 'All', labelKey: 'chat.focus.all', descKey: 'chat.focus.all.desc', Icon: IconSearch },
-  { id: 'Academic', labelKey: 'chat.focus.academic', descKey: 'chat.focus.academic.desc', Icon: IconBook },
-  { id: 'Writing', labelKey: 'chat.focus.writing', descKey: 'chat.focus.writing.desc', Icon: IconWrite },
-  { id: 'Math', labelKey: 'chat.focus.math', descKey: 'chat.focus.math.desc', Icon: IconTarget },
-  { id: 'Code', labelKey: 'chat.focus.code', descKey: 'chat.focus.code.desc', Icon: IconCode },
+  { id: 'All', labelKey: 'chat.focus.all', descKey: 'chat.focus.all.desc', Icon: IconSearch, tint: '#4a7fb5' },
+  { id: 'Academic', labelKey: 'chat.focus.academic', descKey: 'chat.focus.academic.desc', Icon: IconBook, tint: '#a855f7' },
+  { id: 'Writing', labelKey: 'chat.focus.writing', descKey: 'chat.focus.writing.desc', Icon: IconWrite, tint: '#00C9A7' },
+  { id: 'Math', labelKey: 'chat.focus.math', descKey: 'chat.focus.math.desc', Icon: IconTarget, tint: '#facc15' },
+  { id: 'Code', labelKey: 'chat.focus.code', descKey: 'chat.focus.code.desc', Icon: IconCode, tint: '#4ade80' },
 ]
 
 const PRO_MODES = [
-  { id: 'reasoning', labelKey: 'chat.focus.reasoning', descKey: 'chat.focus.reasoning.desc' },
-  { id: 'prosearch', labelKey: 'chat.focus.prosearch', descKey: 'chat.focus.prosearch.desc' },
+  { id: 'reasoning', labelKey: 'chat.focus.reasoning', descKey: 'chat.focus.reasoning.desc', Icon: IconBulb, tint: '#FF3366' },
+  { id: 'prosearch', labelKey: 'chat.focus.prosearch', descKey: 'chat.focus.prosearch.desc', Icon: IconGlobe, tint: '#2AABEE' },
 ]
 
 // ── Message normalization (crash defense) ──
@@ -3369,133 +3369,152 @@ export default function ChatClient() {
           300ms ease-out with pointer-events gated, max-w-4xl card with
           mx-3 sm:mx-auto mb-3, 300px body. Latched after first open so the
           slide plays both ways — same mount pattern as the terminal. ═══ */}
-      {focusSheetMounted && (
+{focusSheetMounted && (
         <div
           className="chat-sheet-wrap"
           style={{ transform: focusDropdownOpen ? 'translateY(0)' : 'translateY(110%)', pointerEvents: focusDropdownOpen ? 'auto' : 'none' }}
           aria-hidden={!focusDropdownOpen}
         >
-          <div className="chat-focus-dropdown">
-            <div className="chat-term-head">
-              <div className="chat-term-head-l">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00ff41" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="4 17 10 11 4 5" />
-                  <line x1="12" y1="19" x2="20" y2="19" />
-                </svg>
-                <span className="chat-term-title">{t('chat.dd.focus')}</span>
-                <span className="chat-term-chip">{t(FOCUS_MODES.find(m => m.id === focusMode)?.labelKey || '')}</span>
-              </div>
-              <button type="button" className="chat-term-x" onClick={() => setFocusDropdownOpen(false)} aria-label="Close">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-              </button>
+          <div className="chat-dd-card">
+            <div className="chat-dd-handle" />
+            <div className="chat-dd-title">{t('chat.dd.focus')}</div>
+            <div className="chat-dd-grid">
+              {FOCUS_MODES.map(m => {
+                const Icon = m.Icon
+                const active = m.id === focusMode
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => { setFocusMode(m.id); setFocusDropdownOpen(false) }}
+                    className="chat-dd-item"
+                  >
+                    <span className={`chat-dd-tile${active ? ' chat-dd-tile-active' : ''}`} style={{ background: m.tint }}>
+                      <Icon size={26} />
+                      {active && (
+                        <span className="chat-dd-badge">
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                        </span>
+                      )}
+                    </span>
+                    <span className={`chat-dd-label${active ? ' chat-dd-label-active' : ''}`}>{t(m.labelKey)}</span>
+                    <span className="chat-dd-sub">{t(m.descKey)}</span>
+                  </button>
+                )
+              })}
             </div>
-            <div className="chat-term-body">
-              {FOCUS_MODES.map(m => (
-                <button
-                  key={m.id}
-                  onClick={() => { setFocusMode(m.id); setFocusDropdownOpen(false) }}
-                  className={`chat-focus-option ${m.id === focusMode ? 'chat-focus-option-active' : ''}`}
-                >
-                  <span className="chat-term-prompt">{m.id === focusMode ? '$' : ''}</span>
-                  <span className="chat-term-rowtext">
-                    <span className="chat-focus-label">{t(m.labelKey)}</span>
-                    <span className="chat-focus-desc">{t(m.descKey)}</span>
-                  </span>
-                </button>
-              ))}
+            <div className="chat-dd-actions">
+              <button type="button" className="chat-dd-action" onClick={() => { setFocusMode('All'); setFocusDropdownOpen(false) }}>
+                <span className="chat-dd-action-circle"><IconSliders size={18} /></span>
+                <span className="chat-dd-action-label">{t('chat.dd.reset')}</span>
+              </button>
+              <button type="button" className="chat-dd-action" onClick={() => { setFocusDropdownOpen(false) }}>
+                <span className="chat-dd-action-circle"><IconCheck size={18} /></span>
+                <span className="chat-dd-action-label">{t('chat.dd.done')}</span>
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {user && modelSheetMounted && (
+{user && modelSheetMounted && (
         <div
           className="chat-sheet-wrap"
           style={{ transform: modelChipDropdownOpen ? 'translateY(0)' : 'translateY(110%)', pointerEvents: modelChipDropdownOpen ? 'auto' : 'none' }}
           aria-hidden={!modelChipDropdownOpen}
         >
-          <div className="chat-model-dropdown">
-            <div className="chat-term-head">
-              <div className="chat-term-head-l">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00ff41" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="4 17 10 11 4 5" />
-                  <line x1="12" y1="19" x2="20" y2="19" />
-                </svg>
-                <span className="chat-term-title">{t('chat.dd.model')}</span>
-                <span className="chat-term-chip">{currentModel.short}</span>
-              </div>
-              <button type="button" className="chat-term-x" onClick={() => setModelChipDropdownOpen(false)} aria-label="Close">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-              </button>
-            </div>
-            <div className="chat-term-body">
-              {ALL_MODELS.map(m => (
-                <button
-                  key={m.id}
-                  onClick={() => {
-                    if (!modelAllowed(m)) {
-                      setShowUpgrade({ name: m.name })
-                      setModelChipDropdownOpen(false)
-                      return
-                    }
-                    setModel(m.id); setModelChipDropdownOpen(false)
-                  }}
-                  className={`chat-model-option ${m.id === model ? 'chat-model-option-active' : ''}`}
-                >
-                  <span className="chat-term-prompt">{m.id === model ? '$' : ''}</span>
-                  <span className="chat-term-rowtext">
-                    <span className="chat-model-name flex items-center gap-1.5">
-                      {m.name}
-                      {m.pro && (
-                        <span className="flex items-center gap-0.5 text-[8px] font-bold tracking-[0.5px] px-[4px] py-[1px] rounded-[3px] uppercase text-[#4a7fb5] bg-[rgba(74,127,181,0.15)]">
-                          {!modelAllowed(m) && <IconLock size={8} />}
-                          Pro
+          <div className="chat-dd-card">
+            <div className="chat-dd-handle" />
+            <div className="chat-dd-title">{t('chat.dd.model')}</div>
+            <div className="chat-dd-grid">
+              {ALL_MODELS.map(m => {
+                const Icon = m.Icon
+                const active = m.id === model
+                const locked = m.pro && !modelAllowed(m)
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => {
+                      if (locked) {
+                        setShowUpgrade({ name: m.name })
+                        setModelChipDropdownOpen(false)
+                        return
+                      }
+                      setModel(m.id); setModelChipDropdownOpen(false)
+                    }}
+                    className="chat-dd-item"
+                  >
+                    <span className={`chat-dd-tile${active ? ' chat-dd-tile-active' : ''}${locked ? ' chat-dd-tile-locked' : ''}`} style={{ background: m.tint }}>
+                      <Icon size={26} />
+                      {locked ? (
+                        <span className="chat-dd-badge-lock"><IconLock size={9} /></span>
+                      ) : active ? (
+                        <span className="chat-dd-badge">
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                         </span>
-                      )}
+                      ) : null}
                     </span>
-                    <span className="chat-model-tag">{m.tag}</span>
-                  </span>
-                </button>
-              ))}
+                    <span className={`chat-dd-label${active ? ' chat-dd-label-active' : ''}`}>{m.name}</span>
+                    <span className="chat-dd-sub">{m.tag}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="chat-dd-actions">
+              <button type="button" className="chat-dd-action" onClick={() => { setModel(DEFAULT_MODEL); setModelChipDropdownOpen(false) }}>
+                <span className="chat-dd-action-circle"><IconStar size={18} /></span>
+                <span className="chat-dd-action-label">{t('chat.dd.default')}</span>
+              </button>
+              <button type="button" className="chat-dd-action" onClick={() => { setModelChipDropdownOpen(false) }}>
+                <span className="chat-dd-action-circle"><IconCheck size={18} /></span>
+                <span className="chat-dd-action-label">{t('chat.dd.done')}</span>
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {proSheetMounted && (
+{proSheetMounted && (
         <div
           className="chat-sheet-wrap"
           style={{ transform: proTypeDropdownOpen ? 'translateY(0)' : 'translateY(110%)', pointerEvents: proTypeDropdownOpen ? 'auto' : 'none' }}
           aria-hidden={!proTypeDropdownOpen}
         >
-          <div className="chat-pro-dropdown">
-            <div className="chat-term-head">
-              <div className="chat-term-head-l">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00ff41" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="4 17 10 11 4 5" />
-                  <line x1="12" y1="19" x2="20" y2="19" />
-                </svg>
-                <span className="chat-term-title">{t('chat.dd.pro')}</span>
-                <span className="chat-term-chip">{t(PRO_MODES.find(m => m.id === proModeType)?.labelKey || '')}</span>
-              </div>
-              <button type="button" className="chat-term-x" onClick={() => setProTypeDropdownOpen(false)} aria-label="Close">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-              </button>
+          <div className="chat-dd-card">
+            <div className="chat-dd-handle" />
+            <div className="chat-dd-title">{t('chat.dd.pro')}</div>
+            <div className="chat-dd-grid">
+              {PRO_MODES.map(m => {
+                const Icon = m.Icon
+                const active = m.id === proModeType
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => { setProModeType(m.id); setProTypeDropdownOpen(false) }}
+                    className="chat-dd-item"
+                  >
+                    <span className={`chat-dd-tile${active ? ' chat-dd-tile-active' : ''}`} style={{ background: m.tint }}>
+                      <Icon size={26} />
+                      {active && (
+                        <span className="chat-dd-badge">
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                        </span>
+                      )}
+                    </span>
+                    <span className={`chat-dd-label${active ? ' chat-dd-label-active' : ''}`}>{t(m.labelKey)}</span>
+                    <span className="chat-dd-sub">{t(m.descKey)}</span>
+                  </button>
+                )
+              })}
             </div>
-            <div className="chat-term-body">
-              {PRO_MODES.map(m => (
-                <button
-                  key={m.id}
-                  onClick={() => { setProModeType(m.id); setProTypeDropdownOpen(false) }}
-                  className={`chat-pro-option ${m.id === proModeType ? 'chat-pro-option-active' : ''}`}
-                >
-                  <span className="chat-term-prompt">{m.id === proModeType ? '$' : ''}</span>
-                  <span className="chat-term-rowtext">
-                    <span className="chat-pro-option-label">{t(m.labelKey)}</span>
-                    <span className="chat-pro-option-desc">{t(m.descKey)}</span>
-                  </span>
-                </button>
-              ))}
+            <div className="chat-dd-actions">
+              <button type="button" className="chat-dd-action" onClick={() => { setProMode(false); setProTypeDropdownOpen(false) }}>
+                <span className="chat-dd-action-circle"><IconClose size={18} /></span>
+                <span className="chat-dd-action-label">{t('chat.dd.turnoff')}</span>
+              </button>
+              <button type="button" className="chat-dd-action" onClick={() => { setProTypeDropdownOpen(false) }}>
+                <span className="chat-dd-action-circle"><IconCheck size={18} /></span>
+                <span className="chat-dd-action-label">{t('chat.dd.done')}</span>
+              </button>
             </div>
           </div>
         </div>
@@ -3851,18 +3870,16 @@ export default function ChatClient() {
           line-height: 1;
         }
 
-        /* ── v5.30.7 — menus SLIDE UP like the Dev tools Live Terminal ──
-           Same entrance as components/GlobalCodeRunner.jsx: a fixed
-           inset-x-0 bottom-0 wrapper (z-[9997], translateY(110%) ⇄
-           translateY(0), transition-transform 300ms ease-out, pointer-
-           events gated) carrying the same card: max-w-4xl (896px),
-           mx-3 sm:mx-auto mb-3, rounded-2xl, #0d0d0d body, #2a2a2a walls,
-           upward shadow 0 -12px 48px, 300px body with the terminal's thin
-           #262626 scrollbar. Header + row chrome below is unchanged from
-           the Live Terminal copy: #111/#222 header bar with the green
-           terminal glyph + mono uppercase label + status chip, rows as
-           terminal output lines (#d4d4d4 mono, white/4 hover, #00ff41
-           prompt marker on the selected line). Zero drift. */
+        /* ── v5.30.11 — menus SLIDE UP as share-popup style cards ──
+           Same entrance as before (components/GlobalCodeRunner.jsx mount
+           pattern: fixed inset-x-0 bottom-0 wrapper, z-[9997], translateY(110%)
+           ⇄ 0 over 300ms, pointer-events gated, latched after first open).
+           Card face rebuilt from the user-supplied share-popup reference:
+           drag handle, centered title, 3-col grid of saturated tint tiles
+           (60px, radius 16) with label + 2-line sub-label, white ring +
+           green check badge on the active tile, lock badge on gated Pro
+           models, bottom action bar with circular icon buttons. #111 card,
+           500px max, flush bottom, rounded top corners only. */
 
         .chat-sheet-wrap {
           position: fixed;
@@ -3873,167 +3890,154 @@ export default function ChatClient() {
           transition: transform 300ms cubic-bezier(0, 0, 0.2, 1);
         }
 
-        .chat-model-dropdown,
-        .chat-focus-dropdown,
-        .chat-pro-dropdown {
+        .chat-dd-card {
           position: static;
-          width: auto;
-          max-width: 896px;
-          margin: 0 12px 12px;
-          background: #0d0d0d;
-          border: 1px solid #2a2a2a;
-          border-radius: 16px;
-          box-shadow: 0 -12px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.02);
-          overflow: hidden;
-          padding: 0;
-        }
-        @media (min-width: 640px) {
-          .chat-model-dropdown,
-          .chat-focus-dropdown,
-          .chat-pro-dropdown {
-            margin-inline: auto;
-          }
-        }
-        /* Terminal card chrome — green glyph + mono uppercase label +
-           status chip + rounded-lg close, straight off the Live Terminal */
-        .chat-term-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          height: 44px;
-          padding: 0 8px 0 16px;
+          width: 100%;
+          max-width: 500px;
+          margin: 0 auto;
           background: #111111;
-          border-bottom: 1px solid #222222;
-          flex-shrink: 0;
+          border: 1px solid #262626;
+          border-bottom: 0;
+          border-radius: 24px 24px 0 0;
+          box-shadow: 0 -12px 48px rgba(0,0,0,0.6);
+          padding: 18px 20px 22px;
+          overflow: hidden;
         }
-        .chat-term-head-l {
+        .chat-dd-handle {
+          width: 40px;
+          height: 4px;
+          border-radius: 2px;
+          background: #2e2e2e;
+          margin: 0 auto 16px;
+        }
+        .chat-dd-title {
+          text-align: center;
+          font-size: 16px;
+          font-weight: 600;
+          color: #fafafa;
+          margin-bottom: 22px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .chat-dd-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 20px 16px;
+          margin-bottom: 22px;
+        }
+        .chat-dd-item {
           display: flex;
+          flex-direction: column;
           align-items: center;
-          gap: 10px;
+          background: none;
+          border: 0;
+          padding: 0;
+          cursor: pointer;
           min-width: 0;
+          font-family: inherit;
         }
-        .chat-term-title {
-          font-family: var(--font-mono);
-          font-size: 12px;
-          color: #a3a3a3;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .chat-term-chip {
-          font-size: 10px;
-          font-weight: 500;
-          padding: 2px 8px;
-          border-radius: 999px;
-          color: #4ade80;
-          border: 1px solid rgba(74,222,128,0.27);
-          background: rgba(74,222,128,0.07);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          max-width: 104px;
-          flex-shrink: 0;
-        }
-        .chat-term-x {
-          width: 28px;
-          height: 28px;
-          border-radius: 8px;
-          flex-shrink: 0;
+        .chat-dd-item:active { opacity: 0.7; }
+        .chat-dd-tile {
+          width: 60px;
+          height: 60px;
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #737373;
-          transition: color 0.15s, background 0.15s;
-        }
-        .chat-term-x:hover {
+          border-radius: 16px;
           color: #ffffff;
-          background: #222222;
-        }
-        /* Terminal body — the same 300px stage as the Live Terminal; rows
-           flow from the top, thin #262626 scrollbar when a list overflows */
-        .chat-term-body {
-          height: 300px;
-          overflow-y: auto;
-          padding: 6px 0 8px;
-        }
-        .chat-term-body::-webkit-scrollbar { width: 3px; }
-        .chat-term-body::-webkit-scrollbar-thumb { background: #262626; border-radius: 2px; }
-        .chat-term-body::-webkit-scrollbar-track { background: transparent; }
-        .chat-term-prompt {
-          width: 16px;
+          position: relative;
+          margin-bottom: 10px;
           flex-shrink: 0;
-          color: #00ff41;
-          font-weight: 700;
-          font-size: 12px;
-          line-height: 1.5;
-          font-family: var(--font-mono);
-          text-align: left;
+          transition: transform 0.15s ease-out;
         }
-        .chat-term-rowtext {
+        .chat-dd-item:hover .chat-dd-tile { transform: translateY(-2px); }
+        .chat-dd-tile-active {
+          box-shadow: 0 0 0 2px #111111, 0 0 0 4px rgba(255,255,255,0.65);
+        }
+        .chat-dd-tile-locked { opacity: 0.55; }
+        .chat-dd-badge {
+          position: absolute;
+          top: -5px;
+          right: -5px;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background: #4ade80;
+          color: #052e12;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 2px solid #111111;
+        }
+        .chat-dd-badge-lock {
+          position: absolute;
+          top: -5px;
+          right: -5px;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background: #1a1a1a;
+          color: #a3a3a3;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 2px solid #2a2a2a;
+        }
+        .chat-dd-label {
+          font-size: 13px;
+          color: #e5e5e5;
+          text-align: center;
+          line-height: 1.2;
+          max-width: 100%;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .chat-dd-label-active { color: #ffffff; font-weight: 600; }
+        .chat-dd-sub {
+          font-size: 10px;
+          color: #737373;
+          text-align: center;
+          line-height: 1.25;
+          margin-top: 2px;
+          max-width: 100%;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        .chat-dd-actions {
+          display: flex;
+          justify-content: center;
+          gap: 40px;
+          border-top: 1px solid #1f1f1f;
+          padding-top: 16px;
+        }
+        .chat-dd-action {
           display: flex;
           flex-direction: column;
-          min-width: 0;
-        }
-        /* Rows — terminal lines: mono #d4d4d4, white/4 hover, no borders */
-        .chat-model-option,
-        .chat-focus-option,
-        .chat-pro-option {
-          width: 100%;
-          text-align: left;
-          padding: 7px 14px 7px 12px;
-          display: flex;
-          align-items: flex-start;
-          justify-content: flex-start;
-          gap: 8px;
+          align-items: center;
+          background: none;
           border: 0;
-          border-radius: 0;
-          background: transparent;
+          padding: 0;
           cursor: pointer;
-          font-family: var(--font-mono);
-          transition: background 0.12s;
+          font-family: inherit;
         }
-        .chat-model-option:hover,
-        .chat-focus-option:hover,
-        .chat-pro-option:hover {
-          background: rgba(255,255,255,0.04);
+        .chat-dd-action-circle {
+          width: 50px;
+          height: 50px;
+          background: #1c1c1c;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 8px;
+          color: #e5e5e5;
+          transition: background 0.15s, color 0.15s;
         }
-        .chat-model-option-active,
-        .chat-model-option-active:hover,
-        .chat-focus-option-active,
-        .chat-focus-option-active:hover,
-        .chat-pro-option-active,
-        .chat-pro-option-active:hover {
-          background: rgba(255,255,255,0.05);
-        }
-        .chat-model-name {
-          font-size: 12px;
-          font-weight: 500;
-          color: #d4d4d4;
-        }
-        .chat-model-option-active .chat-model-name,
-        .chat-focus-option-active .chat-focus-label,
-        .chat-pro-option-active .chat-pro-option-label {
-          color: #fafafa;
-        }
-        .chat-model-tag {
-          font-size: 11px;
-          color: #525252;
-          margin-top: 1px;
-        }
-
-        /* ── Focus mode rows (shared Live Terminal recipe above) ── */
-        .chat-focus-label {
-          font-size: 12px;
-          font-weight: 500;
-          color: #d4d4d4;
-        }
-        .chat-focus-desc {
-          font-size: 11px;
-          color: #525252;
-          margin-top: 1px;
-        }
+        .chat-dd-action:hover .chat-dd-action-circle { background: #262626; color: #ffffff; }
+        .chat-dd-action-label { font-size: 13px; color: #a3a3a3; }
 
         /* ── Pro toggle ── */
         .chat-pro-toggle {
@@ -4087,18 +4091,6 @@ export default function ChatClient() {
         .chat-switch input:checked + .chat-slider:before {
           transform: translateX(16px);
           background-color: white;
-        }
-
-        /* ── Pro mode rows (shared Live Terminal recipe above) ── */
-        .chat-pro-option-label {
-          font-size: 12px;
-          font-weight: 500;
-          color: #d4d4d4;
-        }
-        .chat-pro-option-desc {
-          font-size: 11px;
-          color: #525252;
-          margin-top: 1px;
         }
 
         /* ── Submit button ── */

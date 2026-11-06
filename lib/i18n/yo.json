@@ -1012,5 +1012,9 @@
   "vfs.count": "fáìlì {n} · {size}",
   "chat.dd.focus": "Ìfókúsì",
   "chat.dd.model": "Modéèlù",
-  "chat.dd.pro": "Ọ̀nà Pro"
+  "chat.dd.pro": "Ọ̀nà Pro",
+  "chat.dd.done": "Ṣetán",
+  "chat.dd.reset": "Tún ṣe",
+  "chat.dd.default": "Ìbẹ̀rẹ̀",
+  "chat.dd.turnoff": "Pa á"
 }
