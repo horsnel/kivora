@@ -687,9 +687,17 @@ export default function ChatClient() {
   }, [barExpanded])
 
   // Auto-collapse bar on click outside (only when input is empty)
+  // v5.30.12 — taps inside any slide-up overlay (Focus/Pro/Model cards,
+  // Settings sheet, HUSH feedback cards) must NOT collapse the chat bar:
+  // the collapse unmounts the toolbar mid-tap, so the option button's click
+  // event never fires and the selection silently dies (the cards felt
+  // "not connected" to their actions). Same guard pattern as the three
+  // dropdown close handlers below.
   useEffect(() => {
     if (!barExpanded) return
     function handleClick(e) {
+      if (e.target instanceof Element && e.target.closest('.chat-sheet-wrap, .animate-slide-up')) return
+      if (showUpgrade || settingsOpen) return
       if (chatBarRef.current && !chatBarRef.current.contains(e.target)) {
         if (!input.trim() && !attachedFile) {
           setBarExpanded(false)
@@ -701,7 +709,7 @@ export default function ChatClient() {
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
-  }, [barExpanded, input, attachedFile])
+  }, [barExpanded, input, attachedFile, showUpgrade, settingsOpen])
 
   // Auto-expand bar when input is pre-filled (e.g. starter prompts)
   useEffect(() => {
@@ -2177,7 +2185,7 @@ export default function ChatClient() {
       )}
       <aside
         ref={historyRef}
-        className={`fixed lg:relative z-50 lg:z-auto top-0 left-0 h-full w-60 bg-[#0f0f0f] border-r border-[#181818] flex flex-col transition-transform duration-200 ${
+        className={`fixed lg:relative z-50 lg:z-auto top-0 left-0 h-full w-[88%] max-w-[400px] lg:w-60 lg:max-w-none bg-[#0f0f0f] border-r border-[#181818] flex flex-col transition-transform duration-200 ${
           historyOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
@@ -2196,12 +2204,6 @@ export default function ChatClient() {
                 Ki<span className="text-red-500">vora</span>
               </span>
             </Link>
-            <button
-              className="lg:hidden w-7 h-7 flex items-center justify-center text-[#525252] hover:text-white transition-colors"
-              onClick={() => setHistoryOpen(false)}
-            >
-              <IconClose size={20} />
-            </button>
           </div>
         </div>
 
@@ -2716,7 +2718,7 @@ export default function ChatClient() {
                 title="Back to chat"
                 aria-label="Back to chat"
               >
-                <IconClose size={13} />
+                <IconArrowLeft size={13} />
               </button>
             </div>
 
@@ -3508,7 +3510,7 @@ export default function ChatClient() {
             </div>
             <div className="chat-dd-actions">
               <button type="button" className="chat-dd-action" onClick={() => { setProMode(false); setProTypeDropdownOpen(false) }}>
-                <span className="chat-dd-action-circle"><IconClose size={18} /></span>
+                <span className="chat-dd-action-circle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v10" /><path d="M18.4 6.6a9 9 0 1 1-12.8 0" /></svg></span>
                 <span className="chat-dd-action-label">{t('chat.dd.turnoff')}</span>
               </button>
               <button type="button" className="chat-dd-action" onClick={() => { setProTypeDropdownOpen(false) }}>
