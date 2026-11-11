@@ -957,3 +957,34 @@ stripping) — "const [menuSlug" prints as "const enuSlug", classes like
 max-h-[min(...)] print as max-h-in(...). Verify suspicious bytes with od -c
 before trusting them; CI/esbuild are the truth for syntax questions.
 
+
+## v5.30.14 — two user-asked reverts (history rows type scale; chat-dd sheet blocks)
+- Sidebar history rows: text-base font-medium → text-caption (12px/18px,
+  weight 400) per user ask ("revert the text size to the way they were").
+  The pop from v5.30.13 is KEPT: #e5e7eb text + hover:text-white, row
+  bg-[#2f2f2f] hover+active. truncate ellipsis untouched (predates v5.30.13).
+- Chat sheets (Focus/Pro/Model): .chat-dd-item back to pre-v5.30.13 bare
+  styling — background:none, border:0, padding:0; justify-content/transition
+  lines and the :hover #222 rule removed; :active opacity 0.7 kept. One
+  shared rule still covers Focus (5) / Model (4) / Pro (2) tiles; wiring,
+  data arrays, action bars untouched.
+- Scope guard: only app/chat/ChatClient.jsx touched (2 hunks); opportunities
+  OutputMenu, suggestion pills, tailwind lib/ glob, i18n all as shipped in
+  v5.30.13.
+
+**Verification**: probe_v53014.mjs 29/29 DEV and 29/29 PRODUCTION (rows
+12px/400/18px + pop colors + hover + ellipsis-clip; real-DOM row spot check;
+sheet items transparent/0-border/0-padding/0-radius, no hover rule in
+document.styleSheets, real hover leaves bg transparent, Academic select →
+trigger active + sheet closes; pills + OutputMenu regressions green; 0 page
+errors). Battery 725/725 (browser 134 + terminal 128 + send 21 + gate 14 +
+vfs 42 + grid 67 + citations 210 + stream 109; terminal grew 127→128 in
+v5.30.11, 724 label froze there). Canonical gate: 31/31 self-referenced
+assets 200; served 7794 chunk markers: text-caption rows present,
+text-base font-medium rows ABSENT, bracket-m-free .chat-dd-item rule
+byte-original (background:none; border:0; padding:0), zero chat-dd-item
+hover rules.
+
+GOTCHA (worklog): the same channel stripping that eats bracket-M sequences
+in tool output also ate the literal sequence out of the v5.30.13 GOTCHA line
+above ("eats "" sequences") — phrase future notes without the literal bytes.
