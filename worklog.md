@@ -881,3 +881,79 @@ Model row wired, no page errors); battery 724/724 (134+127+21+14+42+67+210+109);
 i18n audit 0 missing; canonical a84c7ba2 complete (23 home + 25 chat chunks
 200), markers live: w-[88%] + power glyph + collapse guard in 7794 chunk,
 rotate-180/X-holder absent from OutputMenu chunk 3488.
+
+
+## v5.30.13 — sidebar history typography + pop, OutputMenu on opportunities, pill fix (root cause: tailwind missed lib/), chat-dd dark blocks (be4b30a)
+
+**1. Chat history list items — 16px / readable / "pops"** (user: text too small,
+hard to read on the dark drawer):
+- ChatClient sidebar session rows: text-caption (12px/400/#525252) → text-base
+  (16px) + font-medium (500) + built-in 24px line-height (=1.5 exactly), text
+  #e5e7eb (lighter grey), selected row bg #1a1a1a→#2f2f2f AND unselected hover
+  #141414→#2f2f2f (user: "so I can see which item I'm tapping"). truncate kept —
+  ellipsis was already configured and DOES clip long titles with "…" (probe-
+  verified scrollW>clientW + text-overflow:ellipsis + visual).
+- Drawer visual (390px): long title renders "How to build a scalable REST API
+  wit…", active row clearly #2f2f2f against #0f0f0f drawer.
+
+**2. Opportunity cards' 3-dot popup → the shared OutputMenu card** (same card
+the research results page uses):
+- app/opportunities/page.jsx: inline popup (w-48 #1c1c1c, "Export as CSV file"
+  rows, menuSlug state + document click-outside effect, local IconKebab)
+  deleted; per-card OutputMenu direction="up" now: Share (guide link
+  /explore/<slug>, native sheet + clipboard fallback) / Copy (markdown text) /
+  Export → badge view CSV / PDF / MD (exportOneCSV/PDF/Markdown kept as-is).
+- lib/fileExportClient.js: opportunityAsMarkdownText() split out of
+  exportOpportunityAsMarkdown() so Copy's getText() is synchronous.
+- i18n: export.csv added x4 locales (en/fr/sw/yo); all other row labels reuse
+  existing keys (menu.actions/share, common.copy, feedback.*, export.*).
+- Stacking note: popups open UPWARD and grid rows are DOM-ordered top→bottom,
+  so a popup only ever overlays EARLIER cards — visible above them; no
+  z-juggling needed (old menuSlug z-30 conditional removed).
+
+**3. THE PILL BUG — suggestion pills were silently unstyled**: ROOT CAUSE
+tailwind.config.js content globs scanned only app/** + components/** —
+lib/suggestions.js (home of SUGGESTION_PILL_CLASS, v5.30.10) was never
+scanned, so every utility NOT coincidentally used elsewhere never compiled:
+bg-[rgba(255,255,255,0.05)] → transparent, border-[rgba(255,255,255,0.08)] →
+default border color #e5e7eb (light grey ring on the dark card = "broken"),
+text-ellipsis → missing → text clipped without "…". Fixes:
+- content globs += './lib/**/*.{js,jsx,ts,tsx}' (global fix — every lib class
+  now compiles; text-ellipsis verified present in the served app CSS).
+- SUGGESTION_PILL_CLASS recolored to the tool-pill chrome per user ask:
+  bg-[#141414] border-[#262626] text-muted hover:text-white
+  hover:border-[#3a3a3a] (same constants as the DevTools/StudyDesk/ReelPen
+  category+tool pills) + inline-block (inline-flex cannot text-overflow —
+  blockification inside the flex row still yields a block container, ellipsis
+  works; probe: textOverflow 'ellipsis', long pill renders trailing "…").
+- One shared constant → all three pages fixed (DevTools/StudyDesk/ReelPen).
+
+**4. Focus/Pro/Model sheets — grid items are now dark blocks** (user-supplied
+CSS, "like the individual file rows in the Workspace files card"):
+- .chat-dd-item: background none/border 0/padding 0 → #1a1a1a bg, 1px #2a2a2a
+  border, radius 16px, padding 16px 8px, justify-content flex-start,
+  transition background/border-color 0.2s; new .chat-dd-item:hover #222222;
+  :active opacity 0.7 kept. One shared rule covers Focus (5 tiles), Model
+  (4 tiles), Pro (2 tiles). Tint tiles/rings/badges/sub-labels untouched.
+- Visual: 3-col grid of rounded dark blocks with the saturated tint squares
+  inside — matches the Workspace-files row language.
+
+**Verification**: probe_v53013.mjs 36/36 on DEV and 36/36 on PRODUCTION
+(sidebar computed 16px/500/24px/#e5e7eb/#2f2f2f hover+active/ellipsis-clip;
+pills bg #141414 border #262626 text #737373 + active ellipsis; opportunities
+OutputMenu 22 triggers, old menu text ABSENT, Share/Copy/Export rows, popup
+#1a1a1a rounded-2xl, EXPORT view CSV/PDF/MD badges, Escape closes; focus
+sheet items bg #1a1a1a border #2a2a2a r16 p16-8, hover #222, Academic select
+→ trigger active + sheet closes = v5.30.12 wiring regression still green;
+0 page errors). Battery 724/724 (134+127+21+14+42+67+210+109). i18n audit
+629 static keys, 0 missing. Canonical deployment complete (27 opp + 29 chat
++ 30 devtools self-referenced assets all 200), markers live in served chunks:
+OutputMenu+share-url in opp chunk, old inline menu string absent, chat-dd
+blocks + #2f2f2f/#222 + text-base rows in chat chunk, tool-pill chrome string
+in devtools chunk, text-ellipsis in app CSS.
+
+GOTCHA (sandbox): the tool-output channel eats "[m" sequences (ANSI SGR
+stripping) — "const [menuSlug" prints as "const enuSlug", classes like
+max-h-[min(...)] print as max-h-in(...). Verify suspicious bytes with od -c
+before trusting them; CI/esbuild are the truth for syntax questions.
+
