@@ -829,6 +829,7 @@
   "export.html": "Exporter en HTML",
   "export.md": "Exporter en Markdown",
   "export.pdf": "Exporter en PDF",
+  "export.csv": "Exporter en CSV",
   "export.report": "Exporter",
   "export.txt": "Exporter en Texte",
   "nav.reelpen": "ReelPen",

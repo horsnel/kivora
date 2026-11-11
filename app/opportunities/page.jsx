@@ -3,8 +3,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCurrency } from '@/components/CurrencyToggle'
 import { useTranslation } from '@/components/LanguageProvider'
-import { IconMoney, IconLightning, IconTool, IconSearch, IconFilter, IconEye, IconArrowRight, IconSpinner, IconPlus, IconCheck, IconClose, IconTrending, IconDownload } from '@/components/Icons'
+import { IconMoney, IconLightning, IconTool, IconSearch, IconFilter, IconEye, IconArrowRight, IconSpinner, IconPlus, IconCheck, IconClose, IconTrending } from '@/components/Icons'
 import { asText, asNumber } from '@/lib/exploreSchema'
+import OutputMenu from '@/components/OutputMenu'
+import { opportunityAsMarkdownText } from '@/lib/fileExportClient'
 
 const CATEGORY_KEYS = ['all','automation','content','youtube','ecommerce','affiliate','freelance','saas','finance','education','africa','developer']
 
@@ -33,16 +35,6 @@ function IconCompare({ size = 16, className = '' }) {
   )
 }
 
-// Inline icon: Kebab (3 dots vertical)
-function IconKebab({ size = 16, className = '' }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
-      <circle cx="8" cy="3" r="1.4" fill="currentColor"/>
-      <circle cx="8" cy="8" r="1.4" fill="currentColor"/>
-      <circle cx="8" cy="13" r="1.4" fill="currentColor"/>
-    </svg>
-  )
-}
 
 // Inline icon: Add step
 function IconAddStep({ size = 16, className = '' }) {
@@ -76,15 +68,6 @@ export default function OpportunitiesPage() {
   const [compareSlugs, setCompareSlugs] = useState([])
   const [showCompare, setShowCompare] = useState(false)
 
-  // ── Per-card export menu (CSV / PDF / Markdown) ──
-  const [menuSlug, setMenuSlug] = useState(null)
-
-  useEffect(() => {
-    if (!menuSlug) return
-    const close = () => setMenuSlug(null)
-    document.addEventListener('click', close)
-    return () => document.removeEventListener('click', close)
-  }, [menuSlug])
 
   useEffect(() => { load() }, [])
   useEffect(() => { filter() }, [opps, cat, search])
@@ -318,7 +301,7 @@ export default function OpportunitiesPage() {
                 <div key={opp.slug}
                   className={`opportunity-card bg-[#141414] border border-white/[0.06] rounded-xl p-5 sm:p-6 text-left transition-all group hover:-translate-y-0.5 hover:bg-[#161616] relative ${
                     isComparing ? '!border-red-500/50' : ''
-                  } ${menuSlug === opp.slug ? 'z-30' : ''}`}>
+                  }`}>
                   {/* Card main area - clickable */}
                   <button onClick={() => router.push(`/explore/${opp.slug}`)} className="w-full text-left">
                     <h3 className="font-semibold text-sm mb-2 group-hover:text-red-400 transition-colors line-clamp-2 leading-snug tracking-tight text-muted">
@@ -366,39 +349,34 @@ export default function OpportunitiesPage() {
                       <span>{isComparing ? t('opportunities.added') : t('opportunities.compare_short')}</span>
                     </button>
 
-                    {/* Export menu — CSV / PDF / Markdown */}
+                    {/* v5.30.13 — the 3-dot menu is now the shared OutputMenu card,
+                        the same one the research results page uses: Share (guide
+                        link) / Copy (markdown) / Export with the format-badge view. */}
                     <div className="relative ml-auto">
-                      <button onClick={(e) => { e.stopPropagation(); setMenuSlug(menuSlug === opp.slug ? null : opp.slug) }}
-                        className={`flex items-center justify-center w-7 h-7 rounded-md text-caption transition-colors ${
-                          menuSlug === opp.slug ? 'text-white bg-[#0a0a0a]' : 'text-muted2 hover:text-white hover:bg-[#0a0a0a]'
-                        }`}
-                        title="Export options"
-                        aria-label="Export options">
-                        <IconKebab size={14} />
-                      </button>
-                      {menuSlug === opp.slug && (
-                        <div
-                          className="absolute bottom-full right-0 mb-1.5 w-48 bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl shadow-2xl py-1.5 z-30 animate-scale-in"
-                          onClick={e => e.stopPropagation()}
-                        >
-                          <p className="px-3 pt-0.5 pb-1.5 mb-1 text-caption text-muted2 font-medium border-b border-white/[0.06]">Export</p>
-                          <button onClick={() => { setMenuSlug(null); exportOneCSV(opp) }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-body text-[#d4d4d4] hover:text-white hover:bg-white/[0.05] transition-colors text-left">
-                            <IconDownload size={13} className="shrink-0" />
-                            <span>Export as CSV file</span>
-                          </button>
-                          <button onClick={() => { setMenuSlug(null); exportOnePDF(opp) }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-body text-[#d4d4d4] hover:text-white hover:bg-white/[0.05] transition-colors text-left">
-                            <IconDownload size={13} className="shrink-0" />
-                            <span>Export as PDF</span>
-                          </button>
-                          <button onClick={() => { setMenuSlug(null); exportOneMarkdown(opp) }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-body text-[#d4d4d4] hover:text-white hover:bg-white/[0.05] transition-colors text-left">
-                            <IconDownload size={13} className="shrink-0" />
-                            <span>Export as Markdown</span>
-                          </button>
-                        </div>
-                      )}
+                      <OutputMenu
+                        direction="up"
+                        align="right"
+                        title={t('menu.actions')}
+                        getText={() => opportunityAsMarkdownText(opp)}
+                        copyLabel={t('common.copy')}
+                        copiedLabel={t('feedback.copied')}
+                        shareData={() => ({
+                          title: asText(opp.result?.title) || opp.query || 'Kivora Opportunity',
+                          text: '',
+                          url: `${window.location.origin}/explore/${opp.slug}`,
+                        })}
+                        shareLabel={t('menu.share')}
+                        shareFallbackLabel={t('feedback.link_copied')}
+                        exportLabel={t('export.report')}
+                        errorText={t('export.failed')}
+                        successText={t('feedback.export_done')}
+                        startedText={t('feedback.export_started')}
+                        formats={[
+                          { id: 'csv', badge: 'CSV', label: t('export.csv'), run: () => exportOneCSV(opp) },
+                          { id: 'pdf', badge: 'PDF', label: t('export.pdf'), run: () => exportOnePDF(opp) },
+                          { id: 'md', badge: 'MD', label: t('export.md'), run: () => exportOneMarkdown(opp) },
+                        ]}
+                      />
                     </div>
                   </div>
                 </div>

@@ -2254,7 +2254,7 @@ export default function ChatClient() {
                       <div
                         key={s.id}
                         className={`group relative flex items-center rounded-full transition-colors ${
-                          s.id === sessionId ? 'bg-[#1a1a1a]' : 'hover:bg-[#141414]'
+                          s.id === sessionId ? 'bg-[#2f2f2f]' : 'hover:bg-[#2f2f2f]'
                         }`}
                       >
                         <button
@@ -2266,10 +2266,10 @@ export default function ChatClient() {
                           onPointerMove={moveSessionPress}
                           onContextMenu={(e) => e.preventDefault()}
                           style={{ WebkitTouchCallout: 'none' }}
-                          className={`flex-1 min-w-0 text-left px-3 py-2 text-caption transition-colors truncate ${
+                          className={`flex-1 min-w-0 text-left px-3 py-2 text-base font-medium transition-colors truncate ${
                             s.id === sessionId
                               ? 'text-white'
-                              : 'text-[#525252] hover:text-white'
+                              : 'text-[#e5e7eb] hover:text-white'
                           }`}
                         >
                           {(sessionMeta[s.id]?.pinned ?? s.pinned) ? (
@@ -3932,13 +3932,17 @@ export default function ChatClient() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          background: none;
-          border: 0;
-          padding: 0;
+          justify-content: flex-start;
+          background: #1a1a1a;
+          border: 1px solid #2a2a2a;
+          border-radius: 16px;
+          padding: 16px 8px;
           cursor: pointer;
           min-width: 0;
           font-family: inherit;
+          transition: background 0.2s, border-color 0.2s;
         }
+        .chat-dd-item:hover { background: #222222; }
         .chat-dd-item:active { opacity: 0.7; }
         .chat-dd-tile {
           width: 60px;

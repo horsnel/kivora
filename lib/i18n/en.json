@@ -460,6 +460,7 @@
   "export.html": "Export as HTML",
   "export.md": "Export as Markdown",
   "export.pdf": "Export as PDF",
+  "export.csv": "Export as CSV",
   "export.report": "Export",
   "export.txt": "Export as Text",
   "feedback.copied": "Copied to clipboard",
