@@ -2266,7 +2266,7 @@ export default function ChatClient() {
                           onPointerMove={moveSessionPress}
                           onContextMenu={(e) => e.preventDefault()}
                           style={{ WebkitTouchCallout: 'none' }}
-                          className={`flex-1 min-w-0 text-left px-3 py-2 text-base font-medium transition-colors truncate ${
+                          className={`flex-1 min-w-0 text-left px-3 py-2 text-caption transition-colors truncate ${
                             s.id === sessionId
                               ? 'text-white'
                               : 'text-[#e5e7eb] hover:text-white'
@@ -3932,17 +3932,13 @@ export default function ChatClient() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: flex-start;
-          background: #1a1a1a;
-          border: 1px solid #2a2a2a;
-          border-radius: 16px;
-          padding: 16px 8px;
+          background: none;
+          border: 0;
+          padding: 0;
           cursor: pointer;
           min-width: 0;
           font-family: inherit;
-          transition: background 0.2s, border-color 0.2s;
         }
-        .chat-dd-item:hover { background: #222222; }
         .chat-dd-item:active { opacity: 0.7; }
         .chat-dd-tile {
           width: 60px;
