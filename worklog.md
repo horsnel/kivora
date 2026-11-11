@@ -841,3 +841,43 @@ Verification: SWC pass on ChatClient + dashboard page; i18n 624 static keys, 0 m
 - Slide-up mechanism untouched (chat-sheet-wrap latch, translateY(110%)⇄0, 300ms, z-9997); old chat-term-* sheet chrome fully removed (Live Terminal itself untouched)
 - Deploy pair note: second deployment (1d6b67e9) canonical is healthy (self-referenced app/* all 200); stale-HTML cross-build probes are a false-404 trap — always probe a page's OWN chunk refs
 - Regression: 725 assertions green (incl. v5.28 terminal 128), i18n audit 0 missing, swc OK
+
+## v5.30.12 — chat drawer Claude proportions + sheet tap-wiring fix (23f83e7)
+
+**1. Sidebar drawer → Claude mobile proportions** (app/chat/ChatClient.jsx aside):
+`w-60` → `w-[88%] max-w-[400px] lg:w-60 lg:max-w-none`. Mobile drawer now spans
+88% of screen (343px @ 390px viewport), capped 400px for tablets, full height,
+dark #0f0f0f; desktop persistent rail unchanged (w-60). Left padding untouched.
+
+**2. X buttons removed**:
+- Chat sidebar drawer header X (was the only drawer-close affordance besides
+  the overlay tap — overlay click still closes, Claude-style).
+- OutputMenu card header soft-circle-X (components/OutputMenu.jsx) — the ⋮
+  action card on Research / Study desk / Dev tools / ReelPen. Closes via
+  outside tap / Escape / action pick.
+- Pro sheet "Turn off" action glyph: IconClose (X) → inline power-off SVG
+  (function kept, X glyph gone).
+- Live Terminal exit: IconClose → IconArrowLeft ("Back to chat" retained).
+- Kept: guest-banner dismiss, attachment-chip remove, session-modal close
+  (functional remove controls, not card chrome).
+
+**3. OutputMenu chevrons removed** (both CHEV_D svgs: Export row "<" and
+export-view back row ">"); XGlyph/CHEV_D import dropped.
+
+**4. THE WIRING BUG — chat-bar icon cards "not connected"**: the expanded
+bar's auto-collapse outside-click handler (mousedown outside chatBarRef with
+empty input) fired on taps INSIDE the Focus/Pro/Model bottom sheets — the
+sheets sit outside chatBarRef. Collapse unmounted the toolbar and slid the
+sheet away BEFORE the option's click event dispatched, so setFocusMode /
+setProModeType / setModel never ran (selections silently died; the trigger
+bar vanished). Fix: guard `e.target.closest('.chat-sheet-wrap, .animate-slide-up')`
++ early-return when showUpgrade/settingsOpen are open; deps extended.
+Reproduced on prod via Playwright (sheet stuck open + toolbar unmounted),
+fixed, probe green.
+
+**Verified**: probe_chat_bar.mjs 18/18 on PRODUCTION (focus card select→
+active state, pro card select→stays on, drawer 88%/844px/no-X, settings
+Model row wired, no page errors); battery 724/724 (134+127+21+14+42+67+210+109);
+i18n audit 0 missing; canonical a84c7ba2 complete (23 home + 25 chat chunks
+200), markers live: w-[88%] + power glyph + collapse guard in 7794 chunk,
+rotate-180/X-holder absent from OutputMenu chunk 3488.
