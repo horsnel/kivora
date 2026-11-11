@@ -40,3 +40,6 @@ scripts/deploy/kivora-deploy.env
 .dev.vars*
 !.dev.vars.example
 .cf_env
+
+# public anon key cache (local only — key is inlined in client bundle anyway)
+scripts/anon_key.txt
