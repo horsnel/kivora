@@ -1348,3 +1348,38 @@ Work Log:
   are impossible; the e2e also caught MY probe bug (PROBE_BASE || x + '/chat'
   precedence) before it produced a false negative. Battery 1023 green;
   i18n 644 keys 0 missing; build clean; prod gate GREEN (33/33 assets).
+
+---
+Task ID: v5.30.22
+Agent: Main
+Task: v5.30.22 — OVHcloud anonymous vision pre-analysis for research images (814f95c)
+
+Work Log:
+- LIGHTNING PAUSED per user; prod gate re-verified GREEN after this change
+  (all v5.30.20/21 client markers intact, 33/33 assets).
+- USER PASTE ADAPTED, not copied: OVH endpoint verified LIVE first
+  (scripts/ovh_probe.py: 200 OK keyless, Qwen2.5-VL-72B described a test
+  image correctly) before any wiring. Groq fallback code SKIPPED per user
+  (CF egress blocked by Groq). Coding-intent routing (their §3) SKIPPED
+  with reason: the chat chain already routes EVERYTHING to gpt-oss-120b
+  (the strong coding model) as primary — an intent flag adds only logging.
+- DISCOVERY: the recycled sandbox had rolled the local tree to 063e7b6
+  (v5.8.1 era) mid-turn — I briefly believed the real route had no vision
+  pre-analysis and wired OVH at workerBody level. After npm crash exposed
+  it, reset to origin/main (97672a4 — all v5.30.21 work safe on GitHub),
+  snapshotted the v5.30.22 artifacts from the old tree, and re-applied
+  OVH INSIDE the real analyzeImageAttachments: OVH first (same 5-section
+  forensic brief, 900 max_tokens), qwen3.8-27b chain as fallback, the
+  v5.11 20s race now caps BOTH attempts, [IMAGE ANALYSIS] wrapper and
+  non-fatal passthrough unchanged.
+- lib/vision-ovh.js: keyless, one-shot (no retry loops), 30s ceiling,
+  strict data-URL regex guard, maxTokens opt, OVH_VISION_BASE test hook.
+- VERIFY: v5.30.22 suite 26/26 (mock gateway: auth absence, model ID,
+  429/500 fail-open, malformed data-URL, route ordering asserts); dev
+  functional test drives the REAL route with an image (route 200, mock
+  hit with Qwen2.5-VL, 'OVH vision brief used' log); battery 1043 green;
+  i18n 644 keys 0 missing; build clean.
+- PROD: asset-hash churn confirmed a fresh build; gate GREEN; the python
+  probe hit CF WAF 1010 (non-browser signature) → re-probed from inside a
+  real browser: /api/research with an image → 200, 4 sources, 1841-char
+  report in 39.4s, no self-heal needed. scripts/prod_research_image_probe.mjs.
