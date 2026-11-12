@@ -1017,5 +1017,8 @@
   "chat.dd.done": "Terminé",
   "chat.dd.reset": "Réinitialiser",
   "chat.dd.default": "Par défaut",
-  "chat.dd.turnoff": "Désactiver"
+  "chat.dd.turnoff": "Désactiver",
+  "chat.action.badge": "Action",
+  "chat.action.footer": "Charge d'action système",
+  "chat.action.footer_unparsed": "Charge d'action non reconnue"
 }

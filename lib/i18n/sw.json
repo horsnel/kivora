@@ -1017,5 +1017,8 @@
   "chat.dd.done": "Sawa",
   "chat.dd.reset": "Weka upya",
   "chat.dd.default": "Chaguo-msingi",
-  "chat.dd.turnoff": "Zima"
+  "chat.dd.turnoff": "Zima",
+  "chat.action.badge": "Kitendo",
+  "chat.action.footer": "Mzigo wa kitendo cha mfumo",
+  "chat.action.footer_unparsed": "Mzigo wa kitendo usiofahamika"
 }

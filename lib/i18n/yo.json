@@ -1017,5 +1017,8 @@
   "chat.dd.done": "Ṣetán",
   "chat.dd.reset": "Tún ṣe",
   "chat.dd.default": "Ìbẹ̀rẹ̀",
-  "chat.dd.turnoff": "Pa á"
+  "chat.dd.turnoff": "Pa á",
+  "chat.action.badge": "Ìṣe",
+  "chat.action.footer": "Ìṣe ẹ̀rọ tí a fi ránṣẹ́",
+  "chat.action.footer_unparsed": "Ìṣe àìmọ̀"
 }

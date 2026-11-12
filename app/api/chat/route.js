@@ -9,6 +9,7 @@ import { createGenRecorder, armDisconnectGuard } from '@/lib/genBuffer'
 import { rateLimit, anonymousRateLimit, anonymousDailyLimit, getClientIP } from '@/lib/ratelimit'
 import { safeJson } from '@/lib/payload'
 import { toolDefs, toolHandlers, TOOL_INSTRUCTIONS, filterToolsByQuery, detectRequiredTool, setToolSandboxConfig } from '@/lib/toolRegistry'
+import { recoverToolCallFromText, stripActionTagToolBlocks } from '@/lib/toolCallRecovery'
 import { buildSystemPrompt } from '@/lib/systemPrompt'
 import { requireCredits, requireFeatureAccess, refundCredits, CREDIT_COSTS } from '@/lib/credits'
 
@@ -350,6 +351,14 @@ function sanitizeVisibleReply(text) {
   if (s.includes('<function=')) {
     s = s.replace(/<function=[\s\S]*?(?:<\/function>|$)/gi, ' ')
   }
+  // v5.30.15 — action-tag-wrapped tool JSON (<file type="json" …>…</file> and
+  // siblings). Recovery normally converts these into a real tool call before
+  // the reply is finalized; this strip is the belt-and-suspenders for paths
+  // where recovery did not run (tools disabled, unknown tool name). Non-JSON
+  // bodies — legacy <file path> artifact files, prose examples — are kept.
+  if (/<(?:file|tool_call|tool|action|function)\b[^>]*>/i.test(s)) {
+    s = stripActionTagToolBlocks(s, looksLikeToolJson)
+  }
   if (s.includes('```')) {
     // Unbalanced fence at the end. v5.24.2 — CLOSE it instead of amputating:
     // cutting from the last opening fence destroyed the whole final block of
@@ -421,30 +430,13 @@ function polishReply(text) {
 }
 
 // ── v5.15 — text-embedded tool-call recovery ────────────────────────
-// When a provider emits the tool call as VISIBLE text (a ```json fence or a
-// bare JSON line) instead of a native tool_calls payload, that JSON used to
-// surface in the chat bubble as gibberish. Detect it and convert it into a
-// real tool call so the tool actually executes.
-function recoverToolCallFromText(text) {
-  const s = String(text || '')
-  if (!s || !s.includes('{')) return null
-  const candidates = []
-  for (const m of s.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)) candidates.push(m[1])
-  for (const m of s.matchAll(/(^|\n)\s*(\{[^\n]{0,4000}\})\s*(?=\n|$)/g)) candidates.push(m[2])
-  for (const raw of candidates) {
-    const trimmed = raw.trim()
-    if (!trimmed.startsWith('{')) continue
-    let obj = null
-    try { obj = JSON.parse(trimmed) } catch { continue }
-    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) continue
-    const name = String(obj.tool || obj.tool_name || obj.function || obj.name || '').trim()
-    if (!name || !KNOWN_TOOL_NAMES.has(name)) continue
-    const args = { ...(obj.arguments || obj.parameters || obj.args || obj.params || {}) }
-    if (args.prompt === undefined && typeof obj.prompt === 'string') args.prompt = obj.prompt
-    return { name, args }
-  }
-  return null
-}
+// When a provider emits the tool call as VISIBLE text (a ```json fence, a
+// bare JSON line, or — since v5.30.15 — a pseudo-XML action-tag wrapper like
+// <file type="json" title="…">…</file>) instead of a native tool_calls
+// payload, that JSON used to surface in the chat bubble as gibberish and the
+// tool never ran. Convert it into a real tool call. Implementation lives in
+// lib/toolCallRecovery.js (pure, unit-tested); the known-name set comes from
+// the server-side registry.
 
 export async function POST(req) {
   // 10MB cap — chat bodies carry base64 image attachments; this blocks
@@ -965,7 +957,7 @@ async function processChat(req, body, _send, conn) {
     // a native tool_calls payload. Left as-is, the user sees raw JSON jargon
     // and the tool never runs. Convert it into a real tool call.
     if (useTools && (!message.tool_calls || message.tool_calls.length === 0) && message.content) {
-      const recovered = recoverToolCallFromText(message.content)
+      const recovered = recoverToolCallFromText(message.content, KNOWN_TOOL_NAMES)
       if (recovered) {
         console.warn(`[chat] recovered tool call "${recovered.name}" from text content`)
         message = {

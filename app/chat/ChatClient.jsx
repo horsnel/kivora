@@ -22,6 +22,8 @@ import { reportClientError } from '@/lib/reportClientError'
 import dynamic from 'next/dynamic'
 import { ComingSoonCard } from '@/components/ComingSoonPopup'
 import ChatNoticeCard from '@/components/ChatNoticeCard'
+import { parseActionSegments } from '@/lib/actionTags'
+import AIActionCard from '@/components/chat/AIActionCard'
 import Lightbox from '@/components/Lightbox'
 import { createPortal } from 'react-dom'
 
@@ -335,6 +337,40 @@ function ImageGeneratingCard() {
         </div>
       </div>
     </div>
+  )
+}
+
+// v5.30.15 — assistant text may carry pseudo-XML action blocks (<file
+// type="json" title="…">…</file> and siblings — models spelling tool calls
+// as visible text). Render those as system-action cards and everything else
+// as markdown. Fenced code samples are never converted (lib/actionTags);
+// during streaming an unclosed tag tail is hidden until its close arrives.
+function AssistantContent({ content, streaming }) {
+  const segments = useMemo(
+    () => parseActionSegments(content, { streaming }),
+    [content, streaming]
+  )
+  return (
+    <>
+      {segments.map((seg, si) =>
+        seg.type === 'action' ? (
+          <AIActionCard
+            key={si}
+            toolName={seg.toolName}
+            title={seg.title}
+            args={seg.args}
+            rawJson={seg.rawJson}
+            valid={seg.valid}
+          />
+        ) : (
+          <MarkdownRenderer
+            key={si}
+            content={seg.text}
+            streaming={streaming && si === segments.length - 1}
+          />
+        )
+      )}
+    </>
   )
 }
 
@@ -3020,7 +3056,7 @@ export default function ChatClient() {
                           </div>
                         </div>
                       ) : (
-                        <MarkdownRenderer content={msg.content} streaming={streaming && i === messages.length - 1} />
+                        <AssistantContent content={msg.content} streaming={streaming && i === messages.length - 1} />
                       )
                     ) : (
                       <div className="flex flex-col items-end gap-1.5">
