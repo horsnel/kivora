@@ -1047,3 +1047,63 @@ above ("eats "" sequences") — phrase future notes without the literal bytes.
   632 keys, 0 missing. Canonical gate: 31/31 self-referenced assets 200;
   chunk 7535 carries chat.action.* keys + parser bundle; probe green on
   https://kivora.pages.dev.
+
+---
+Task ID: 17
+Agent: Main
+Task: v5.30.16 — app-wide mono font fix + dynamic chat title + message action bar
+
+Work Log:
+- FONT FIX (one-line root-cause kill): --font-sans/--font-mono moved from
+  :root to the body rule in globals.css. next/font only defines
+  --font-inter/--font-jetbrains on <body>; var() referencing an undefined
+  variable computes guaranteed-invalid AT :ROOT and inherits invalid to every
+  descendant — code/pre/kbd/.font-mono had silently rendered Inter app-wide.
+  body subtree resolves it; body keeps Inter via --font-sans. The v5.30.15
+  AIActionCard inline stack still works (now redundant but harmless).
+- DYNAMIC TITLE: header center spacer replaced with data-chat-title h1;
+  headerTitle = chatTitle(activeSession || synthetic {id, messages}) —
+  rename-aware (sessionMeta), session-title-aware, falls back to first user
+  message; hidden on empty fresh chats (morphing brand keeps the stage).
+- ACTION BAR (every assistant reply, skip notice/image cards, hidden while
+  streaming the last reply): LEFT copy (reuses copy(), icon swaps to check
+  via copiedIndex) / quote-reply (mousedown preventDefault keeps the live
+  selection; pickQuoteSource: selection > stripped message, 600-char cap;
+  buildQuoteText "> "-prefixed per line; input prefilled + caret to end +
+  autoResize) / save-to-workspace (guest -> sign-in toast; authed ->
+  authFetch POST /api/vfs notes/ai-response-YYYY-MM-DD-HHMMSS.md, saved
+  bookmark-fill + toast, error toast). RIGHT thumbs up/down (aria-pressed
+  toggle, visual-only) / rerun (rerunTruncation(messages, i) guard —
+  conversation must end on the user message; mirrors lastConvoRef and
+  replays via send(retryConvo), disabled while loading).
+- Rows older than the newest: opacity-0 md:group-hover/focus-within reveal
+  on desktop, always visible mobile; newest bar always visible.
+- lib/messageActions.js: pure helpers (pickQuoteSource/buildQuoteText/
+  workspaceFilename/rerunTruncation) — node-testable, explicit .js import.
+- Icons.jsx: IconThumbsUp/IconThumbsDown/IconRefresh added (16px stroke
+  1.25 house style). i18n chat.actions.* x9 in en/fr/sw/yo (Yoruba written
+  as unicode escapes in scripts/add_v53016_i18n.py, json.dump round-trip —
+  order-preserving, no trailing-comma trap, diacritics verified: Daakọ,
+  Dahun pẹ̀lú ọ̀rọ̀, Fi pamọ́, Tún ṣe…).
+- Probe lesson: the collapsed composer input UNMOUNTS on focus (bar expands
+  to textarea) — click-then-fill on the same locator hangs; probe drives
+  focus() directly then the textarea. Playwright force-click does NOT
+  bypass pointer interception (events land on the covering element), but
+  el.focus() fires React onFocus cleanly.
+- Gate lesson: SWC ships quoted keys — needles must be "data-ab":"copy"
+  (data-ab:"copy" never matches); minifier renames imported helpers
+  (rerunTruncation gone from bundle — assert via data-ab + notes/ instead).
+
+- Verification: unit 69/69 (messageActions logic incl. rerun shapes, css
+  byte-level :root-free/body-defined asserts, ChatClient wiring, icons,
+  i18n x4); probe 32/32 DEV and 32/32 PRODUCTION (real /chat, SSE
+  route-mock: fonts A1-A6, title B, bar C, clipboard D, quote E/F,
+  thumbs G, rerun H, guest-save toast I; 0 page errors). Battery
+  724 canonical (browser 134 + terminal 128 + send 21 + gate 14 + vfs 42 +
+  grid 67 + citations 210 + stream 109) + v5.30.15 41 + new 69 = 835 green.
+  i18n audit 641 static keys, 0 missing. next build clean. Canonical gate
+  gate_v53016.py: 31/31 self-referenced assets 200, 9/9 shipped markers
+  (4x data-ab, title, notes/, Quote reply, v5.30.15 regression, CSS
+  body-defined font fix); production probe green on kivora.pages.dev.
+- Deploy: commit 6ed2d58 pushed; CF Pages live; canonical chunk
+  5016.6dd31df415a0405e.js carries the feature markers.
