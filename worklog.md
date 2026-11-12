@@ -1311,3 +1311,40 @@ Work Log:
   probe re-enables them for the check); probe_v53019 6/6; probe_v53018
   10/10. Battery 981 (724 canonical + 41 + 69 + 92 + 27 + 28 - term
   variance); i18n 644 keys 0 missing; build clean.
+
+---
+Task ID: v5.30.21
+Agent: Main
+Task: v5.30.21 — sidebar X removal + Lightning AI self-hosted gateway (fd2425d, f9edd37)
+
+Work Log:
+- SIDEBAR X: probed prod at 1440px first — 0 X icons on desktop (close btn
+  is lg:hidden); the only X in the normal platform sidebar is the mobile
+  drawer's close button → removed (overlay tap + route changes still close
+  it). Prod probe confirms 0 X icons post-deploy; gate greps the Navbar
+  chunk for IconClose (PASS).
+- MODEL AUDIT (docs/MODEL_HOSTING.md): every call site inventoried —
+  chat chain: openai/gpt-oss-120b (Nova 3), openai/gpt-oss-20b (Nova 1.9),
+  qwen/qwen3.8-27b (Nova Vision, chat vision + research forensics),
+  deepseek-r1-distill-llama-70b (Pro reasoning); mistral ladder (open-
+  mistral-nemo, ministral-8b/3b, small/medium/large) for devtools/study/
+  reelpen/explore/browser-ask; FLUX.1-schnell via 3 image providers;
+  whisper tiers → VOICE_SERVER_URL; hitem3d/tripo3d stay on vendor APIs;
+  janitor is deterministic (no model).
+- LIGHTNING WIRING: 'lightning' provider = FIRST hop in both groq.js chains
+  (text + vision) when LIGHTNING_BASE_URL is set; mistral.js tries the
+  gateway first in mistralChat + mistralChatStream (SSE relayed via
+  onDelta) serving mistral-small-latest; wired via getEnvVar in all 6
+  routes; bare-origin + /v1-suffix normalization; 45s budget; FAILS OPEN.
+- ARTIFACTS: lightning/service.py (LitServe OpenAI-compatible multi-model
+  gateway, lazy vLLM engines), lightning/voice_service.py (faster-whisper
+  large-v3 at /v1/audio/transcriptions — matches /api/voice/stt's proxy
+  shape exactly), requirements.txt, deploy.md (instance plan, runbook).
+- VERIFY: unit suite 37/37; chain-level e2e drives REAL groqChat against a
+  mock gateway — 7/7 (canonical model verbatim, Bearer key, /v1 path not
+  doubled, fail-open on dead gateway in ms). LESSON: /api/chat full-route
+  e2e is impossible locally (Supabase service-role guard) and server-only
+  code never appears in client chunks — gate markers for server modules
+  are impossible; the e2e also caught MY probe bug (PROBE_BASE || x + '/chat'
+  precedence) before it produced a false negative. Battery 1023 green;
+  i18n 644 keys 0 missing; build clean; prod gate GREEN (33/33 assets).
