@@ -1021,6 +1021,7 @@
   "chat.action.badge": "Action",
   "chat.action.footer": "System action payload",
   "chat.action.footer_unparsed": "Unrecognized action payload",
+  "chat.actions.copied": "Copied to clipboard",
   "chat.actions.copy": "Copy",
   "chat.actions.quote": "Quote reply",
   "chat.actions.save": "Save to workspace",

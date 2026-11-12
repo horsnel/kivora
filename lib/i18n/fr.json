@@ -1021,6 +1021,7 @@
   "chat.action.badge": "Action",
   "chat.action.footer": "Charge d'action système",
   "chat.action.footer_unparsed": "Charge d'action non reconnue",
+  "chat.actions.copied": "Copié dans le presse-papiers",
   "chat.actions.copy": "Copier",
   "chat.actions.quote": "Citer et répondre",
   "chat.actions.save": "Enregistrer dans l'espace de travail",

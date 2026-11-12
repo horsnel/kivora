@@ -93,13 +93,16 @@ export default function FeedbackToast() {
 
   return (
     <>
-      {/* ── Top-center pill toast (copy confirmations) ── */}
+      {/* ── Top-center pill toast (copy confirmations) ──
+          v5.30.20 — z-[10000]: the pill used to stack BELOW research report
+          content (sticky headers/cards create their own stacking contexts),
+          rendering a faint "Copied" box stuck behind the text */}
       {toast && (
         <div
           key={toast.message + String(toast.leaving)}
           role="status"
           aria-live="polite"
-          className={`hush-toast fixed top-4 left-1/2 z-[90] flex items-center gap-2 px-5 py-3 rounded-full border shadow-2xl pointer-events-none ${
+          className={`hush-toast fixed top-4 left-1/2 z-[10000] flex items-center gap-2 px-5 py-3 rounded-full border shadow-2xl pointer-events-none ${
             toast.tone === 'error'
               ? 'bg-[#1a1a1a] border-red-500/40'
               : 'bg-[#1a1a1a] border-[#2a2a2a]'
@@ -118,7 +121,7 @@ export default function FeedbackToast() {
 
       {/* ── Bottom slide-up notification cards (export feedback) ── */}
       <div
-        className="fixed bottom-6 left-0 right-0 z-[90] flex flex-col-reverse items-center gap-3 px-4 pointer-events-none"
+        className="fixed bottom-6 left-0 right-0 z-[10000] flex flex-col-reverse items-center gap-3 px-4 pointer-events-none"
         role="region"
         aria-label="Action feedback"
         aria-live="polite"

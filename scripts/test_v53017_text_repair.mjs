@@ -146,7 +146,8 @@ ok('send() prepends the @-mention context', cc.includes('buildReplyContext(reply
 ok('chip cleared on send / clearChat / loadSession',
   (cc.match(/setReplyRef\(null\)/g) || []).length >= 3)
 ok('thumbs persist through persistSessionMeta', cc.includes('persistSessionMeta(sessionId, { feedback: next })'))
-ok('loadSession hydrates feedback via normalizeFeedback', cc.includes('normalizeFeedback(localMeta.feedback ?? session.feedback'))
+ok('loadSession hydrates feedback via normalizeFeedback', cc.includes('...normalizeFeedback(localMeta.feedback, session.messages),'))
+ok('loadSession derives embedded votes (v5.30.20)', cc.includes('deriveFeedbackFromMessages(session.messages)'))
 ok('history select includes feedback with graceful fallback',
   cc.includes("'id, messages, updated_at, title, pinned, feedback'") && cc.includes("cols.replace(', feedback', '')"))
 ok('chatTitle derives up to 120 chars (v5.30.19)', cc.includes('.slice(0, 120)'))

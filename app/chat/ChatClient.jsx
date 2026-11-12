@@ -17,6 +17,7 @@ import VoiceSettings from '@/components/VoiceSettings'
 import { useVoiceTTS } from '@/hooks/useVoiceTTS'
 import { useTranslation } from '@/components/LanguageProvider'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import { showFeedback } from '@/components/FeedbackToast'
 import { stripMarkdown } from '@/lib/stripMarkdown'
 import { reportClientError } from '@/lib/reportClientError'
 import dynamic from 'next/dynamic'
@@ -368,6 +369,20 @@ function normalizeFeedback(fb, msgs) {
       const idx = Number(k)
       if ((v === 'up' || v === 'down') && Number.isInteger(idx) && idx >= 0 && idx < max) out[idx] = v
     }
+  }
+  return out
+}
+
+// v5.30.20 — votes stored INSIDE the message objects (toggleFeedback embeds
+// them in the messages jsonb — no migration needed). The index-keyed map is
+// derived on load; the legacy maps (feedback column if it exists, device
+// localStorage) fill gaps for votes taken before this change.
+function deriveFeedbackFromMessages(msgs) {
+  const out = {}
+  if (Array.isArray(msgs)) {
+    msgs.forEach((m, i) => {
+      if (m && (m.feedback === 'up' || m.feedback === 'down')) out[i] = m.feedback
+    })
   }
   return out
 }
@@ -906,7 +921,11 @@ export default function ChatClient() {
     // has run, device-local mirror otherwise (readChatMeta already overlays
     // title/pinned the same way).
     const localMeta = readChatMeta()[session.id] || {}
-    setMsgFeedback(normalizeFeedback(localMeta.feedback ?? session.feedback, session.messages))
+    setMsgFeedback({
+      ...normalizeFeedback(localMeta.feedback, session.messages),
+      ...normalizeFeedback(session.feedback, session.messages),
+      ...deriveFeedbackFromMessages(session.messages), // v5.30.20 — embedded votes win
+    })
     setReplyRef(null)
     firstMessageSent.current = true
     setHistoryOpen(false)
@@ -1804,23 +1823,64 @@ export default function ChatClient() {
 
 
   function copy(content, i) {
-    navigator.clipboard.writeText(stripMarkdown(content))
+    // v5.30.20 — clipboard writes fail on insecure contexts/older webviews
+    // (unhandled rejection → pageerror); fall back to execCommand first.
+    const text = stripMarkdown(content)
+    const fallback = () => {
+      try {
+        const ta = document.createElement('textarea')
+        ta.value = text
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+      } catch {}
+    }
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).catch(fallback)
+    } else fallback()
     setCopiedIndex(i)
     setTimeout(() => setCopiedIndex(null), 2000)
+    // v5.30.20 — same global "Copied to clipboard" toast as the research
+    // pages (OutputMenu); the icon flash stays for immediate feedback.
+    showFeedback({ variant: 'toast', message: t('chat.actions.copied') })
   }
 
   // ── v5.30.16 message action bar handlers ────────────────────────
   // Reuses existing primitives: copy() above, showVoiceToast() for save
   // feedback, autoResize() for the composer, send(retryConvo) for rerun.
   function toggleFeedback(i, val) {
-    // v5.30.17 — thumbs persist per session: chat_sessions.feedback jsonb
-    // (chat-message-feedback-migration.sql), mirrored to the device-local
-    // sessionMeta map. persistSessionMeta swallows the column write until
-    // the migration has run, so guests/pre-migration DBs keep working.
+    // v5.30.20 — thumbs persist WITHOUT any migration: the vote is embedded
+    // in the message object itself (messages jsonb already exists), and the
+    // server's save path reads the stored array before appending the next
+    // pair, so embedded fields survive every later save. The old
+    // chat_sessions.feedback column (chat-message-feedback-migration.sql) is
+    // now OPTIONAL — it stays supported on read for DBs where it was run.
+    // persistSessionMeta keeps the device-local mirror (guests, offline).
     const next = { ...msgFeedback, [i]: msgFeedback[i] === val ? null : val }
     if (!next[i]) delete next[i]
     setMsgFeedback(next)
     if (sessionId) persistSessionMeta(sessionId, { feedback: next })
+    if (user && sessionId && supabasePublic) {
+      try {
+        const stamped = (messages || []).map((m, idx) => {
+          const hit = next[idx]
+          if (!hit && !m?.feedback) return m
+          const stampedMsg = { ...m }
+          if (hit) stampedMsg.feedback = hit
+          else delete stampedMsg.feedback
+          return stampedMsg
+        }).filter(Boolean)
+        supabasePublic
+          .from('chat_sessions')
+          .update({ messages: stamped })
+          .eq('id', sessionId)
+          .eq('user_id', user.id)
+          .then(() => {}, () => {})
+      } catch {}
+    }
   }
 
   function quoteReply(content, index) {
@@ -4794,10 +4854,10 @@ export default function ChatClient() {
             onClick={bubbleCopy}
             className="w-full flex items-center gap-3 px-4 py-3 text-[13px] font-medium text-[#e2e2e2] hover:bg-white/[0.05] transition-colors text-left cursor-pointer"
           >
-            {copiedIndex === bubbleAction.index
-              ? <IconCheck size={15} className="text-emerald-400" />
-              : <IconCopy size={15} className="text-[#737373]" />}
-            {copiedIndex === bubbleAction.index ? 'Copied' : 'Copy'}
+            {/* v5.30.20 — no inline "Copied" swap: bubbleCopy closes the card
+                and the global toast (copy()) confirms it, matching research */}
+            <IconCopy size={15} className="text-[#737373]" />
+            {t('chat.actions.copy')}
           </button>
           {bubbleAction.role === 'assistant' && !bubbleAction.isImage && (
             <button

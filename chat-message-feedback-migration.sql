@@ -1,14 +1,10 @@
--- ─── Chat message feedback (v5.30.17) ───────────────────────────
--- Persists the 👍/👎 that the message action bar writes on assistant
--- replies. Keyed by message index inside the session's messages array:
---
---   feedback = { "3": "up", "7": "down" }
---
--- The client (app/chat/ChatClient.jsx) writes the whole map through its
--- existing persistSessionMeta path and gracefully falls back to the
--- device-local localStorage mirror, so this migration is SAFE TO RUN AT ANY
--- TIME — before it runs, thumbs are per-device; after it runs, they follow
--- the account across devices.
+-- ─── Chat message feedback (v5.30.17, OPTIONAL since v5.30.20) ──
+-- v5.30.20: thumbs now persist by default — they are embedded INSIDE the
+-- messages jsonb (message objects carry a "feedback": "up"|"down" field),
+-- which needs no migration; the server's read-then-append save path
+-- preserves the embedded fields. This column is therefore OPTIONAL:
+-- it adds a queryable per-index map ({ "3": "up", "7": "down" }) for
+-- analytics/backup, and the client still merges it on read if present.
 --
 -- Indexes shift when a rerun truncates the tail, which the UI reflects by
 -- design (a regenerated reply is a different answer and drops its old vote).

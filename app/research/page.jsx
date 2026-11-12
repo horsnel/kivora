@@ -2874,7 +2874,7 @@ function ResearchPageContent() {
           min-width: 0;
         }
         .ref-n {
-          font-family: ui-monospace, monospace;
+          font-family: var(--font-mono); /* v5.30.20 — global mono stack */
           font-size: 9px;
           font-weight: 600;
           color: #fb923c;
@@ -2897,7 +2897,7 @@ function ResearchPageContent() {
           flex-shrink: 0;
           font-size: 9px;
           font-weight: 600;
-          font-family: ui-monospace, monospace;
+          font-family: var(--font-mono); /* v5.30.20 — global mono stack */
           color: #60a5fa;
           background: rgba(96, 165, 250, 0.08);
           border: 1px solid rgba(96, 165, 250, 0.2);
@@ -3012,7 +3012,7 @@ function ResearchPageContent() {
         .verification-badge {
           font-size: 10px;
           font-weight: 600;
-          font-family: ui-monospace, monospace;
+          font-family: var(--font-mono); /* v5.30.20 — global mono stack */
           border-radius: 5px;
           padding: 2px 7px;
           letter-spacing: 0.02em;
@@ -3105,7 +3105,7 @@ function ResearchPageContent() {
           flex-shrink: 0;
           font-size: 9px;
           font-weight: 600;
-          font-family: ui-monospace, monospace;
+          font-family: var(--font-mono); /* v5.30.20 — global mono stack */
           border-radius: 4px;
           padding: 0 4px;
         }

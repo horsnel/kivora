@@ -3,6 +3,7 @@ import { useState, useCallback, useRef, useEffect, memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Highlight, themes } from 'prism-react-renderer'
+import { showFeedback } from '@/components/FeedbackToast'
 
 /* ─── Language Labels ──────────────────────────────────────────── */
 const LANG_LABELS = {
@@ -168,10 +169,28 @@ function CodeBlock({ langLabel, codeText, codeClassName }) {
   const canPreview = isBrowserPreviewable(codeClassName, codeText)
 
   const copy = useCallback(() => {
-    navigator.clipboard.writeText(codeText).then(() => {
+    // v5.30.20 — execCommand fallback keeps insecure contexts from throwing
+    const fallback = () => {
+      try {
+        const ta = document.createElement('textarea')
+        ta.value = codeText
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+      } catch {}
+    }
+    const done = () => {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
-    })
+      // v5.30.20 — global toast, same as research/chat action bars
+      showFeedback({ variant: 'toast', message: 'Copied to clipboard' })
+    }
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(codeText).then(done, () => { fallback(); done() })
+    } else { fallback(); done() }
   }, [codeText])
 
   const handleRun = async () => {

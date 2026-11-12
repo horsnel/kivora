@@ -413,7 +413,7 @@ export default function CodePreviewCard({ html, css, js, url, projectName }) {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-          font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+          font-family: var(--font-mono); /* v5.30.20 — global mono stack */
         }
         .cpc-actions {
           display: flex;
@@ -531,7 +531,7 @@ export default function CodePreviewCard({ html, css, js, url, projectName }) {
         .cpc-line-numbers {
           padding: 16px 12px 16px 16px;
           color: #4a4a6a;
-          font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+          font-family: var(--font-mono); /* v5.30.20 — global mono stack */
           font-size: 12.5px;
           line-height: 1.7;
           user-select: none;
@@ -546,7 +546,7 @@ export default function CodePreviewCard({ html, css, js, url, projectName }) {
         .cpc-code {
           margin: 0;
           padding: 16px 20px;
-          font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+          font-family: var(--font-mono); /* v5.30.20 — global mono stack */
           font-size: 12.5px;
           line-height: 1.7;
           color: #d4d4d8;
@@ -634,7 +634,7 @@ export default function CodePreviewCard({ html, css, js, url, projectName }) {
           padding: 8px 14px;
           background: #0d0d1a;
           border-top: 1px solid rgba(255, 255, 255, 0.06);
-          font-family: 'JetBrains Mono', ui-monospace, monospace;
+          font-family: var(--font-mono); /* v5.30.20 — global mono stack */
           font-size: 11px;
           color: #6b6b8a;
         }
