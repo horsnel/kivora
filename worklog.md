@@ -1180,3 +1180,55 @@ Work Log:
 - Deploy: ff0d88e pushed; CF Pages live; gate_v53017.py GREEN (31/31
   assets, 16/16 markers incl. minified-regex forms — identifiers get
   renamed, regex needles: feedback:[A-Za-z_$]{1,4}\} and \\n```).
+
+---
+Task ID: v5.30.18
+Agent: Main
+Task: v5.30.18 — typography: user quote blocks, explicit Inter composer, evidence-based font verification (be2face)
+
+Work Log:
+- USER FEEDBACK (typography review): (1) "mono bug returns — sandbox_git
+  chips render Inter"; (2) "input box renders the user's > quote as mono
+  code instead of a quote block"; (3) "line-height 1.4 → 1.6".
+- MEASURED ON PRODUCTION before touching anything (scripts/
+  probe_v53018_typography.mjs, real /chat + route-mocked SSE, computed
+  styles): (1) FALSE — inline code chips, pre, kbd, .font-mono all render
+  JetBrains Mono; the v5.30.16 --font-mono fix is live (css gate + computed
+  font both confirm). The reviewer's screenshot predates deploy propagation
+  or came from a stale cache. (2) PARTLY FALSE — composer input measures
+  Inter; the real gap is the USER BUBBLE: leading "> " lines (the v5.30.17
+  reply chip's @-mention context, or typed quotes) rendered as raw text.
+  (3) FALSE — prose is already 15px/1.7 (25.5px). Lesson: verify claims
+  against the live artifact before patching.
+- REAL FIXES:
+  1. splitUserQuote() in lib/messageActions.js — leading "> " lines
+     (space required; ">5 vs 3" stays raw) split into quote + body; the
+     user bubble renders the quote as a styled block (border-l-[3px]
+     border-l-white/[0.14], bg tint, 13px #a3a3a3 — assistant blockquote
+     DNA). Wire format to the model unchanged.
+  2. chatTitle derives from the quote-split BODY: titles show the user's
+     question, not the quoted excerpt; quote-only messages title from the
+     quote.
+  3. Composer hardened: .chat-collapsed-input + .chat-textarea-expanded
+     set font-family: var(--font-inter), Inter, system-ui, sans-serif
+     explicitly (was: inherit) — immune to future ancestor drift.
+- SANDBOX RECOVERY #2: the recycle wiped .env.local → dev hydration crashed
+  (supabasePublic undefined → getUser TypeError → BoundaryRecovery
+  ExhaustedFallback reload loop). Restored the 5 keys from PUBLIC bundle
+  values (NEXT_PUBLIC_* ship in the client chunks by design; the service
+  key stays CF-side). Rule: after a recycle, check .env.local BEFORE
+  debugging any dev-page crash.
+- PROBE LESSONS (2h of bisecting, all reproduced): (a) evaluate-el.focus()
+  does not expand the composer reliably — use a REAL click; (b) the real
+  trap: a PRE-HYDRATION click focuses the input natively, and a click on an
+  ALREADY-FOCUSED input fires NO focus event → React onFocus (bar expansion)
+  never runs → 8 blind retries. Fix: settle ~5s past hydration, blur before
+  each click attempt.
+- Verification: unit 25/25 (splitUserQuote ×14 incl. round-trip + >5 edge,
+  composer Inter wiring, quote-block markup, chatTitle split, Markdown
+  contract: p/li 1.7 + styled blockquote + mono stacks). Probe 10/10 DEV
+  (fonts T1a-d, composer T2a-b Inter, prose T3 1.7, quote block T4/T4b,
+  body T5; 0 page errors). Battery 950 = 724 canonical + 41 + 69 + 91 + 25.
+  i18n 643 keys, 0 missing. next build clean.
+- Deploy: be2face pushed; gate_v53018.py (byte markers + regression set) +
+  typography probe on production.
