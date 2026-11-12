@@ -1107,3 +1107,76 @@ Work Log:
   body-defined font fix); production probe green on kivora.pages.dev.
 - Deploy: commit 6ed2d58 pushed; CF Pages live; canonical chunk
   5016.6dd31df415a0405e.js carries the feature markers.
+
+---
+Task ID: v5.30.17
+Agent: Main
+Task: v5.30.17 — tap-proof action bar + error-notice fix + @-mention quote chip + thumbs persistence + fence self-heal + nightly janitor (ff0d88e)
+
+Work Log:
+- USER BUG REPORTS → root causes:
+  1. "duplicate action bar under the error message": the three data.error
+     branches (SSE done 1645, finalizeResumed 1315, legacy JSON 1662) never
+     set isError → failure texts ("The response stopped progressing…")
+     rendered as normal bubbles WITH an action bar. All now flag isError →
+     noticeFor renders the designed error card ("Something went wrong" +
+     Try again) and the bar condition also gained !msg.isError.
+  2. "icons not working when tapped": bar buttons sat INSIDE the bubble's
+     long-press wrapper (onPointerDown startBubblePress, 450ms) — a
+     slightly slow tap armed it, popped the full-screen action card over
+     the tap, swallowed the click. Fix: pointerdown/onClick stopPropagation
+     on the bar container + 44px invisible hit areas (before:-inset-1.5
+     pseudo) + [touch-action:manipulation] on both button variants. Probe
+     B8/B10 prove: slow press on a button opens NO card and the click
+     lands; long-press on bubble text still works.
+  3. "header title truncating too early": chatTitle sliced the first user
+     message at 40 chars — raised to 80 (CSS truncate handles display).
+- "do all of that" (v5.30.16 next-candidates):
+  4. Thumbs persist: chat_sessions.feedback jsonb ({index: 'up'|'down'}),
+     chat-message-feedback-migration.sql (idempotent, run in SQL Editor),
+     client writes through the existing persistSessionMeta path (localStorage
+     mirror until the column exists), normalizeFeedback revalidates indexes
+     on load (JSONB keys are strings; rerun truncation shifts indexes).
+  5. Quote → @-mention: quoteReply(content, i) now opens a reply-reference
+     chip above the composer ("Replying to @Kivora · "excerpt""), excerpt =
+     live selection when present (replyChipExcerpt cap 96), composer stays
+     empty; on send the context rides as "> @Kivora: "excerpt"\n\n" blockquote
+     (buildReplyContext cap 200) so the model sees the referenced message;
+     chip clears on send/×/clearChat/loadSession.
+- JANITOR (user's "Janitor AI" request, deterministic by design — no LLM
+  rewrites of user-visible history):
+  6. Frontend self-heal: lib/textRepair.js closeUnclosedFences() applied in
+     AssistantContent render — unclosed fences (mid-stream drop / legacy
+     partials) display as proper code blocks instead of painting the bubble.
+  7. scripts/maintenance/janitor.mjs + .github/workflows/janitor.yml
+     (daily 02:17 UTC): scans chat_sessions (oldest-first), drops failure-
+     notice + empty assistant bubbles (isFailureNotice openers, ≤200 chars
+     guard so "Something went wrong with your CSS…" replies survive), closes
+     unclosed fences (same close-don't-amputate rule as the v5.24.2 server
+     sanitizer), purges chat_generations rows older than 7d. Caps: 400
+     writes/run, DRY_RUN=1 supported. Reuses the maintenance workflow's
+     SUPABASE_URL/SUPABASE_SERVICE_KEY secrets — zero new credentials.
+- i18n: chat.reply.mention/chat.reply.cancel ×4 locales via Python json
+  round-trip (yo: Ìdáhùn sí / Fagilé ìdáhùn — diacritics intact).
+- Probe lessons: pkill -f "next dev" KILLS THE TOOL'S OWN SHELL (pattern
+  matches the cmdline) → self-safe patterns "next[ ]dev"/"next[-]server";
+  replies[call] ?? FALLBACK treats the null error-marker as nullish → the
+  failure mock silently returned a normal reply (A1-A5/G2 cascade). D6 diag:
+  chip × with EMPTY input died mid-tap — mousedown outside chatBarRef hit
+  the v5.30.12 auto-collapse guard (unmount-eats-click bug class); guard now
+  exempts [data-reply-chip].
+- SANDBOX RECOVERY: recycle restored a stale v5.23.1-era checkout (ff0d88e
+  unknown locally). Remote held the truth: stash stale diffs → fetch →
+  reset --hard origin/main → clean. Rule: after any recycle, verify
+  `git log --oneline -1` matches the last pushed commit BEFORE trusting
+  the working tree.
+- Verification: unit 91/91 (textRepair fence/notice/clean rules, janitor
+  lockstep, messageActions reply helpers, ChatClient wiring, migration +
+  workflow presence, i18n ×4) + v5.30.16 suite updated to the new reality
+  (69/69). Probe 40/40 DEV with hasTouch (taps, long-press isolation, chip,
+  wire-level @mention via captured postData, error card, self-heal, rerun;
+  0 page errors). Battery 925 = 724 canonical + 41 + 69 + 91. i18n audit 643
+  keys, 0 missing. next build clean.
+- Deploy: ff0d88e pushed; CF Pages live; gate_v53017.py GREEN (31/31
+  assets, 16/16 markers incl. minified-regex forms — identifiers get
+  renamed, regex needles: feedback:[A-Za-z_$]{1,4}\} and \\n```).
