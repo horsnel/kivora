@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings, IconCopy as IconClipboard, IconWrite, IconFilter, IconRobot, IconTarget, IconDatabase, IconStack, IconSpeaker, IconArrowLeft, IconArrowRight, IconCube, IconLink, IconStar } from '@/components/Icons'
+import { IconSend, IconSpinner, IconCopy, IconCheck, IconChat, IconMenu, IconClose, IconUser, IconMoney, IconLightning, IconCode, IconBulb, IconBook, IconTool, IconGlobe, IconSearch, IconPaperclip, IconDownload, IconLock, IconFile, IconChevronDown, IconMicrophone, IconSliders, IconSettings, IconCopy as IconClipboard, IconWrite, IconFilter, IconRobot, IconTarget, IconDatabase, IconStack, IconSpeaker, IconArrowLeft, IconArrowRight, IconCube, IconLink, IconStar, IconThumbsUp, IconThumbsDown, IconRefresh, IconBookmark, IconBookmarkFill, IconQuote } from '@/components/Icons'
 import BackButton from '@/components/BackButton'
 import { useSessionTracker } from '@/lib/useSessionTracker'
 import { usePlan } from '@/lib/usePlan'
@@ -26,6 +26,8 @@ import { parseActionSegments } from '@/lib/actionTags'
 import AIActionCard from '@/components/chat/AIActionCard'
 import Lightbox from '@/components/Lightbox'
 import { createPortal } from 'react-dom'
+import { authFetch } from '@/lib/authFetch'
+import { pickQuoteSource, buildQuoteText, workspaceFilename, rerunTruncation } from '@/lib/messageActions'
 
 // v5.11 — Live Terminal restored (client-only; xterm touches DOM)
 const XTerminal = dynamic(() => import('@/components/XTerminal'), { ssr: false })
@@ -345,6 +347,10 @@ function ImageGeneratingCard() {
 // as visible text). Render those as system-action cards and everything else
 // as markdown. Fenced code samples are never converted (lib/actionTags);
 // during streaming an unclosed tag tail is hidden until its close arrives.
+// ── v5.30.16 message action bar chrome (module scope: identical every row) ──
+const AB_BTN = 'w-7 h-7 flex items-center justify-center rounded-lg text-[#525252] hover:text-[#e2e2e2] hover:bg-white/[0.05] transition-colors disabled:opacity-40'
+const AB_BTN_ACTIVE = 'w-7 h-7 flex items-center justify-center rounded-lg text-[#e2e2e2] bg-white/[0.08] transition-colors'
+
 function AssistantContent({ content, streaming }) {
   const segments = useMemo(
     () => parseActionSegments(content, { streaming }),
@@ -388,6 +394,11 @@ export default function ChatClient() {
   // server vs client and throw a hydration error under React 19.
   const [sessionId, setSessionId] = useState('')
   const [copiedIndex, setCopiedIndex] = useState(null)
+  // ── v5.30.16 message action bar state ──
+  // msgFeedback: { [index]: 'up' | 'down' | null } — visual-only thumbs.
+  // saveState:   { [index]: 'saving' | 'saved' | 'error' } — workspace save.
+  const [msgFeedback, setMsgFeedback] = useState({})
+  const [saveState, setSaveState] = useState({})
   const [historyOpen, setHistoryOpen] = useState(false)
   const [user, setUser] = useState(null)
   // v5.22 — guest banner ("you're chatting as a guest") — dismissible, per-device
@@ -1734,6 +1745,68 @@ export default function ChatClient() {
     setTimeout(() => setCopiedIndex(null), 2000)
   }
 
+  // ── v5.30.16 message action bar handlers ────────────────────────
+  // Reuses existing primitives: copy() above, showVoiceToast() for save
+  // feedback, autoResize() for the composer, send(retryConvo) for rerun.
+  function toggleFeedback(i, val) {
+    setMsgFeedback(f => ({ ...f, [i]: f[i] === val ? null : val }))
+  }
+
+  function quoteReply(content) {
+    // The button's onMouseDown calls preventDefault() — that keeps the live
+    // text selection alive until click (clicking a button would otherwise
+    // clear it), so "select a phrase → tap quote" quotes exactly the phrase.
+    let sel = ''
+    try { sel = window.getSelection ? window.getSelection().toString() : '' } catch {}
+    const raw = pickQuoteSource(sel, content)
+    if (!raw) return
+    const quoted = buildQuoteText(raw)
+    setInput(prev => (prev ? `${prev}\n\n${quoted}\n\n` : `${quoted}\n\n`))
+    requestAnimationFrame(() => {
+      const el = textareaRef.current
+      if (!el) return
+      el.focus()
+      el.selectionStart = el.selectionEnd = el.value.length
+      autoResize(el)
+    })
+  }
+
+  async function saveToWorkspace(i, content) {
+    if (saveState[i] === 'saving') return
+    if (!user) {
+      showVoiceToast('info', t('chat.actions.signin_save') || 'Sign in to save to your workspace')
+      return
+    }
+    setSaveState(s => ({ ...s, [i]: 'saving' }))
+    try {
+      const res = await authFetch('/api/vfs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: `notes/${workspaceFilename()}`, content: String(content || ''), mime: 'text/markdown' }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.ok) throw new Error(data.detail || data.error || 'save failed')
+      setSaveState(s => ({ ...s, [i]: 'saved' }))
+      showVoiceToast('info', t('chat.actions.saved') || 'Saved to workspace')
+    } catch {
+      setSaveState(s => ({ ...s, [i]: 'error' }))
+      showVoiceToast('error', t('chat.actions.save_failed') || "Couldn't save to workspace")
+    } finally {
+      setTimeout(() => setSaveState(s => ({ ...s, [i]: null })), 2500)
+    }
+  }
+
+  function rerunFrom(i) {
+    if (loading || resumingRef.current) return
+    const truncated = rerunTruncation(messages, i)
+    if (!truncated) return
+    // Same contract as the empty-response auto-retry: the conversation ends
+    // on the user message, lastConvoRef mirrors it, then send() replays it.
+    lastConvoRef.current = truncated
+    emptyRetryRef.current = false
+    send(truncated)
+  }
+
   // ── Voice Input (ASR) ──
   const [micPermModal, setMicPermModal] = useState(false)
 
@@ -1896,6 +1969,15 @@ export default function ChatClient() {
     return groups
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatHistory, convSearch, sessionMeta, isSessionPinned])
+
+  // ── v5.30.16 — dynamic conversation title for the top bar ──
+  // Same resolution the history drawer uses (chatTitle): renamed title →
+  // saved session title → first user message. On a fresh empty chat the
+  // bar stays empty so the morphing brand keeps the stage to itself.
+  const activeSession = sessionId ? chatHistory.find(s => s.id === sessionId) : null
+  const headerTitle = (sessionId || messages.length > 0)
+    ? chatTitle(activeSession || { id: sessionId || 'draft', messages })
+    : ''
 
   const hasInput = input.trim().length > 0 || attachedFile
 
@@ -2678,8 +2760,20 @@ export default function ChatClient() {
               <IconMenu size={20} />
             </button>
           </div>
-          {/* Center: spacer for balanced layout */}
-          <div className="flex-1" />
+          {/* Center: current conversation title (v5.30.16) — hidden on empty
+              new chats, then mirrors the drawer title (rename-aware) and
+              updates from the first user message while streaming. */}
+          <div className="flex-1 min-w-0 flex items-center justify-center px-3">
+            {headerTitle && (
+              <h1
+                data-chat-title="true"
+                className="text-[13px] font-medium text-[#a3a3a3] truncate max-w-full leading-none"
+                title={headerTitle}
+              >
+                {headerTitle}
+              </h1>
+            )}
+          </div>
           {/* Right: new conversation */}
           <button
             onClick={clearChat}
@@ -3071,6 +3165,83 @@ export default function ChatClient() {
                             <span>{displayContent}</span>
                           </div>
                         )}
+                      </div>
+                    )}
+                    {/* ── v5.30.16 message action bar ──
+                        Left: Copy / Quote-reply / Save-to-workspace.
+                        Right: thumbs up+down / Rerun. Skips notice cards and
+                        image cards (they carry their own actions), and hides
+                        while the last reply is still streaming. Rows other
+                        than the newest one stay subtle until hover/focus. */}
+                    {msg.role === 'assistant' && !notice && !(msg.isImage && msg.imageData) &&
+                      String(msg.content || '').trim() && !(streaming && i === messages.length - 1) && (
+                      <div
+                        data-action-bar={i}
+                        className={`mt-2 flex items-center gap-3 transition-opacity duration-200 ${i === messages.length - 1 ? '' : 'opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100'}`}
+                      >
+                        <div className="flex items-center gap-0.5">
+                          <button
+                            data-ab="copy"
+                            onClick={() => copy(msg.content, i)}
+                            title={t('chat.actions.copy')}
+                            aria-label={t('chat.actions.copy')}
+                            className={AB_BTN}
+                          >
+                            {copiedIndex === i ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                          </button>
+                          <button
+                            data-ab="quote"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => quoteReply(msg.content)}
+                            title={t('chat.actions.quote')}
+                            aria-label={t('chat.actions.quote')}
+                            className={AB_BTN}
+                          >
+                            <IconQuote size={14} />
+                          </button>
+                          <button
+                            data-ab="save"
+                            onClick={() => saveToWorkspace(i, msg.content)}
+                            disabled={saveState[i] === 'saving'}
+                            title={t('chat.actions.save')}
+                            aria-label={t('chat.actions.save')}
+                            className={AB_BTN}
+                          >
+                            {saveState[i] === 'saved' ? <IconBookmarkFill size={14} /> : saveState[i] === 'error' ? <IconClose size={14} /> : <IconBookmark size={14} />}
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-0.5">
+                          <button
+                            data-ab="up"
+                            onClick={() => toggleFeedback(i, 'up')}
+                            aria-pressed={msgFeedback[i] === 'up'}
+                            title={t('chat.actions.up')}
+                            aria-label={t('chat.actions.up')}
+                            className={msgFeedback[i] === 'up' ? AB_BTN_ACTIVE : AB_BTN}
+                          >
+                            <IconThumbsUp size={14} />
+                          </button>
+                          <button
+                            data-ab="down"
+                            onClick={() => toggleFeedback(i, 'down')}
+                            aria-pressed={msgFeedback[i] === 'down'}
+                            title={t('chat.actions.down')}
+                            aria-label={t('chat.actions.down')}
+                            className={msgFeedback[i] === 'down' ? AB_BTN_ACTIVE : AB_BTN}
+                          >
+                            <IconThumbsDown size={14} />
+                          </button>
+                          <button
+                            data-ab="rerun"
+                            onClick={() => rerunFrom(i)}
+                            disabled={loading}
+                            title={t('chat.actions.rerun')}
+                            aria-label={t('chat.actions.rerun')}
+                            className={AB_BTN}
+                          >
+                            <IconRefresh size={14} />
+                          </button>
+                        </div>
                       </div>
                     )}
                     {/* v5.14 — hover action row removed: all bubble actions

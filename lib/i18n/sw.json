@@ -1020,5 +1020,14 @@
   "chat.dd.turnoff": "Zima",
   "chat.action.badge": "Kitendo",
   "chat.action.footer": "Mzigo wa kitendo cha mfumo",
-  "chat.action.footer_unparsed": "Mzigo wa kitendo usiofahamika"
+  "chat.action.footer_unparsed": "Mzigo wa kitendo usiofahamika",
+  "chat.actions.copy": "Nakili",
+  "chat.actions.quote": "Jibu kwa kunukuu",
+  "chat.actions.save": "Hifadhi kwenye nafasi ya kazi",
+  "chat.actions.saved": "Imehifadhiwa kwenye nafasi ya kazi",
+  "chat.actions.save_failed": "Imeshindikana kuhifadhi",
+  "chat.actions.signin_save": "Ingia ili uhifadhi kwenye nafasi yako ya kazi",
+  "chat.actions.up": "Jibu zuri",
+  "chat.actions.down": "Jibu baya",
+  "chat.actions.rerun": "Zalisha upya"
 }

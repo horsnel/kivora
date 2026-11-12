@@ -342,6 +342,34 @@ export function IconQuote({ size = 16, className = '' }) {
   )
 }
 
+// ── v5.30.16 message action bar ──
+export function IconThumbsUp({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <rect x="1.75" y="7.25" width="3" height="6" rx="1" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M4.75 13.25V7.25L7.3 2.68a1.1 1.1 0 011.95.99L8.75 5.75h3.4c.78 0 1.36.72 1.19 1.48l-.86 4c-.13.6-.66 1.02-1.27 1.02H4.75z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function IconThumbsDown({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <rect x="1.75" y="2.75" width="3" height="6" rx="1" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M4.75 2.75v6l2.55 4.57a1.1 1.1 0 001.95-.99L8.75 10.25h3.4c.78 0 1.36-.72 1.19-1.48l-.86-4c-.13-.6-.66-1.02-1.27-1.02H4.75z" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function IconRefresh({ size = 16, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M13.25 8A5.25 5.25 0 112.9 6.1" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <path d="M13.25 2.75v3.5h-3.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 export function IconFilter({ size = 16, className = '' }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>

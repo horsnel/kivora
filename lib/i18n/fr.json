@@ -1020,5 +1020,14 @@
   "chat.dd.turnoff": "Désactiver",
   "chat.action.badge": "Action",
   "chat.action.footer": "Charge d'action système",
-  "chat.action.footer_unparsed": "Charge d'action non reconnue"
+  "chat.action.footer_unparsed": "Charge d'action non reconnue",
+  "chat.actions.copy": "Copier",
+  "chat.actions.quote": "Citer et répondre",
+  "chat.actions.save": "Enregistrer dans l'espace de travail",
+  "chat.actions.saved": "Enregistré dans l'espace de travail",
+  "chat.actions.save_failed": "Échec de l'enregistrement",
+  "chat.actions.signin_save": "Connectez-vous pour enregistrer dans votre espace de travail",
+  "chat.actions.up": "Bonne réponse",
+  "chat.actions.down": "Mauvaise réponse",
+  "chat.actions.rerun": "Régénérer"
 }

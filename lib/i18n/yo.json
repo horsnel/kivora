@@ -1020,5 +1020,14 @@
   "chat.dd.turnoff": "Pa á",
   "chat.action.badge": "Ìṣe",
   "chat.action.footer": "Ìṣe ẹ̀rọ tí a fi ránṣẹ́",
-  "chat.action.footer_unparsed": "Ìṣe àìmọ̀"
+  "chat.action.footer_unparsed": "Ìṣe àìmọ̀",
+  "chat.actions.copy": "Daakọ",
+  "chat.actions.quote": "Dahun pẹ̀lú ọ̀rọ̀",
+  "chat.actions.save": "Fi pamọ́",
+  "chat.actions.saved": "Ti fi pamọ́",
+  "chat.actions.save_failed": "Kò tíí fi pamọ́",
+  "chat.actions.signin_save": "Wọlé kí o lè fi pamọ́",
+  "chat.actions.up": "O dára",
+  "chat.actions.down": "Kò dára",
+  "chat.actions.rerun": "Tún ṣe"
 }

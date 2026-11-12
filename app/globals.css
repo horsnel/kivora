@@ -47,9 +47,13 @@
   --teal-dim: rgba(0,201,167,0.08);
   --green: #16a34a;
   --green-dim: rgba(22,163,74,0.08);
-  /* Font variables now reference next/font CSS custom properties for consistency */
-  --font-sans: var(--font-inter), 'Inter', system-ui, sans-serif;
-  --font-mono: var(--font-jetbrains), 'JetBrains Mono', 'Fira Code', monospace;
+  /* ── v5.30.16 font-var fix ──
+     The derived font variables CANNOT live on :root — next/font only
+     defines --font-inter/--font-jetbrains on <body> (via the __variable_*
+     className), and a var() that references an undefined variable computes
+     to guaranteed-invalid AT :ROOT and inherits invalid to every descendant.
+     Result: every code/pre/kbd/.font-mono silently rendered Inter. Defined
+     on body instead, where the source variables actually exist. */
 }
 
 * { box-sizing: border-box; }
@@ -69,6 +73,10 @@ html, body {
 }
 
 body {
+  /* v5.30.16 — font vars live here (see the :root note above): next/font
+     defines the source variables on <body>, so the derived stacks resolve. */
+  --font-sans: var(--font-inter), 'Inter', system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), 'JetBrains Mono', 'Fira Code', monospace;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);

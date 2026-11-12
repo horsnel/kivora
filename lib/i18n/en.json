@@ -1020,5 +1020,14 @@
   "chat.dd.turnoff": "Turn off",
   "chat.action.badge": "Action",
   "chat.action.footer": "System action payload",
-  "chat.action.footer_unparsed": "Unrecognized action payload"
+  "chat.action.footer_unparsed": "Unrecognized action payload",
+  "chat.actions.copy": "Copy",
+  "chat.actions.quote": "Quote reply",
+  "chat.actions.save": "Save to workspace",
+  "chat.actions.saved": "Saved to workspace",
+  "chat.actions.save_failed": "Couldn't save to workspace",
+  "chat.actions.signin_save": "Sign in to save to your workspace",
+  "chat.actions.up": "Good response",
+  "chat.actions.down": "Bad response",
+  "chat.actions.rerun": "Regenerate"
 }
