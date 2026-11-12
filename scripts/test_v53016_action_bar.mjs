@@ -93,8 +93,8 @@ ok('title hidden on empty fresh chats', src.includes("(sessionId || messages.len
 ok('header renders data-chat-title h1', src.includes('data-chat-title="true"'))
 ok('header title is rename-aware via chatTitle (sessionMeta lookup inside chatTitle)',
   src.includes("const metaTitle = sessionMeta[session?.id]?.title"))
-ok('action bar renders for assistant messages only',
-  src.includes("msg.role === 'assistant' && !notice && !(msg.isImage && msg.imageData)"))
+ok('action bar renders for assistant messages only (v5.30.17 adds !msg.isError)',
+  src.includes("msg.role === 'assistant' && !notice && !msg.isError && !(msg.isImage && msg.imageData)"))
 ok('bar hidden while streaming last reply',
   src.includes('String(msg.content || \'\').trim() && !(streaming && i === messages.length - 1)'))
 for (const ab of ['copy', 'quote', 'save', 'up', 'down', 'rerun']) {
@@ -113,8 +113,8 @@ ok('rerun disabled while loading', src.includes('disabled={loading}'))
 ok('rerun goes through rerunTruncation guard', src.includes('const truncated = rerunTruncation(messages, i)') && src.includes('if (!truncated) return'))
 ok('rerun mirrors lastConvoRef (auto-retry contract intact)',
   /rerunTruncation\(messages, i\)[\s\S]{0,200}lastConvoRef\.current = truncated[\s\S]{0,80}send\(truncated\)/.test(src))
-ok('handlers imported from lib/messageActions',
-  src.includes("import { pickQuoteSource, buildQuoteText, workspaceFilename, rerunTruncation } from '@/lib/messageActions'"))
+ok('handlers imported from lib/messageActions (v5.30.17 reply-reference helpers)',
+  src.includes("pickQuoteSource, workspaceFilename, rerunTruncation, replyChipExcerpt, buildReplyContext, mentionLabel } from '@/lib/messageActions'"))
 ok('new icons imported', src.includes('IconThumbsUp, IconThumbsDown, IconRefresh, IconBookmark, IconBookmarkFill, IconQuote'))
 ok('non-last rows hover-reveal on desktop only',
   src.includes('opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100'))

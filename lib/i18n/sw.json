@@ -1029,5 +1029,7 @@
   "chat.actions.signin_save": "Ingia ili uhifadhi kwenye nafasi yako ya kazi",
   "chat.actions.up": "Jibu zuri",
   "chat.actions.down": "Jibu baya",
-  "chat.actions.rerun": "Zalisha upya"
+  "chat.actions.rerun": "Zalisha upya",
+  "chat.reply.mention": "Inajibu",
+  "chat.reply.cancel": "Ondoa marejeo"
 }

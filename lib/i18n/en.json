@@ -1029,5 +1029,7 @@
   "chat.actions.signin_save": "Sign in to save to your workspace",
   "chat.actions.up": "Good response",
   "chat.actions.down": "Bad response",
-  "chat.actions.rerun": "Regenerate"
+  "chat.actions.rerun": "Regenerate",
+  "chat.reply.mention": "Replying to",
+  "chat.reply.cancel": "Dismiss reply"
 }

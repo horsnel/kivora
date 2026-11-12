@@ -1029,5 +1029,7 @@
   "chat.actions.signin_save": "Connectez-vous pour enregistrer dans votre espace de travail",
   "chat.actions.up": "Bonne réponse",
   "chat.actions.down": "Mauvaise réponse",
-  "chat.actions.rerun": "Régénérer"
+  "chat.actions.rerun": "Régénérer",
+  "chat.reply.mention": "En réponse à",
+  "chat.reply.cancel": "Masquer la réponse"
 }

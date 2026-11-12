@@ -27,7 +27,8 @@ import AIActionCard from '@/components/chat/AIActionCard'
 import Lightbox from '@/components/Lightbox'
 import { createPortal } from 'react-dom'
 import { authFetch } from '@/lib/authFetch'
-import { pickQuoteSource, buildQuoteText, workspaceFilename, rerunTruncation } from '@/lib/messageActions'
+import { pickQuoteSource, workspaceFilename, rerunTruncation, replyChipExcerpt, buildReplyContext, mentionLabel } from '@/lib/messageActions'
+import { closeUnclosedFences } from '@/lib/textRepair'
 
 // v5.11 — Live Terminal restored (client-only; xterm touches DOM)
 const XTerminal = dynamic(() => import('@/components/XTerminal'), { ssr: false })
@@ -348,13 +349,39 @@ function ImageGeneratingCard() {
 // as markdown. Fenced code samples are never converted (lib/actionTags);
 // during streaming an unclosed tag tail is hidden until its close arrives.
 // ── v5.30.16 message action bar chrome (module scope: identical every row) ──
-const AB_BTN = 'w-7 h-7 flex items-center justify-center rounded-lg text-[#525252] hover:text-[#e2e2e2] hover:bg-white/[0.05] transition-colors disabled:opacity-40'
-const AB_BTN_ACTIVE = 'w-7 h-7 flex items-center justify-center rounded-lg text-[#e2e2e2] bg-white/[0.08] transition-colors'
+// v5.30.17 — bar buttons get an invisible expanded hit area (44px target on
+// a 28px icon: `before:` pseudo extends the tap zone) and touch-action
+// manipulation (no 300ms delay / double-tap-zoom interference on mobile).
+const AB_HIT = "relative before:content-[''] before:absolute before:-inset-1.5 before:rounded-md [touch-action:manipulation]"
+const AB_BTN = `w-7 h-7 flex items-center justify-center rounded-lg text-[#525252] hover:text-[#e2e2e2] hover:bg-white/[0.05] transition-colors disabled:opacity-40 ${AB_HIT}`
+const AB_BTN_ACTIVE = `w-7 h-7 flex items-center justify-center rounded-lg text-[#e2e2e2] bg-white/[0.08] transition-colors ${AB_HIT}`
+
+// v5.30.17 — sanitize a persisted feedback map (chat_sessions.feedback jsonb
+// is keyed by message index as a STRING after a JSONB round-trip; indexes
+// must also be revalidated against the loaded message count, since a rerun
+// truncates the tail).
+function normalizeFeedback(fb, msgs) {
+  const max = Array.isArray(msgs) ? msgs.length : 0
+  const out = {}
+  if (fb && typeof fb === 'object' && !Array.isArray(fb)) {
+    for (const [k, v] of Object.entries(fb)) {
+      const idx = Number(k)
+      if ((v === 'up' || v === 'down') && Number.isInteger(idx) && idx >= 0 && idx < max) out[idx] = v
+    }
+  }
+  return out
+}
 
 function AssistantContent({ content, streaming }) {
+  // v5.30.17 — self-healing render: a fence lost to a mid-stream drop (or a
+  // partial reply saved by an older version, before the server polished on
+  // interrupt) used to paint everything after it as code. Closing the fence
+  // for DISPLAY is strictly better; the authoritative server reply replaces
+  // the streamed buffer at done, and the janitor repairs the stored copy.
+  const safeContent = useMemo(() => closeUnclosedFences(content), [content])
   const segments = useMemo(
-    () => parseActionSegments(content, { streaming }),
-    [content, streaming]
+    () => parseActionSegments(safeContent, { streaming }),
+    [safeContent, streaming]
   )
   return (
     <>
@@ -395,10 +422,15 @@ export default function ChatClient() {
   const [sessionId, setSessionId] = useState('')
   const [copiedIndex, setCopiedIndex] = useState(null)
   // ── v5.30.16 message action bar state ──
-  // msgFeedback: { [index]: 'up' | 'down' | null } — visual-only thumbs.
+  // msgFeedback: { [index]: 'up' | 'down' | null } — thumbs, persisted per
+  //   session (chat_sessions.feedback, v5.30.17).
   // saveState:   { [index]: 'saving' | 'saved' | 'error' } — workspace save.
   const [msgFeedback, setMsgFeedback] = useState({})
   const [saveState, setSaveState] = useState({})
+  // v5.30.17 — reply reference ("@-mention"): the message being replied to,
+  // shown as a chip above the composer and prepended as blockquote context
+  // on send. { index, excerpt }
+  const [replyRef, setReplyRef] = useState(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [user, setUser] = useState(null)
   // v5.22 — guest banner ("you're chatting as a guest") — dismissible, per-device
@@ -613,20 +645,23 @@ export default function ChatClient() {
       const MAX_SESSIONS = 300
       let all = []
       let anyPageOk = false
-      // Pull the rename/pin meta columns straight from the DB (they exist once
-      // chat-session-meta-migration.sql has run). If the DB predates the
-      // migration, PostgREST rejects the unknown columns — retry once without
-      // them so history still loads and device-local meta keeps covering.
-      let metaCols = true
+      // Pull the meta columns straight from the DB: title/pinned exist once
+      // chat-session-meta-migration.sql (v5.18) has run, feedback once
+      // chat-message-feedback-migration.sql (v5.30.17) has. If the DB
+      // predates a migration, PostgREST rejects the unknown columns — retry
+      // with the newest column dropped so history still loads and the
+      // device-local mirror keeps covering the missing pieces.
+      let cols = 'id, messages, updated_at, title, pinned, feedback'
       while (all.length < MAX_SESSIONS) {
         const { data, error } = await supabasePublic
           .from('chat_sessions')
-          .select(metaCols ? 'id, messages, updated_at, title, pinned' : 'id, messages, updated_at')
+          .select(cols)
           .eq('user_id', userId)
           .order('updated_at', { ascending: false })
           .range(all.length, all.length + PAGE - 1)
         if (error) {
-          if (metaCols) { metaCols = false; continue }
+          if (cols.includes('feedback')) { cols = cols.replace(', feedback', ''); continue }
+          if (cols.includes('title')) { cols = 'id, messages, updated_at'; continue }
           break
         }
         anyPageOk = true
@@ -743,7 +778,11 @@ export default function ChatClient() {
   useEffect(() => {
     if (!barExpanded) return
     function handleClick(e) {
-      if (e.target instanceof Element && e.target.closest('.chat-sheet-wrap, .animate-slide-up')) return
+      // v5.30.17 — the reply-reference chip lives ABOVE the bar container
+      // (outside chatBarRef); dismissing it with an empty input must not
+      // collapse the bar mid-tap — that unmounts nothing here but the
+      // collapse still eats the click (same v5.30.12 overlay-tap bug class).
+      if (e.target instanceof Element && e.target.closest('.chat-sheet-wrap, .animate-slide-up, [data-reply-chip]')) return
       if (showUpgrade || settingsOpen) return
       if (chatBarRef.current && !chatBarRef.current.contains(e.target)) {
         if (!input.trim() && !attachedFile) {
@@ -846,6 +885,8 @@ export default function ChatClient() {
     }
     setMessages([])
     setInput('')
+    setReplyRef(null)
+    setMsgFeedback({}) // fresh chat — no messages to rate yet
     setSessionId(crypto.randomUUID())
     firstMessageSent.current = false
     setAttachedFile(null)
@@ -861,6 +902,12 @@ export default function ChatClient() {
     }
     setSessionId(session.id)
     setMessages(normalizeMessages(session.messages))
+    // v5.30.17 — thumbs ride with the session: DB column when the migration
+    // has run, device-local mirror otherwise (readChatMeta already overlays
+    // title/pinned the same way).
+    const localMeta = readChatMeta()[session.id] || {}
+    setMsgFeedback(normalizeFeedback(localMeta.feedback ?? session.feedback, session.messages))
+    setReplyRef(null)
     firstMessageSent.current = true
     setHistoryOpen(false)
     setAttachedFile(null)
@@ -1313,7 +1360,10 @@ export default function ChatClient() {
     setImageGenerating(false)
     const assistantMsg = { role: 'assistant', content: '' }
     if (data.error) {
+      // v5.30.17 — resume-path failures are notices too: flag them so they
+      // render the error card without an action bar.
       assistantMsg.content = data.error
+      assistantMsg.isError = true
     } else {
       // done is authoritative — replaces the streamed bubble (covers the
       // discardable preamble the forced-tool retry can emit)
@@ -1477,6 +1527,13 @@ export default function ChatClient() {
 
     // Build the message content with file attachment if present
     let messageContent = q
+    // v5.30.17 — reply reference: the chip above the composer @-mentions the
+    // message being replied to; its excerpt goes out as blockquote context so
+    // the model sees exactly which prior message the new question continues.
+    if (replyRef && q) {
+      const ctx = buildReplyContext(replyRef.excerpt, messages[replyRef.index]?.role)
+      if (ctx) messageContent = `${ctx}\n\n${q}`
+    }
     if (attachedFile && attachedContent) {
       if (attachedIsImage) {
         // For images: [Image: filename]\n<base64 data>
@@ -1509,6 +1566,7 @@ export default function ChatClient() {
     emptyRetryRef.current = false
     setMessages(newMessages)
     setInput('')
+    setReplyRef(null) // v5.30.17 — the reply reference rode along with this send
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
 
     // Capture attachment state before clearing
@@ -1646,7 +1704,11 @@ export default function ChatClient() {
           // Server error payloads are user-facing copy — surface verbatim on
           // the notice card; the action button (driven by upgrade_url) is the
           // way out instead of an appended text nudge.
+          // v5.30.17 — also flag it as an error: unflagged failure texts used
+          // to render as a normal bubble WITH an action bar underneath (the
+          // "duplicate action bar under the error message" report).
           assistantMsg.content = data.error
+          assistantMsg.isError = true
         } else {
           // `done` is authoritative — replaces the live buffer (covers forced
           // tool retries where the model streamed discardable preamble text)
@@ -1658,9 +1720,11 @@ export default function ChatClient() {
       } else {
         // ── Legacy JSON path (server without stream support / error JSON) ──
         const data = await res.json()
-        const fellBack = !data.reply && !data.error
         const assistantMsg = { role: 'assistant', content: data.reply || data.error || "I couldn't generate a response for that. Please try sending it again." }
-        if (fellBack) assistantMsg.isError = true
+        // v5.30.17 — a server error payload is a notice, not content (used to
+        // render as a normal bubble with an action bar). isError follows what
+        // is actually displayed: reply > error > fallback.
+        if (!data.reply) assistantMsg.isError = true
         applyChatMeta(assistantMsg, data, res)
         setMessages(prev => [...prev, assistantMsg])
       }
@@ -1749,25 +1813,32 @@ export default function ChatClient() {
   // Reuses existing primitives: copy() above, showVoiceToast() for save
   // feedback, autoResize() for the composer, send(retryConvo) for rerun.
   function toggleFeedback(i, val) {
-    setMsgFeedback(f => ({ ...f, [i]: f[i] === val ? null : val }))
+    // v5.30.17 — thumbs persist per session: chat_sessions.feedback jsonb
+    // (chat-message-feedback-migration.sql), mirrored to the device-local
+    // sessionMeta map. persistSessionMeta swallows the column write until
+    // the migration has run, so guests/pre-migration DBs keep working.
+    const next = { ...msgFeedback, [i]: msgFeedback[i] === val ? null : val }
+    if (!next[i]) delete next[i]
+    setMsgFeedback(next)
+    if (sessionId) persistSessionMeta(sessionId, { feedback: next })
   }
 
-  function quoteReply(content) {
+  function quoteReply(content, index) {
     // The button's onMouseDown calls preventDefault() — that keeps the live
     // text selection alive until click (clicking a button would otherwise
-    // clear it), so "select a phrase → tap quote" quotes exactly the phrase.
+    // clear it), so "select a phrase → tap quote" references exactly the
+    // phrase. v5.30.17: the quote becomes an @-mention reply reference —
+    // a chip above the composer names the message; on send the context is
+    // prepended as a blockquote so the model knows what is being asked about.
     let sel = ''
     try { sel = window.getSelection ? window.getSelection().toString() : '' } catch {}
     const raw = pickQuoteSource(sel, content)
     if (!raw) return
-    const quoted = buildQuoteText(raw)
-    setInput(prev => (prev ? `${prev}\n\n${quoted}\n\n` : `${quoted}\n\n`))
+    setReplyRef({ index, excerpt: replyChipExcerpt(raw) })
     requestAnimationFrame(() => {
-      const el = textareaRef.current
+      const el = textareaRef.current || collapsedInputRef.current
       if (!el) return
       el.focus()
-      el.selectionStart = el.selectionEnd = el.value.length
-      autoResize(el)
     })
   }
 
@@ -1953,7 +2024,10 @@ export default function ChatClient() {
     // only array shapes are safe to .find() over
     const msgs = Array.isArray(session?.messages) ? session.messages : []
     const first = msgs.find(m => m?.role === 'user')
-    return first?.content?.slice(0, 40) || t('chat.new')
+    // v5.30.17 — derive up to 80 chars: the header shows the full width of
+    // the top bar (CSS truncate handles display); 40 chars read as if the
+    // title was cut off long before the bar ran out of room.
+    return first?.content?.slice(0, 80) || t('chat.new')
   }
 
   const filteredHistory = useMemo(() => {
@@ -3169,14 +3243,25 @@ export default function ChatClient() {
                     )}
                     {/* ── v5.30.16 message action bar ──
                         Left: Copy / Quote-reply / Save-to-workspace.
-                        Right: thumbs up+down / Rerun. Skips notice cards and
-                        image cards (they carry their own actions), and hides
-                        while the last reply is still streaming. Rows other
-                        than the newest one stay subtle until hover/focus. */}
-                    {msg.role === 'assistant' && !notice && !(msg.isImage && msg.imageData) &&
+                        Right: thumbs up+down / Rerun. Skips notice cards,
+                        error notices (v5.30.17 — failed replies carry no
+                        bar) and image cards (they carry their own actions),
+                        and hides while the last reply is still streaming.
+                        Rows other than the newest one stay subtle until
+                        hover/focus. */}
+                    {msg.role === 'assistant' && !notice && !msg.isError && !(msg.isImage && msg.imageData) &&
                       String(msg.content || '').trim() && !(streaming && i === messages.length - 1) && (
                       <div
                         data-action-bar={i}
+                        // v5.30.17 — tap isolation: the bubble's long-press
+                        // handler lives on the group wrapper AROUND this bar;
+                        // a slightly slow touch on a button used to arm it,
+                        // pop the full-screen action card over the tap, and
+                        // swallow the click ("icons don't respond"). Bar
+                        // presses never open that card, and clicks don't
+                        // bubble into the bubble's own click surfaces.
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
                         className={`mt-2 flex items-center gap-3 transition-opacity duration-200 ${i === messages.length - 1 ? '' : 'opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100'}`}
                       >
                         <div className="flex items-center gap-0.5">
@@ -3192,7 +3277,7 @@ export default function ChatClient() {
                           <button
                             data-ab="quote"
                             onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => quoteReply(msg.content)}
+                            onClick={() => quoteReply(msg.content, i)}
                             title={t('chat.actions.quote')}
                             aria-label={t('chat.actions.quote')}
                             className={AB_BTN}
@@ -3307,6 +3392,29 @@ export default function ChatClient() {
                     <span>{t(labelKey)}</span>
                   </button>
                 ))}
+              </div>
+            )}
+            {/* ── v5.30.17 reply-reference chip ("@-mention") ──
+                Names the message being replied to; the quoted excerpt rides
+                out with the next send as blockquote context. Dismiss with ×. */}
+            {replyRef && (
+              <div data-reply-chip="true" className="mb-2 flex items-center">
+                <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.06] rounded-lg px-2.5 py-1.5 text-[12px] max-w-full">
+                  <IconQuote size={12} className="shrink-0 text-[#FF3366]" />
+                  <span className="truncate min-w-0 text-[#737373]">
+                    <span className="text-[#e2e2e2] font-medium">{t('chat.reply.mention')} {mentionLabel(messages[replyRef.index]?.role)}</span>
+                    {' · '}
+                    <span>“{replyRef.excerpt}”</span>
+                  </span>
+                  <button
+                    onClick={() => setReplyRef(null)}
+                    className="ml-0.5 shrink-0 text-[#525252] hover:text-[#e2e2e2] transition-colors"
+                    aria-label={t('chat.reply.cancel')}
+                    title={t('chat.reply.cancel')}
+                  >
+                    <IconClose size={10} />
+                  </button>
+                </div>
               </div>
             )}
             {/* Voice toast notification */}

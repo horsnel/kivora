@@ -1029,5 +1029,7 @@
   "chat.actions.signin_save": "Wọlé kí o lè fi pamọ́",
   "chat.actions.up": "O dára",
   "chat.actions.down": "Kò dára",
-  "chat.actions.rerun": "Tún ṣe"
+  "chat.actions.rerun": "Tún ṣe",
+  "chat.reply.mention": "Ìdáhùn sí",
+  "chat.reply.cancel": "Fagilé ìdáhùn"
 }

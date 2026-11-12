@@ -1,0 +1,49 @@
+name: Nightly Janitor
+
+# Background cleanup agent for chat history (v5.30.17). Runs the deterministic
+# text-repair pass over chat_sessions (drops failure-notice / empty assistant
+# bubbles, closes unclosed Markdown fences) and purges stale chat_generations
+# resume-buffer rows. Rules are deterministic on purpose — the janitor never
+# rewrites message bodies with an LLM, it only repairs syntax it can verify.
+#
+# Secrets (already provisioned for the daily maintenance workflow):
+#   SUPABASE_URL, SUPABASE_SERVICE_KEY — service-role access to chat data.
+#
+# Manual run: Actions tab → Nightly Janitor → Run workflow.
+
+on:
+  schedule:
+    - cron: '17 2 * * *' # daily 02:17 UTC — before the 04:37 health check
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-janitor
+  cancel-in-progress: false
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Scan + clean broken chat history
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node scripts/maintenance/janitor.mjs
+
+      - name: Weekly dry-run audit (Sundays, report only)
+        if: github.event_name == 'schedule' && github.event.schedule == '17 2 * * 0'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DRY_RUN: '1'
+        run: node scripts/maintenance/janitor.mjs
