@@ -1383,3 +1383,52 @@ Work Log:
   probe hit CF WAF 1010 (non-browser signature) → re-probed from inside a
   real browser: /api/research with an image → 200, 4 sources, 1841-char
   report in 39.4s, no self-heal needed. scripts/prod_research_image_probe.mjs.
+
+---
+Task ID: v5.30.23
+Agent: Main
+Task: v5.30.23 — Cloudflare AI Gateway hop for Groq (7b7fc1f)
+
+Work Log:
+- GOAL: kill the Groq-on-Vercel-proxy dependency with CF's officially
+  supported path (AI Gateway egress is allowlisted by Groq; plain key
+  passthrough, no gateway auth).
+- CF API: token verified ACTIVE; account 9bd9a730...; AI Gateway
+  endpoints DENIED (code 10000) — token has Pages/KV/Workers/Zones but
+  NOT AI Gateway. Gateway 'kivora-groq' could NOT be created via API.
+  Pages project 'kivora' inspected (40 prod env vars; GROQ_API_KEY +
+  FALLBACK already present).
+- URL SHAPE (CF docs, WebFetch): …/v1/{acct}/{gw}/groq/chat/completions —
+  /openai/v1 is REPLACED, so groq-sdk (appends /openai/v1/…) CANNOT be
+  pointed at the gateway; used a directChat hop instead. Empirically:
+  gateway.ai.cloudflare.com 403s Python signatures (CF WAF 1010) but
+  passes curl+UA; both real and nonexistent slugs return AiGatewayError
+  2009 (indistinguishable — no existence oracle without the perm).
+- WIRING (lib/groq.js): GROQ_GATEWAY_URL env const (normalized, no
+  trailing slash); getGroqApiKey(); 'groq-gateway' hop placed BEFORE
+  groq-primary in BOTH chains (text + vision); available() = URL && key;
+  directChat keeps reasoning_effort ONLY for groq-gateway (real Groq
+  backend accepts it; qwen3.8 vision needs 'none'); dedicated 20s
+  timeout; legacy IDs via mapGroqModel, canonical passthrough.
+  Unset URL → hop skipped → chain byte-identical to v5.30.22.
+- SUITE v5.30.23 (22/22, mock gateway): exact docs URL shape, Bearer
+  passthrough, canonical + legacy model IDs, reasoning_effort retention,
+  SSE streaming (deltas + assembly), dead-gateway fallthrough (chain
+  CONTINUES past a 401), unset-skip (fresh instance, zero hits). Learned
+  mid-test: with GROQ_API_KEY set the SDK hops reach the REAL proxy from
+  the sandbox — isolated via GROQ_PROXY_URL → mock.
+- KEY VALIDATION: provided Groq key 403s direct from sandbox (Groq DC-IP
+  policy) but validated through the Vercel proxy: 200 with choices.
+  Pages secret upsert via PATCH → persistent CF 500 (8000000), 3 tries;
+  existing GROQ_API_KEY untouched + functional; the gateway hop uses
+  prod's GROQ_API_KEY either way. NOT SET: GROQ_GATEWAY_URL (deliberate
+  — an unverified gateway would tax every request ~300ms before
+  fail-open).
+- VERIFY: battery 1095 green (incl. v5.30.23), i18n 0 missing, build
+  clean, deploy CONFIRMED via Pages deployments API (22:55:01 success,
+  commit v5.30.23 — the definitive server-only-deploy check), gate
+  GREEN, browser-context prod chat probe: 200 / 2.1s / 'PONG'.
+- PENDING (user, 2 min): dashboard → AI → AI Gateway → create gateway
+  'kivora-groq' (or send a token with AI Gateway:Edit and I create +
+  verify + flip). Then set GROQ_GATEWAY_URL on Pages (or I do it), and
+  scripts/probe_gateway_groq.py proves it live.
