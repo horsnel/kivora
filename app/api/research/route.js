@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from '@/lib/supabase'
 import { createClient } from '@supabase/supabase-js'
 import { requireCredits, requireFeatureAccess, refundCredits, CREDIT_COSTS } from '@/lib/credits'
 import { SSE_HEADERS, sseResponse } from '@/lib/sse'
+import { describeImageOvh } from '@/lib/vision-ovh'
 import { groqChat, VISION_MODEL, setGeminiApiKey, setOpenrouterApiKey, stripThinking } from '@/lib/groq'
 
 // Kivora Research Worker endpoint (Cloudflare Worker)
@@ -189,11 +190,16 @@ function chunkReport(text, chunkSize = 120) {
  *
  * The external research worker receives images verbatim, but its text
  * pipeline historically under-delivered on "who is this person" queries.
- * Before forwarding, we run a fast forensic vision pass (qwen3.8-27b via
- * the image-aware provider chain) and prepend a structured analysis block
- * to the query. The worker's search + synthesis stages then ground the
- * report in identified entities (people, landmarks, brands, OCR text)
- * instead of a bare image blob.
+ * Before forwarding, we run a fast forensic vision pass and prepend a
+ * structured analysis block to the query. The worker's search + synthesis
+ * stages then ground the report in identified entities (people, landmarks,
+ * brands, OCR text) instead of a bare image blob.
+ *
+ * v5.30.22 — provider order: OVHcloud's anonymous tier (Qwen2.5-VL-72B,
+ * no API key, verified live; CF egress is NOT blocked there, unlike Groq)
+ * is tried FIRST. Only when it fails (~2 RPM/IP anonymous budget, outages)
+ * do we fall back to the image-aware provider chain (qwen3.8-27b via
+ * Gemini/OpenRouter keys). Both paths produce the same structured brief.
  *
  * Failure is non-fatal: on any error/timeout the original query is passed
  * through unchanged.
@@ -207,9 +213,6 @@ async function analyzeImageAttachments(geminiKey, openrouterKey, query, files) {
     )
     if (!image) return null
 
-    setGeminiApiKey(geminiKey)
-    setOpenrouterApiKey(openrouterKey)
-
     const analysisPrompt = `Analyze this image for a research pipeline. Produce a compact structured brief:
 1. PEOPLE — for each visible person: apparent role/context. CRITICAL: if they could be a public figure or celebrity, you MUST name your top candidate(s) with rough confidence percentages (e.g. "Candidate: Billie Eilish (~70%)"). Only say "no known match" if you truly cannot form any hypothesis. Never invent identities for clearly private individuals.
 2. SCENE — setting, location cues, landmarks (name them if identifiable), time-of-day, weather.
@@ -217,30 +220,47 @@ async function analyzeImageAttachments(geminiKey, openrouterKey, query, files) {
 4. TEXT — transcribe ALL visible text (OCR), including captions, watermarks, screens, clothing text.
 5. SEARCH QUERIES — based on EVERYTHING above, list 2-4 concrete web search queries that would verify or identify the subjects (e.g. "Billie Eilish polka dot top 2024 photo"). These queries are executed verbatim by the research engine — make them specific and self-contained.
 Be factual and label uncertainty. Keep the whole brief under 350 words.`
+    const promptWithQuestion = analysisPrompt + (query ? `\n\nUser's question about this image: "${query}"` : '')
 
-    const analysisPromise = groqChat({
-      model: VISION_MODEL,
-      messages: [
-        { role: 'system', content: 'You are a precise visual forensic analyst. Output only the structured brief.' },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: analysisPrompt + (query ? `\n\nUser's question about this image: "${query}"` : '') },
-            { type: 'image_url', image_url: { url: image.content } },
-          ],
-        },
-      ],
-      max_tokens: 900,
-      reasoning_effort: 'none', // qwen3.8 — no thinking tokens in the brief
-    })
-    // Hard 20s cap — a hung vision call must never delay the research request
+    // The whole pre-analysis (OVH attempt + possible chain fallback) is
+    // hard-capped at 20s — a hung vision call must never delay the request.
+    const analysisPromise = (async () => {
+      // v5.30.22: OVH first — free, keyless, ~2 RPM per IP. One shot, never
+      // retried; null → existing chain below.
+      const ovhBrief = await describeImageOvh(image.content, promptWithQuestion, { maxTokens: 900 })
+      if (ovhBrief) {
+        console.log(`[research] OVH vision brief used (${ovhBrief.length} chars)`)
+        return ovhBrief
+      }
+
+      // OVH unavailable → the v5.11 image-aware chain (qwen3.8-27b via the
+      // Gemini/OpenRouter hops), unchanged.
+      setGeminiApiKey(geminiKey)
+      setOpenrouterApiKey(openrouterKey)
+      const res = await groqChat({
+        model: VISION_MODEL,
+        messages: [
+          { role: 'system', content: 'You are a precise visual forensic analyst. Output only the structured brief.' },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: promptWithQuestion },
+              { type: 'image_url', image_url: { url: image.content } },
+            ],
+          },
+        ],
+        max_tokens: 900,
+        reasoning_effort: 'none', // qwen3.8 — no thinking tokens in the brief
+      })
+      return stripThinking(res?.choices?.[0]?.message?.content || '')
+    })()
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('vision pre-analysis timeout')), 20000)
     )
-    const res = await Promise.race([analysisPromise, timeoutPromise])
+    const text = await Promise.race([analysisPromise, timeoutPromise])
 
-    const text = stripThinking(res?.choices?.[0]?.message?.content || '')
-    return text.trim() ? text.trim() : null
+    const clean = (text || '').trim()
+    return clean ? clean : null
   } catch (err) {
     console.warn('[research] vision pre-analysis failed (passthrough):', String(err?.message || err).slice(0, 120))
     return null
