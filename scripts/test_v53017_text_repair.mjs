@@ -149,7 +149,7 @@ ok('thumbs persist through persistSessionMeta', cc.includes('persistSessionMeta(
 ok('loadSession hydrates feedback via normalizeFeedback', cc.includes('normalizeFeedback(localMeta.feedback ?? session.feedback'))
 ok('history select includes feedback with graceful fallback',
   cc.includes("'id, messages, updated_at, title, pinned, feedback'") && cc.includes("cols.replace(', feedback', '')"))
-ok('chatTitle derives up to 80 chars', cc.includes('.slice(0, 80)'))
+ok('chatTitle derives up to 120 chars (v5.30.19)', cc.includes('.slice(0, 120)'))
 ok('AssistantContent renders self-healed content', cc.includes('closeUnclosedFences(content)'))
 ok('reply-reference chip renders above composer', cc.includes('data-reply-chip="true"'))
 const errFlagCount = (cc.match(/assistantMsg\.isError = true/g) || []).length

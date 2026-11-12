@@ -2032,7 +2032,11 @@ export default function ChatClient() {
     // quoted excerpt; quote-only messages title from the quote.
     const raw = typeof first?.content === 'string' ? first.content : ''
     const { quote, body } = splitUserQuote(raw)
-    return (body || quote || raw).slice(0, 80) || t('chat.new')
+    // v5.30.19 — cap 120 (was 80): the desktop header box fits ~130 chars at
+    // 13px, so an 80-char cap truncated titles that still had room; 120
+    // matches the rename cap, and the drawer rows keep their own width-based
+    // truncate + hover tooltip either way.
+    return (body || quote || raw).slice(0, 120) || t('chat.new')
   }
 
   const filteredHistory = useMemo(() => {
@@ -2382,7 +2386,7 @@ export default function ChatClient() {
       )}
       <aside
         ref={historyRef}
-        className={`fixed lg:relative z-50 lg:z-auto top-0 left-0 h-full w-[88%] max-w-[400px] lg:w-60 lg:max-w-none bg-[#0f0f0f] border-r border-[#181818] flex flex-col transition-transform duration-200 ${
+        className={`fixed lg:relative z-50 lg:z-auto top-0 left-0 h-full w-[88%] max-w-[400px] lg:w-72 lg:max-w-none bg-[#0f0f0f] border-r border-[#181818] flex flex-col transition-transform duration-200 ${
           historyOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
@@ -2456,6 +2460,7 @@ export default function ChatClient() {
                       >
                         <button
                           onClick={() => { if (!sessionClickGuard()) loadSession(s) }}
+                          title={chatTitle(s)}
                           onPointerDown={(e) => startSessionPress(e, s)}
                           onPointerUp={clearSessionPress}
                           onPointerLeave={clearSessionPress}

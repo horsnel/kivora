@@ -68,13 +68,16 @@ ok('quote block carries data-user-quote', cc.includes('data-user-quote="true"'))
 ok('quote block styled with left border (assistant blockquote DNA)',
   cc.includes('border-l-[3px] border-l-white/[0.14]'))
 ok('chatTitle derives from the quote-split body (no raw > marker in titles)',
-  cc.includes('const { quote, body } = splitUserQuote(raw)') && cc.includes('(body || quote || raw).slice(0, 80)'))
+  cc.includes('const { quote, body } = splitUserQuote(raw)') && cc.includes('(body || quote || raw).slice(0, 120)'))
 ok('collapsed composer uses explicit Inter (hardened from inherit)',
   /chat-collapsed-input \{[\s\S]{0,700}?font-family: var\(--font-inter\), Inter, system-ui, sans-serif;/.test(cc))
 ok('expanded textarea uses explicit Inter (hardened from inherit)',
   /chat-textarea-expanded \{[\s\S]{0,500}?font-family: var\(--font-inter\), Inter, system-ui, sans-serif;/.test(cc))
 ok('no font-family:inherit left in composer rules',
   !/chat-(collapsed-input|textarea-expanded) \{[\s\S]{0,400}?font-family: inherit;/.test(cc))
+
+ok('drawer widened to w-72 (rows truncated at ~34 chars under w-60)', cc.includes('lg:w-72'))
+ok('session rows carry the full-title tooltip', cc.includes('title={chatTitle(s)}'))
 
 console.log('── MarkdownRenderer typography contract ──')
 const md = readFileSync(root + 'components/MarkdownRenderer.jsx', 'utf8')
