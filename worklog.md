@@ -1263,3 +1263,51 @@ Work Log:
   bundle values. FIRST extraction returned empty (flaky curl) → the dev page
   crash-reload-looped and Playwright clicks reported "waiting for navigation
   to finish" — a stuck navigation means a crash loop, check env FIRST.
+
+---
+Task ID: v5.30.20
+Agent: Main
+Task: v5.30.20 — unified copy feedback, zero-DDL thumbs, global mono stack (cac0516)
+
+Work Log:
+- USER REPORTS: (a) run chat-message-feedback-migration.sql; (b) chat copy
+  shows an inline grey 'Copied' box instead of the research toast; (c) faint
+  ghost 'Copied' box behind research Key Findings text; (d) mono fonts must
+  be global, not per-page.
+- SQL: probed prod Supabase with the anon key →
+  `42703 column chat_sessions.feedback does not exist` (migration NOT run).
+  DDL cannot run with public credentials (anon key ships in the bundle by
+  design; service_role has no DDL rights anyway). So the FEATURE GOAL was
+  met without DDL instead: thumbs now embed INSIDE the messages jsonb
+  objects ({feedback:'up'|'down'} on the message), written via the existing
+  RLS-scoped client update. The server's save path READS the stored array
+  before appending (prevMessages(session) → [...prev, user, assistant]), so
+  embedded fields survive every later save — verified in
+  app/api/chat/route.js (737/886). Load derives the map from messages,
+  merging the legacy column/localStorage maps. SQL file re-marked OPTIONAL.
+  ANON-KEY EXTRACTION BUG (from v5.30.19): the first JWT-segment-only regex
+  ([A-Za-z0-9_-]+ stops at '.') grabbed a false-positive from the i18n
+  chunk (127-char non-JWT string). Real key = 3-segment JWT regex, 208
+  chars, role=anon verified by decoding the payload.
+- COPY UNIFICATION: chat copy() + MarkdownRenderer CodeBlock copy now fire
+  showFeedback({variant:'toast'}) — the same global pill OutputMenu uses on
+  research. Inline grey 'Copied' text swap removed from the long-press
+  bubble card (card closes on copy; toast confirms). GHOST BOX ROOT CAUSE:
+  the toast pill sat at z-[90], BELOW research content stacking contexts →
+  pill+cards raised to z-[10000]. BONUS FIX: clipboard writeText rejections
+  on insecure contexts used to escape unhandled → pageerror; both call
+  sites now fall back to textarea+execCommand.
+- FONTS: research/page.jsx shipped 4 inline `ui-monospace` rules (ref
+  numbers, verification badges) and CodePreviewCard 4 literal JetBrains
+  stacks — all 8 normalized to var(--font-mono); the body-level definition
+  (v5.30.16) now governs every surface. chat.actions.copied added to
+  en/fr/sw/yo.
+- VERIFY: gate_v53020.py GREEN on prod (33/33 assets; research page chunk
+  var(--font-mono) ×4 / ui-monospace ×0 — needles must be SPACELESS, the
+  minifier strips `font-family: var` → `font-family:var`; SSR HTML carries
+  neither — the styles render client-side, so gate greps the PAGE CHUNK via
+  the build-manifest reference). probe_v53020_unify 6/6 prod (toast fires,
+  z=10000 topmost — elementFromPoint skips pointer-events-none pills, the
+  probe re-enables them for the check); probe_v53019 6/6; probe_v53018
+  10/10. Battery 981 (724 canonical + 41 + 69 + 92 + 27 + 28 - term
+  variance); i18n 644 keys 0 missing; build clean.
