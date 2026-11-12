@@ -1232,3 +1232,34 @@ Work Log:
   i18n 643 keys, 0 missing. next build clean.
 - Deploy: be2face pushed; gate_v53018.py (byte markers + regression set) +
   typography probe on production.
+
+---
+Task ID: v5.30.19
+Agent: Main
+Task: v5.30.19 — title truncation: drawer 240→288px, title cap 80→120, row tooltip (b813b96)
+
+Work Log:
+- USER REPORT: header title still truncates ("Search for a trending open
+  source r..."). MEASURED FIRST (probe_v53019_titlewidth.mjs on prod, three
+  viewports): the main header title box is 832-856px and showed NO ellipsis
+  for the 80-char cap — the binding constraint was the 240px (w-60) history
+  DRAWER, whose session rows fit ~34 chars ≈ exactly the user's quote.
+  Lesson: "the header" can be the drawer's rows — measure every surface a
+  title renders on before patching the obvious one.
+- FIXES:
+  1. Drawer lg:w-60 → lg:w-72 (288px; mobile keeps 88%/max-400px overlay) —
+     rows gain ~8 visible chars.
+  2. chatTitle derive cap 80 → 120 (the desktop header fits ~130 chars at
+     13px, so 80 left room unused; 120 matches the rename cap).
+  3. Session rows carry title={chatTitle(s)} — full title on hover.
+- Post-fix measurements (dev 6/6 + PROD 6/6): 120-char title renders with NO
+  ellipsis in the 832px header box; drawer 288px; half-width (640) box 488px
+  with a width-based ellipsis as designed. Typography regression probe 10/10
+  on prod. Gate_v53019.py GREEN (31/31 assets; CSS marker lg\\:w-72; slice
+  regex needed \\s* — the minifier strips the space).
+- Sandbox recycled TWICE this turn: (a) mid-turn revert to the stale v5.8.1
+  checkout while edits were in flight (stash→fetch→reset→clean; re-apply),
+  (b) .env.local + node_modules wiped again — env re-extracted from PUBLIC
+  bundle values. FIRST extraction returned empty (flaky curl) → the dev page
+  crash-reload-looped and Playwright clicks reported "waiting for navigation
+  to finish" — a stuck navigation means a crash loop, check env FIRST.
