@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
-import { IconMenu, IconClose, IconDashboard, IconUser, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconVideo, IconEye, IconMicroscope, IconCommunity, IconOpportunity } from '@/components/Icons'
+import { IconMenu, IconDashboard, IconUser, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconVideo, IconEye, IconMicroscope, IconCommunity, IconOpportunity } from '@/components/Icons'
 import { supabasePublic } from '@/lib/supabase'
 import UserAvatar from '@/components/UserAvatar'
 import { useCurrency } from '@/components/CurrencyToggle'
@@ -242,12 +242,8 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
               Ki<span className="text-red-500">vora</span>
             </span>
           </Link>
-          <button
-            className="lg:hidden w-7 h-7 flex items-center justify-center text-[#525252] hover:text-white transition-colors"
-            onClick={onClose}
-          >
-            <IconClose size={20} />
-          </button>
+          {/* v5.30.21 — the sidebar's X (close) button removed per product
+              decision: the overlay tap and route changes close the drawer */}
         </div>
       </div>
 

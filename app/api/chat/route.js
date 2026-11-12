@@ -1,6 +1,6 @@
 export const runtime = 'edge' 
-import { groq, MODEL, VISION_MODEL, groqChat, GroqError, ALLOWED_MODELS, getPrimaryClientAsync, getFallbackClientAsync, setCerebrasApiKey, setSambanovaApiKey, setSiliconflowApiKey, setGeminiApiKey, setOpenrouterApiKey, stripThinking } from '@/lib/groq'
-import { mistralChat, mistralChatStream, setMistralApiKeys, isMistralConfigured, messagesHaveImage } from '@/lib/mistral'
+import { groq, MODEL, VISION_MODEL, groqChat, GroqError, ALLOWED_MODELS, getPrimaryClientAsync, getFallbackClientAsync, setCerebrasApiKey, setSambanovaApiKey, setSiliconflowApiKey, setGeminiApiKey, setOpenrouterApiKey, setLightningConfig, stripThinking } from '@/lib/groq'
+import { mistralChat, mistralChatStream, setMistralApiKeys, isMistralConfigured, messagesHaveImage, setLightningEndpoint } from '@/lib/mistral'
 import { setJudge0Config } from '@/lib/judge0'
 import { sseResponse } from '@/lib/sse'
 import { createClient } from '@supabase/supabase-js'
@@ -523,6 +523,9 @@ async function processChat(req, body, _send, conn) {
     const siliconflowKey = await getEnvVar('SILICONFLOW_API_KEY')
     const geminiKey = await getEnvVar('GEMINI_API_KEY')
     const openrouterKey = await getEnvVar('OPENROUTER_API_KEY')
+    // v5.30.21 — self-hosted Lightning AI gateway (serves when configured;
+    // absent/empty → the hop is skipped and the cloud chain serves as before)
+    setLightningConfig(await getEnvVar('LIGHTNING_BASE_URL'), await getEnvVar('LIGHTNING_API_KEY'))
     const supaUrl = await getEnvVar('NEXT_PUBLIC_SUPABASE_URL')
     const supaKey = await getEnvVar('SUPABASE_SERVICE_ROLE_KEY')
 
@@ -531,6 +534,8 @@ async function processChat(req, body, _send, conn) {
     const mistralKey = await getEnvVar('MISTRAL_API_KEY')
     const mistralFallbackKey = await getEnvVar('MISTRAL_API_KEY_FALLBACK')
     setMistralApiKeys(mistralKey, mistralFallbackKey)
+    // v5.30.21 — self-hosted Lightning AI gateway (first hop when configured)
+    setLightningEndpoint(await getEnvVar('LIGHTNING_BASE_URL'), await getEnvVar('LIGHTNING_API_KEY'))
     setCerebrasApiKey(cerebrasKey)
     setSambanovaApiKey(sambanovaKey)
     setSiliconflowApiKey(siliconflowKey)

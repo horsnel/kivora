@@ -1,0 +1,14 @@
+# Lightning AI gateway — pinned for reproducible Studio environments.
+# Text/vision engine (service.py)
+litserve>=0.2.7
+vllm>=0.10.0          # gpt-oss MXFP4 support; install matches the Studio's CUDA
+transformers>=4.55.0
+
+# Voice engine (voice_service.py)
+faster-whisper>=1.1.0
+fastapi>=0.115.0
+uvicorn>=0.30.0
+python-multipart>=0.0.9
+
+# Image engine (deploy.md §image — FLUX.1-schnell, optional instance)
+# torch, diffusers>=0.30.0, transformers, sentencepiece, protobuf, accelerate

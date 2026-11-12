@@ -20,7 +20,7 @@ export const runtime = 'edge'
 // only wired into the proxy path; wiring it here is a follow-up.
 // ══════════════════════════════════════════════════════════════════════
 import { MODEL, groqChat, GroqError, getPrimaryClientAsync, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
-import { mistralChat, MistralError, setMistralApiKeys } from '@/lib/mistral'
+import { mistralChat, MistralError, setMistralApiKeys, setLightningEndpoint } from '@/lib/mistral'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit, getClientIP } from '@/lib/ratelimit'
 import { consumeFeatureUsage, getFeatureUsage, nextUTCResetISO } from '@/lib/featureUsage'
@@ -109,6 +109,8 @@ export async function POST(req) {
     const mistralKey = await getEnvVar('MISTRAL_API_KEY')
     const mistralFallbackKey = await getEnvVar('MISTRAL_API_KEY_FALLBACK')
     setMistralApiKeys(mistralKey, mistralFallbackKey)
+    // v5.30.21 — self-hosted Lightning AI gateway (first hop when configured)
+    setLightningEndpoint(await getEnvVar('LIGHTNING_BASE_URL'), await getEnvVar('LIGHTNING_API_KEY'))
     const geminiKey = await getEnvVar('GEMINI_API_KEY')
     setGeminiApiKey(geminiKey)
     const openrouterKey = await getEnvVar('OPENROUTER_API_KEY')

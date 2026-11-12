@@ -1,7 +1,7 @@
 export const runtime = 'edge' 
 import { createClient } from '@supabase/supabase-js'
 import { groq, MODEL, groqChat, GroqError, getPrimaryClientAsync, getFallbackClientAsync, setCerebrasApiKey, setSambanovaApiKey, setSiliconflowApiKey, setGeminiApiKey, setOpenrouterApiKey, sambanovaChatLong } from '@/lib/groq'
-import { mistralChat, setMistralApiKeys, isMistralConfigured } from '@/lib/mistral'
+import { mistralChat, setMistralApiKeys, isMistralConfigured, setLightningEndpoint } from '@/lib/mistral'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit, anonymousRateLimit, anonymousDailyLimit, getClientIP } from '@/lib/ratelimit'
 import { requireCredits, refundCredits, CREDIT_COSTS } from '@/lib/credits'
@@ -39,6 +39,8 @@ export async function POST(req) {
     const mistralKey = await getEnvVar('MISTRAL_API_KEY')
     const mistralFallbackKey = await getEnvVar('MISTRAL_API_KEY_FALLBACK')
     setMistralApiKeys(mistralKey, mistralFallbackKey)
+    // v5.30.21 — self-hosted Lightning AI gateway (first hop when configured)
+    setLightningEndpoint(await getEnvVar('LIGHTNING_BASE_URL'), await getEnvVar('LIGHTNING_API_KEY'))
     setCerebrasApiKey(cerebrasKey)
     setSambanovaApiKey(sambanovaKey)
     setSiliconflowApiKey(siliconflowKey)

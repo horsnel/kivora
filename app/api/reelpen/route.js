@@ -1,7 +1,7 @@
 export const runtime = 'edge' 
 import { groq, MODEL, groqChat, GroqError, getPrimaryClientAsync, setGeminiApiKey, setOpenrouterApiKey } from '@/lib/groq'
 import { SUGGESTIONS_TAIL } from '@/lib/suggestions'
-import { mistralChat, mistralChatStream, MistralError, setMistralApiKeys } from '@/lib/mistral'
+import { mistralChat, mistralChatStream, MistralError, setMistralApiKeys, setLightningEndpoint } from '@/lib/mistral'
 import { sseResponse } from '@/lib/sse'
 import { getEnvVar } from '@/lib/cfEnv'
 import { rateLimit, getClientIP } from '@/lib/ratelimit'
@@ -699,6 +699,8 @@ export async function POST(req) {
     const mistralKey = await getEnvVar('MISTRAL_API_KEY')
     const mistralFallbackKey = await getEnvVar('MISTRAL_API_KEY_FALLBACK')
     setMistralApiKeys(mistralKey, mistralFallbackKey)
+    // v5.30.21 — self-hosted Lightning AI gateway (first hop when configured)
+    setLightningEndpoint(await getEnvVar('LIGHTNING_BASE_URL'), await getEnvVar('LIGHTNING_API_KEY'))
 
     const geminiKey = await getEnvVar('GEMINI_API_KEY')
     setGeminiApiKey(geminiKey)
