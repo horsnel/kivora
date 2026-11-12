@@ -113,8 +113,8 @@ ok('rerun disabled while loading', src.includes('disabled={loading}'))
 ok('rerun goes through rerunTruncation guard', src.includes('const truncated = rerunTruncation(messages, i)') && src.includes('if (!truncated) return'))
 ok('rerun mirrors lastConvoRef (auto-retry contract intact)',
   /rerunTruncation\(messages, i\)[\s\S]{0,200}lastConvoRef\.current = truncated[\s\S]{0,80}send\(truncated\)/.test(src))
-ok('handlers imported from lib/messageActions (v5.30.17 reply-reference helpers)',
-  src.includes("pickQuoteSource, workspaceFilename, rerunTruncation, replyChipExcerpt, buildReplyContext, mentionLabel } from '@/lib/messageActions'"))
+ok('handlers imported from lib/messageActions (v5.30.17 helpers + v5.30.18 splitUserQuote)',
+  src.includes("pickQuoteSource, workspaceFilename, rerunTruncation, replyChipExcerpt, buildReplyContext, mentionLabel, splitUserQuote } from '@/lib/messageActions'"))
 ok('new icons imported', src.includes('IconThumbsUp, IconThumbsDown, IconRefresh, IconBookmark, IconBookmarkFill, IconQuote'))
 ok('non-last rows hover-reveal on desktop only',
   src.includes('opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100'))

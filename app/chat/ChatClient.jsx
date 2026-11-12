@@ -27,7 +27,7 @@ import AIActionCard from '@/components/chat/AIActionCard'
 import Lightbox from '@/components/Lightbox'
 import { createPortal } from 'react-dom'
 import { authFetch } from '@/lib/authFetch'
-import { pickQuoteSource, workspaceFilename, rerunTruncation, replyChipExcerpt, buildReplyContext, mentionLabel } from '@/lib/messageActions'
+import { pickQuoteSource, workspaceFilename, rerunTruncation, replyChipExcerpt, buildReplyContext, mentionLabel, splitUserQuote } from '@/lib/messageActions'
 import { closeUnclosedFences } from '@/lib/textRepair'
 
 // v5.11 — Live Terminal restored (client-only; xterm touches DOM)
@@ -2027,7 +2027,12 @@ export default function ChatClient() {
     // v5.30.17 — derive up to 80 chars: the header shows the full width of
     // the top bar (CSS truncate handles display); 40 chars read as if the
     // title was cut off long before the bar ran out of room.
-    return first?.content?.slice(0, 80) || t('chat.new')
+    // v5.30.18 — a leading "> " quote (the reply chip's @-mention context)
+    // titles the conversation with the user's actual QUESTION, not the
+    // quoted excerpt; quote-only messages title from the quote.
+    const raw = typeof first?.content === 'string' ? first.content : ''
+    const { quote, body } = splitUserQuote(raw)
+    return (body || quote || raw).slice(0, 80) || t('chat.new')
   }
 
   const filteredHistory = useMemo(() => {
@@ -3234,11 +3239,26 @@ export default function ChatClient() {
                             <img src={msg.userImageData} alt="Uploaded" className="max-w-full max-h-64 w-auto h-auto object-contain" />
                           </div>
                         )}
-                        {displayContent && (
-                          <div className="rounded-2xl px-3.5 py-2 bg-white/[0.04] text-[#e2e2e2] text-[14px] border border-white/[0.06] rounded-tr-sm leading-[1.5]">
-                            <span>{displayContent}</span>
-                          </div>
-                        )}
+                        {displayContent && (() => {
+                          // v5.30.18 — leading "> " lines (@-mention context
+                          // from the reply chip, or a typed quote) render as a
+                          // styled quote block instead of raw markup; the wire
+                          // format to the model is unchanged.
+                          const { quote, body } = splitUserQuote(displayContent)
+                          return (
+                            <div className="rounded-2xl px-3.5 py-2 bg-white/[0.04] text-[#e2e2e2] text-[14px] border border-white/[0.06] rounded-tr-sm leading-[1.5]">
+                              {quote && (
+                                <div
+                                  data-user-quote="true"
+                                  className="border-l-[3px] border-l-white/[0.14] bg-white/[0.02] rounded-r-lg px-3 py-2 my-1 text-[13px] text-[#a3a3a3] whitespace-pre-wrap"
+                                >
+                                  {quote}
+                                </div>
+                              )}
+                              {body && <span>{body}</span>}
+                            </div>
+                          )
+                        })()}
                       </div>
                     )}
                     {/* ── v5.30.16 message action bar ──
@@ -3999,7 +4019,9 @@ export default function ChatClient() {
           font-size: 16px;
           color: #e2e2e2;
           padding: 0 4px;
-          font-family: inherit;
+          /* v5.30.18 — explicit Inter (not inherit): the composer must never
+             drift to whatever font an ancestor happens to carry. */
+          font-family: var(--font-inter), Inter, system-ui, sans-serif;
         }
         .chat-collapsed-input::placeholder {
           color: #525252;
@@ -4096,7 +4118,9 @@ export default function ChatClient() {
           resize: none;
           max-height: 240px;
           min-height: 56px;
-          font-family: inherit;
+          /* v5.30.18 — explicit Inter (not inherit), same guarantee as the
+             collapsed input above. */
+          font-family: var(--font-inter), Inter, system-ui, sans-serif;
           padding: 4px 2px;
           margin-bottom: 12px;
         }
