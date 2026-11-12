@@ -43,3 +43,7 @@ scripts/deploy/kivora-deploy.env
 
 # public anon key cache (local only — key is inlined in client bundle anyway)
 scripts/anon_key.txt
+
+# python compile artifacts
+__pycache__/
+*.pyc
