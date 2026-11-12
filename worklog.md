@@ -988,3 +988,62 @@ hover rules.
 GOTCHA (worklog): the same channel stripping that eats bracket-M sequences
 in tool output also ate the literal sequence out of the v5.30.13 GOTCHA line
 above ("eats "" sequences") — phrase future notes without the literal bytes.
+
+## v5.30.15 — chat action-tag system (no more raw pseudo-XML in bubbles)
+- User report: the AI dumped raw machinery into the message stream — tool
+  calls spelled as pseudo-XML: <file type="json" title="Cloning Appwrite
+  Repo"> {"name": "sandbox_git", "arguments": {...}} </file>. Root cause:
+  sandbox_git IS a real registry tool; the model wrapped the call in a tag
+  format the v5.15 text-recovery never anticipated (its fence/bare-line
+  candidates cannot match JSON sharing a line with a tag), so the text
+  flowed to the client and rendered as-is.
+- Layer 1 — recovery (app/api/chat/route.js): recoverToolCallFromText
+  extracted to lib/toolCallRecovery.js (pure, known-names passed in — keeps
+  the edge route free of test-only imports) and extended to unwrap action-tag
+  blocks first; the tool now REALLY executes (native tool_calls payload,
+  Live Terminal mirror, done-replace overwrites the streamed raw text).
+- Layer 2 — sanitizer: sanitizeVisibleReply strips action-tag blocks whose
+  body parses as tool JSON via stripActionTagToolBlocks (belt-and-suspenders
+  for tools-off / unknown-name paths; legacy <file path> artifact bodies and
+  prose are kept byte-for-byte).
+- Layer 3 — client rendering: lib/actionTags.js parseActionSegments splits
+  message content into text/action segments — fence-protected (a fenced
+  sample is NEVER converted; fences opening INSIDE a tag body belong to the
+  body), JSON-object gate (legacy artifact HTML passes through), streaming
+  guard hides an unclosed tag tail until its close arrives. New
+  components/chat/AIActionCard.jsx: #111 surface / #262626 border /
+  rounded-2xl / FF3366 ACTION badge chip (ChatNoticeCard language), args
+  pretty-printed, valid-vs-unparsed footer, i18n chat.action.{badge,footer,
+  footer_unparsed} x4 locales. Wired in ChatClient via AssistantContent at
+  the single MarkdownRenderer call site (memoized, fast-path returns the
+  original string when no tag present).
+- Layer 4 — prompt: TOOL CALL SYNTAX rule added to the registry system
+  prompt (function calling only, never spell calls as text/tags/fences).
+- DISCOVERED (pre-existing, flagged, NOT fixed here): the :root font vars are
+  broken app-wide — --font-sans/--font-mono reference var(--font-inter)/
+  var(--font-jetbrains), which next/font defines on BODY, not html; custom
+  properties compute at :root first, so both vars are guaranteed-invalid
+  everywhere and the `code, pre, kbd, .font-mono { font-family:
+  var(--font-mono) !important }` rule silently degrades every code block /
+  mono chip in the app to Inter (inheritance fallback). The card sidesteps
+  it with an inline JetBrains stack on an inner div (a pre cannot be
+  overridden inline — the !important rule wins). One-line app fix when
+  green-lit: give the var() references fallbacks or move the definitions to
+  body.
+- Tooling gotchas: repo tsconfig sets jsx:"preserve" — esbuild honors it and
+  ships RAW JSX; point esbuild at scripts/tsconfig.harness.json (jsx:
+  react-jsx) for harness bundles. react-dom/server under --format=esm needs
+  node builtins → build CJS + createRequire. lib ESM imports need explicit
+  .js for node tests. The tool-output channel ALSO eats literal tag-open
+  sequences in ECHOES (a <tool_call> vanished from an Edit-tool echo while
+  the file bytes were correct — od -c confirmed); file truth > echo truth.
+- Verification: unit 41/41 (parser/recovery/sanitizer/card renderToString
+  via esbuild+LanguageProvider harness); probe_v53015.mjs 12/12 DEV and
+  12/12 PRODUCTION (injected real-component card HTML into the live page:
+  bg #111, border #262626, r16, badge FF3366, pre #0f0f0f, JetBrains mono,
+  i18n labels, unparsed variant; 0 page errors). Battery 724/724 canonical
+  (browser 134 + terminal 127 this run + send 21 + gate 14 + vfs 42 + grid
+  67 + citations 210 + stream 109) + new suite 41 = 765 green. i18n audit
+  632 keys, 0 missing. Canonical gate: 31/31 self-referenced assets 200;
+  chunk 7535 carries chat.action.* keys + parser bundle; probe green on
+  https://kivora.pages.dev.
