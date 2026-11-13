@@ -1536,3 +1536,31 @@ Work Log:
   level; chain is green). Hop remains dormant-401 (fail-open) until the
   Run token lands. GROQ_GATEWAY_TOKEN intentionally NOT set (a rejected
   token would just 403 the hop the same way).
+
+---
+Task ID: v5.30.24d
+Agent: Main
+Task: gateway token round 2 — Run perm still missing, minting API dead-end mapped
+
+Work Log:
+- Token #2 (cfut_Bgms…, id ab97bbc3…): 403 on native endpoint
+  (cf-aig-authorization), control-clean (garbage → 401 in same window).
+  Same verdict as #1: recognized, not authorized → still no Run.
+- DIFFERENT diagnose: #2 AUTHENTICATES on the REST endpoint
+  (/accounts/{id}/ai/v1/chat/completions, Bearer + cf-aig-provider-key)
+  → per docs that route requires Workers AI Read → user granted Workers
+  AI perms this round, not AI Gateway Run.
+- PAGINATION BLINDFOLD FOUND: /accounts/{id}/iam/permission_groups is
+  paginated (3 pages, 261 groups total); page 2 holds the AI Gateway
+  groups — Admin 72513f83…, Read Only de5d0722…, **Run a29dfea2…**.
+- MINTING DEAD-ENDS mapped empirically:
+  POST /accounts/{id}/tokens + Run group → 400 "Permission group not
+  found" (AI Gateway groups rejected for account tokens; Admin too).
+  POST /user/tokens + Run group → 403 (cd2b lacks API Tokens Write;
+  token self-read also 403s). Dashboard button = only path for Run.
+- BONUS FACT: REST/Unified-Billing path is NOT viable — account is on
+  the Workers **Free plan** ("Model … not available on the Workers Free
+  plan", code 5035). Third-party REST models bill CF credits; native
+  endpoint + BYOK Groq key remains the only architecture that fits.
+- PROD: unchanged, healthy (no deploys this turn; hop dormant fail-open;
+  vision/text green from v5.30.24b).
