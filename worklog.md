@@ -1502,3 +1502,37 @@ Work Log:
 - PENDING (user, 30 sec): dashboard → AI Gateway → kivora-groq →
   Settings → Create authentication token → send it. I PATCH
   GROQ_GATEWAY_TOKEN + push → hop green → gateway logs become the proof.
+
+---
+Task ID: v5.30.24c
+Agent: Main
+Task: gateway token verification — user token rejected (403), diagnosis complete
+
+Work Log:
+- Recycle rollback #3: local repo back to 063e7b6; reset --hard to
+  origin/main (356e53d, GitHub intact); node_modules wiped again → npm i.
+- USER'S GATEWAY TOKEN (cfut_6UHb…) REJECTED: sandbox probe via
+  cf-aig-authorization → HTTP 403 {"error":{"message":"Forbidden"}},
+  deterministic (2× retries), for BOTH the user's token AND my own
+  Edit-capable API token. Controls: MISSING header → 401 (code 2009);
+  GARBAGE token → 401 (2009) — so 403 = "token recognized, not
+  authorized", NOT bot protection (controls ran in the same window).
+- ROOT CAUSE (docs + IAM evidence): the gateway data plane requires a
+  custom API token with the "AI Gateway Run" permission group. My cd2b
+  token has AI Gateway EDIT (created the gateway!) — Edit manages
+  gateways via api.cloudflare.com but CANNOT run requests through them
+  (403). The user's 6UHb token verifies as a valid API token
+  (/user/tokens/verify → active) but lacks Run → 403.
+- IAM API dead ends: account /iam/permission_groups lists 100 groups
+  with NO AI Gateway group (Run/Edit/Read are user-token-side groups,
+  not exposed via the account listing or /user/iam routes); token
+  self-read 403s on both tokens (no API Tokens Read); AI Gateway auth
+  tokens have NO documented create API (auth-tokens routes 404).
+- CONCLUSION: token minting is dashboard-only in practice. User needs
+  EITHER the gateway's Settings → "Create authentication token" button
+  (pre-checks Run) OR a custom token with Account → AI Gateway Run.
+- PROD STATE (unchanged, healthy): vision probe 200 "Yellow" (1.6s) —
+  model answered with the circle's color this time (variance is model-
+  level; chain is green). Hop remains dormant-401 (fail-open) until the
+  Run token lands. GROQ_GATEWAY_TOKEN intentionally NOT set (a rejected
+  token would just 403 the hop the same way).
