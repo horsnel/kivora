@@ -104,6 +104,25 @@ export function IconLightning({ size = 16, className = '' }) {
   )
 }
 
+// Sparkle Coin — AI credits icon (source spec: viewBox 24). Stroke tapers and
+// the four cardinal dots only join from 20px up, matching the designer's
+// size variants; below that the dot hairlines would render as mush.
+export function IconSparkleCoin({ size = 16, className = '' }) {
+  const sw = size <= 16 ? 2 : size <= 24 ? 1.8 : size <= 32 ? 1.6 : 1.5
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth={sw}/>
+      <path d="M12 7.5l1.1 2.9 2.9 1.1-2.9 1.1L12 15.5l-1.1-2.9L8 11.5l2.9-1.1z" stroke="currentColor" strokeWidth={sw} strokeLinejoin="round"/>
+      {size >= 20 && (<>
+        <circle cx="12" cy="4.6" r="0.7" fill="currentColor"/>
+        <circle cx="19.4" cy="12" r="0.7" fill="currentColor"/>
+        <circle cx="12" cy="19.4" r="0.7" fill="currentColor"/>
+        <circle cx="4.6" cy="12" r="0.7" fill="currentColor"/>
+      </>)}
+    </svg>
+  )
+}
+
 export function IconClock({ size = 16, className = '' }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>

@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { supabasePublic } from '@/lib/supabase'
 import { PLANS, PLAN_LIST } from '@/lib/plans'
 import {
-  IconCheck, IconClose, IconLightning, IconChat, IconMicroscope,
+  IconCheck, IconClose, IconSparkleCoin, IconChat, IconMicroscope,
   IconImage, IconBook, IconCode, IconVideo, IconTrending, IconGlobe,
   IconUser, IconArrowRight
 } from '@/components/Icons'
@@ -218,7 +218,7 @@ function PricingPageContent() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-12 sm:pt-16 pb-8">
         <div className="text-center mb-8 sm:mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1a1a1a] border border-[#262626] text-xs text-[#a3a3a3] mb-4">
-            <IconLightning size={12} className="text-red-500" />
+            <IconSparkleCoin size={12} className="text-red-500" />
             Credits-based pricing, never worry about tokens
           </div>
           <h1 className="text-2xl sm:text-5xl font-bold tracking-tight mb-3">

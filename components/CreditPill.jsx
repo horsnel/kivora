@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { supabasePublic } from '@/lib/supabase'
-import { IconLightning } from '@/components/Icons'
+import { IconSparkleCoin } from '@/components/Icons'
 
 /**
  * CreditPill — the dashboard stats-grid tile showing the user's credit
@@ -84,7 +84,7 @@ export default function CreditPill() {
       className="block bg-[#141414] border border-white/[0.06] hover:border-white/[0.15] rounded-xl px-4 py-3 text-center transition-colors"
     >
       <div className="font-bold text-headline tracking-tight flex items-center justify-center gap-1">
-        <IconLightning size={14} className={isLow ? 'text-red-400' : 'text-red-500'} />
+        <IconSparkleCoin size={14} className={isLow ? 'text-red-400' : 'text-red-500'} />
         {total}
       </div>
       <div className="text-caption text-muted mt-0.5">Credits</div>

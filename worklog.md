@@ -1564,3 +1564,27 @@ Work Log:
   endpoint + BYOK Groq key remains the only architecture that fits.
 - PROD: unchanged, healthy (no deploys this turn; hop dormant fail-open;
   vision/text green from v5.30.24b).
+
+---
+Task ID: v5.30.25
+Agent: Main
+Task: credits icon replaced — new Sparkle Coin (user-supplied design)
+
+Work Log:
+- User uploaded a DeepSeek icon-preview page ("Sparkle Coin — Icon
+  Preview"): circle r=9 + centered 4-point sparkle + 4 cardinal dots,
+  viewBox 24, currentColor, with a per-size stroke table (2 @16 → 1.5
+  @48) and dots dropped below 20px.
+- Added IconSparkleCoin to components/Icons.jsx implementing that spec:
+  stroke tapers by size, dots render only at size ≥ 20.
+- Swapped the two CREDITS-semantic IconLightning usages:
+  components/CreditPill.jsx (dashboard stats tile, size 14, red tones
+  preserved incl. isLow) and app/pricing/page.jsx hero badge
+  ("Credits-based pricing", size 12). Import lines updated; zero
+  leftover IconLightning refs in both files.
+- Left ALL other IconLightning usages untouched (model picker "Nova
+  1.9", opportunity start-days, dashboard milestones — not credits).
+- Verified: esbuild JSX parse OK on all three files. Local node_modules
+  wiped by another sandbox recycle — skipped the local gateway suite
+  (icon-only change, no logic touched); the Pages build is the compile
+  gate.
