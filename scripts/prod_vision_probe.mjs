@@ -5,8 +5,9 @@
 // gateway's own logs record the 401 → prod→gateway egress proof.
 import { chromium } from 'playwright'
 
-// 8x8 red PNG, valid base64 (stable bytes, no image lib needed)
-const PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAFklEQVR4nGP8z8Dwn4GBgYGJgQoAAF9lAgMFXL9UAAAAAElFTkSuQmCC'
+// 128x128 red square with a yellow circle (PIL-generated; Groq rejects
+// tiny/placeholder PNGs with "invalid image data")
+const PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAACZklEQVR4nO2dQU5DMQwFfxHnYN01R+DgHIETsOIkLCKhr1ZIRdgeJ5lZV8L25Pn/SlS5fF6vh3A80QXsjgJgFACjABgFwCgARgEwCoBRAIwCYBQAowAYBcAoAEYBMAqAUQCMAmAUAKMAGAXAKABGATDPdAF/4+X99ZGPfb19ZFcSxaX/P2Y9OPTfaC6jr4B/zv2enibaCQif+z2tTDQSUDD6M000tBBQPPozuAb+NRScPv7XDzYBePNnqChgCWg1/YOrhxHQbfoDpKrqFdRz9DdUrqPSBEwx/aO2zjoBs0x/UFZtkYC5pj+oqZn/HrA5FQJmPP6DgsrTBcw7/UF2/bkCZp/+ILULnwEwiQLWOP6DvF6yBKw0/UFSR64gmBQB6x3/QUZfJgAmXsCqx38Q3p0JgFEATLCAtffPILZHEwCjAJhIATvsn0FgpyYARgEwCoAJE7DPA2AQ1a8JgFEAjAJgFACjABgFwCgARgEwCoBRAIwCYBQAEyYA/8l5MVH9mgAYBcAoACZSwD6PgcBOTQCMAmCCBeywhWJ7NAEwCoCJF7D2FgrvzgTApAhYNQQZfZkAmCwB64UgqaPEBKzkIK8XVxBMroA1QpDaRXoCZneQXX/FCprXQUHlPgNgigTMGIKamusSMJeDsmpLV9AsDirrZO4PaPuLvvojwjyEe0YBqQp7C+rmgKqHv8QHX0fsUeC/B7D940HkE/CD94i1wJv0uuBdkl3wNtVGeJ+wBMO/hm6OAmAUAKMAGAXAKABGATAKgFEAjAJgFACjABgFwCgARgEwCoBRAIwCYBQAowAYBcAoAOYba+2gs8ePX0cAAAAASUVORK5CYII='
 
 const browser = await chromium.launch()
 const page = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage()

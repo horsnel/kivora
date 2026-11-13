@@ -1470,3 +1470,35 @@ Work Log:
   → send it. I PATCH GROQ_GATEWAY_TOKEN + push → hop green → gateway
   logs become the prod-flow proof. probe_gateway_groq.py updated to send
   the header (GATEWAY_TOKEN env).
+
+---
+Task ID: v5.30.24b
+Agent: Main
+Task: env refresh verification + prod vision restoration + burst/vision probes (33aaae4)
+
+Work Log:
+- ENV REFRESH DEPLOYED: 00:29:06 success carries GROQ_API_KEY (rotated to
+  the user-provided key, plain_text) + GROQ_GATEWAY_URL. Config-PATCH GETs
+  can briefly serve a stale snapshot — one read showed 0 env vars mid-
+  refresh; re-read + full JSON dump confirmed all 41 names/types intact
+  (no wipe; only the PATCH'd entries changed).
+- KEY FINDING — PROD GROQ KEY WAS DEAD: pre-rotation vision probes 500'd
+  with the whole groq chain failing (surfaced error: openrouter 403).
+  Root-caused empirically: proxy + NEW key + qwen3.8 = 200 in 0.45s, so
+  the transport is fine — the OLD prod key was the failure. After the
+  redeploy: /api/vision probe 200 in 1.6s, "Red" (correct color).
+  Text-chain groq hops share the same key → text chain also benefits.
+- GATEWAY HOP IN PROD: GROQ_GATEWAY_URL live, but the hop reads
+  process.env.GROQ_API_KEY (plain_text vars ARE in process.env) — hop
+  available → attempts → gateway 401 (no token yet) → fail-open to proxy
+  hops. ZERO user-visible impact (probe passes through the fallback).
+- GATEWAY LOGS: empty — auth-rejected requests are NOT logged by AI
+  Gateway (my sandbox curl 401s don't appear either). The log-based prod
+  proof becomes possible only once the token lands and real 200s flow.
+- PROBE INFRA: prod_chat_burst.mjs (burst reveals the anonymous 5/day
+  chat quota — use vision probes for chain testing, no daily cap),
+  prod_vision_probe.mjs (real 128px PIL image — Groq rejects tiny PNGs
+  with "invalid image data"; validated via proxy first).
+- PENDING (user, 30 sec): dashboard → AI Gateway → kivora-groq →
+  Settings → Create authentication token → send it. I PATCH
+  GROQ_GATEWAY_TOKEN + push → hop green → gateway logs become the proof.
