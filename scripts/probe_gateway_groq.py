@@ -18,6 +18,7 @@ import sys
 ACCT = '9bd9a7308b74fc0440c7e6cd601f6eef'
 GW = os.environ.get('GW_SLUG', 'kivora-groq')
 KEY = os.environ.get('GROQ_KEY', '')
+GW_TOKEN = os.environ.get('GATEWAY_TOKEN', '')  # AI Gateway auth token (dashboard-created)
 URL = f'https://gateway.ai.cloudflare.com/v1/{ACCT}/{GW}/groq/chat/completions'
 
 body = json.dumps({
@@ -26,13 +27,19 @@ body = json.dumps({
     'messages': [{'role': 'user', 'content': 'Reply with exactly: GATEWAY-OK'}],
 }).encode()
 
-r = subprocess.run([
+cmd = [
     'curl', '-s', '-w', '\\n%{http_code}', URL,
     '-H', 'Content-Type: application/json',
     '-H', f'Authorization: Bearer {KEY}',
     '-H', 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36',
     '--data', body.decode(), '--max-time', '60',
-], capture_output=True, text=True)
+]
+# Gateways created after ~mid-2025 are always authenticated — the gateway
+# token rides cf-aig-authorization next to the Groq Bearer key.
+if GW_TOKEN:
+    cmd[cmd.index('--data') - 3:cmd.index('--data') - 3] = ['-H', f'cf-aig-authorization: {GW_TOKEN}']
+
+r = subprocess.run(cmd, capture_output=True, text=True)
 out = r.stdout.strip().rsplit('\n', 1)
 status = out[-1]
 payload = out[0]

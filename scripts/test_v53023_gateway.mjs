@@ -27,6 +27,7 @@ const srv = http.createServer((req, res) => {
     hits.push({
       path: req.url,
       auth: req.headers['authorization'] || null,
+      aig: req.headers['cf-aig-authorization'] || null,
       model: p.model,
       reasoningEffort: p.reasoning_effort === undefined ? null : p.reasoning_effort,
       stream: p.stream === true,
@@ -56,6 +57,7 @@ await new Promise((r) => srv.listen(9993, r))
 
 process.env.GROQ_GATEWAY_URL = 'http://localhost:9993/kivora-groq/groq'
 process.env.GROQ_API_KEY = 'gsk_test_key_for_suite'
+process.env.GROQ_GATEWAY_TOKEN = 'cfut-suite-gateway-token'
 // Isolate the suite from the REAL Vercel proxy — the SDK groq hops would
 // otherwise reach production Groq from this sandbox (proxy egress is
 // allowed). Point them at the mock so the chain stays fully offline.
@@ -106,6 +108,8 @@ const r4 = await groqChat({
 })
 ok('vision chain routes images to gateway hop first', hits[0]?.model === 'qwen/qwen3.8-27b', hits[0]?.model)
 ok('vision reasoning_effort kept (no thinking tokens)', hits[0]?.reasoningEffort === 'none')
+ok('cf-aig-authorization header sent when token env set', hits[0]?.aig === 'cfut-suite-gateway-token', hits[0]?.aig)
+ok('Groq Bearer key still rides alongside (passthrough)', hits[0]?.auth === 'Bearer gsk_test_key_for_suite')
 
 // ── E. dead gateway → hop fails fast, chain falls through to the proxy hops ──
 hits.length = 0
@@ -131,6 +135,14 @@ ok('GROQ_GATEWAY_URL unset → ZERO gateway hits (hop skipped)', hits.length ===
 ok('no groq transport at all → clean chain-exhaustion error', !!unsetErr)
 process.env.GROQ_GATEWAY_URL = 'http://localhost:9993/kivora-groq/groq'
 process.env.GROQ_API_KEY = 'gsk_test_key_for_suite'
+
+// ── F2. token env unset → hop still attempts, but WITHOUT the header ──
+delete process.env.GROQ_GATEWAY_TOKEN
+const g3 = await import('/home/z/my-project/kivora/lib/groq.js?notoken=1')
+hits.length = 0
+await g3.groqChat({ model: MODEL, messages: [{ role: 'user', content: 'x' }] }).catch(() => {})
+ok('no token env → NO cf-aig header (fail-open to gateway 401)', hits[0]?.aig === null && (hits[0]?.path || '').endsWith('/groq/chat/completions'), JSON.stringify(hits[0]?.aig))
+process.env.GROQ_GATEWAY_TOKEN = 'cfut-suite-gateway-token'
 srv.close()
 
 // ── G. source asserts ──
@@ -143,6 +155,9 @@ ok('only when URL AND key present', src.includes("!!GROQ_GATEWAY_URL && !!getGro
 ok('directChat keeps reasoning_effort for the gateway', src.includes("provider === 'groq-gateway' ? params : restParams"))
 ok('dedicated timeout entry', src.includes("'groq-gateway': 20_000"))
 ok('docs-shape comment preserved', src.includes("REPLACED by the"))
+ok('cf-aig-authorization header wiring present', src.includes("headers['cf-aig-authorization'] = GROQ_GATEWAY_TOKEN"))
+ok('token env hook defined (GROQ_GATEWAY_TOKEN)', src.includes("process.env.GROQ_GATEWAY_TOKEN || ''"))
+ok('auth-mandatory comment (always-authenticated gateways)', src.includes("ALWAYS authenticated"))
 
 console.log(`v5.30.23 suite: ${pass} pass, ${fail} fail`)
 process.exit(fail ? 1 : 0)

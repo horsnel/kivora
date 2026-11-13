@@ -1432,3 +1432,41 @@ Work Log:
   'kivora-groq' (or send a token with AI Gateway:Edit and I create +
   verify + flip). Then set GROQ_GATEWAY_URL on Pages (or I do it), and
   scripts/probe_gateway_groq.py proves it live.
+
+---
+Task ID: v5.30.24
+Agent: Main
+Task: v5.30.24 — AI Gateway live: created + cf-aig-authorization support (gateway hop arm)
+
+Work Log:
+- INCIDENT #2: recycle rolled the local repo back to 063e7b6 (v5.8.1 era)
+  AGAIN — first Edit failed on stale file state, which exposed it. GitHub
+  untouched (origin/main = 9fdea28). Reset --hard to origin/main; reinstalled
+  node_modules (recycle wiped them too).
+- GATEWAY CREATED: docs introspection revealed create = POST to the
+  COLLECTION (PUT is update-only — the invariant 2×NaN + Required errors
+  were the update-on-nonexistent schema). POST body that worked:
+  {"id","authentication":true,"collect_logs":true,"cache_ttl":0,
+  "cache_invalidate_on_update":true (REQUIRED),"rate_limiting_interval":0,
+  "rate_limiting_limit":0,"log_management":10000,"retry_max_attempts":3,
+  "retry_delay":1000,"retry_backoff":"exponential"} → kivora-groq live.
+- AUTH REALITY: new gateways are ALWAYS authenticated (API 400s
+  authentication:false; docs + empirical 2009 on real gateway). Requests
+  need cf-aig-authorization <gateway-token> NEXT TO the Groq Bearer key.
+  Gateway tokens are DASHBOARD-ONLY (no documented create API; probed
+  auth-tokens/auth_tokens/tokens — all 404 Route not found).
+- CODE (lib/groq.js): GROQ_GATEWAY_TOKEN env const; directChat injects
+  cf-aig-authorization for groq-gateway when set (Bearer key unchanged);
+  comment block corrected (v5.30.23's "no gateway-side auth" was wrong).
+  Suite extended: header-present + header-absent-fail-open + 3 source
+  asserts → v5.30.23 suite now 28/28.
+- ENV: GROQ_GATEWAY_URL SET on Pages prod via API (plain_text — works;
+  the PATCH 500 (8000000) is type:secret-specific; GROQ_API_KEY secret
+  upsert still 500s, existing prod key functional, not blocking).
+- STATE: hop is live-but-401ing until the gateway token exists (zero
+  impact while siliconflow/sambanova are healthy — hop sits behind them;
+  fail-open to proxy hops on degraded chains).
+- PENDING (user, 30 sec): gateway Settings → Create authentication token
+  → send it. I PATCH GROQ_GATEWAY_TOKEN + push → hop green → gateway
+  logs become the prod-flow proof. probe_gateway_groq.py updated to send
+  the header (GATEWAY_TOKEN env).
