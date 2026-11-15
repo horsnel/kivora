@@ -1669,3 +1669,62 @@ Work Log:
   [internal] nudge) — textbook agentic feedback shape, so the model
   rebuilds in place instead of guessing intent. Invisible: non-streamed,
   never rendered, never persisted to chat history.
+
+---
+Task ID: v5.30.28
+Agent: Main
+Task: state-corruption fix — idempotent saves, truncation root cause, frontend guards
+
+User report: during a self-correction retry the app duplicated the user
+prompt mid-history, dropped messages, left a ghost empty rectangle under
+the header, and the composer looked stuck in an error visual.
+
+Root causes found:
+1. DUPLICATE PROMPT + GHOST ROW: all 4 session-save sites in
+   app/api/chat/route.js re-read the session row and APPENDED
+   [user, assistant]. Two writers for one session (disconnect guard vs
+   normal completion, or two in-flight sends) read different snapshots —
+   the second write duplicated the pair; the guard's partial/empty
+   assistant row renders as the ghost shell.
+2. 'Here's what I found:\nTool error: …': the empty-second-pass fallback
+   dumped RAW tool results (400 chars each) into the visible reply.
+3. JSON truncation root cause: EFFORT_TOKENS medium = 6144 tokens ≈
+   ~12k JSON-escaped chars — exactly the drifting cut positions
+   (11803 / 12128). The cap, not a bad character, ends the payload
+   mid-string every time.
+
+Fixes:
+1. storedHistory(requestMessages, storedUserMsg): canonical history
+   derived from the request conversation itself; all 4 save sites write
+   the SAME array — a race now writes identical bytes twice (idempotent)
+   instead of appending twice. Empty assistant rows are structurally
+   impossible from these sites when reply is set; pre-existing corrupt
+   rows are handled by the frontend ghost guard.
+2. Fallback summary sanitizer: tool results are parsed; only clean
+   output surfaces (300-char cap); failures collapse to one jargon-free
+   line — raw errors can no longer reach the chat via this path.
+3. Tool turns raise max_tokens to a 16384 floor (providers clamp) —
+   the truncation source is gone; the self-heal loop stays as a net.
+4. salvageTruncatedJson: deterministic truncation rescue (close open
+   string, balance bracket stack, 3-candidate ladder) BEFORE the LLM
+   repair loop — zero model calls. Hidden note appended to the post-tool
+   context so the model frames salvaged output as possibly-incomplete.
+   Self-tests: cut@11803 and cut@12128 both recover to parseable args
+   with intact code prefixes; garbage ({{{) is not falsely salvaged.
+5. Frontend (ChatClient): sendingRef synchronous double-send guard
+   (loading is state — a second click between renders used to slip past
+   and append the prompt twice); empty-retry path now resets
+   loading/streaming/abort/sendingRef before scheduling (the early
+   return used to skip the tail reset — the stuck glowing composer —
+   and its stale `if (!loading)` check silently dropped the retry);
+   ghost-row render guard skips empty non-streaming assistant rows
+   (no content + no notice + no attachments → null).
+
+Note: the always-on rotating ring on the composer is the user-requested
+design (v5.30.26/27), not an error state; the actual stuck state was the
+loading flag above.
+
+Verification: esbuild parse ×2; suites 22/30 pass with the 8 failures
+IDENTICAL to the clean-HEAD baseline (env: missing esbuild bin + packages
+— npm install restored the 2 affected suites to full green: 41/41,
+42/42). Zero regression.

@@ -49,6 +49,32 @@ function prevMessages(session) {
   return []
 }
 
+// ── v5.30.28 — canonical, idempotent session save ─────────────────────
+// Every save site used to re-read the session row and APPEND the new
+// user+assistant pair. Two writers for the same session (disconnect
+// guard vs normal completion, or two in-flight requests) each read a
+// different snapshot, so the second write duplicated the user prompt
+// mid-history and could land an empty assistant shell — the reported
+// "state corruption". The server already knows the exact conversation
+// it was asked to continue (the request `messages` array = full history
+// including the new user message), so deriving the stored history from
+// THAT makes every writer produce the same canonical value: a race
+// writes identical bytes twice instead of appending twice.
+function storedHistory(requestMessages, storedUserMsg) {
+  const base = Array.isArray(requestMessages) ? requestMessages : []
+  const head = base.slice(0, -1)
+    .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+    .map(m => {
+      const out = { role: m.role, content: m.content }
+      if (m.fileQuestion) out.fileQuestion = m.fileQuestion
+      return out
+    })
+  const tail = storedUserMsg || (base.length
+    ? { role: 'user', content: String(base[base.length - 1]?.content || '') }
+    : null)
+  return tail ? [...head, tail] : head
+}
+
 // ── Artifact Extraction ──
 function extractArtifacts(text) {
   const artifacts = []
@@ -288,6 +314,47 @@ function tryParseToolArguments(raw) {
     try { return { ok: true, value: JSON.parse(noTrailers) } } catch {}
   }
   return { ok: false, error: primaryError }
+}
+
+// Best-effort deterministic salvage for the truncation signature — a
+// payload cut off mid-generation (max_tokens hit, stream dropped) leaves
+// an unterminated string and unbalanced brackets. Closing the open string
+// and balancing the stack costs zero model calls; partial content beats a
+// dead turn. Tries a small ladder of repairs and returns the first that
+// parses; if none do, the self-correction loop takes over.
+function salvageTruncatedJson(raw) {
+  const text = String(raw ?? '')
+  if (!text.trim()) return { ok: false }
+  let inStr = false, esc = false
+  const stack = []
+  for (const ch of text) {
+    if (inStr) {
+      if (esc) esc = false
+      else if (ch === '\\') esc = true
+      else if (ch === '"') inStr = false
+      continue
+    }
+    if (ch === '"') { inStr = true; continue }
+    if (ch === '{' || ch === '[') stack.push(ch)
+    else if (ch === '}' || ch === ']') stack.pop()
+  }
+  const candidates = []
+  const balance = (t) => {
+    let out = t
+    if (esc) out = out.slice(0, -1) // dangling backslash before the cut
+    if (inStr) out += '"'           // close the unterminated string
+    for (let i = stack.length - 1; i >= 0; i--) out += stack[i] === '{' ? '}' : ']'
+    return out
+  }
+  candidates.push(balance(text))
+  // a cut can land mid-literal ("tru") or right after a comma — strip the
+  // trailing fragment before balancing
+  candidates.push(balance(text.replace(/[\s,]*[A-Za-z0-9_]{1,6}$/, '')))
+  candidates.push(balance(text.replace(/[\s,]+$/, '')))
+  for (const c of candidates) {
+    try { return { ok: true, value: JSON.parse(c) } } catch {}
+  }
+  return { ok: false }
 }
 
 // Hidden self-correction: re-ask the model for a fresh, valid payload.
@@ -816,7 +883,7 @@ async function processChat(req, body, _send, conn) {
               .single()
             await admin.from('chat_sessions').upsert({
               id: sessionId, user_id: chatUser.id,
-              messages: [...prevMessages(session), lastUserMsg, { role: 'assistant', content: reply }],
+              messages: [...storedHistory(messages, lastUserMsg), { role: 'assistant', content: reply }],
               updated_at: new Date().toISOString()
             }, { onConflict: 'id' })
           } catch (_) {}
@@ -914,7 +981,13 @@ async function processChat(req, body, _send, conn) {
     const llmParams = {
       model,
       messages: apiMessages,
-      max_tokens: EFFORT_TOKENS[effort],
+      // v5.30.28 — tool turns need real headroom: a full single-file site in
+      // execute_code arguments costs ~2x its raw size once JSON-escaped, and
+      // the 6144-token default truncated payloads mid-string at ~12k chars
+      // (the drifting "Unterminated string in JSON at position N" positions).
+      // Raise the cap whenever tools are in play; providers clamp to their
+      // own model maximums.
+      max_tokens: relevantTools.length > 0 ? Math.max(EFFORT_TOKENS[effort], 16384) : EFFORT_TOKENS[effort],
       // v5.13: gpt-oss models think before they speak — on Groq the default
       // 'medium' reasoning burns seconds of invisible tokens before the first
       // visible output. 'low' keeps a brief planning pass but cuts TTFB
@@ -969,7 +1042,7 @@ async function processChat(req, body, _send, conn) {
             }
             await admin.from('chat_sessions').upsert({
               id: sessionId, user_id: chatUser.id,
-              messages: [...prevMessages(session), storedUserMsg, { role: 'assistant', content: reply }],
+              messages: [...storedHistory(messages, storedUserMsg), { role: 'assistant', content: reply }],
               updated_at: new Date().toISOString(),
             }, { onConflict: 'id' })
           } catch (_) {}
@@ -1149,6 +1222,7 @@ async function processChat(req, body, _send, conn) {
       }
 
       const toolResults = {}
+      let salvagedPayloads = 0
 
       // Execute all tool calls
       const EXEC_TOOLS = new Set(['execute_code', 'sandbox_exec', 'run_code', 'run_on_gpu'])
@@ -1177,6 +1251,12 @@ async function processChat(req, body, _send, conn) {
             const parsed = tryParseToolArguments(argSource)
             if (parsed.ok) { args = parsed.value; break }
             console.warn(`[chat] tool "${toolName}" payload parse failed (attempt ${attempt}/${TOOL_PARSE_MAX_ATTEMPTS}): ${String(parsed.error).slice(0, 140)}`)
+            // Deterministic truncation salvage first — zero model calls.
+            // Partial content beats a dead turn (HTML still renders); the
+            // model is told the payload was auto-completed via a hidden
+            // note after the tool run, so it frames the result honestly.
+            const salvaged = salvageTruncatedJson(argSource)
+            if (salvaged.ok) { args = salvaged.value; payloadSalvaged = true; salvagedPayloads++; break }
             if (attempt === TOOL_PARSE_MAX_ATTEMPTS) break
             try {
               const fixed = await repairToolArguments({ toolName, toolCall, error: parsed.error, attempt, llmParams })
@@ -1255,6 +1335,17 @@ async function processChat(req, body, _send, conn) {
           content: toolResults[toolCall.id] || 'No result'
         })
       }
+      if (salvagedPayloads > 0) {
+        // Hidden note (server-side only: never streamed, never persisted).
+        // The model must know the payload it is looking at was auto-completed
+        // from a truncated generation so it frames the result honestly —
+        // "this step may be incomplete" — instead of presenting a broken
+        // preview as finished work.
+        toolMessages.push({
+          role: 'user',
+          content: '[internal — hidden from the user] One of your tool payloads was truncated mid-generation and was auto-completed by the server before execution, so its content may be incomplete. Without any technical jargon, briefly mention that this step may need finishing and offer to complete the remaining parts.'
+        })
+      }
 
       // ── Optimize: skip second LLM call for image generation ──
       // When generate_image succeeds, the client already renders the image
@@ -1302,13 +1393,29 @@ async function processChat(req, body, _send, conn) {
           : await aiChatComplete(finalParams, { stream: false })
         reply = polishReply(finalChat.choices[0].message.content)
         if (!reply || !String(reply).trim()) {
-          // Empty second-pass reply — synthesize from the raw tool results so
-          // the user still sees what the tools returned instead of a blank
-          // bubble (which the client renders as a generic failure).
-          const toolSummary = toolMessages
-            .map(t => String(t.content || '').slice(0, 400))
-            .filter(Boolean)
-            .join('\n\n')
+          // Empty second-pass reply — synthesize a COMPACT, human summary.
+          // Raw tool results used to be dumped verbatim here, which is exactly
+          // how "Here's what I found:\nTool error: Unterminated string…"
+          // reached the chat. Parse each result; surface only clean output
+          // and collapse failures to one jargon-free line.
+          const lines = toolMessages
+            .filter(t => t.role === 'tool')
+            .map(t => {
+              const txt = String(t.content || '').trim()
+              if (!txt) return ''
+              const parsed = tryParseToolArguments(txt)
+              if (parsed.ok && parsed.value && typeof parsed.value === 'object') {
+                const v = parsed.value
+                if (v.success === false || v.error) return 'One step failed behind the scenes — I will retry it with a different approach.'
+                const out = String(v.output || v.stdout || v.message || '').trim()
+                return out ? out.slice(0, 300) : 'Step completed.'
+              }
+              if (/failed to execute|Tool error|Unknown tool|could not be parsed|Unterminated string/i.test(txt)) {
+                return 'One step failed behind the scenes — I will retry it with a different approach.'
+              }
+              return txt.slice(0, 300)
+            })
+          const toolSummary = lines.filter(Boolean).join('\n\n')
           reply = toolSummary
             ? `Here's what I found:\n\n${toolSummary}`
             : "The tool ran but I couldn't summarize the results — please try again."
@@ -1338,7 +1445,7 @@ async function processChat(req, body, _send, conn) {
 
           await admin.from('chat_sessions').upsert({
             id: sessionId, user_id: chatUser.id,
-            messages: [...prevMessages(session), storedUserMsg, { role: 'assistant', content: reply }],
+            messages: [...storedHistory(messages, storedUserMsg), { role: 'assistant', content: reply }],
             updated_at: new Date().toISOString()
           }, { onConflict: 'id' })
         } catch (_) {}
@@ -1487,7 +1594,7 @@ async function processChat(req, body, _send, conn) {
 
         await admin.from('chat_sessions').upsert({
           id: sessionId, user_id: chatUser.id,
-          messages: [...prevMessages(session), storedUserMsg, { role: 'assistant', content: reply }],
+          messages: [...storedHistory(messages, storedUserMsg), { role: 'assistant', content: reply }],
           updated_at: new Date().toISOString()
         }, { onConflict: 'id' })
       } catch (_) {}

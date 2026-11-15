@@ -614,6 +614,12 @@ export default function ChatClient() {
   const historyRef = useRef(null)
   // AbortController for the in-flight chat request — powers the stop button
   const abortRef = useRef(null)
+  // v5.30.28 — synchronous double-send guard. `loading` is React state:
+  // between a click/Enter and the next render, a second send() call still
+  // sees loading=false and would append the user prompt twice (the
+  // duplicated-prompt report). A ref updates synchronously, so the second
+  // call bounces immediately.
+  const sendingRef = useRef(false)
   // v5.20 — resumable streaming: chars already rendered for the in-flight
   // generation (the resume offset), the reconnect banner flag, and a guard
   // that keeps the resume loop and normal sends from interleaving.
@@ -1524,7 +1530,8 @@ export default function ChatClient() {
     // non-array retryConvo as a normal (non-retry) send instead.
     if (retryConvo && !Array.isArray(retryConvo)) retryConvo = null
     const q = input.trim()
-    if (loading || resumingRef.current) return // resume loop owns the stream
+    if (loading || resumingRef.current || sendingRef.current) return // resume loop owns the stream
+    sendingRef.current = true
     if (!retryConvo && !q && !attachedFile) return
 
     // Hoisted so the retry path (retryConvo set) skips straight to the fetch
@@ -1715,7 +1722,17 @@ export default function ChatClient() {
         if (emptyReply && lastConvoRef.current && !emptyRetryRef.current) {
           emptyRetryRef.current = true
           setMessages(prev => prev.slice(0, -1))
-          setTimeout(() => { if (!loading) send(lastConvoRef.current) }, 400)
+          // v5.30.28 — this early return skips the reset at the tail of send().
+          // Leaving `loading` true left the composer stuck in its animated
+          // "request in flight" visual forever (the stuck glowing bar), and
+          // the stale-closure `if (!loading)` check silently dropped the
+          // scheduled retry. Reset everything before handing off.
+          setStreaming(false)
+          setImageGenerating(false)
+          abortRef.current = null
+          setLoading(false)
+          sendingRef.current = false
+          setTimeout(() => send(lastConvoRef.current), 400)
           return
         }
         const assistantMsg = { role: 'assistant', content: '' }
@@ -1782,6 +1799,7 @@ export default function ChatClient() {
       }
     }
     abortRef.current = null
+    sendingRef.current = false
     setLoading(false)
   }
 
@@ -3082,6 +3100,22 @@ export default function ChatClient() {
                   if (!displayContent) displayContent = ''
                 }
               }
+
+              // v5.30.28 — ghost-element guard: an assistant row with no
+              // content, no notice, and no attachments renders as an empty
+              // rounded shell (the "weird empty rectangle" under the header —
+              // a placeholder row stranded by an interrupted stream or by
+              // corrupt history). Skip it entirely; the live streaming row is
+              // exempt because it legitimately shows the thinking indicator
+              // while its content is still empty.
+              const isStreamingRow = streaming && i === messages.length - 1
+              if (
+                msg.role !== 'user' &&
+                !isStreamingRow &&
+                !String(msg.content || '').trim() &&
+                !msg.userImageData &&
+                !notice
+              ) return null
 
               return (
                 <div key={i} data-msg-index={i} className={`flex msg-row ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
