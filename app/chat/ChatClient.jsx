@@ -4031,7 +4031,7 @@ export default function ChatClient() {
           position: absolute;
           inset: 0;
           border-radius: 28px;
-          padding: 1.5px;
+          padding: 3px;
           background: conic-gradient(from var(--bar-angle), #ef4444, #a855f7, #4c1d95, #ef4444);
           animation: bar-angle-spin 1.5s linear infinite;
           -webkit-mask:
@@ -4162,7 +4162,7 @@ export default function ChatClient() {
           position: absolute;
           inset: 0;
           border-radius: 20px;
-          padding: 1.5px;
+          padding: 3px;
           background: conic-gradient(from var(--bar-angle), #ef4444, #a855f7, #4c1d95, #ef4444);
           animation: bar-angle-spin 1.5s linear infinite;
           -webkit-mask:

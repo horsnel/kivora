@@ -1619,3 +1619,48 @@ Work Log:
   gradients, VoiceClone button gradient, research kivora-thinking ring
   (1px, 25% alpha) and label/shimmer gradients. Global reduced-motion
   rule already freezes the spin to a static ring for those users.
+
+---
+Task ID: v5.30.27
+Agent: Main
+Task: 3px demo-exact ring + self-healing tool loop (no more raw JSON errors in chat)
+
+Work Log:
+- Ring thickness: user asked for the border "thick and exactly like the
+  html file" — demo uses 3px padding ring. All 6 composer rings went
+  1.5px → 3px (ChatClient ×2, ResearchClient ×2, research/page.jsx ×2).
+  Palette stays #ef4444/#a855f7/#4c1d95 per the earlier "current text
+  bar colour" instruction; spin and geometry otherwise unchanged.
+- Chat bug (user report): "Tool error: Unterminated string in JSON at
+  position 11803" reached the chat verbatim. Root cause:
+  app/api/chat/route.js parsed tool_call.function.arguments with a bare
+  JSON.parse; huge generated payloads (whole HTML site in execute_code
+  args) get truncated by max_tokens, parse throws, the raw error rides
+  the tool result into the second LLM call and is echoed to the user.
+- Implemented the agentic self-correction loop (user's spec):
+  1) Deterministic validation first — tryParseToolArguments: direct
+     parse, fenced-payload strip, trailing-comma repair; real parse
+     error kept server-side. Parser self-test reproduces the exact
+     "position 11803 (line 1 column 11804)" error from the screenshot.
+  2) repairToolArguments — hidden, non-streamed re-ask: appends an
+     [internal] user message with the parse error to llmParams.messages,
+     calls aiChatComplete(stream:false) (nothing reaches the client),
+     expects a fresh tool call (same-name preferred). Hints get
+     progressively stricter: final attempt demands a much smaller payload.
+  3) Bounded: TOOL_PARSE_MAX_ATTEMPTS = 3.
+  4) TOOL_PAYLOAD_FALLBACK — on exhaustion the MODEL receives an
+     instruction to never show JSON jargon and instead build in smaller
+     sequential parts; exec-tools get a clean done-frame
+     ("Build too large for one step — continuing in smaller parts.").
+- Exec block restructured: args resolve BEFORE the start/exec frames, so
+  repaired payloads mirror into Live Terminal too (previously a failed
+  pre-parse left the terminal empty).
+- Handler (sandbox) failures also intercepted per spec: the tool result
+  now wraps the error with a no-jargon relay instruction; raw error kept
+  only on the terminal done-frame (engineering surface).
+- Metadata parsers (searchQuery/accelerator/execLanguage) unified onto
+  tryParseToolArguments so repaired payloads keep their metadata.
+- Verification: esbuild parse ×4 OK. Suites: 22/30 pass; the 8 failures
+  (ENOENT / ERR_MODULE_NOT_FOUND / pre-existing assertion gaps) fail
+  IDENTICALLY on clean cab5d13 baseline (stash-checked) — sandbox env
+  issues, zero regression from this change.

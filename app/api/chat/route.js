@@ -250,6 +250,69 @@ function looksCutOff(text) {
   return false
 }
 
+// ── v5.30.27 — self-healing tool payloads ─────────────────────────────
+// Large tool payloads (a whole website inside execute_code arguments)
+// occasionally arrive truncated or malformed from the model. Historically
+// the raw parse error ("Unterminated string in JSON at position N") rode
+// the tool result straight into the chat as the visible reply. These
+// helpers validate deterministically, run a bounded hidden self-correction
+// loop with the model, and keep every raw error server-side.
+
+const TOOL_PARSE_MAX_ATTEMPTS = 3
+
+// Shown to the MODEL (never the user) when all self-correction attempts
+// fail — it turns this into a clean, human explanation and starts building
+// in parts instead of echoing jargon.
+const TOOL_PAYLOAD_FALLBACK =
+  'This tool call could not be executed: its arguments failed JSON validation after repeated self-correction attempts, most likely because the generated content was too large for a single tool call. ' +
+  'Do NOT show this notice, JSON errors, positions, or any technical jargon to the user. ' +
+  'Instead, briefly tell the user this build is too large for one step, then immediately start building it in smaller parts with separate sequential tool calls — minimal working version first (e.g. a compact single-file page), then enhancements in follow-up steps.'
+
+function tryParseToolArguments(raw) {
+  const text = String(raw ?? '').trim()
+  if (!text) return { ok: false, error: 'arguments payload was empty' }
+  let primaryError = null
+  try {
+    return { ok: true, value: JSON.parse(text) }
+  } catch (e) {
+    primaryError = e?.message || 'invalid JSON'
+  }
+  // Models sometimes wrap arguments in a markdown fence — strip and retry.
+  const fence = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i)
+  if (fence) {
+    try { return { ok: true, value: JSON.parse(fence[1]) } } catch {}
+  }
+  // Trailing commas before a closing brace/bracket are a common model slip.
+  const noTrailers = text.replace(/,(\s*[}\]])/g, '$1')
+  if (noTrailers !== text) {
+    try { return { ok: true, value: JSON.parse(noTrailers) } } catch {}
+  }
+  return { ok: false, error: primaryError }
+}
+
+// Hidden self-correction: re-ask the model for a fresh, valid payload.
+// Non-streamed and never rendered — the client only sees the spinner.
+async function repairToolArguments({ toolName, error, attempt, llmParams }) {
+  if (!llmParams || !Array.isArray(llmParams.messages)) return null
+  const lastChance = attempt >= TOOL_PARSE_MAX_ATTEMPTS - 1
+  const nudge =
+    `Your previous tool call "${toolName}" was NOT executed: its JSON arguments failed to parse (${error}). ` +
+    `Re-emit the tool call now with syntactically valid, COMPLETE JSON arguments. ` +
+    (lastChance
+      ? `This is the final retry — use a much smaller payload. `
+      : `If the content is too large for one tool call, make it smaller and self-contained, or split the work across several smaller sequential tool calls. `) +
+    `Respond with the tool call only — no visible text, no code fences.`
+  const repairParams = {
+    ...llmParams,
+    messages: [...llmParams.messages, { role: 'user', content: `[internal — hidden from the user] ${nudge}` }],
+  }
+  const res = await aiChatComplete(repairParams, { stream: false })
+  const msg = res?.choices?.[0]?.message
+  const calls = msg?.tool_calls || []
+  const match = calls.find(c => c?.function?.name === toolName) || calls[0]
+  return match?.function?.arguments ?? null
+}
+
 async function aiChatComplete(params, { onDelta, stream }) {
   const call = (p) => (stream
     ? aiChatStream(p, { onDelta })
@@ -1084,30 +1147,63 @@ async function processChat(req, body, _send, conn) {
       const EXEC_TOOLS = new Set(['execute_code', 'sandbox_exec', 'run_code', 'run_on_gpu'])
       for (const toolCall of message.tool_calls) {
         const toolName = toolCall.function.name
+        const handler = toolHandlers[toolName]
+
         // Tell SSE clients what is running before it starts — image
         // generation takes 5-15s and a status event lets the client swap
         // the generic thinking indicator for a dedicated shimmer card.
         // Non-streaming requests have no `send`; legacy clients ignore
         // unknown event types.
-        // v5.13: exec tools carry a second `exec` frame with the code payload
-        // — the client auto-opens Live Terminal and mirrors the process.
-        let execArgs = {}
-        if (EXEC_TOOLS.has(toolName)) {
-          try { execArgs = JSON.parse(toolCall.function.arguments) || {} } catch {}
-        }
         if (send) {
           try { send({ type: 'status', tool: toolName, phase: 'start' }) } catch {}
-          if (EXEC_TOOLS.has(toolName)) {
-            const code = String(execArgs.code || execArgs.command || execArgs.script || '').slice(0, 8000)
-            if (code) {
-              try { send({ type: 'status', tool: toolName, phase: 'exec', code, language_id: execArgs.language_id || null }) } catch {}
+        }
+
+        // v5.30.27 — resolve arguments through the self-healing loop BEFORE
+        // anything runs: deterministic validation, then up to 3 hidden
+        // self-correction rounds where the model re-emits valid arguments.
+        // A raw "Unterminated string in JSON at position N" used to ride
+        // the tool result straight into the chat as the visible reply.
+        let args = null
+        if (handler) {
+          let argSource = toolCall.function.arguments
+          for (let attempt = 1; attempt <= TOOL_PARSE_MAX_ATTEMPTS; attempt++) {
+            const parsed = tryParseToolArguments(argSource)
+            if (parsed.ok) { args = parsed.value; break }
+            console.warn(`[chat] tool "${toolName}" payload parse failed (attempt ${attempt}/${TOOL_PARSE_MAX_ATTEMPTS}): ${String(parsed.error).slice(0, 140)}`)
+            if (attempt === TOOL_PARSE_MAX_ATTEMPTS) break
+            try {
+              const fixed = await repairToolArguments({ toolName, error: parsed.error, attempt, llmParams })
+              if (!fixed) break
+              argSource = fixed
+            } catch (repairErr) {
+              console.warn(`[chat] tool "${toolName}" self-correction failed: ${String(repairErr?.message).slice(0, 120)}`)
+              break
             }
           }
+          if (args === null) {
+            // All attempts exhausted — clean fallback: the MODEL gets an
+            // instruction to relay a human explanation and build in parts;
+            // the user never sees JSON jargon.
+            toolResults[toolCall.id] = TOOL_PAYLOAD_FALLBACK
+            if (send && EXEC_TOOLS.has(toolName)) {
+              try { send({ type: 'status', tool: toolName, phase: 'done', output: 'Build too large for one step — continuing in smaller parts.', exit_code: 1, success: false }) } catch {}
+            }
+            continue
+          }
         }
-        const handler = toolHandlers[toolName]
+
+        // v5.13: exec tools carry a second `exec` frame with the code payload
+        // — the client auto-opens Live Terminal and mirrors the process.
+        // Emitted after argument resolution so repaired payloads mirror too.
+        if (send && EXEC_TOOLS.has(toolName)) {
+          const code = String(args?.code || args?.command || args?.script || '').slice(0, 8000)
+          if (code) {
+            try { send({ type: 'status', tool: toolName, phase: 'exec', code, language_id: args?.language_id || null }) } catch {}
+          }
+        }
+
         if (handler) {
           try {
-            const args = JSON.parse(toolCall.function.arguments)
             const toolResult = await handler(args, toolContext)
             toolResults[toolCall.id] = toolResult
             // v5.13: exec tools emit a done frame with the output so the
@@ -1127,7 +1223,13 @@ async function processChat(req, body, _send, conn) {
               try { send({ type: 'status', tool: toolName, phase: 'done', output: out, exit_code: exitCode, success }) } catch {}
             }
           } catch (err) {
-            toolResults[toolCall.id] = `Tool error: ${err.message}`
+            // v5.30.27 — handler failures are intercepted too: the model gets
+            // an instructive summary instead of a bare error string, so its
+            // reply explains the failure in natural language instead of
+            // echoing "Tool error: ..." into the chat. The raw message still
+            // reaches the Live Terminal done-frame, which is an engineering
+            // surface where it is genuinely useful.
+            toolResults[toolCall.id] = `The tool "${toolName}" failed to execute: ${err.message}. Do NOT show this error text, stack details, or any technical jargon to the user. Briefly acknowledge the failure in natural language and offer a concrete next step — for a build task, retry with smaller sequential parts or a simpler approach.`
             if (send && EXEC_TOOLS.has(toolName)) {
               try { send({ type: 'status', tool: toolName, phase: 'done', output: `Tool error: ${err.message}`, exit_code: 1, success: false }) } catch {}
             }
@@ -1241,7 +1343,7 @@ async function processChat(req, body, _send, conn) {
       for (const toolCall of message.tool_calls) {
         const name = toolCall.function.name
         if (name === 'web_search') {
-          try { response.searchUsed = true; response.searchQuery = JSON.parse(toolCall.function.arguments).query } catch {}
+          try { response.searchUsed = true; response.searchQuery = (tryParseToolArguments(toolCall.function.arguments).value || {}).query } catch {}
         }
         if (name === 'execute_code' || name === 'calculate_math' || name === 'format_json' || name === 'color_palette') {
           response.codeExecuted = true
@@ -1254,7 +1356,7 @@ async function processChat(req, body, _send, conn) {
           response.codeExecuted = true
           response.gpuUsed = true
           try {
-            const gpuArgs = JSON.parse(toolCall.function.arguments)
+            const gpuArgs = tryParseToolArguments(toolCall.function.arguments).value || {}
             response.accelerator = gpuArgs.gpu || gpuArgs.tpu || 'T4'
           } catch {}
         }
@@ -1262,7 +1364,7 @@ async function processChat(req, body, _send, conn) {
           response.codeExecuted = true
           response.remoteExecUsed = true
           try {
-            const codeArgs = JSON.parse(toolCall.function.arguments)
+            const codeArgs = tryParseToolArguments(toolCall.function.arguments).value || {}
             response.execLanguage = codeArgs.language || 'python'
           } catch {}
         }
