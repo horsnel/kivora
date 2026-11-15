@@ -1664,3 +1664,8 @@ Work Log:
   (ENOENT / ERR_MODULE_NOT_FOUND / pre-existing assertion gaps) fail
   IDENTICALLY on clean cab5d13 baseline (stash-checked) — sandbox env
   issues, zero regression from this change.
+- v5.30.27 addendum: repairToolArguments now appends the FAILED tool call
+  + its parse error to the context (assistant tool_calls + tool result +
+  [internal] nudge) — textbook agentic feedback shape, so the model
+  rebuilds in place instead of guessing intent. Invisible: non-streamed,
+  never rendered, never persisted to chat history.

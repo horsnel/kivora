@@ -291,20 +291,27 @@ function tryParseToolArguments(raw) {
 }
 
 // Hidden self-correction: re-ask the model for a fresh, valid payload.
-// Non-streamed and never rendered — the client only sees the spinner.
-async function repairToolArguments({ toolName, error, attempt, llmParams }) {
+// The failed tool call plus its parse error are appended to the context
+// (agentic feedback shape), then a corrective nudge — all invisible to
+// the client: non-streamed, never rendered, never persisted.
+async function repairToolArguments({ toolName, toolCall, error, attempt, llmParams }) {
   if (!llmParams || !Array.isArray(llmParams.messages)) return null
   const lastChance = attempt >= TOOL_PARSE_MAX_ATTEMPTS - 1
   const nudge =
-    `Your previous tool call "${toolName}" was NOT executed: its JSON arguments failed to parse (${error}). ` +
-    `Re-emit the tool call now with syntactically valid, COMPLETE JSON arguments. ` +
+    `Your tool call "${toolName}" above could not be executed because its JSON arguments failed to parse. ` +
+    `Re-emit that tool call now with syntactically valid, COMPLETE JSON arguments. ` +
     (lastChance
       ? `This is the final retry — use a much smaller payload. `
       : `If the content is too large for one tool call, make it smaller and self-contained, or split the work across several smaller sequential tool calls. `) +
     `Respond with the tool call only — no visible text, no code fences.`
   const repairParams = {
     ...llmParams,
-    messages: [...llmParams.messages, { role: 'user', content: `[internal — hidden from the user] ${nudge}` }],
+    messages: [
+      ...llmParams.messages,
+      { role: 'assistant', content: '', tool_calls: [toolCall] },
+      { role: 'tool', tool_call_id: toolCall.id, content: `ERROR: arguments failed JSON validation — ${error}` },
+      { role: 'user', content: `[internal — hidden from the user] ${nudge}` },
+    ],
   }
   const res = await aiChatComplete(repairParams, { stream: false })
   const msg = res?.choices?.[0]?.message
@@ -1172,7 +1179,7 @@ async function processChat(req, body, _send, conn) {
             console.warn(`[chat] tool "${toolName}" payload parse failed (attempt ${attempt}/${TOOL_PARSE_MAX_ATTEMPTS}): ${String(parsed.error).slice(0, 140)}`)
             if (attempt === TOOL_PARSE_MAX_ATTEMPTS) break
             try {
-              const fixed = await repairToolArguments({ toolName, error: parsed.error, attempt, llmParams })
+              const fixed = await repairToolArguments({ toolName, toolCall, error: parsed.error, attempt, llmParams })
               if (!fixed) break
               argSource = fixed
             } catch (repairErr) {
