@@ -2028,3 +2028,16 @@ input, textarea, select {
     scroll-behavior: auto !important;
   }
 }
+
+/* ═══ Moving composer ring (chat + research text bars) — v5.30.26 ═══
+   Registered angle + spin keyframes, shared by the ring rules in
+   ChatClient / ResearchClient / research page. Global here so styled-jsx
+   scoping can't rename or fork the animation across its style blocks. */
+@property --bar-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes bar-angle-spin {
+  to { --bar-angle: 360deg; }
+}

@@ -1588,3 +1588,34 @@ Work Log:
   wiped by another sandbox recycle — skipped the local gateway suite
   (icon-only change, no logic touched); the Pages build is the compile
   gate.
+
+---
+Task ID: v5.30.26
+Agent: Main
+Task: moving composer ring — text bars redesigned per user's uploaded demo
+
+Work Log:
+- User uploaded "Faster Moving Custom Gradient" demo: conic-gradient
+  ring rotating via @property --border-angle (1.5s linear infinite),
+  4-stop palette (accent → purple → darker → accent), 3px padding ring.
+- "Current text bar colour" identified: the previous design's focus ring
+  was a STATIC linear-gradient(90deg, #a855f7, #ef4444) shown only on
+  :focus-within — that purple→red family is the palette to keep.
+- Implemented the demo's animation with the app's palette:
+  conic-gradient(from var(--bar-angle), #ef4444, #a855f7, #4c1d95,
+  #ef4444) + bar-angle-spin 1.5s linear infinite, always-on (not
+  focus-only), same 1.5px mask-ring geometry and per-state radii
+  (28px collapsed pill / 20px expanded card) — bar surfaces untouched.
+- @property --bar-angle + @keyframes bar-angle-spin live in globals.css
+  (single global registration; styled-jsx renames keyframes it defines
+  inline, so a shared animation must live outside the blocks).
+- Converted ALL 6 text-bar rings (the "previous design" population,
+  found via mask-composite scan): ChatClient collapsed+expanded,
+  ResearchClient collapsed+expanded, research/page.jsx chat-expanded +
+  research-collapsed. Static focus-only ring is now a continuously
+  rotating one. Zero :focus-within::before leftovers; 2 conic rings per
+  file confirmed; esbuild parse OK ×4.
+- NOT converted (out of scope, not text bars): globals.css decorative
+  gradients, VoiceClone button gradient, research kivora-thinking ring
+  (1px, 25% alpha) and label/shimmer gradients. Global reduced-motion
+  rule already freezes the spin to a static ring for those users.

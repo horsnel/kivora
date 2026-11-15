@@ -1784,13 +1784,14 @@ export default function ResearchClient() {
         .research-bar-collapsed:focus-within {
           border-color: transparent;
         }
-        .research-bar-collapsed:focus-within::before {
+        .research-bar-collapsed::before {
           content: '';
           position: absolute;
           inset: 0;
           border-radius: 28px;
           padding: 1.5px;
-          background: linear-gradient(90deg, #a855f7, #ef4444);
+          background: conic-gradient(from var(--bar-angle), #ef4444, #a855f7, #4c1d95, #ef4444);
+          animation: bar-angle-spin 1.5s linear infinite;
           -webkit-mask:
             linear-gradient(#fff 0 0) content-box,
             linear-gradient(#fff 0 0);
@@ -1904,13 +1905,14 @@ export default function ResearchClient() {
         .research-container-expanded:focus-within {
           border-color: transparent;
         }
-        .research-container-expanded:focus-within::before {
+        .research-container-expanded::before {
           content: '';
           position: absolute;
           inset: 0;
           border-radius: 20px;
           padding: 1.5px;
-          background: linear-gradient(90deg, #a855f7, #ef4444);
+          background: conic-gradient(from var(--bar-angle), #ef4444, #a855f7, #4c1d95, #ef4444);
+          animation: bar-angle-spin 1.5s linear infinite;
           -webkit-mask:
             linear-gradient(#fff 0 0) content-box,
             linear-gradient(#fff 0 0);
