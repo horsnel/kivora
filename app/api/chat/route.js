@@ -357,6 +357,51 @@ function salvageTruncatedJson(raw) {
   return { ok: false }
 }
 
+// ── v5.30.29 — deploy-claim honesty enforcement ───────────────────────
+// The model once narrated "Deploying the website…", invented
+// sports-predictions-kivora.netlify.app and presented a fake "Live
+// Preview" — deploy_site only ever returns *.pages.dev links and nothing
+// had actually deployed (both domains dead). Deterministic guardrail: any
+// live-hosting URL in the final reply that did not come from a successful
+// deploy_site result is treated as a fabrication. The reply gets one
+// silent, non-streamed correction call to rewrite the deployment part
+// honestly; if that fails, the fabricated URLs are stripped directly.
+// (The client's done frame is authoritative and replaces the streamed
+// text, so the user never keeps the fabricated link.)
+const DEPLOY_HOST_TLDS = [
+  'pages.dev', 'netlify.app', 'vercel.app', 'github.io', 'onrender.com',
+  'firebaseapp.com', 'web.app', 'surge.sh', 'repl.co', 'glitch.me', 'fly.dev',
+]
+function isDeployableHost(host) {
+  const h = String(host || '').toLowerCase()
+  return DEPLOY_HOST_TLDS.some(t => h === t || h.endsWith('.' + t))
+}
+function collectDeployedHosts(toolResults) {
+  const hosts = new Set()
+  for (const raw of Object.values(toolResults || {})) {
+    const parsed = tryParseToolArguments(raw)
+    if (!parsed.ok) continue
+    const v = parsed.value
+    if (v && typeof v === 'object' && v.success === true) {
+      const url = String(v.url || v.siteUrl || v.deployUrl || v.liveUrl || '')
+      const m = url.match(/^https?:\/\/([^/?#]+)/i)
+      if (m) hosts.add(m[1].toLowerCase())
+    }
+  }
+  return hosts
+}
+function findFabricatedDeployUrls(reply, deployedHosts) {
+  const out = []
+  for (const m of String(reply || '').matchAll(/https?:\/\/[^\s<>"')\]]+/gi)) {
+    const url = m[0].replace(/[.,;!?]+$/, '')
+    const host = url.match(/^https?:\/\/([^/?#]+)/i)?.[1]?.toLowerCase()
+    if (host && isDeployableHost(host) && !(deployedHosts instanceof Set && deployedHosts.has(host))) {
+      out.push(url)
+    }
+  }
+  return [...new Set(out)]
+}
+
 // Hidden self-correction: re-ask the model for a fresh, valid payload.
 // The failed tool call plus its parse error are appended to the context
 // (agentic feedback shape), then a corrective nudge — all invisible to
@@ -1420,6 +1465,30 @@ async function processChat(req, body, _send, conn) {
             ? `Here's what I found:\n\n${toolSummary}`
             : "The tool ran but I couldn't summarize the results — please try again."
         }
+
+        // v5.30.29 — deploy-claim honesty enforcement (see helper docs).
+        // A deploy URL that no successful deploy_site call produced is a
+        // fabrication: one silent non-streamed rewrite, else strip the URLs.
+        const deployedHosts = collectDeployedHosts(toolResults)
+        const fabricatedUrls = findFabricatedDeployUrls(reply, deployedHosts)
+        if (fabricatedUrls.length > 0) {
+          console.warn(`[chat] fabricated deploy URL blocked: ${fabricatedUrls.join(' ').slice(0, 200)}`)
+          let fixedReply = ''
+          try {
+            const fixRes = await aiChatComplete({
+              model,
+              messages: [{ role: 'user', content: `A reply that was about to be shown to the user:\n\n${reply}\n\n[internal — hidden from the user] The URL${fabricatedUrls.length > 1 ? 's' : ''} ${fabricatedUrls.join(', ')} never came from a successful deploy_site call — nothing was deployed. Rewrite the reply making the deployment part honest: remove ${fabricatedUrls.length > 1 ? 'those URLs' : 'that URL'} entirely, say the deployment hit a snag, and offer to retry or share the files instead. Keep every other sentence word-for-word identical. Return only the corrected reply.` }],
+              max_tokens: 4096,
+              reasoning_effort: 'low',
+            }, { stream: false })
+            fixedReply = polishReply(fixRes.choices?.[0]?.message?.content || '')
+          } catch (_) {}
+          if (fixedReply && findFabricatedDeployUrls(fixedReply, deployedHosts).length === 0) {
+            reply = fixedReply
+          } else {
+            for (const u of fabricatedUrls) reply = reply.split(u).join('deployment hit a snag')
+          }
+        }
         artifacts = extractArtifacts(reply)
       }
 
@@ -1572,6 +1641,32 @@ async function processChat(req, body, _send, conn) {
     }
     if (!reply || !String(reply).trim()) {
       reply = "I received your message but couldn't compose a reply this time. Please send it again — if it keeps happening, try rephrasing or switching models."
+    }
+
+    // v5.30.29 — deploy-claim honesty enforcement, no-tools path. Without
+    // tool calls NOTHING can deploy, so any live-hosting URL in the reply
+    // is a fabrication by definition. Same enforcement shape: one silent
+    // non-streamed rewrite, else strip the URLs.
+    {
+      const fabricatedUrls = findFabricatedDeployUrls(reply, new Set())
+      if (fabricatedUrls.length > 0) {
+        console.warn(`[chat] fabricated deploy URL blocked (no-tool path): ${fabricatedUrls.join(' ').slice(0, 200)}`)
+        let fixedReply = ''
+        try {
+          const fixRes = await aiChatComplete({
+            model,
+            messages: [{ role: 'user', content: `A reply that was about to be shown to the user:\n\n${reply}\n\n[internal — hidden from the user] The URL${fabricatedUrls.length > 1 ? 's' : ''} ${fabricatedUrls.join(', ')} never came from a real deployment in this conversation — nothing was deployed. Rewrite the reply making the deployment part honest: remove ${fabricatedUrls.length > 1 ? 'those URLs' : 'that URL'} entirely, say the deployment hit a snag, and offer to retry or share the files instead. Keep every other sentence word-for-word identical. Return only the corrected reply.` }],
+            max_tokens: 4096,
+            reasoning_effort: 'low',
+          }, { stream: false })
+          fixedReply = polishReply(fixRes.choices?.[0]?.message?.content || '')
+        } catch (_) {}
+        if (fixedReply && findFabricatedDeployUrls(fixedReply, new Set()).length === 0) {
+          reply = fixedReply
+        } else {
+          for (const u of fabricatedUrls) reply = reply.split(u).join('deployment hit a snag')
+        }
+      }
     }
     const artifacts = extractArtifacts(reply)
 

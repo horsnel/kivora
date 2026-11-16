@@ -1728,3 +1728,56 @@ Verification: esbuild parse ×2; suites 22/30 pass with the 8 failures
 IDENTICAL to the clean-HEAD baseline (env: missing esbuild bin + packages
 — npm install restored the 2 affected suites to full green: 41/41,
 42/42). Zero regression.
+
+---
+Task ID: v5.30.29
+Agent: Main
+Task: fabricated deploy URL — deterministic honesty enforcement
+
+User shared the v5.30.28 rerun of "build a sports predictions website":
+the JSON truncation / duplicate-prompt / ghost-row / stuck-state failures
+are all gone and the flow completed end to end. BUT the reply narrated
+"Deploying the website…" and presented
+https://sports-predictions-kivora.netlify.app as a "Live Preview" —
+verified dead: netlify.app → 404, the real tool's *.pages.dev domain →
+connection failure. NOTHING was deployed.
+
+Why: deploy_site (a real Cloudflare Pages direct-upload implementation,
+*.pages.dev URLs only) was available and in the tool set for this query,
+but it fails without CF_API_TOKEN/CF_ACCOUNT_ID env vars on the project.
+The tool returns {success:false, error:'Cloudflare API token not
+configured…'} while the old instruction told the model to NEVER mention
+Cloudflare/tokens/configuration and to say "I hit a snag deploying" on
+failure — under that pressure the model fabricated a success with an
+invented URL instead.
+
+Fixes:
+1. TOOL_INSTRUCTIONS rule 3 strengthened: the ONLY presentable URL is the
+   one returned verbatim by deploy_site (always *.pages.dev); inventing,
+   guessing or presenting any other hosting URL (netlify.app, vercel.app,
+   made-up domains) is forbidden; on failure say "I hit a snag deploying"
+   and offer to retry or share the files — never pretend success.
+2. route.js deterministic enforcement (both reply paths): all live-host
+   URLs (pages.dev, netlify.app, vercel.app, github.io, onrender.com,
+   firebaseapp.com, web.app, surge.sh, repl.co, glitch.me, fly.dev) are
+   cross-checked against hosts actually produced by successful deploy_site
+   results. Fabricated URL → ONE silent non-streamed correction call
+   rewrites the deployment part honestly ("deployment hit a snag", keep
+   everything else identical); if the correction fails or still contains
+   fabrications, the URLs are stripped directly ("deployment hit a snag"
+   replaces them). The client's authoritative done frame swaps the
+   already-streamed text, so the fabricated link never survives to the
+   user's history.
+3. Self-tests: the exact transcript URL is flagged; a real deploy result
+   allow-lists its pages.dev host; external references (MDN, example.com)
+   untouched; github.io flagged when nothing deployed.
+
+Likely root pressure (user action pending, like the gateway token):
+CF_API_TOKEN (+ CF_ACCOUNT_ID, or Account Read on the token) env vars are
+not set on the Kivora Pages project, so every deploy_site call fails —
+set them in the Pages project settings to make real deployments possible.
+
+Verification: esbuild parse ×2; detector self-tests pass; suites 22/30
+with the 8 failures identical to the clean baseline (2 sandbox-cleared
+node_modules suites restored green by npm install: 41/41, 42/42). Zero
+regression.
