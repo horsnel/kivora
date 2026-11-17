@@ -64,6 +64,12 @@
 // device — the proxy itself remains 100% stateless.
 import { validateTarget, createStreamingRewriter, rewriteHtml, parseJar, serializeJar, cookiesForHost, mergeSetCookies, stripTrackers, isTrackerHost, escAttr } from '@/lib/browser/core.mjs'
 import { AGENT_TAG } from '@/lib/browser/devtools-agent.mjs'
+// v5.30.30 — kitesurf-rendered snapshot mode (&render=1): the escape
+// hatch for pages the sandboxed iframe can't render (heavy SPAs, bot
+// walls) — the post-JS DOM captured by Cloudflare Browser Run, frozen
+// and served through the normal rewrite pipeline.
+import { browserRunSnapshot, underBudget, stripScriptsForSnapshot } from '@/lib/browser/render.mjs'
+import { getEnvVar } from '@/lib/cfEnv'
 
 export const runtime = 'edge'
 
@@ -288,6 +294,63 @@ async function handle(req) {
 
   // ── Client cookie jar (SW-owned; see header comment) ──
   const jar = jarFromRequest(req)
+
+  // ── v5.30.30 — kitesurf-rendered snapshot mode (&render=1) ──
+  // Serves the post-JS DOM captured by Cloudflare Browser Run (kitesurf
+  // engine) as a FROZEN page: scripts stripped (they already ran where
+  // it was rendered), URLs rewritten through the normal pipeline so
+  // assets resolve via the proxy. Falls through to the raw streaming
+  // proxy whenever Browser Run isn't configured, the day budget is
+  // spent, or the snapshot fails — render mode is never worse than the
+  // default path. &diag=1&render=1 returns machine-readable JSON.
+  if (u.searchParams.get('render') === '1') {
+    let snap = null
+    try {
+      const [apiToken, accountId] = await Promise.all([getEnvVar('CF_API_TOKEN'), getEnvVar('CF_ACCOUNT_ID')])
+      if (apiToken && accountId && underBudget()) {
+        snap = await browserRunSnapshot(target, { apiToken, accountId }, {
+          formats: ['content', 'screenshot'],
+          gotoOptions: { waitUntil: 'networkidle2', timeout: 30000 },
+          timeoutMs: 45000,
+          ...(desktop ? { viewport: { width: 1440, height: 900, deviceScaleFactor: 1 } } : { viewport: { width: 390, height: 844, deviceScaleFactor: 2 } }),
+        })
+      }
+    } catch {}
+    if (snap?.ok && snap.content) {
+      // buildHref lives inside the streaming branch below — the snapshot
+      // path needs its own copy with the same session/desktop semantics
+      const buildHrefFrozen = (abs) => `/api/browser/proxy?url=${encodeURIComponent(abs)}${desktop ? '&ua=desktop' : ''}${ks ? `&ks=${ks}` : ''}`
+      // meta carries no final redirect URL — absolutize against the
+      // requested target (redirect hops are rare here; relative assets
+      // still resolve correctly through the proxy for same-host paths)
+      const frozenHtml = rewriteHtml(stripScriptsForSnapshot(snap.content), target, buildHrefFrozen, AGENT_TAG)
+      const jarOutFrozen = ks ? { 'x-kv-cookies': serializeJar(jar) } : {}
+      if (diag) {
+        return Response.json(
+          { ok: true, rendered: true, title: snap.title, browserMs: snap.browserMs, ms: Date.now() - t0 },
+          { status: 200, headers: { 'cache-control': 'no-store', ...jarOutFrozen } }
+        )
+      }
+      return new Response(frozenHtml, {
+        status: 200,
+        headers: baseHeaders({
+          'content-type': 'text/html; charset=utf-8',
+          'cache-control': 'no-store',
+          'x-kv-rendered': '1',
+          'x-kv-render-engine': snap.engineUsed || 'default',
+          ...jarOutFrozen,
+        }),
+      })
+    }
+    if (diag) {
+      const why = snap ? snap.error : 'not_configured_or_budget'
+      return Response.json(
+        { ok: false, rendered: false, reason: why, ms: Date.now() - t0 },
+        { status: 502, headers: { 'cache-control': 'no-store' } }
+      )
+    }
+    // fall through: raw proxy path (render mode is best-effort)
+  }
 
   // ── Upstream fetch loop (v5.30: MANUAL redirect following) ──
   // redirect:'follow' hid every intermediate response, so the session

@@ -1781,3 +1781,78 @@ Verification: esbuild parse ×2; detector self-tests pass; suites 22/30
 with the 8 failures identical to the clean baseline (2 sandbox-cleared
 node_modules suites restored green by npm install: 41/41, 42/42). Zero
 regression.
+
+---
+Task ID: v5.30.30
+Agent: Main
+Task: Kivora Browser Run integration — kitesurf rendering escalation + screenshot tool
+
+User redirected the kitesurf plan: self-hosting needs Dynamic Workers
+(Workers Paid) — instead use Cloudflare's HOSTED Browser Run Quick
+Actions REST API with the kitesurf engine requested. Verified the full
+API surface against developers.cloudflare.com/browser-run docs (POST
+/browser-run/snapshot, formats >=2, X-Browser-Ms-Used header, free plan
+= 10 minutes browser time/day, auth = Browser Run - Edit token
+permission) plus the kitesurf repo CLI docs (browser=kitesurf is the
+official CLI connection mode).
+
+New module lib/browser/render.mjs:
+- browserRunSnapshot(): POST /browser-run/snapshot with JSON body; path
+  fallback to /browser-rendering/ on 404 (service mid-rename, both paths
+  seen in official docs) with per-isolate pinning; engine param
+  browser:'kitesurf' sent with a retry-without on HTTP 400 (REST support
+  undocumented — graceful degradation to the default engine);
+  X-Browser-Ms-Used captured into a UTC-day budget guard (8 min soft cap
+  of the 10 min free quota; Quick Actions are billed only in browser
+  hours, never concurrency).
+- looksLikeJsShell(): markdown+HTML gate — empty framework mounts
+  (#root/#app/#__next), noscript warnings, challenge/bot-wall phrases,
+  <400 chars of real text.
+- readPageContent(): Jina first (free, zero quota) → gate → Browser Run
+  escalation → degrade to Jina's imperfect text. Static pages never
+  spend quota.
+- browserRunScreenshot(): via /snapshot formats ['screenshot','markdown']
+  (JSON base64, shares all fallback/budget machinery).
+
+Wiring:
+- toolRegistry: read_url/web_scrape now ride readPageContent (creds via
+  ctx or getEnvVar — same CF_API_TOKEN/CF_ACCOUNT_ID as deploy_site);
+  NEW screenshot_page tool (full_page + mobile/desktop viewport, returns
+  base64 + title + 1200-char teaser, success shape mirrors
+  generate_image); browsing filter category + default set include it.
+- route.js: screenshot_page joins the generate_image fast path (its
+  base64 must never reach the synthesis context); response.imageData
+  (image/png) + urlReadSource now reflects the real source (jina vs
+  kitesurf).
+- browser/reader: JS-shell/weak-article escalation — renders through
+  kitesurf, extractArticle on the post-JS DOM, richer article wins,
+  response gains rendered/jsShell flags.
+- browser/proxy: &render=1 snapshot mode — frozen post-JS page (scripts
+  stripped, URLs rewritten through the normal pipeline), best-effort
+  fallthrough to the raw proxy; diag reports rendered/browserMs.
+
+Tests: scripts/test_browser_render.mjs — 43 assertions offline with
+stubbed fetch. Found and fixed 2 real bugs: prefix fallback was
+impossible once pinned (404 mid-flight now retries the alternate path),
+and single-format calls lost the caller's intent (now padded to the
+required two).
+
+Process note: a sandbox recycle rolled the local repo back to a
+pre-v5.30.27b base mid-turn — the first v5.30.30 commit b9a4b99 was
+built on stale files and conflicted with origin/main on push. Diagnosed
+via git diff between the two bases, aborted the rebase, reset to
+origin/main (50eca4e) and re-applied every edit on the correct base
+(reader/proxy unchanged between bases — restored verbatim; toolRegistry
+differed by exactly the v5.30.29 rule-3 clause — re-edited in place;
+route.js re-edited on top of salvage/deploy-enforcement versions).
+
+Suite: 24/31 in proper run modes (each test run bare or with the loader
+per its header — running everything bare was masking loader-designed
+tests). The 7 remaining failures verified PRE-EXISTING via git-stash
+comparison (export_menu targets a component that no longer exists, v517
+uses a broken relative path, rest are env/structural). Zero regression.
+
+Activation (user action): add "Browser Run - Edit" permission to
+CF_API_TOKEN (or a dedicated token) + CF_ACCOUNT_ID env vars on the
+Kivora Pages project. Until then every path degrades to the exact
+current behavior (Jina-only reads, no screenshots, raw proxy).

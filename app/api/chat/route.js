@@ -1396,7 +1396,11 @@ async function processChat(req, body, _send, conn) {
       // When generate_image succeeds, the client already renders the image
       // from imageData. A second LLM call to "summarize" wastes 5-10s and
       // risks hitting CF Workers' 30s deadline. Instead, use a fast reply.
-      const isImageOnly = message.tool_calls.length === 1 && message.tool_calls[0].function.name === 'generate_image'
+      // v5.30.30 — screenshot_page rides the same fast path: its tool
+      // result carries the full base64 screenshot, which must never reach
+      // the synthesis context (same reason as generate_image).
+      const fastToolName = message.tool_calls.length === 1 ? message.tool_calls[0].function.name : ''
+      const isImageOnly = fastToolName === 'generate_image' || fastToolName === 'screenshot_page'
       let reply
       let artifacts = []
 
@@ -1409,11 +1413,15 @@ async function processChat(req, body, _send, conn) {
         let imgResult = {}
         try { imgResult = JSON.parse(toolResults[message.tool_calls[0].id] || '{}') || {} } catch { imgResult = {} }
         if (imgResult && imgResult.success && imgResult.base64) {
-          reply = `Here's your image — hot off the canvas. Want any tweaks, like a different mood, style or angle?`
+          reply = fastToolName === 'screenshot_page'
+            ? `Here's the page as it actually renders in a real browser. Want me to capture the full scrollable page, a mobile view, or dig into the content?`
+            : `Here's your image — hot off the canvas. Want any tweaks, like a different mood, style or angle?`
         } else {
           // Graceful, human failure copy. The service-level retries already
           // ran (flux → turbo → flux) before we land here, so this is honest.
-          reply = `I couldn't generate that image just now — the image service is a little busy. Give it another go in a moment and it should come through.`
+          reply = fastToolName === 'screenshot_page'
+            ? `I couldn't capture that page right now — the rendering service is busy or the site blocks automated access. Give it another go in a moment.`
+            : `I couldn't generate that image just now — the image service is a little busy. Give it another go in a moment and it should come through.`
         }
       } else {
         // Normal path: second LLM call to synthesize tool results into a reply.
@@ -1568,7 +1576,23 @@ async function processChat(req, body, _send, conn) {
           } catch {}
         }
         if (name === 'read_url' || name === 'web_scrape') {
-          try { response.urlRead = true; response.urlReadSource = 'jina' } catch {}
+          try {
+            // v5.30.30 — report the source that actually served the content
+            // (jina plain-fetch vs browser-run kitesurf escalation)
+            const readResult = JSON.parse(toolResults[toolCall.id])
+            response.urlRead = true
+            response.urlReadSource = readResult?.source === 'browser-run' ? 'kitesurf' : 'jina'
+          } catch { response.urlRead = true; response.urlReadSource = 'jina' }
+        }
+        if (name === 'screenshot_page') {
+          try {
+            const shotResult = JSON.parse(toolResults[toolCall.id])
+            if (shotResult.base64) {
+              response.imageGenerated = true
+              response.imageData = `data:image/png;base64,${shotResult.base64}`
+              response.imagePrompt = shotResult.prompt || shotResult.url
+            }
+          } catch {}
         }
         if (name === 'generate_image') {
           try {
