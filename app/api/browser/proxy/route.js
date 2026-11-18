@@ -62,13 +62,18 @@
 //
 // The jar rides in headers (never in the URL) and stays on the user's
 // device — the proxy itself remains 100% stateless.
-import { validateTarget, createStreamingRewriter, rewriteHtml, parseJar, serializeJar, cookiesForHost, mergeSetCookies, stripTrackers, isTrackerHost, escAttr } from '@/lib/browser/core.mjs'
+import { validateTarget, createStreamingRewriter, rewriteHtml, parseJar, serializeJar, cookiesForHost, mergeSetCookies, stripTrackers, isTrackerHost, escAttr, extractArticle } from '@/lib/browser/core.mjs'
 import { AGENT_TAG } from '@/lib/browser/devtools-agent.mjs'
 // v5.30.30 — kitesurf-rendered snapshot mode (&render=1): the escape
 // hatch for pages the sandboxed iframe can't render (heavy SPAs, bot
 // walls) — the post-JS DOM captured by Cloudflare Browser Run, frozen
 // and served through the normal rewrite pipeline.
-import { browserRunSnapshot, underBudget, stripScriptsForSnapshot } from '@/lib/browser/render.mjs'
+// v5.30.31 — the same module powers the shell-detection fallback chain:
+// looksLikeJsShell gates the buffered HTML prefix; a detected shell
+// escalates to (a) a simplified extractArticle view, (b) a kitesurf
+// snapshot when Browser Run credentials exist, (c) a branded error page
+// whose Reader button keeps the text path alive.
+import { browserRunSnapshot, underBudget, stripScriptsForSnapshot, looksLikeJsShell } from '@/lib/browser/render.mjs'
 import { getEnvVar } from '@/lib/cfEnv'
 
 export const runtime = 'edge'
@@ -111,6 +116,10 @@ const ERR_LOCALES = {
     rate: 'The site is receiving too many requests right now — try again in a moment.',
     server: 'The site is having problems right now.',
     status: 'The site responded with an error.',
+    js_shell: 'This page is a JavaScript app that needs a real browser engine to render — its content loads empty here.',
+    reader: 'Reader mode',
+    simplified_banner: 'Simplified view — this site needs JavaScript for the full experience.',
+    simplified_retry: 'Try full page',
   },
   fr: {
     title: "Cette page n'a pas pu être chargée",
@@ -124,6 +133,10 @@ const ERR_LOCALES = {
     rate: 'Le site reçoit trop de requêtes — réessayez dans un instant.',
     server: 'Le site rencontre des problèmes en ce moment.',
     status: 'Le site a répondu avec une erreur.',
+    js_shell: "Cette page est une application JavaScript qui nécessite un vrai moteur de rendu — son contenu s'affiche vide ici.",
+    reader: 'Mode lecture',
+    simplified_banner: "Vue simplifiée — ce site a besoin de JavaScript pour l'expérience complète.",
+    simplified_retry: 'Essayer la page complète',
   },
   sw: {
     title: 'Ukurasa huu haukufunguliwa',
@@ -137,6 +150,10 @@ const ERR_LOCALES = {
     rate: 'Tovuti inapokea maombi mengi mno — jaribu tena baada ya kidogo.',
     server: 'Tovuti ina matatizo kwa sasa.',
     status: 'Tovuti ilijibu kwa hitilafu.',
+    js_shell: 'Ukurasa huu ni programu ya JavaScript inayohitaji injini halisi ya vivinjari — maudhui yake yanaonekana tupu hapa.',
+    reader: 'Hali ya usomaji',
+    simplified_banner: 'Mwonekano uliopolewa — tovuti hii inahitaji JavaScript kwa uzoefu kamili.',
+    simplified_retry: 'Jaribu ukurasa kamili',
   },
   yo: {
     title: 'Ko ṣeé ṣiṣe láti gbé ojú-iṣẹ̀ yìí kalẹ̀',
@@ -150,6 +167,10 @@ const ERR_LOCALES = {
     rate: 'Ojú-iṣẹ̀ náà ń gba àwọn ibẹ̀rẹ̀ púpọ̀ jù — gbìyànjú lẹ́ẹ̀kansi láìpẹ́.',
     server: 'Ojú-iṣẹ̀ náà ní ìṣòró ní báyìí.',
     status: 'Ojú-iṣẹ̀ náà dáhùn pẹ̀lú àṣìṣe.',
+    js_shell: 'Ojú-iṣẹ̀ yìí jẹ́ ohun èlò JavaScript tó nílò ìmọ̀-ẹ̀rọ aṣàwákiri gidi — àkóònù rẹ̀ ń ṣàfihàn láìsó níbí.',
+    reader: 'Ọ̀nà ìkà',
+    simplified_banner: 'Àwòrán àgbékalẹ̀ — ojú-iṣẹ̀ yìí nílò JavaScript fún ìrírí pípe.',
+    simplified_retry: 'Gbiyànjú ojú-iṣẹ̀ pípe',
   },
 }
 
@@ -196,6 +217,11 @@ function errorPage(target, reasonKey, lang, opts = {}) {
   const status = opts.status || ''
   const retry = opts.retryHref || 'javascript:void(0)'
   const extraHeaders = opts.extraHeaders || {}
+  // v5.30.31 — optional Reader button: posts the agent-protocol envelope
+  // and BrowserApp switches the SAME tab to its reader pane (Fix 5).
+  const readerBtn = opts.readerUrl
+    ? `<button type="button" data-kv-reader="1" style="display:inline-block;padding:10px 22px;border-radius:12px;background:#1a1a1a;border:1px solid #2e2e2e;color:#d4d4d4;font-size:13px;font-weight:600;cursor:pointer">${L.reader}</button>`
+    : ''
   // Close posts the standard agent-protocol envelope (stringified — the
   // dock's message bus JSON.parses strings). BrowserApp maps type:'close'.
   const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kivora Browser</title></head>
@@ -206,13 +232,15 @@ ${status ? `<div style="display:inline-block;padding:2px 10px;border-radius:999p
 <h1 style="font-size:18px;font-weight:600;margin:0 0 8px">${L.title}</h1>
 <p style="font-size:13px;line-height:1.6;color:#737373;margin:0 0 6px;word-break:break-all">${safe}</p>
 <p style="font-size:12px;color:#525252;margin:0 0 22px">${L[reasonKey] || L.status}</p>
-<div style="display:flex;gap:10px;justify-content:center">
+<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
 <a href="${retry}" data-kv-retry="1" style="display:inline-block;padding:10px 22px;border-radius:12px;background:#FF3366;color:#fff;font-size:13px;font-weight:600;text-decoration:none">${L.retry}</a>
+${readerBtn}
 <button type="button" data-kv-close="1" style="display:inline-block;padding:10px 22px;border-radius:12px;background:#1a1a1a;border:1px solid #2e2e2e;color:#d4d4d4;font-size:13px;font-weight:600;cursor:pointer">${L.back}</button>
 </div>
 </div>
 <script>(function(){var q=function(s){return document.querySelector(s)};
 if(q('[data-kv-retry]')&&q('[data-kv-retry]').getAttribute('href')==='javascript:void(0)'){q('[data-kv-retry]').addEventListener('click',function(){try{location.replace(location.pathname+location.search+'&rj='+Date.now())}catch(e){}})}
+var r=q('[data-kv-reader]');if(r){r.addEventListener('click',function(){try{parent.postMessage(JSON.stringify({__kv_dt:1,side:'agent',type:'reader'}),'*')}catch(e){}})}
 var c=q('[data-kv-close]');if(c){c.addEventListener('click',function(){try{parent.postMessage(JSON.stringify({__kv_dt:1,side:'agent',type:'close'}),'*')}catch(e){}})}})()</script>
 </body></html>`
   return new Response(html, {
@@ -224,6 +252,135 @@ var c=q('[data-kv-close]');if(c){c.addEventListener('click',function(){try{paren
 function charsetOf(ct) {
   const m = /charset=([\w-]+)/i.exec(ct || '')
   return m ? m[1] : 'utf-8'
+}
+
+// ════════════════════════════════════════════════════════════════════
+// v5.30.31 — shell detection + fallback chain (Fixes 1, 3, 5)
+//
+// A JS-shell page (X, YouTube, consent walls) streamed into the
+// sandboxed iframe renders as a dead gray rectangle: empty framework
+// mounts plus scripts that can never finish. Detection runs on the
+// buffered HTML PREFIX before streaming decides the path:
+//   (a) extractArticle still finds static content → SIMPLIFIED VIEW
+//       served directly (light typographic pane, banner on top)
+//   (b) Browser Run configured + budget left → KITESURF SNAPSHOT
+//       (the same frozen rendered page the &render=1 mode serves)
+//   (c) otherwise → branded error page with a READER MODE button
+// Real pages stream byte-identically: the buffered prefix is replayed
+// through the same TransformStream, so nothing changes for healthy
+// sites except one pipelined upstream read.
+// ════════════════════════════════════════════════════════════════════
+
+const SHELL_SNIFF_BYTES = 192 * 1024
+
+// Pull up to `cap` bytes off the response without losing the rest — the
+// caller either replays the buffered chunks + continues the stream, or
+// abandons the stream entirely for a fallback response.
+async function bufferUpTo(res, cap) {
+  const reader = res.body.getReader()
+  const chunks = []
+  let total = 0
+  try {
+    while (total < cap) {
+      const { done, value } = await reader.read()
+      if (done) break
+      chunks.push(value)
+      total += value.byteLength
+    }
+  } catch {
+    // upstream died mid-prefix — decide on whatever arrived
+  }
+  return { chunks, reader, total }
+}
+
+// Concatenate buffered chunks + the remaining stream into one body —
+// the buffered prefix plays first so the output is byte-identical to
+// the un-buffered pipeline.
+function replayWithBuffer(chunks, reader) {
+  let i = 0
+  return new ReadableStream({
+    async pull(ctrl) {
+      if (i < chunks.length) {
+        ctrl.enqueue(chunks[i++])
+        return
+      }
+      try {
+        const { done, value } = await reader.read()
+        if (done) ctrl.close()
+        else ctrl.enqueue(value)
+      } catch {
+        try { ctrl.close() } catch {}
+      }
+    },
+    cancel() {
+      try { reader.cancel() } catch {}
+    },
+  })
+}
+
+// (a) Simplified view: extractArticle output as a complete light-theme
+// page inside the iframe. Links/forms go through rewriteHtml so every
+// navigation stays proxied; the DevTools agent keeps DevTools/title
+// behavior consistent with normal pages.
+function serveSimplifiedView(article, baseUrl, lang, buildHrefFn, opts = {}) {
+  const L = ERR_LOCALES[lang] || ERR_LOCALES.en
+  const retryHref = opts.retryHref || ''
+  const banner = `<div style="background:#111;border-bottom:1px solid #262626;color:#a3a3a3;font:12px/1.5 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="color:#FF3366;font-weight:700">⚡ Kivora</span><span style="flex:1;min-width:200px">${L.simplified_banner}</span>${retryHref ? `<a href="${escAttr(retryHref)}" style="color:#FF3366;text-decoration:none;font-weight:600;white-space:nowrap">${L.simplified_retry}</a>` : ''}</div>`
+  const body = `<div style="max-width:720px;margin:0 auto;padding:28px 20px 64px;color:#171717;font:16px/1.7 Georgia,'Times New Roman',serif">${article.html}</div>`
+  const title = String(article.title || '').slice(0, 120)
+  const html = rewriteHtml(`${title ? `<title>${escAttr(title)}</title>` : ''}${banner}${body}`, baseUrl, buildHrefFn, AGENT_TAG)
+  return new Response(html, {
+    status: 200,
+    headers: baseHeaders({
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-store',
+      'x-kv-simplified': '1',
+      ...(opts.extraHeaders || {}),
+    }),
+  })
+}
+
+// (b) Frozen kitesurf snapshot — shared by &render=1 and the shell chain.
+function serveRenderedSnapshot(snap, baseUrl, buildHrefFn, jarOut = {}) {
+  const frozenHtml = rewriteHtml(stripScriptsForSnapshot(snap.content), baseUrl, buildHrefFn, AGENT_TAG)
+  return new Response(frozenHtml, {
+    status: 200,
+    headers: baseHeaders({
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-store',
+      'x-kv-rendered': '1',
+      'x-kv-render-engine': snap.engineUsed || 'default',
+      ...jarOut,
+    }),
+  })
+}
+
+// Quiet reader-class retry for rate-limited pages: a deliberately
+// different request shape (no client hints, no sec-fetch choreography,
+// reader UA) sometimes passes a limiter that rejected the browser-grade
+// fetch. Returns decoded HTML or null.
+async function readerStyleFetch(target) {
+  try {
+    const ac2 = new AbortController()
+    const t2 = setTimeout(() => ac2.abort(), 15000)
+    const r = await fetch(target, {
+      headers: {
+        'user-agent': 'Mozilla/5.0 (compatible; KivoraReader/1.0; +https://kivora.pages.dev)',
+        accept: 'text/html,application/xhtml+xml',
+      },
+      redirect: 'follow',
+      signal: ac2.signal,
+    })
+    clearTimeout(t2)
+    if (!r.ok) return null
+    const ct2 = (r.headers.get('content-type') || '').toLowerCase()
+    if (!ct2.includes('html') && !ct2.includes('xml') && !ct2.includes('text/')) return null
+    const buf = await r.arrayBuffer()
+    if (buf.byteLength > 3 * 1024 * 1024) return null
+    return new TextDecoder().decode(buf)
+  } catch {
+    return null
+  }
 }
 
 // ── navigation-grade request identity (v5.26) ──
@@ -292,6 +449,13 @@ async function handle(req) {
   }
   const target = stripTrackers(v.url) // v5.30.3 — sites never see utm_/fbclid tails
 
+  // v5.30.31 — link/form rewriters hoisted to the top of handle(): the
+  // kitesurf snapshot branch, the 4xx error path AND the shell fallback
+  // chain all rewrite URLs, not just the HTML streaming pipeline.
+  const buildHref = (abs) => `/api/browser/proxy?url=${encodeURIComponent(abs)}${desktop ? '&ua=desktop' : ''}${ks ? `&ks=${ks}` : ''}`
+  const formHidden = (abs) =>
+    `<input type="hidden" name="url" value="${escAttr(abs)}">${ks ? `<input type="hidden" name="ks" value="${escAttr(ks)}">` : ''}${desktop ? '<input type="hidden" name="ua" value="desktop">' : ''}`
+
   // ── Client cookie jar (SW-owned; see header comment) ──
   const jar = jarFromRequest(req)
 
@@ -317,13 +481,6 @@ async function handle(req) {
       }
     } catch {}
     if (snap?.ok && snap.content) {
-      // buildHref lives inside the streaming branch below — the snapshot
-      // path needs its own copy with the same session/desktop semantics
-      const buildHrefFrozen = (abs) => `/api/browser/proxy?url=${encodeURIComponent(abs)}${desktop ? '&ua=desktop' : ''}${ks ? `&ks=${ks}` : ''}`
-      // meta carries no final redirect URL — absolutize against the
-      // requested target (redirect hops are rare here; relative assets
-      // still resolve correctly through the proxy for same-host paths)
-      const frozenHtml = rewriteHtml(stripScriptsForSnapshot(snap.content), target, buildHrefFrozen, AGENT_TAG)
       const jarOutFrozen = ks ? { 'x-kv-cookies': serializeJar(jar) } : {}
       if (diag) {
         return Response.json(
@@ -331,16 +488,7 @@ async function handle(req) {
           { status: 200, headers: { 'cache-control': 'no-store', ...jarOutFrozen } }
         )
       }
-      return new Response(frozenHtml, {
-        status: 200,
-        headers: baseHeaders({
-          'content-type': 'text/html; charset=utf-8',
-          'cache-control': 'no-store',
-          'x-kv-rendered': '1',
-          'x-kv-render-engine': snap.engineUsed || 'default',
-          ...jarOutFrozen,
-        }),
-      })
+      return serveRenderedSnapshot(snap, target, buildHref, jarOutFrozen)
     }
     if (diag) {
       const why = snap ? snap.error : 'not_configured_or_budget'
@@ -452,8 +600,24 @@ async function handle(req) {
       )
     }
     if (ct.includes('text/html') || ct.includes('application/xhtml') || ct === '' || !ct.includes('/')) {
+      const reasonKey = reasonFor(res.status)
+      // v5.30.31 (Fix 3) — a rate-limited page gets ONE quiet retry
+      // through a reader-class request shape before the error page: a
+      // different UA class sometimes passes the limiter, and an article
+      // beats a dead end every time.
+      if (reasonKey === 'rate') {
+        const retryHtml = await readerStyleFetch(currentTarget)
+        const retryArticle = retryHtml ? extractArticle(retryHtml, currentTarget) : null
+        if (retryArticle?.html && (retryArticle.wordCount || 0) >= 40) {
+          const retryHref2 = `/api/browser/proxy?url=${encodeURIComponent(currentTarget)}${desktop ? '&ua=desktop' : ''}${ks ? `&ks=${ks}` : ''}&lang=${lang}&rj=${Date.now()}`
+          return serveSimplifiedView(retryArticle, currentTarget, lang, buildHref, { extraHeaders: jarOutHeaders, retryHref: retryHref2 })
+        }
+      }
       const retryHref = `/api/browser/proxy?url=${encodeURIComponent(currentTarget)}${desktop ? '&ua=desktop' : ''}${ks ? `&ks=${ks}` : ''}&lang=${lang}&rj=${Date.now()}`
-      return errorPage(currentTarget, reasonFor(res.status), lang, { status: res.status, retryHref, extraHeaders: jarOutHeaders })
+      // v5.30.31 (Fix 5) — every upstream-error page offers Reader mode:
+      // public pages often extract fine even when the framed view is
+      // blocked (auth walls, bot challenges).
+      return errorPage(currentTarget, reasonKey, lang, { status: res.status, retryHref, readerUrl: true, extraHeaders: jarOutHeaders })
     }
     // non-HTML 4xx (a missing image, etc.) — pass the status through
     return new Response(res.body, {
@@ -464,16 +628,6 @@ async function handle(req) {
 
   // ── HTML pipeline: STREAM + rewrite on the fly ──
   const isHtml = ct.includes('text/html') || ct.includes('application/xhtml')
-  // v5.30 — the session id rides inside every rewritten navigation URL so
-  // the SW can keep attaching the jar as the user browses the site.
-  // v5.30.4 — desktop mode also rides along: without this, the FIRST page
-  // loaded by the parent gets the desktop UA but every link tapped inside
-  // the iframe silently fell back to mobile (desktop mode "not working").
-  const buildHref = (abs) => `/api/browser/proxy?url=${encodeURIComponent(abs)}${desktop ? '&ua=desktop' : ''}${ks ? `&ks=${ks}` : ''}`
-  // GET forms submit to the BARE proxy path (a GET submission replaces the
-  // whole query) — the target/session ride as hidden inputs instead.
-  const formHidden = (abs) =>
-    `<input type="hidden" name="url" value="${escAttr(abs)}">${ks ? `<input type="hidden" name="ks" value="${escAttr(ks)}">` : ''}${desktop ? '<input type="hidden" name="ua" value="desktop">' : ''}`
   if (isHtml && res.body) {
     const enc = new TextEncoder()
     // v5.30.4 — charset honesty: the header usually declares utf-8, but
@@ -484,6 +638,75 @@ async function handle(req) {
     let dec = new TextDecoder(headerCharset)
     let charsetSettled = headerCharset !== 'utf-8' // non-utf8 headers are trusted as-is
     const rewriter = createStreamingRewriter(finalUrl, buildHref, AGENT_TAG, { desktop, formHidden })
+
+    // ── v5.30.31 (Fix 1) — shell detection on the buffered prefix ──
+    // Buffer the first SHELL_SNIFF_BYTES of a 2xx GET HTML response and
+    // decide BEFORE streaming: real pages stream exactly as before (the
+    // buffered prefix is replayed through the same TransformStream —
+    // byte-identical output), shells go through the fallback chain.
+    // diag=1 turns the decision into JSON so tests/curl can verify
+    // against live sites without rendering anything.
+    if (isGet && res.status >= 200 && res.status < 300) {
+      const { chunks, reader, total } = await bufferUpTo(res, SHELL_SNIFF_BYTES)
+      // separate decoder — the stream's own `dec` must stay pristine for
+      // the replayed chunks (a flushed decoder would reset multi-byte
+      // state at the sniff boundary)
+      let prefixText = ''
+      try {
+        const sniffDec = new TextDecoder(headerCharset)
+        for (const c of chunks) prefixText += sniffDec.decode(c, { stream: true })
+        prefixText += sniffDec.decode()
+      } catch {}
+      const shell = looksLikeJsShell(prefixText)
+      if (diag) {
+        const dArticle = shell ? extractArticle(prefixText, finalUrl) : null
+        return Response.json(
+          {
+            ok: true,
+            status: res.status,
+            finalUrl,
+            shell,
+            bytes: total,
+            textChars: prefixText.replace(/<[^>]+>/g, '').length,
+            articleWords: dArticle?.wordCount || 0,
+            simplifiedPossible: Boolean(dArticle?.html && (dArticle.wordCount || 0) >= 40),
+            ms: Date.now() - t0,
+          },
+          { status: 200, headers: { 'cache-control': 'no-store', ...jarOutHeaders } }
+        )
+      }
+      if (shell) {
+        // (a) static content hiding inside the shell → simplified view
+        const article = extractArticle(prefixText, finalUrl)
+        if (article?.html && (article.wordCount || 0) >= 40) {
+          const retryHref = `/api/browser/proxy?url=${encodeURIComponent(currentTarget)}${desktop ? '&ua=desktop' : ''}${ks ? `&ks=${ks}` : ''}&lang=${lang}&rj=${Date.now()}`
+          return serveSimplifiedView(article, finalUrl, lang, buildHref, { extraHeaders: jarOutHeaders, retryHref })
+        }
+        // (b) kitesurf-rendered snapshot when Browser Run is configured
+        // and the day budget has room (auto-upgrades once the user adds
+        // credentials — no code change needed)
+        try {
+          const [apiToken, accountId] = await Promise.all([getEnvVar('CF_API_TOKEN'), getEnvVar('CF_ACCOUNT_ID')])
+          if (apiToken && accountId && underBudget()) {
+            const snap = await browserRunSnapshot(finalUrl, { apiToken, accountId }, {
+              formats: ['content', 'screenshot'],
+              gotoOptions: { waitUntil: 'networkidle2', timeout: 30000 },
+              timeoutMs: 45000,
+              ...(desktop ? { viewport: { width: 1440, height: 900, deviceScaleFactor: 1 } } : { viewport: { width: 390, height: 844, deviceScaleFactor: 2 } }),
+            })
+            if (snap?.ok && snap.content) return serveRenderedSnapshot(snap, finalUrl, buildHref, jarOutHeaders)
+          }
+        } catch {}
+        // (c) branded actionable error — Reader button keeps the text path
+        return errorPage(currentTarget, 'js_shell', lang, {
+          retryHref: `/api/browser/proxy?url=${encodeURIComponent(currentTarget)}${desktop ? '&ua=desktop' : ''}${ks ? `&ks=${ks}` : ''}&lang=${lang}&rj=${Date.now()}`,
+          readerUrl: true,
+          extraHeaders: jarOutHeaders,
+        })
+      }
+      // not a shell — keep streaming with the buffered prefix replayed first
+      res = new Response(replayWithBuffer(chunks, reader), { status: res.status, headers: res.headers })
+    }
 
     const stream = new TransformStream({
       transform(chunk, ctrl) {

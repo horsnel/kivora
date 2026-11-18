@@ -365,6 +365,12 @@ export default function BrowserApp({ open, onClose, pending }) {
           // the only sane exit from inside the opaque-origin frame
           onClose()
           break
+        case 'reader':
+          // v5.30.31 — error pages post this from their "Reader mode"
+          // button (shell/anti-bot pages): switch the SAME tab to the
+          // reader pane; the reader effect fetches the tab's current URL
+          patchTab(tid, (x) => ({ reader: true }))
+          break
         default:
           break
       }

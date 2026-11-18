@@ -1856,3 +1856,75 @@ Activation (user action): add "Browser Run - Edit" permission to
 CF_API_TOKEN (or a dedicated token) + CF_ACCOUNT_ID env vars on the
 Kivora Pages project. Until then every path degrades to the exact
 current behavior (Jina-only reads, no screenshots, raw proxy).
+
+---
+Task ID: v5.30.31
+Agent: Main
+Task: Kivora Browser failure UX — shell detection, Reader fallback, error UI, storage shim
+
+User screenshots showed two failure classes: Google 429s (IP-level, NOT
+fixable proxy-side — documented honestly) and blank gray frames on
+DuckDuckGo/X/YouTube (fixable). Five fixes shipped:
+
+Fix 1 — JS-shell detection (proxy route): the HTML pipeline now buffers
+the first 192KB of every 2xx GET response and runs looksLikeJsShell
+(render.mjs gate: empty framework mounts, noscript warnings, challenge
+phrases) BEFORE streaming. Healthy pages stream byte-identically — the
+buffered prefix replays through the same TransformStream (verified with
+START/END markers across the sniff boundary). POST responses are never
+intercepted (login flows safe). &diag=1 turns the decision into JSON
+(shell/bytes/textChars/articleWords/simplifiedPossible) so curl can
+verify against live sites without a browser.
+
+Gate refinement found by the DDG fixture: below the 400-text-char
+threshold, HTML only counts as a shell when <script> dominates — a tiny
+script-less page is a real page, not a shell (300-char notes must
+render). Markdown inputs keep the strict rule (Jina thin output is
+challenge-shaped).
+
+Fix 3 — fallback chain for detected shells: (a) extractArticle on the
+buffered HTML → static content still present → SERVE A SIMPLIFIED VIEW
+directly (light typographic pane, locale banner, links/forms rewritten
+through the normal proxy pipeline, x-kv-simplified header); (b) Browser
+Run configured + day budget left → kitesurf snapshot (share
+serveRenderedSnapshot with &render=1 — the Kitesurf upgrade slot is
+already wired); (c) branded js_shell error page. Rate-limited (429) HTML
+pages get ONE quiet reader-class retry (different UA shape) before the
+error page.
+
+Fix 5 — error page gains a "Reader mode" button posting
+{__kv_dt:1,side:'agent',type:'reader'}; BrowserApp maps it to
+patchTab(reader:true) on the SAME tab (the reader effect then fetches
+/tab url). Every upstream-error page (auth/rate/server/status/js_shell)
+now offers it. Locale strings added for all 4 languages (en/fr/sw/yo).
+
+Fix 2 — frame-busting verified, not invented: upstream response HEADERS
+were never forwarded (fresh Response objects) and the rewriter already
+stripped CSP meta in both buffered and streaming paths. v5.30.31 adds
+the missing X-Frame-Options META strip to rewriteHtml (core.mjs) and a
+test pins all of it.
+
+Fix 4 — sandbox NOT loosened (proxied pages are same-origin with Kivora;
+allow-same-origin would hand arbitrary site scripts our cookies — the
+opaque origin IS the security wall). Instead: in-memory localStorage/
+sessionStorage shim in the DevTools agent (installed ONLY when access
+throws, via Object.defineProperty shadowing) — SPAs that touch storage
+during boot no longer crash into the gray frame.
+
+Tests: scripts/test_v53031_shell.mjs — 33 route-level assertions with
+stubbed upstream fetch (content passthrough + boundary markers, CSP/XFO
+stripping, simplified view, js_shell error, diag verdicts, 429 retry
+both ways, POST bypass, render=1 fallthrough, shim markers). Suite
+25/31 — the 7 failures are the same stash-verified pre-existing set.
+
+Regression caught by the v5.26 XSS test: my errorPage edit dropped the
+HTML-entity semicolon (&#33; → &#33) — restored, 73/73 again.
+
+Second mid-turn sandbox recycle rolled HEAD back to 4c85b9a again;
+backed up in-flight edits, reset to origin/main 40fe2bc, re-applied.
+Same playbook as v5.30.30.
+
+Google stays broken until the IP-level 429 has a different rendering
+path (kitesurf via Browser Run once credentials land; even then not
+guaranteed). X/YouTube shells now get the actionable error + Reader
+path; DDG SERPs (static HTML) pass through as before.
