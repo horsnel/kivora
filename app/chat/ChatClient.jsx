@@ -2546,6 +2546,14 @@ export default function ChatClient() {
         <div className="px-3 pt-3 pb-2 shrink-0" aria-hidden="true">
           <div className="h-8 mb-3" />
         </div>
+        {/* ── v5.30.37 — invisible Search Hub replica: the drawer now carries
+            the Search Hub (pt-8 + 50px input + mt-2.5 + 30px pill row) above
+            its nav links; this empty footprint keeps this sidebar's Explore
+            Y-aligned with the drawer's first link ── */}
+        <div className="pt-8 px-4 shrink-0" aria-hidden="true">
+          <div className="h-[50px]" />
+          <div className="h-[30px] mt-2.5" />
+        </div>
 
         {/* ── Explore link ── */}
         <div className="px-2.5 shrink-0">

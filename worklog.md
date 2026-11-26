@@ -2140,3 +2140,40 @@ baseline failures, zero regressions. next build exit 0;
 Enter-send, no widen, bar-busy present in composer chunks, drawer
 /research in layout). v5.30.35 (e989a6c) still CF-queued at turn start;
 this push rides the same queue.
+
+## v5.30.37 — Sidebar Search Hub (user spec) + alignment replica
+
+User spec, implemented faithfully in the nav drawer (SidebarContent —
+shared by both drawer variants):
+
+1. SEARCH HUB as its own component (components/SidebarSearchHub.jsx):
+   large pill input — rounded-full, bg-[#161616], border-gray-700,
+   py-3.5, magnifying-glass SVG absolute left, pl-11; focus:border-red-500
+   focus:ring-1 focus:ring-red-500 (outline-none so the ring reads clean).
+2. FILTER PILLS: Recent / Starred / Coding — flex flex-nowrap gap-2
+   overflow-x-auto scrollbar-none (global utility, globals.css:1529);
+   whitespace-nowrap shrink-0 pills, rounded-full, bg-[#161616],
+   border-gray-700, text-[11px] leading-4; tiny yellow star (text-yellow-400)
+   in Starred. Active pill gets the red tint (app accent).
+3. PLACEMENT: container pt-8 px-4 between the drawer's logo header and
+   the nav links — Explore stays directly below, untouched. Drawer theme
+   unchanged (#0f0f0f — the spec's parenthetical said #0a0a0a, which is
+   the top-bar color; kept the real sidebar theme per "keep existing").
+4. BEHAVIOR (spec was visual-only; minimal honest defaults): Enter/icon
+   routes to /explore (the search surface — it takes no query param yet);
+   filters are selectable chips with local state only.
+5. ALIGNMENT PRESERVED: the chat sidebar's invisible spacer now also
+   replicates the hub footprint (pt-8 px-4 + h-[50px] input + h-[30px]
+   mt-2.5 pills) so its Explore stays Y-aligned with the drawer's
+   (v5.30.36 invariant).
+
+Session note: sandbox recycle rolled the local repo back to v5.30.25
+and wiped node_modules — recovered via git reset --hard origin/main
+(v5.30.36 intact on remote) + npm install; the 3 transient grid
+failures were recycle artifacts, back to the baseline 7 after restore.
+
+Tests: new scripts/test_v53037_search_hub.mjs 20/20 (spec classes,
+wiring order, theme, replica). Grid 29/36 — same 7 baseline failures,
+zero regressions. next build exit 0; @cloudflare/next-on-pages 9.3s;
+compiled markers: Search hub + Starred in layout chunk, hub replica in
+chat bundle.
