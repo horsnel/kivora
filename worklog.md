@@ -2140,3 +2140,38 @@ baseline failures, zero regressions. next build exit 0;
 Enter-send, no widen, bar-busy present in composer chunks, drawer
 /research in layout). v5.30.35 (e989a6c) still CF-queued at turn start;
 this push rides the same queue.
+
+## v5.30.38 — Search Hub moved to the chat history sidebar (revert + fix)
+
+User verdict on v5.30.37: wrong sidebar — the hub was dumped on the nav
+drawer above the nav links (Explore pushed out of place) and the pills
+overflowed the drawer width ("Coding" clipped off-edge). v5.30.37 was
+REVERTED (7231a2d) and rebuilt per the corrected spec:
+
+1. REVERT: drawer restored exactly to pre-hub state — logo header →
+   nav links → USD/English/Dashboard/Profile footer. NO Search Hub in
+   the nav sidebar, ever.
+2. CHAT HISTORY SIDEBAR gets the hub: real K-icon header (user: "Top:
+   the Red Kivora Icon") → Explore → Search Hub → history (Today/This
+   Week) → Settings + profile footer (already present, untouched).
+   The K header has the drawer logo header's exact geometry (pt-3 +
+   32px mark + mb-3 + pb-2 = 64px) so Explore stays Y-aligned with the
+   drawer's first link BY CONSTRUCTION — the v5.30.36 invisible spacer
+   and the v5.30.37 hub replica are both deleted. Static mark (no
+   Link); the drawer logo remains the only brand link.
+3. PILLS CANNOT OVERFLOW: flex-1 equal thirds on one line (flex-1
+   min-w-0 justify-center, gap-2, no overflow-x-auto) — lg:w-72 = 288px
+   − 2×px-4 − 2×gap-2 = 240px → 80px per pill; widest label ("Starred"+
+   star) needs ~73px. Fits on mobile too (88% of 375px → ~94px/pill).
+4. NO SEARCH REGRESSION: the hub input is CONTROLLED — wired to the
+   old convSearch/setConvSearch state, so typing filters the history
+   exactly like the search-conversations box it replaces.
+
+Session note: clean turn (no recycle; HEAD was 181eab3).
+
+Tests: new scripts/test_v53038_search_hub_chat.mjs 18/18; v53034
+amended to the v5.30.38 spec (25/25 — mark returns, header un-stripped);
+v53033 search-surface assertion amended to the hub (40/40). Grid 29/36
+— same 7 baseline failures, zero regressions. Builds pass; hub + Starred
++ K-header markers compile into shared chunk 6686; layout chunk has NO
+hub markers (drawer clean).

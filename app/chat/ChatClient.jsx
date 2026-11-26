@@ -11,6 +11,7 @@ import { supabasePublic } from '@/lib/supabase'
 import { streamSSE } from '@/lib/sseClient'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
 import UserAvatar from '@/components/UserAvatar'
+import SidebarSearchHub from '@/components/SidebarSearchHub'
 import ArtifactViewer from '@/components/ArtifactViewer'
 import CodePreviewCard from '@/components/CodePreviewCard'
 import VoiceSettings from '@/components/VoiceSettings'
@@ -2534,17 +2535,24 @@ export default function ChatClient() {
           historyOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        {/* ── v5.30.35 — no branding, no close, no new-chat in this header:
-            the conversation list IS the content of this sidebar. Mobile
+        {/* ── v5.30.35 — no close, no new-chat in this header: mobile
             closes via the overlay tap or picking a conversation (same
             pattern as the nav drawer's v5.30.21 decision); new chat lives
             in the main top bar's + button. ── */}
-        {/* ── v5.30.36 — invisible alignment spacer: replicates the nav
-            drawer's logo-header height (pt-3 + 32px mark + mb-3 + pb-2 =
-            64px) so this sidebar's Explore link sits at the same Y as the
-            drawer's first link (user: keep the logo container, invisible) ── */}
-        <div className="px-3 pt-3 pb-2 shrink-0" aria-hidden="true">
-          <div className="h-8 mb-3" />
+        {/* ── v5.30.38 — real K-icon header (user: "Top: the Red Kivora
+            Icon"), same geometry as the nav drawer's logo header (pt-3 +
+            32px mark + mb-3 + pb-2 = 64px) so this sidebar's Explore link
+            stays Y-aligned with the drawer's first link by construction —
+            replaces the v5.30.36 invisible spacer. Static mark (no link);
+            the drawer's logo remains the only brand link. ── */}
+        <div className="px-3 pt-3 pb-2 shrink-0">
+          <span className="w-8 h-8 mb-3 bg-[#dc2626] rounded-lg flex items-center justify-center shrink-0">
+            <svg width="16" height="16" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95" />
+              <path d="M16 4L26 24L16 18Z" fill="white" opacity="0.55" />
+              <rect x="6" y="26" width="20" height="3" rx="1.5" fill="white" opacity="0.3" />
+            </svg>
+          </span>
         </div>
 
         {/* ── Explore link ── */}
@@ -2563,23 +2571,12 @@ export default function ChatClient() {
           </Link>
         </div>
 
-        {/* ── Spacer ── */}
-        <div className="h-3 shrink-0" />
-
-        {/* ── Search conversations ── */}
-        <div className="px-3 shrink-0">
-          <div className="relative">
-            <IconSearch size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#525252] pointer-events-none" />
-            <input
-              type="text"
-              placeholder={t('chat.search_conversations') || 'Search conversations'}
-              value={convSearch}
-              onChange={e => setConvSearch(e.target.value)}
-              className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg pl-8 pr-3 py-1.5 text-[12px] text-[#d4d4d4] placeholder-[#525252] outline-none focus:border-[#3a3a3a] transition-colors"
-              autoComplete="off"
-              spellCheck="false"
-            />
-          </div>
+        {/* ── v5.30.38 — Search Hub (user spec, chat history sidebar ONLY):
+            pill input + side-by-side filter pills. The input is wired to
+            convSearch so typing filters the history exactly like the old
+            search-conversations box it replaces. ── */}
+        <div className="px-4 pt-2.5 pb-1 shrink-0">
+          <SidebarSearchHub value={convSearch} onChange={setConvSearch} />
         </div>
 
         {/* ── Conversation list ── */}
