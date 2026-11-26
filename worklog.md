@@ -2095,3 +2095,48 @@ to absence assertions (40 passing). Grid 27/34 — failure set
 byte-identical to the stash-verified baseline, zero regressions.
 next build exit 0; @cloudflare/next-on-pages 8.7s; K-mark path
 verified absent from chat chunks, present in the layout chunk (drawer).
+
+## v5.30.36 — mobile Enter fix, widen removal, gated glow, clipped retry, logo target, sidebar alignment
+
+Six-item user batch:
+
+1. ENTER = NEWLINE in EVERY composer (mobile fix): all Enter-send
+   keydown handlers removed — chat collapsed+expanded, research greeting,
+   research active collapsed+expanded, research dialogue follow-up.
+   Collapsed single-line <input>s converted to real <textarea rows=1>
+   (resize-none, pt-[7px] leading-[22px] to keep the 36px pill
+   centered). Sending happens ONLY via the send buttons. Utility inputs
+   keep Enter: session rename (chat) and add-folder (research) — not
+   prompt surfaces.
+2. WIDEN/EXPAND CONTROLS REMOVED per user request: collapsed-pill widen
+   buttons (chat + both research surfaces), expanded-toolbar
+   widen/shrink toggles (chat + research), tallEditor/editorMax state
+   everywhere. Focus-to-expand behavior stays (tap field → full editor).
+3. GLOW BORDER GATED: the conic-gradient ring no longer spins at rest.
+   Base ::before rules lost `animation:`; a gated rule
+   (.bar-busy::before) carries it; containers apply bar-busy from
+   loading (chat) / isResearching (research). Idle = static ring;
+   task runs = spin; finished = still again.
+4. RETRY/RERUN ROW CLIPPING: message list container py-6 → pt-6 pb-12
+   (48px bottom room) + action bar pb-1 → pb-1.5. The rerun
+   (IconRefresh) button below messages can no longer ride the edge.
+5. DRAWER LOGO TARGET: nav-drawer K mark href / → /research
+   (aria-label "Kivora research") — the icon must not drop users on the
+   landing page.
+6. CHAT SIDEBAR ALIGNMENT: invisible spacer replicating the drawer's
+   logo-header height (pt-3 + 32px + mb-3 + pb-2 = 64px, aria-hidden)
+   puts the chat sidebar's Explore link at the same Y as the drawer's
+   first link (user-endorsed invisible-container technique).
+
+Tests: new scripts/test_v53036_enter_glow.mjs 29/29 (no Enter-send
+handlers, textarea conversions, widen absence, single gated spin rule
+per file, container busy wiring, clipping padding, logo target);
+test_v53034 branding suite updated (drawer /research + spacer — 25/25);
+test_v53033 composer assertions flipped to widen-absence (40 pass);
+test_send_button_fix.mjs's "Enter-key send() intact" assertion REVERSED
+to zero-per policy change (21/21). Grid 28/35 — same 7 stash-verified
+baseline failures, zero regressions. next build exit 0;
+@cloudflare/next-on-pages 8.7s; compiled chunks verified (no
+Enter-send, no widen, bar-busy present in composer chunks, drawer
+/research in layout). v5.30.35 (e989a6c) still CF-queued at turn start;
+this push rides the same queue.

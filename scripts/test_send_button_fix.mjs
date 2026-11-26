@@ -30,9 +30,11 @@ const directRefs = (chatCode.match(/onClick=\{send\}/g) || []).length
 t('zero onClick={send} handler references remain', directRefs === 0)
 const arrowRefs = (chatSrc.match(/onClick=\{\(\) => send\(\)\}/g) || []).length
 t('both send buttons use onClick={() => send()} (found ' + arrowRefs + ')', arrowRefs === 2)
-// Enter-key paths were always safe — make sure they stayed intact
+// v5.30.36 — policy REVERSED by user request (mobile Enter fix): Enter must
+// NEVER send; it inserts a newline and sending happens only via the button.
+// The old assertion demanded Enter-send call sites stay intact — now zero.
 const enterRefs = (chatSrc.match(/e\.preventDefault\(\); send\(\)/g) || []).length
-t('Enter-key send() call sites intact (found ' + enterRefs + ')', enterRefs >= 2)
+t('zero Enter-key send() call sites (v5.30.36: Enter = newline, found ' + enterRefs + ')', enterRefs === 0)
 
 console.log('── send() handler-reference guard ──')
 t('send coerces truthy non-array retryConvo to null',

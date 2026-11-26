@@ -237,7 +237,7 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
           bars. ── */}
       <div className="px-3 pt-3 pb-2 shrink-0">
         <div className="flex items-center justify-between mb-3">
-          <Link href="/" className="flex items-center" onClick={onClose} title="Kivora" aria-label="Kivora home">
+          <Link href="/research" className="flex items-center" onClick={onClose} title="Kivora" aria-label="Kivora research">
             <span className="w-8 h-8 bg-[#dc2626] rounded-lg flex items-center justify-center shrink-0">
               <svg width="16" height="16" viewBox="0 0 32 32" fill="none">
                 <path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95" />

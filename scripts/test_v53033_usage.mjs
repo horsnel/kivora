@@ -121,8 +121,8 @@ ok('page.jsx pill bottom padding 12px', rp.includes('padding: 8px 12px 12px 12px
 ok('ResearchClient pill bottom padding 12px', rc.includes('padding: 8px 12px 12px 12px;'))
 ok('mobile pill bottom padding 9px', rp.includes('padding: 6px 8px 9px 8px;'))
 ok('expanded container bottom padding 14px', rc.includes('padding: 16px 16px 14px 16px;'))
-ok('greeting pill: widen button added', /Apex model chip[\s\S]{0,4200}aria-label="Widen editor"/.test(rp))
-ok('greeting pill: widen never sends', rp.includes('onClick={() => setBarExpanded(true)}') && /aria-label="Widen editor"[\s\S]{0,60}title="Widen editor"/.test(rp))
+ok('greeting pill: widen button removed (v5.30.36)', !rp.includes('Widen editor') && !rp.includes('Shrink editor'))
+ok('greeting pill: send button intact (only send path)', /aria-label="Start research"/.test(rp))
 ok('greeting pill: 4-bar equalizer icon gone', !rp.includes('<rect x="4" y="8" width="2" height="8"'))
 ok('greeting pill: grey plane when empty', rp.includes("className={hasInput ? '' : 'opacity-40'}"))
 

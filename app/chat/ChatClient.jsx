@@ -504,9 +504,7 @@ export default function ChatClient() {
   // v5.30.32 — tall editor: the widen toggle in the toolbar grows the
   // textarea to ~55% of the viewport so long drafts are actually writable.
   // The old bar had NO widen control — the only tall target was the send
-  // button, which is why "widen" sent the message.
-  const [tallEditor, setTallEditor] = useState(false)
-  // v5.30.32 — per-turn quota card (portal-rendered, hush-pop pattern)
+  // button, which is why "widen" sent the message.  // v5.30.32 — per-turn quota card (portal-rendered, hush-pop pattern)
   const [quotaCard, setQuotaCard] = useState(null)
   const [focusMode, setFocusMode] = useState('All')
   const [focusDropdownOpen, setFocusDropdownOpen] = useState(false)
@@ -915,7 +913,6 @@ export default function ChatClient() {
   }
 
   // v5.30.32 — textarea ceiling follows the tall-editor toggle
-  const editorMax = () => (tallEditor ? Math.max(320, Math.round(window.innerHeight * 0.55)) : 180)
 
   function clearChat() {
     if (studySessionRef.current) {
@@ -2542,6 +2539,13 @@ export default function ChatClient() {
             closes via the overlay tap or picking a conversation (same
             pattern as the nav drawer's v5.30.21 decision); new chat lives
             in the main top bar's + button. ── */}
+        {/* ── v5.30.36 — invisible alignment spacer: replicates the nav
+            drawer's logo-header height (pt-3 + 32px mark + mb-3 + pb-2 =
+            64px) so this sidebar's Explore link sits at the same Y as the
+            drawer's first link (user: keep the logo container, invisible) ── */}
+        <div className="px-3 pt-3 pb-2 shrink-0" aria-hidden="true">
+          <div className="h-8 mb-3" />
+        </div>
 
         {/* ── Explore link ── */}
         <div className="px-2.5 shrink-0">
@@ -3104,7 +3108,7 @@ export default function ChatClient() {
           aria-live="polite"
           aria-label={t('chat.title') || 'Chat'}
         >
-          <div className="max-w-[960px] mx-auto px-[min(5vw,48px)] py-6 space-y-4">
+          <div className="max-w-[960px] mx-auto px-[min(5vw,48px)] pt-6 pb-12 space-y-4">
             {messages.length === 0 && (
               <div className="flex flex-col items-center min-h-[65vh]">
                 {/* Morphing brand mark — the chat page's nav icon, ghosted and alive in the upper void */}
@@ -3441,7 +3445,7 @@ export default function ChatClient() {
                         // v5.30.32 — pb-1 + overflow-visible: the bar rode the
                         // container edge and the bottom few px of the icons
                         // got shaved on tight scroll containers
-                        className={`mt-2 pb-1 flex items-center gap-3 overflow-visible transition-opacity duration-200 ${i === messages.length - 1 ? '' : 'opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100'}`}
+                        className={`mt-2 pb-1.5 flex items-center gap-3 overflow-visible transition-opacity duration-200 ${i === messages.length - 1 ? '' : 'opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100'}`}
                       >
                         <div className="flex items-center gap-0.5">
                           <button
@@ -3672,7 +3676,7 @@ export default function ChatClient() {
 
             {/* ═══ COLLAPSED STATE ═══ */}
             {!barExpanded && (
-              <div className="chat-bar-collapsed">
+              <div className={`chat-bar-collapsed${loading ? ' bar-busy' : ''}`}>
                 {/* Paperclip — attach file */}
                 <button
                   className="chat-collapsed-btn-circle"
@@ -3685,35 +3689,22 @@ export default function ChatClient() {
                   </svg>
                 </button>
 
-                {/* Input field — single line in collapsed state */}
+                {/* Input — v5.30.36: a real <textarea> (mobile Enter fix):
+                    Enter inserts a newline, never sends. Focus still expands
+                    the bar into the full editor; sending lives on the button. */}
                 <div className="chat-collapsed-input-wrap">
-                  <input
+                  <textarea
                     ref={collapsedInputRef}
-                    type="text"
+                    rows={1}
                     placeholder={t('chat.placeholder')}
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onFocus={() => setBarExpanded(true)}
-                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-                    className="chat-collapsed-input"
+                    className="chat-collapsed-input resize-none overflow-hidden pt-[7px] leading-[22px]"
                     autoComplete="off"
                     spellCheck="false"
                   />
                 </div>
-
-                {/* v5.30.32 — Widen button: expands the bar into the full
-                    editor. This control did not exist before — the only tall
-                    target in the pill was Send, so users who tapped "widen"
-                    sent the message instead. */}
-                <button
-                  type="button"
-                  className="chat-collapsed-btn-circle"
-                  onClick={() => setBarExpanded(true)}
-                  aria-label="Widen editor"
-                  title="Widen editor"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M9 21H3v-15" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" /></svg>
-                </button>
 
                 {/* Send / Stop button */}
                 {loading ? (
@@ -3743,16 +3734,16 @@ export default function ChatClient() {
 
             {/* ═══ EXPANDED STATE ═══ */}
             {barExpanded && (
-              <div className="chat-container-expanded" ref={chatBarRef}>
-                {/* Textarea */}
+              <div className={`chat-container-expanded${loading ? ' bar-busy' : ''}`} ref={chatBarRef}>
+                {/* Textarea — v5.30.36: Enter inserts a newline, never sends
+                    (mobile fix); sending happens only via the send button */}
                 <textarea
                   ref={textareaRef}
                   rows={1}
                   className="chat-textarea-expanded scrollbar-none"
                   placeholder={t('chat.placeholder')}
                   value={input}
-                  onChange={e => { setInput(e.target.value); autoResize(e.target, editorMax()) }}
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+                  onChange={e => { setInput(e.target.value); autoResize(e.target) }}
                   autoFocus
                 />
 
@@ -3819,26 +3810,6 @@ export default function ChatClient() {
 
                   {/* Right actions */}
                   <div className="chat-toolbar-right">
-
-                    {/* v5.30.32 — widen/shrink toggle: grows the textarea to
-                        ~55% of the viewport for long drafts. Never sends. */}
-                    <button
-                      type="button"
-                      className={`chat-toolbar-btn ${tallEditor ? 'chat-toolbar-btn-active' : ''}`}
-                      onClick={() => {
-                        const next = !tallEditor
-                        setTallEditor(next)
-                        setTimeout(() => { if (textareaRef.current) autoResize(textareaRef.current, next ? Math.max(320, Math.round(window.innerHeight * 0.55)) : 180) }, 0)
-                      }}
-                      aria-label={tallEditor ? 'Shrink editor' : 'Widen editor'}
-                      title={tallEditor ? 'Shrink editor' : 'Widen editor'}
-                    >
-                      {tallEditor ? (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14h6v6" /><path d="M20 10h-6V4" /><path d="M14 10l7-7" /><path d="M3 21l7-7" /></svg>
-                      ) : (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M9 21H3v-15" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" /></svg>
-                      )}
-                    </button>
 
                     {/* Pro toggle with dropup */}
                     <div className="relative" ref={proTypeDropdownRef}>
@@ -4163,6 +4134,13 @@ export default function ChatClient() {
         .chat-bar-collapsed:focus-within {
           border-color: transparent;
         }
+        /* v5.30.36 — the gradient ring spins ONLY while a task runs
+            (.bar-busy is applied while loading); idle, the ring sits still
+            as a static border */
+        .chat-bar-collapsed.bar-busy::before,
+        .chat-container-expanded.bar-busy::before {
+          animation: bar-angle-spin 1.5s linear infinite;
+        }
         /* Gradient border ring */
         .chat-bar-collapsed::before {
           content: '';
@@ -4171,7 +4149,6 @@ export default function ChatClient() {
           border-radius: 28px;
           padding: 3px;
           background: conic-gradient(from var(--bar-angle), #ef4444, #a855f7, #4c1d95, #ef4444);
-          animation: bar-angle-spin 1.5s linear infinite;
           -webkit-mask:
             linear-gradient(#fff 0 0) content-box,
             linear-gradient(#fff 0 0);
@@ -4302,7 +4279,6 @@ export default function ChatClient() {
           border-radius: 20px;
           padding: 3px;
           background: conic-gradient(from var(--bar-angle), #ef4444, #a855f7, #4c1d95, #ef4444);
-          animation: bar-angle-spin 1.5s linear infinite;
           -webkit-mask:
             linear-gradient(#fff 0 0) content-box,
             linear-gradient(#fff 0 0);

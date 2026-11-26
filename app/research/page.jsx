@@ -1748,7 +1748,7 @@ function ResearchPageContent() {
             )}
 
           {/* Big expanded text bar */}
-            <div className="chat-container-expanded">
+            <div className={`chat-container-expanded${isResearching ? ' bar-busy' : ''}`}>
               {/* Attachment chips (one per file) */}
               {attachedFiles.length > 0 && (
                 <AttachmentChipRow files={attachedFiles} onRemove={removeAttachment} onPreview={setPreviewImage} />
@@ -1756,13 +1756,14 @@ function ResearchPageContent() {
               {fileError && (
                 <div className="text-xs text-red-400 mb-2 px-2">{fileError}</div>
               )}
+              {/* Textarea — v5.30.36: Enter inserts a newline, never sends
+                  (mobile fix); sending happens only via the send button */}
               <textarea
                 ref={textareaRef}
                 rows={1}
                 className={`chat-textarea-expanded scrollbar-none${input.length === 0 && !focused && attachedFiles.length === 0 ? ' no-caret' : ''}`}
                 value={input}
                 onChange={e => { setInput(e.target.value); autoResize(e.target) }}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
                 autoFocus
@@ -2149,7 +2150,7 @@ function ResearchPageContent() {
                   input. Focusing it (or attaching a file, or having text) expands
                   to the multi-line textarea below — mirroring the chat page UX. */}
               {!barExpanded && (
-                <div className="research-bar-collapsed">
+                <div className={`research-bar-collapsed${isResearching ? ' bar-busy' : ''}`}>
                   {/* File upload button */}
                   <button
                     onClick={() => collapsedFileInputRef.current?.click()}
@@ -2172,17 +2173,18 @@ function ResearchPageContent() {
                     onChange={handleFileSelect}
                   />
 
-                  {/* Input */}
+                  {/* Input — v5.30.36: a real <textarea> (mobile Enter fix):
+                      Enter inserts a newline, never sends. Focus still expands
+                      the bar into the full editor; sending lives on the button. */}
                   <div className="research-collapsed-input-wrap">
-                    <input
+                    <textarea
                       ref={collapsedInputRef}
-                      type="text"
+                      rows={1}
                       placeholder={collapsedPlaceholder || 'Research anything...'}
                       value={input}
                       onChange={e => setInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
                       onFocus={() => setBarExpanded(true)}
-                      className="research-collapsed-input"
+                      className="research-collapsed-input resize-none overflow-hidden pt-[7px] leading-[22px]"
                       autoComplete="off"
                       spellCheck="false"
                       disabled={isResearching}
@@ -2231,20 +2233,6 @@ function ResearchPageContent() {
                     </button>
                   </div>
 
-                  {/* v5.30.33 — Widen button: expands into the full editor
-                      without sending. The old 4-bar "equalizer" icon sat in
-                      the send slot and read as expand — tapping "widen"
-                      literally sent the message. */}
-                  <button
-                    type="button"
-                    className="research-collapsed-btn-circle"
-                    onClick={() => setBarExpanded(true)}
-                    aria-label="Widen editor"
-                    title="Widen editor"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M9 21H3v-15" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" /></svg>
-                  </button>
-
                   {/* Send / Stop button */}
                   {isResearching ? (
                     <button
@@ -2274,7 +2262,7 @@ function ResearchPageContent() {
               {/* Mirrors the chat page: when focused or has content/attachment,
                   the bar grows into a full textarea with the toolbar below it. */}
               {barExpanded && (
-                <div className="chat-container-expanded" ref={chatBarRef}>
+                <div className={`chat-container-expanded${isResearching ? ' bar-busy' : ''}`} ref={chatBarRef}>
                   {/* Attachment chips (one per file) */}
                   {attachedFiles.length > 0 && (
                     <AttachmentChipRow files={attachedFiles} onRemove={removeAttachment} onPreview={setPreviewImage} />
@@ -2289,7 +2277,6 @@ function ResearchPageContent() {
                     placeholder={collapsedPlaceholder || 'Research anything...'}
                     value={input}
                     onChange={e => { setInput(e.target.value); autoResize(e.target) }}
-                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
                     autoFocus
                   />
                   <div className="chat-toolbar-expanded">
@@ -2437,7 +2424,6 @@ function ResearchPageContent() {
           border-radius: 20px;
           padding: 3px;
           background: conic-gradient(from var(--bar-angle), #ef4444, #a855f7, #4c1d95, #ef4444);
-          animation: bar-angle-spin 1.5s linear infinite;
           -webkit-mask:
             linear-gradient(#fff 0 0) content-box,
             linear-gradient(#fff 0 0);
@@ -2576,6 +2562,13 @@ function ResearchPageContent() {
           .research-bar-collapsed { padding: 6px 8px 9px 8px; gap: 4px; min-height: 50px; }
         }
         .research-bar-collapsed:focus-within { border-color: transparent; }
+        /* v5.30.36 — the gradient ring spins ONLY while a task runs
+            (.bar-busy is applied while isResearching); idle, the ring sits
+            still as a static border */
+        .research-bar-collapsed.bar-busy::before,
+        .chat-container-expanded.bar-busy::before {
+          animation: bar-angle-spin 1.5s linear infinite;
+        }
         .research-bar-collapsed::before {
           content: '';
           position: absolute;
@@ -2583,7 +2576,6 @@ function ResearchPageContent() {
           border-radius: 28px;
           padding: 3px;
           background: conic-gradient(from var(--bar-angle), #ef4444, #a855f7, #4c1d95, #ef4444);
-          animation: bar-angle-spin 1.5s linear infinite;
           -webkit-mask:
             linear-gradient(#fff 0 0) content-box,
             linear-gradient(#fff 0 0);

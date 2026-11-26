@@ -232,10 +232,6 @@ export default function ResearchClient() {
 
   // ── Expandable text bar states ──
   const [barExpanded, setBarExpanded] = useState(false)
-  // v5.30.32 — tall editor for the widen toggle (~55% viewport). The bar
-  // previously had no widen control at all; the send button was the only
-  // tall target, which is why "widen" sent the query.
-  const [tallEditor, setTallEditor] = useState(false)
   const [attachedFile, setAttachedFile] = useState(null) // { name, type, size, content }
   const [fileError, setFileError] = useState('')
   const fileInputRef = useRef(null)
@@ -686,9 +682,6 @@ export default function ResearchClient() {
     el.style.height = Math.min(el.scrollHeight, max) + 'px'
   }
 
-  // v5.30.32 — textarea ceiling follows the tall-editor toggle
-  const editorMax = () => (tallEditor ? Math.max(320, Math.round(window.innerHeight * 0.55)) : 240)
-
   // ── Add Folder ──
   function addFolder() {
     const name = newFolderName.trim()
@@ -757,14 +750,6 @@ export default function ResearchClient() {
       setDialogueMessages([])
     }
   }, [activeResearch?.wikiPageId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Keyboard shortcut ──
-  function handleKeyDown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSubmit()
-    }
-  }
 
   // ── Computed ──
   const stages = mode === 'deep' ? DEEP_STAGES : QUICK_STAGES
@@ -1131,7 +1116,6 @@ export default function ResearchClient() {
                 placeholder="Ask about this research..."
                 value={dialogueInput}
                 onChange={e => setDialogueInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitDialogue(dialogueInput) } }}
                 className="flex-1 bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-3 py-2 text-xs text-white placeholder-[#404040] focus:outline-none focus:border-purple-500/30 transition-colors"
                 disabled={dialogueLoading}
               />
@@ -1413,7 +1397,7 @@ export default function ResearchClient() {
                   {fileErrorChip}
                 </div>
               )}
-              <div className="research-bar-collapsed">
+              <div className={`research-bar-collapsed${isResearching ? ' bar-busy' : ''}`}>
                 {/* Search icon */}
                 <button
                   className="research-collapsed-btn-circle"
@@ -1425,17 +1409,18 @@ export default function ResearchClient() {
                   </svg>
                 </button>
 
-                {/* Input field — single line in collapsed state */}
+                {/* Input — v5.30.36: a real <textarea> (mobile Enter fix):
+                    Enter inserts a newline, never sends. Focus still expands
+                    the bar into the full editor; sending lives on the button. */}
                 <div className="research-collapsed-input-wrap">
-                  <input
+                  <textarea
                     ref={collapsedInputRef}
-                    type="text"
+                    rows={1}
                     placeholder={attachedFile ? `Ask about ${attachedFile.name}...` : 'Research anything...'}
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onFocus={() => setBarExpanded(true)}
-                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
-                    className="research-collapsed-input"
+                    className="research-collapsed-input resize-none overflow-hidden pt-[7px] leading-[22px]"
                     autoComplete="off"
                     spellCheck="false"
                     disabled={isResearching}
@@ -1453,19 +1438,6 @@ export default function ResearchClient() {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.83l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                   </svg>
-                </button>
-
-                {/* v5.30.32 — Widen button: expands the pill into the full
-                    editor. Previously the send button was the only tall
-                    target, so "widen" sent the query. */}
-                <button
-                  type="button"
-                  className="research-collapsed-btn-circle"
-                  onClick={() => setBarExpanded(true)}
-                  aria-label="Widen editor"
-                  title="Widen editor"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M9 21H3v-15" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" /></svg>
                 </button>
 
                 {/* Send button */}
@@ -1490,20 +1462,20 @@ export default function ResearchClient() {
 
           {/* ═══ EXPANDED STATE — Floating pill with toolbar ═══ */}
           {barExpanded && (
-            <div className="research-container-expanded" ref={chatBarRef}>
+            <div className={`research-container-expanded${isResearching ? ' bar-busy' : ''}`} ref={chatBarRef}>
               {/* Attachment chip (if any) */}
               {attachmentChip}
               {fileErrorChip}
 
-              {/* Textarea */}
+              {/* Textarea — v5.30.36: Enter inserts a newline, never sends
+                  (mobile fix); sending happens only via the send button */}
               <textarea
                 ref={textareaRef}
                 rows={1}
                 className="research-textarea-expanded scrollbar-none"
                 placeholder={attachedFile ? `Ask about ${attachedFile.name}...` : 'Research anything...'}
                 value={input}
-                onChange={e => { setInput(e.target.value); autoResize(e.target, editorMax()) }}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
+                onChange={e => { setInput(e.target.value); autoResize(e.target) }}
                 autoFocus
                 disabled={isResearching}
               />
@@ -1591,26 +1563,6 @@ export default function ResearchClient() {
 
                 {/* Right actions */}
                 <div className="research-toolbar-right">
-                  {/* v5.30.32 — widen/shrink toggle: textarea grows to ~55%
-                      of the viewport for long briefs. Never submits. */}
-                  <button
-                    type="button"
-                    className={`research-toolbar-btn ${tallEditor ? 'research-toolbar-btn-active' : ''}`}
-                    onClick={() => {
-                      const next = !tallEditor
-                      setTallEditor(next)
-                      setTimeout(() => { if (textareaRef.current) autoResize(textareaRef.current, next ? Math.max(320, Math.round(window.innerHeight * 0.55)) : 240) }, 0)
-                    }}
-                    aria-label={tallEditor ? 'Shrink editor' : 'Widen editor'}
-                    title={tallEditor ? 'Shrink editor' : 'Widen editor'}
-                  >
-                    {tallEditor ? (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14h6v6" /><path d="M20 10h-6V4" /><path d="M14 10l7-7" /><path d="M3 21l7-7" /></svg>
-                    ) : (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M9 21H3v-15" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" /></svg>
-                    )}
-                  </button>
-
                   {/* Submit button */}
                   <button
                     onClick={handleSubmit}
@@ -1826,6 +1778,13 @@ export default function ResearchClient() {
         .research-bar-collapsed:focus-within {
           border-color: transparent;
         }
+        /* v5.30.36 — the gradient ring spins ONLY while a task runs
+            (.bar-busy is applied while isResearching); idle, the ring sits
+            still as a static border */
+        .research-bar-collapsed.bar-busy::before,
+        .research-container-expanded.bar-busy::before {
+          animation: bar-angle-spin 1.5s linear infinite;
+        }
         .research-bar-collapsed::before {
           content: '';
           position: absolute;
@@ -1833,7 +1792,6 @@ export default function ResearchClient() {
           border-radius: 28px;
           padding: 3px;
           background: conic-gradient(from var(--bar-angle), #ef4444, #a855f7, #4c1d95, #ef4444);
-          animation: bar-angle-spin 1.5s linear infinite;
           -webkit-mask:
             linear-gradient(#fff 0 0) content-box,
             linear-gradient(#fff 0 0);
@@ -1956,7 +1914,6 @@ export default function ResearchClient() {
           border-radius: 20px;
           padding: 3px;
           background: conic-gradient(from var(--bar-angle), #ef4444, #a855f7, #4c1d95, #ef4444);
-          animation: bar-angle-spin 1.5s linear infinite;
           -webkit-mask:
             linear-gradient(#fff 0 0) content-box,
             linear-gradient(#fff 0 0);

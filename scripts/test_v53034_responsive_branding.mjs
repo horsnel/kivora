@@ -3,7 +3,9 @@
 // test_v53034_responsive_branding.mjs — v5.30.34 "Responsive Branding"
 // (text on pages, icon-only in sidebars), amended by v5.30.35: the chat
 // sidebar drops ALL header furniture (mark, close, +) — the conversation
-// list IS the content.
+// list IS the content; and by v5.30.36: the drawer mark links to
+// /research (user: the icon must not go to the landing page) and an
+// invisible spacer keeps the chat sidebar's Explore at drawer height.
 //
 // Spec:
 //   1. Nav drawer: red K mark ONLY (32px box, no wordmark), links home,
@@ -42,13 +44,13 @@ const K_PATH = 'M16 4L6 24L16 18Z'
 
 // ── 1. Nav drawer: icon-only ────────────────────────────────────────
 console.log('── nav drawer: icon-only mark ──')
-const drawerLink = blockAround(nb, 'aria-label="Kivora home"')
+const drawerLink = blockAround(nb, 'aria-label="Kivora research"')
 ok('nav drawer: link carries accessible name', !!drawerLink)
 ok('nav drawer: red K mark sized 32px (w-8 h-8)', !!drawerLink && drawerLink.includes('w-8 h-8 bg-[#dc2626]'))
 ok('nav drawer: inner K svg scaled to 16px', !!drawerLink && drawerLink.includes('width="16" height="16" viewBox="0 0 32 32"'))
 ok('nav drawer: wordmark removed (icon only)', !!drawerLink && !drawerLink.includes('Ki<span'))
 ok('nav drawer: old 28px mark replaced', !!drawerLink && !drawerLink.includes('w-7 h-7'))
-ok('nav drawer: mark links home', !!drawerLink && drawerLink.includes('href="/"'))
+ok('nav drawer: mark links to /research (v5.30.36)', !!drawerLink && drawerLink.includes('href="/research"'))
 
 // ── 2. Main pages: hamburger + red wordmark ─────────────────────────
 console.log('── main pages: hamburger + red wordmark ──')
@@ -64,6 +66,7 @@ ok('chat sidebar: X (close) removed', !cc.includes('Close conversations'))
 ok('chat sidebar: + beside search removed', !cc.includes('aria-label="New chat"'))
 ok('chat sidebar: search input intact', cc.includes("placeholder={t('chat.search_conversations') || 'Search conversations'}"))
 ok('chat sidebar: search input layout simplified (no flex sibling row)', !cc.includes('flex-1 min-w-0">\n              <IconSearch size={13}'))
+ok('chat sidebar: invisible 64px alignment spacer (v5.30.36)', /v5\.30\.36 — invisible alignment spacer[\s\S]{0,400}<div className="px-3 pt-3 pb-2 shrink-0" aria-hidden="true">\n          <div className="h-8 mb-3" \/>/.test(cc))
 ok('mobile close path survives (overlay tap)', /bg-black\/50 backdrop-blur-sm z-40 lg:hidden" onClick=\{\(\) => setHistoryOpen\(false\)\}/.test(cc))
 ok('new chat still in main top bar (t(\'chat.new\'))', cc.includes("aria-label={t('chat.new')}"))
 
@@ -78,7 +81,7 @@ ok('chat excluded from shared sidebar (NO_SIDEBAR)', nb.includes("'/auth', '/', 
 console.log('── brand consistency across surfaces ──')
 ok('drawer mark keeps the red (#dc2626)', /bg-\[#dc2626\] rounded-lg/.test(nb) && !/bg-\[#dc2626\] rounded-lg/.test(cc))
 ok('drawer mark keeps the K shape', nb.includes(`d="${K_PATH}"`) && !cc.includes(`d="${K_PATH}"`))
-ok('drawer mark is the only icon-only mark (aria-label ×1)', (nb.match(/aria-label="Kivora home"/g) || []).length === 1 && !cc.includes('aria-label="Kivora home"'))
+ok('drawer mark is the only icon-only mark (aria-label ×1)', (nb.match(/aria-label="Kivora research"/g) || []).length === 1 && !cc.includes('aria-label="Kivora research"'))
 
 console.log(`\nRESULT: ${pass} passed, ${fail} failed`)
 process.exit(fail > 0 ? 1 : 0)
