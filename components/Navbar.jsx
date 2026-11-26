@@ -3,7 +3,6 @@ import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { IconMenu, IconDashboard, IconUser, IconChevronDown, IconCheck, IconSearch, IconChat, IconBook, IconCode, IconTrending, IconGlobe, IconVideo, IconEye, IconMicroscope, IconCommunity, IconOpportunity } from '@/components/Icons'
-import SidebarSearchHub from '@/components/SidebarSearchHub'
 import { supabasePublic } from '@/lib/supabase'
 import UserAvatar from '@/components/UserAvatar'
 import { useCurrency } from '@/components/CurrencyToggle'
@@ -250,13 +249,6 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
           {/* v5.30.21 — the sidebar's X (close) button removed per product
               decision: the overlay tap and route changes close the drawer */}
         </div>
-      </div>
-
-      {/* ── v5.30.37 — Search Hub (user spec): pill search input + three
-          filter pills in the sidebar's top container (pt-8 px-4), above
-          the nav links; the Explore link stays right below. ── */}
-      <div className="pt-8 px-4 shrink-0">
-        <SidebarSearchHub onClose={onClose} />
       </div>
 
       {/* ── Nav links ── */}
