@@ -1814,7 +1814,9 @@ export default function ResearchClient() {
           align-items: center;
           background: rgba(255,255,255,0.04);
           border-radius: 28px;
-          padding: 8px 12px;
+          /* v5.30.33 — extra bottom padding so the toolbar icons don't sit
+              against the spinning gradient ring (user report) */
+          padding: 8px 12px 12px 12px;
           gap: 8px;
           border: 1px solid rgba(255,255,255,0.06);
           min-height: 56px;
@@ -1922,7 +1924,9 @@ export default function ResearchClient() {
           background-color: rgba(255,255,255,0.03);
           border: 1px solid rgba(255,255,255,0.06);
           border-radius: 20px;
-          padding: 16px 16px 10px 16px;
+          /* v5.30.33 — bottom padding raised 10→14 so the toolbar row clears
+              the spinning gradient ring */
+          padding: 16px 16px 14px 16px;
           display: flex;
           flex-direction: column;
           transition: border-color 0.3s ease;

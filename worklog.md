@@ -1975,3 +1975,62 @@ suites; npm install cleared it — environment, not code.)
 
 Sandbox recycle #3 hit at turn start (HEAD rolled to 4c85b9a again);
 recovered via fetch + reset --hard origin/main before any edits.
+
+## v5.30.33 — Sidebar Branding / Page Minimalism + full quota card + real usage plumbing
+
+User revision round on v5.30.32's branding choices, plus the composer
+padding report and the full quota-card spec (pricing + math).
+
+1. SIDEBAR BRANDING, PAGE MINIMALISM (user's chosen strategy):
+   - Nav drawer (Navbar.jsx): full logo restored — red K mark + bold
+     wordmark (w-7 h-7 mark, 15px text), replacing the v5.30.32
+     monochrome-only wordmark. Logo href unified to "/" (was a
+     pre-existing /research deep-link quirk).
+   - Chat-history sidebar (ChatClient.jsx): full logo left + Close (X)
+     right (mobile); the big New-chat button moved to a small +
+     beside the Search-conversations bar.
+   - Main pages stripped: the shared mobile hamburger bar no longer
+     shows the "Kivora" wordmark (hamburger only). Minimal pages
+     (welcome/onboarding) keep their fixed-bar logo. Chat top bar
+     already matched (hamburger / title / new-chat).
+2. COMPOSER PADDING (user report: icons sit against the bottom edge of
+   the spinning gradient ring): collapsed pill bottom padding 8→12px
+   (mobile 6→9px) in BOTH page.jsx and ResearchClient.jsx; expanded
+   container bottom padding 10→14px. The greeting-screen pill ALSO
+   still had the old 4-bar equalizer empty-send icon (v5.30.32 fixed
+   the ResearchClient bottom bar but missed this instance — the
+   mis-send surface the user reported) — replaced with the grey plane
+   + a real widen button (setBarExpanded(true), never sends).
+3. FULL QUOTA CARD (user's exact spec): rebuilt per the reference —
+   header (database icon + "Quota used this turn" + total USD),
+   Free + "Estimated at off-peak rates", 3-col stats grid
+   (Input/Output × Unit price $0.15 & $0.6 per 1M / Usage / Amount),
+   footer "Context usage as of this turn: N%" + bar. w-80 bg-[#1e1e1e]
+   border-[#333] rounded-xl. Costs = (tokens / 1M) × price (user's
+   calculateCost math), QUOTA_PRICING constant.
+4. REAL USAGE PLUMBING (user's workflow: parse the provider's usage
+   object in the backend and pass it to the frontend):
+   - lib/mistral.js: streaming paths (callLightning relay + callMistral
+     Stream) capture the usage object from the final SSE chunk; zero-
+     token stubs treated as absent. Non-streamed bodies carry usage
+     natively (OpenAI-compatible shape).
+   - route.js: pickUsage/mergeUsage helpers; aiChatComplete sums usage
+     across continuation rounds; normal path attaches chat usage; tool
+     path merges chat + post-tool synthesis usage; done frames carry
+     {usage} when the provider reported it.
+   - ChatClient: applyChatMeta stores msg.usage; openQuotaCard prefers
+     real tokens over estimates and marks estimated rows "(est.)";
+     usage does not persist across reloads (sessions store role/content
+     only) — the card says so honestly.
+
+Tests: scripts/test_v53033_usage.mjs — 46 assertions (functional SSE
+usage capture with stubbed fetch incl. zero-token guard, route
+threading, card spec strings, branding layout, composer padding/widen).
+Suite 26/33 — same 7 stash-verified pre-existing failures, zero
+regressions (runner conventions fixed: @/ alias suites need
+--experimental-loader loader_v53021.mjs; scripts/run_all_tests.mjs now
+encodes this). Local next build exit 0; new UI strings verified in
+compiled chunks.
+
+Sandbox recycle #4 at turn start (HEAD rolled to 4c85b9a); recovered
+via fetch + reset --hard origin/main (51abf45) before any edits.

@@ -432,12 +432,41 @@ async function repairToolArguments({ toolName, toolCall, error, attempt, llmPara
   return match?.function?.arguments ?? null
 }
 
+// ── v5.30.33 — provider usage capture ────────────────────────────
+// OpenAI-compatible providers return a usage object (non-streamed bodies
+// always; streamed ones on the final chunk / via _usage from the mistral
+// lib). Used to power the client's per-turn quota card with REAL token
+// counts. Zero-token stubs (offline fallbacks) are treated as absent.
+function pickUsage(chat) {
+  const u = chat?.usage || chat?._usage || null
+  if (!u || Number(u.total_tokens) <= 0) return null
+  return {
+    prompt_tokens: Number(u.prompt_tokens) || 0,
+    completion_tokens: Number(u.completion_tokens) || 0,
+    total_tokens: Number(u.total_tokens) || (Number(u.prompt_tokens) || 0) + (Number(u.completion_tokens) || 0),
+  }
+}
+// Sum usage across the LLM calls that produced one reply (continuation
+// rounds, post-tool synthesis). Prompt tokens only double-count when the
+// provider re-reads the growing context — which it genuinely does — so
+// plain addition is the honest number.
+function mergeUsage(a, b) {
+  if (!a) return b || null
+  if (!b) return a || null
+  return {
+    prompt_tokens: a.prompt_tokens + b.prompt_tokens,
+    completion_tokens: a.completion_tokens + b.completion_tokens,
+    total_tokens: a.total_tokens + b.total_tokens,
+  }
+}
+
 async function aiChatComplete(params, { onDelta, stream }) {
   const call = (p) => (stream
     ? aiChatStream(p, { onDelta })
     : aiChat(p))
 
   let chat = await call(params)
+  let usage = pickUsage(chat)
   // v5.14 CRITICAL fix: preserve the provider's message object (tool_calls!).
   // Since v5.11 this wrapper rebuilt the response with ONLY `content`, which
   // silently stripped `message.tool_calls` — so generate_image, web_search,
@@ -479,6 +508,7 @@ async function aiChatComplete(params, { onDelta, stream }) {
     if (!contText.trim()) break
     text += contText
     finish = cont?.choices?.[0]?.finish_reason
+    usage = mergeUsage(usage, pickUsage(cont))
   }
 
   return {
@@ -490,6 +520,7 @@ async function aiChatComplete(params, { onDelta, stream }) {
         : { role: 'assistant', content: stripThinking(text) },
       finish_reason: finish || 'stop',
     }],
+    ...(usage ? { usage } : {}),
   }
 }
 
@@ -1529,7 +1560,11 @@ async function processChat(req, body, _send, conn) {
       }
 
       // Build response metadata
+      // v5.30.33 — usage: the synthesis call that produced the visible reply,
+      // merged with the tool-call turn's usage when both reported it.
       const response = { reply, model: chat._provider === 'gemini' ? (chat.model || model) : model }
+      const turnUsage = mergeUsage(pickUsage(chat), pickUsage(finalChat))
+      if (turnUsage) response.usage = turnUsage
       // Check which tools were used for UI indicators
       for (const toolCall of message.tool_calls) {
         const name = toolCall.function.name
@@ -1720,6 +1755,8 @@ async function processChat(req, body, _send, conn) {
     }
 
     const response = { reply, model, searchUsed: false }
+    const turnUsage = pickUsage(chat)
+    if (turnUsage) response.usage = turnUsage
     const cleanArtifactsJson = sanitizeArtifactList(artifacts)
     if (cleanArtifactsJson.length > 0) response.artifacts = cleanArtifactsJson
     // Background wiki ingest (non-blocking — fire and forget)

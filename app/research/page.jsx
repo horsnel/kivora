@@ -2231,6 +2231,20 @@ function ResearchPageContent() {
                     </button>
                   </div>
 
+                  {/* v5.30.33 — Widen button: expands into the full editor
+                      without sending. The old 4-bar "equalizer" icon sat in
+                      the send slot and read as expand — tapping "widen"
+                      literally sent the message. */}
+                  <button
+                    type="button"
+                    className="research-collapsed-btn-circle"
+                    onClick={() => setBarExpanded(true)}
+                    aria-label="Widen editor"
+                    title="Widen editor"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M9 21H3v-15" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" /></svg>
+                  </button>
+
                   {/* Send / Stop button */}
                   {isResearching ? (
                     <button
@@ -2248,11 +2262,9 @@ function ResearchPageContent() {
                       className={`research-collapsed-send ${hasInput ? 'research-collapsed-send-active' : ''}`}
                       aria-label="Start research"
                     >
-                      {hasInput ? (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                      ) : (
-                        <svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="8" y="5" width="2" height="14" rx="1" fill="currentColor"/><rect x="12" y="9" width="2" height="6" rx="1" fill="currentColor"/><rect x="16" y="6" width="2" height="12" rx="1" fill="currentColor"/><rect x="20" y="10" width="2" height="4" rx="1" fill="currentColor"/></svg>
-                      )}
+                      {/* v5.30.33 — grey plane when empty (was the ambiguous
+                          4-bar equalizer icon) */}
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={hasInput ? '' : 'opacity-40'}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                     </button>
                   )}
                 </div>
@@ -2550,7 +2562,9 @@ function ResearchPageContent() {
           align-items: center;
           background: rgba(255,255,255,0.04);
           border-radius: 28px;
-          padding: 8px 12px;
+          /* v5.30.33 — extra bottom padding so the toolbar icons don't sit
+              against the spinning gradient ring (user report) */
+          padding: 8px 12px 12px 12px;
           gap: 8px;
           border: 1px solid rgba(255,255,255,0.06);
           min-height: 56px;
@@ -2559,7 +2573,7 @@ function ResearchPageContent() {
           overflow: hidden;
         }
         @media (max-width: 480px) {
-          .research-bar-collapsed { padding: 6px 8px; gap: 4px; min-height: 50px; }
+          .research-bar-collapsed { padding: 6px 8px 9px 8px; gap: 4px; min-height: 50px; }
         }
         .research-bar-collapsed:focus-within { border-color: transparent; }
         .research-bar-collapsed::before {

@@ -162,7 +162,10 @@ export default function Navbar() {
         <SidebarContent user={user} pathname={pathname} onClose={() => setMobileOpen(false)} currencyOpen={currencyOpen} setCurrencyOpen={setCurrencyOpen} currencyDropdownRef={currencyDropdownRef} />
       </aside>
 
-      {/* Mobile hamburger — full-width bar at the top on mobile; scrolls away with content */}
+      {/* Mobile hamburger — full-width bar at the top on mobile; scrolls away
+          with content. v5.30.33 — hamburger ONLY: main pages are stripped of
+          branding (Sidebar Branding, Page Minimalism) since the drawer now
+          anchors the logo. */}
       {!mobileOpen && (
         <div className="lg:hidden shrink-0 w-full h-12 flex items-center px-4 bg-[#0a0a0a] border-b border-[#141414]/60">
           <button
@@ -172,9 +175,6 @@ export default function Navbar() {
           >
             <IconMenu size={20} />
           </button>
-          <span className="ml-2.5 font-bold text-[15px] tracking-tight">
-            Ki<span className="text-red-500">vora</span>
-          </span>
         </div>
       )}
     </>
@@ -227,14 +227,21 @@ function SidebarContent({ user, pathname, onClose, currencyOpen, setCurrencyOpen
 
   return (
     <>
-      {/* ── v5.30.32 compact monochrome wordmark — the red K mark stays on
-          Explore's header; inside this drawer it fought the nav content for
-          attention and duplicated the header branding ── */}
+      {/* ── v5.30.33 — Sidebar Branding, Page Minimalism: the nav drawer is
+          the app's "front door", so it carries the full logo (red K mark +
+          wordmark). Main-page top bars stay logo-free. ── */}
       <div className="px-3 pt-3 pb-2 shrink-0">
         <div className="flex items-center justify-between mb-3">
-          <Link href="/research" className="flex items-center gap-2" onClick={onClose}>
-            <span className="font-semibold text-[14px] tracking-tight text-[#e5e5e5]">
-              Ki<span className="text-[#a3a3a3]">vora</span>
+          <Link href="/" className="flex items-center gap-2.5" onClick={onClose} title="Kivora">
+            <span className="w-7 h-7 bg-[#dc2626] rounded-lg flex items-center justify-center shrink-0">
+              <svg width="14" height="14" viewBox="0 0 32 32" fill="none">
+                <path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95" />
+                <path d="M16 4L26 24L16 18Z" fill="white" opacity="0.55" />
+                <rect x="6" y="26" width="20" height="3" rx="1.5" fill="white" opacity="0.3" />
+              </svg>
+            </span>
+            <span className="font-bold text-[15px] tracking-tight text-white">
+              Ki<span className="text-red-500">vora</span>
             </span>
           </Link>
           {/* v5.30.21 — the sidebar's X (close) button removed per product

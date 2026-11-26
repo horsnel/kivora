@@ -42,6 +42,11 @@ const TerminalWorkspace = dynamic(() => import('@/components/chat/TerminalWorksp
 // v5.30.32 — ctx: model context window in tokens (real specs: all four run
 // 131,072 on Groq; the Vision tag already said 131K) — powers the quota
 // card's context-usage bar.
+// v5.30.33 — QUOTA_PRICING: reference unit rates for the quota card's cost
+// math (per the product spec): Input $0.15 / 1M tokens, Output $0.60 / 1M
+// tokens, labelled "Estimated at off-peak rates" in the card. Amount =
+// (tokens / 1,000,000) × price.
+const QUOTA_PRICING = { inputPerM: 0.15, outputPerM: 0.6 }
 const MODELS = [
   { id: 'openai/gpt-oss-120b', name: 'Nova 3', tag: 'Premium · Detailed', short: 'Nova 3', pro: false, Icon: IconStack, tint: '#10a37f', ctx: 131072 },
   { id: 'openai/gpt-oss-20b', name: 'Nova 1.9', tag: 'Free · Fast', short: 'Nova 1.9', pro: false, Icon: IconLightning, tint: '#38bdf8', ctx: 131072 },
@@ -1082,18 +1087,18 @@ export default function ChatClient() {
 
   const closeBubbleAction = useCallback(() => setBubbleAction(null), [])
 
-  // ── v5.30.32 — per-turn quota card (portal hush-pop, same interaction
-  // language as bubbleAction). Token counts are ESTIMATES from text
-  // length (~4 chars/token) — the streaming providers don't return usage
-  // objects, and inventing a USD figure would be worse than none, so the
-  // card shows tokens + a context-usage bar and says so honestly. ──
+  // ── v5.30.32/33 — per-turn quota card (portal hush-pop, same interaction
+  // language as bubbleAction). Token counts come from the provider's usage
+  // object when the backend captured one (msg.usage, v5.30.33) and fall
+  // back to text-length estimates (~4 chars/token) otherwise. Costs use the
+  // QUOTA_PRICING reference rates: (tokens / 1M) × price. ──
   const estTokens = (s) => Math.max(1, Math.round(String(s || '').length / 4))
   function openQuotaCard(e, msg, i) {
     const el = e.currentTarget
     const rect = el?.getBoundingClientRect()
     if (!rect) return
-    const CARD_W = 250
-    const estH = 250
+    const CARD_W = 320
+    const estH = 380
     const left = Math.max(8, Math.min(rect.left - CARD_W / 2, window.innerWidth - CARD_W - 8))
     const below = rect.bottom + 8
     const top = below + estH > window.innerHeight ? Math.max(8, rect.top - estH - 8) : below
@@ -1101,6 +1106,12 @@ export default function ChatClient() {
     const ctxChars = messages.slice(0, i + 1).reduce((n, m) => n + String(m.content || '').length, 0)
     const m = ALL_MODELS.find(x => x.id === (msg.model || model)) || ALL_MODELS[0]
     const ctxMax = m.ctx || 131072
+    // Real usage beats estimates — the provider's own accounting for this turn
+    const u = (msg.usage && Number(msg.usage.total_tokens) > 0) ? msg.usage : null
+    const promptTokens = u ? (Number(u.prompt_tokens) || 0) : estTokens(ctxChars)
+    const completionTokens = u ? (Number(u.completion_tokens) || 0) : estTokens(msg.content)
+    const inputCost = (promptTokens / 1_000_000) * QUOTA_PRICING.inputPerM
+    const outputCost = (completionTokens / 1_000_000) * QUOTA_PRICING.outputPerM
     setQuotaCard({
       index: i,
       top,
@@ -1108,8 +1119,12 @@ export default function ChatClient() {
       model: m.short || m.name,
       ctxMax,
       ctxPct: Math.min(100, (estTokens(ctxChars) / ctxMax) * 100),
-      promptTokens: estTokens(ctxChars),
-      completionTokens: estTokens(msg.content),
+      promptTokens,
+      completionTokens,
+      realUsage: !!u,
+      inputCost,
+      outputCost,
+      totalCost: inputCost + outputCost,
     })
   }
 
@@ -1368,6 +1383,16 @@ export default function ChatClient() {
       msg.execLanguage = data.execLanguage || 'python'
     }
     if (data.downloadFile) msg.downloadFile = data.downloadFile
+    // v5.30.33 — real provider usage (prompt/completion/total tokens) when
+    // the backend captured it; the quota card shows real numbers when this
+    // exists and falls back to length-based estimates otherwise.
+    if (data.usage && Number(data.usage.total_tokens) > 0) {
+      msg.usage = {
+        prompt_tokens: Number(data.usage.prompt_tokens) || 0,
+        completion_tokens: Number(data.usage.completion_tokens) || 0,
+        total_tokens: Number(data.usage.total_tokens) || 0,
+      }
+    }
     if (data.urlRead) {
       msg.urlRead = true
       msg.urlReadSource = data.urlReadSource || ''
@@ -2512,20 +2537,29 @@ export default function ChatClient() {
           historyOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        {/* ── v5.30.32 New chat + close — branding lives on Explore and the
-            nav drawer, not here: the conversation list IS the content of
-            this sidebar, and the big red mark wasted vertical space ── */}
+        {/* ── v5.30.33 — full logo anchors this sidebar (Sidebar Branding,
+            Page Minimalism): red K mark + wordmark left, close right. The
+            old big New-chat button moved to a small + beside the search
+            bar below. ── */}
         <div className="px-3 pt-3 pb-2 shrink-0">
           <div className="flex items-center justify-between gap-2">
-            <button
-              type="button"
-              onClick={() => { setHistoryOpen(false); clearChat() }}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#1a1a1a] border border-[#262626] text-[13px] font-medium text-[#e2e2e2] hover:bg-[#222222] hover:border-[#333333] transition-colors"
-              title="Start a new chat"
+            <Link
+              href="/"
+              className="flex items-center gap-2 min-w-0"
+              onClick={() => setHistoryOpen(false)}
+              title="Kivora"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-              {t('chat.new_chat') || 'New chat'}
-            </button>
+              <span className="w-7 h-7 bg-[#dc2626] rounded-lg flex items-center justify-center shrink-0">
+                <svg width="14" height="14" viewBox="0 0 32 32" fill="none">
+                  <path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95" />
+                  <path d="M16 4L26 24L16 18Z" fill="white" opacity="0.55" />
+                  <rect x="6" y="26" width="20" height="3" rx="1.5" fill="white" opacity="0.3" />
+                </svg>
+              </span>
+              <span className="font-bold text-[15px] tracking-tight text-white">
+                Ki<span className="text-red-500">vora</span>
+              </span>
+            </Link>
             <button
               type="button"
               onClick={() => setHistoryOpen(false)}
@@ -2559,17 +2593,30 @@ export default function ChatClient() {
 
         {/* ── Search conversations ── */}
         <div className="px-3 shrink-0">
-          <div className="relative">
-            <IconSearch size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#525252] pointer-events-none" />
-            <input
-              type="text"
-              placeholder={t('chat.search_conversations') || 'Search conversations'}
-              value={convSearch}
-              onChange={e => setConvSearch(e.target.value)}
-              className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg pl-8 pr-3 py-1.5 text-[12px] text-[#d4d4d4] placeholder-[#525252] outline-none focus:border-[#3a3a3a] transition-colors"
-              autoComplete="off"
-              spellCheck="false"
-            />
+          <div className="flex items-center gap-1.5">
+            <div className="relative flex-1 min-w-0">
+              <IconSearch size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#525252] pointer-events-none" />
+              <input
+                type="text"
+                placeholder={t('chat.search_conversations') || 'Search conversations'}
+                value={convSearch}
+                onChange={e => setConvSearch(e.target.value)}
+                className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg pl-8 pr-3 py-1.5 text-[12px] text-[#d4d4d4] placeholder-[#525252] outline-none focus:border-[#3a3a3a] transition-colors"
+                autoComplete="off"
+                spellCheck="false"
+              />
+            </div>
+            {/* v5.30.33 — small new-chat affordance beside search (moved out
+                of the header when the logo took its place) */}
+            <button
+              type="button"
+              onClick={() => { setHistoryOpen(false); clearChat() }}
+              className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#1a1a1a] border border-[#262626] text-[#a3a3a3] hover:text-white hover:bg-[#222222] hover:border-[#333333] transition-colors shrink-0"
+              aria-label="New chat"
+              title="New chat"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+            </button>
           </div>
         </div>
 
@@ -5046,7 +5093,10 @@ export default function ChatClient() {
           Same card design as the delete-confirmation card (same overlay,
           same shell, same icon circle, same button treatment): Pin /
           Rename / Share, then Delete in accent red. */}
-      {/* ── v5.30.32 — per-turn quota card (portal, hush-pop styling) ── */}
+      {/* ── v5.30.33 — per-turn quota card (portal) — full spec: header with
+          total USD, Free + off-peak note, Input/Output stats grid (unit
+          price / usage / amount), context-usage footer. Token counts are
+          real provider usage when available, estimates otherwise. ── */}
       {quotaCard && createPortal(
         <>
           <div className="fixed inset-0 z-[998]" onClick={() => setQuotaCard(null)} />
@@ -5054,34 +5104,81 @@ export default function ChatClient() {
             id="quota-card"
             role="dialog"
             aria-label="Quota used this turn"
-            className="hush-pop fixed z-[999] w-[250px] bg-[#141414] border border-[#2a2a2a] rounded-2xl shadow-2xl overflow-hidden"
+            className="fixed z-[999] w-80 bg-[#1e1e1e] border border-[#333333] rounded-xl p-4 shadow-xl text-sm text-[#d4d4d4]"
             style={{ top: quotaCard.top, left: quotaCard.left }}
           >
-            <div className="px-4 pt-3 pb-1.5 flex items-center justify-between">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#525252]">Quota · this turn</span>
-              <span className="text-[10px] text-[#737373]">{quotaCard.model}</span>
-            </div>
-            <div className="px-4 pb-2.5 space-y-1.5 text-[12px]">
-              <div className="flex justify-between text-[#a3a3a3]">
-                <span>Prompt (est.)</span>
-                <span className="text-[#e2e2e2] tabular-nums">{quotaCard.promptTokens.toLocaleString()} tok</span>
+            {/* Header: database icon + title + total for the turn */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-6 h-6 rounded-md bg-white/[0.06] flex items-center justify-center shrink-0 text-[#a3a3a3]">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <ellipse cx="12" cy="5" rx="9" ry="3" />
+                    <path d="M3 5v14A9 3 0 0 0 21 19V5" />
+                    <path d="M3 12a9 3 0 0 0 18 0" />
+                  </svg>
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-white leading-tight truncate">Quota used this turn</p>
+                  <p className="text-[10px] text-[#737373] leading-tight mt-0.5">{quotaCard.model}</p>
+                </div>
               </div>
-              <div className="flex justify-between text-[#a3a3a3]">
-                <span>Reply (est.)</span>
-                <span className="text-[#e2e2e2] tabular-nums">{quotaCard.completionTokens.toLocaleString()} tok</span>
+              <div className="text-right shrink-0">
+                <p className="text-[13px] font-semibold text-white tabular-nums leading-tight">${quotaCard.totalCost.toFixed(7)} <span className="text-[10px] font-normal text-[#737373]">USD</span></p>
               </div>
             </div>
-            <div className="px-4 pb-3.5">
-              <div className="flex justify-between text-[10px] text-[#525252] mb-1">
-                <span>Context usage (est.)</span>
+
+            {/* Tier + rate basis */}
+            <div className="mt-2.5 mb-3">
+              <p className="text-[11px] text-[#e2e2e2] font-medium leading-tight">Free</p>
+              <p className="text-[10px] text-[#737373] leading-tight mt-0.5">Estimated at off-peak rates</p>
+            </div>
+
+            {/* Stats grid — Input / Output × unit price / usage / amount */}
+            <div className="rounded-lg bg-black/[0.25] border border-white/[0.05] p-2.5 text-[11px]">
+              <div className="grid grid-cols-[64px_1fr_auto] gap-y-1.5 gap-x-2">
+                <span className="text-[#e2e2e2] font-medium">Input</span>
+                <span className="text-[#737373]">Unit price</span>
+                <span className="text-[#e2e2e2] tabular-nums text-right">$0.15 / 1M tokens</span>
+
+                <span />
+                <span className="text-[#737373]">Usage</span>
+                <span className="text-[#e2e2e2] tabular-nums text-right">{quotaCard.promptTokens.toLocaleString()} tokens{!quotaCard.realUsage && <span className="text-[#737373]"> (est.)</span>}</span>
+
+                <span />
+                <span className="text-[#737373]">Amount</span>
+                <span className="text-[#e2e2e2] tabular-nums text-right">${quotaCard.inputCost.toFixed(7)}</span>
+
+                <span className="text-[#e2e2e2] font-medium pt-1">Output</span>
+                <span className="text-[#737373] pt-1">Unit price</span>
+                <span className="text-[#e2e2e2] tabular-nums text-right pt-1">$0.6 / 1M tokens</span>
+
+                <span />
+                <span className="text-[#737373]">Usage</span>
+                <span className="text-[#e2e2e2] tabular-nums text-right">{quotaCard.completionTokens.toLocaleString()} tokens{!quotaCard.realUsage && <span className="text-[#737373]"> (est.)</span>}</span>
+
+                <span />
+                <span className="text-[#737373]">Amount</span>
+                <span className="text-[#e2e2e2] tabular-nums text-right">${quotaCard.outputCost.toFixed(7)}</span>
+              </div>
+            </div>
+
+            {/* Footer: context usage as of this turn */}
+            <div className="mt-3">
+              <div className="flex items-center justify-between text-[10px] text-[#737373] mb-1">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full border border-[#525252] inline-block" />
+                  Context usage as of this turn
+                </span>
                 <span className="tabular-nums">{Math.round(quotaCard.ctxPct)}%</span>
               </div>
               <div className="h-1.5 rounded-full bg-white/[0.08] overflow-hidden">
                 <div className="h-full rounded-full bg-[#FF3366]" style={{ width: `${quotaCard.ctxPct}%` }} />
               </div>
-              <p className="mt-2 text-[10px] leading-[1.5] text-[#525252]">
-                Estimated from text length (~4 chars/token) — the provider stream does not report usage, so no cost figure is shown.
-              </p>
+              {!quotaCard.realUsage && (
+                <p className="mt-2 text-[10px] leading-[1.5] text-[#525252]">
+                  Token counts estimated from text length (~4 chars/token) — the provider did not report usage for this turn.
+                </p>
+              )}
             </div>
           </div>
         </>,
