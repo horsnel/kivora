@@ -105,13 +105,12 @@ ok('(est.) marker only when no real usage', cc.includes('!quotaCard.realUsage &&
 ok('usage stored on message (applyChatMeta)', cc.includes('msg.usage = {\n        prompt_tokens'))
 ok('usage stored only for non-zero totals', cc.includes("data.usage && Number(data.usage.total_tokens) > 0"))
 
-// ── 4. Branding remnants (v5.30.34 Responsive Branding supersedes the
-//    v5.30.33 sidebar-logo spec; full branding suite lives in
+// ── 4. Branding remnants (v5.30.35 strips the chat-sidebar header —
+//    no mark / close / +; full branding suite lives in
 //    test_v53034_responsive_branding.mjs) ─────────────────────────────
 console.log('── branding remnants still true under Responsive Branding ──')
-ok('chat sidebar: icon-only mark + close right', cc.includes('aria-label="Kivora home"') && cc.includes('aria-label="Close conversations"') && /v5\.30\.34 — Responsive Branding \(text on pages/.test(cc))
-ok('chat sidebar: close button block intact', /aria-label="Close conversations"[\s\S]{0,220}<IconClose size=\{16\} \/>/.test(cc))
-ok('small + beside search bar', /Search conversations[\s\S]{0,900}aria-label="New chat"/.test(cc))
+ok('chat sidebar: header stripped (v5.30.35 — no mark/close/+)', !cc.includes('aria-label="Kivora home"') && !cc.includes('aria-label="Close conversations"') && !cc.includes('aria-label="New chat"'))
+ok('chat sidebar: search input intact', cc.includes("placeholder={t('chat.search_conversations') || 'Search conversations'}"))
 ok('chat main top bar unchanged (title center, no logo)', cc.includes('data-chat-title="true"'))
 
 // ── 5. Composer padding + widen button ──────────────────────────────

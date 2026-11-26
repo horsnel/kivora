@@ -2537,39 +2537,11 @@ export default function ChatClient() {
           historyOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        {/* ── v5.30.34 — Responsive Branding (text on pages, icon-only in
-            sidebars): this header carries the red K mark alone, sized 32px
-            so it stays instantly recognizable next to the close button. The
-            wordmark lives on the page top bars; the new-chat affordance
-            stays beside the search bar below. ── */}
-        <div className="px-3 pt-3 pb-2 shrink-0">
-          <div className="flex items-center justify-between gap-2">
-            <Link
-              href="/"
-              className="flex items-center min-w-0"
-              onClick={() => setHistoryOpen(false)}
-              title="Kivora"
-              aria-label="Kivora home"
-            >
-              <span className="w-8 h-8 bg-[#dc2626] rounded-lg flex items-center justify-center shrink-0">
-                <svg width="16" height="16" viewBox="0 0 32 32" fill="none">
-                  <path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95" />
-                  <path d="M16 4L26 24L16 18Z" fill="white" opacity="0.55" />
-                  <rect x="6" y="26" width="20" height="3" rx="1.5" fill="white" opacity="0.3" />
-                </svg>
-              </span>
-            </Link>
-            <button
-              type="button"
-              onClick={() => setHistoryOpen(false)}
-              className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg text-[#737373] hover:text-white hover:bg-white/[0.06] transition-colors shrink-0"
-              aria-label="Close conversations"
-              title="Close"
-            >
-              <IconClose size={16} />
-            </button>
-          </div>
-        </div>
+        {/* ── v5.30.35 — no branding, no close, no new-chat in this header:
+            the conversation list IS the content of this sidebar. Mobile
+            closes via the overlay tap or picking a conversation (same
+            pattern as the nav drawer's v5.30.21 decision); new chat lives
+            in the main top bar's + button. ── */}
 
         {/* ── Explore link ── */}
         <div className="px-2.5 shrink-0">
@@ -2592,30 +2564,17 @@ export default function ChatClient() {
 
         {/* ── Search conversations ── */}
         <div className="px-3 shrink-0">
-          <div className="flex items-center gap-1.5">
-            <div className="relative flex-1 min-w-0">
-              <IconSearch size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#525252] pointer-events-none" />
-              <input
-                type="text"
-                placeholder={t('chat.search_conversations') || 'Search conversations'}
-                value={convSearch}
-                onChange={e => setConvSearch(e.target.value)}
-                className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg pl-8 pr-3 py-1.5 text-[12px] text-[#d4d4d4] placeholder-[#525252] outline-none focus:border-[#3a3a3a] transition-colors"
-                autoComplete="off"
-                spellCheck="false"
-              />
-            </div>
-            {/* v5.30.33 — small new-chat affordance beside search (moved out
-                of the header when the logo took its place) */}
-            <button
-              type="button"
-              onClick={() => { setHistoryOpen(false); clearChat() }}
-              className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#1a1a1a] border border-[#262626] text-[#a3a3a3] hover:text-white hover:bg-[#222222] hover:border-[#333333] transition-colors shrink-0"
-              aria-label="New chat"
-              title="New chat"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-            </button>
+          <div className="relative">
+            <IconSearch size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#525252] pointer-events-none" />
+            <input
+              type="text"
+              placeholder={t('chat.search_conversations') || 'Search conversations'}
+              value={convSearch}
+              onChange={e => setConvSearch(e.target.value)}
+              className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg pl-8 pr-3 py-1.5 text-[12px] text-[#d4d4d4] placeholder-[#525252] outline-none focus:border-[#3a3a3a] transition-colors"
+              autoComplete="off"
+              spellCheck="false"
+            />
           </div>
         </div>
 

@@ -1,18 +1,21 @@
 #!/usr/bin/env node
 // ════════════════════════════════════════════════════════════════════
-// test_v53034_responsive_branding.mjs — v5.30.34: "Responsive Branding"
-// (text on pages, icon-only in sidebars).
+// test_v53034_responsive_branding.mjs — v5.30.34 "Responsive Branding"
+// (text on pages, icon-only in sidebars), amended by v5.30.35: the chat
+// sidebar drops ALL header furniture (mark, close, +) — the conversation
+// list IS the content.
 //
 // Spec:
 //   1. Nav drawer: red K mark ONLY (32px box, no wordmark), links home,
 //      aria-labelled for accessibility.
-//   2. Chat-history sidebar: red K mark ONLY on the left, X (close) on
-//      the right, the small + stays beside the search bar.
+//   2. Chat-history sidebar: NO logo, NO close X, NO + beside search —
+//      header stripped entirely; mobile closes via overlay tap /
+//      conversation selection; new chat lives in the main top bar.
 //   3. Main-page mobile bar: hamburger + red "Kivora" wordmark (text on
 //      pages), hidden while the drawer is open so they never stack.
-//   4. Chat page stays logo-free: no wordmark anywhere in ChatClient,
-//      conversation title remains centered in the top bar.
-//   5. Consistency: same #dc2626 red + same K SVG shape on every mark.
+//   4. Chat page stays brand-free: no wordmark, no K mark anywhere in
+//      ChatClient; conversation title remains centered in the top bar.
+//   5. Consistency: the drawer mark keeps the #dc2626 red + K SVG shape.
 // ════════════════════════════════════════════════════════════════════
 import { readFileSync } from 'fs'
 
@@ -54,27 +57,28 @@ ok('mobile bar: wordmark is red-accented (text-red-500)', /aria-label="Open side
 ok('mobile bar: hidden while drawer is open', /!\s*mobileOpen && \([\s\S]{0,500}aria-label="Open sidebar"/.test(nb))
 ok('wordmark inventory: dead minimal branch (2) + live bar (1)', (nb.match(/Ki<span className="text-red-500">vora<\/span>/g) || []).length === 3)
 
-// ── 3. Chat-history sidebar: icon-only ──────────────────────────────
-console.log('── chat-history sidebar: icon-only mark ──')
-const chatLink = blockAround(cc, 'aria-label="Kivora home"')
-ok('chat sidebar: link carries accessible name', !!chatLink)
-ok('chat sidebar: red K mark sized 32px (w-8 h-8)', !!chatLink && chatLink.includes('w-8 h-8 bg-[#dc2626]'))
-ok('chat sidebar: wordmark removed (icon only)', !!chatLink && !chatLink.includes('Ki<span'))
-ok('chat sidebar: old 28px mark replaced', !!chatLink && !chatLink.includes('w-7 h-7'))
-ok('chat sidebar: X (close) on the right', /aria-label="Close conversations"[\s\S]{0,220}<IconClose size=\{16\} \/>/.test(cc))
-ok('chat sidebar: + stays beside search bar', /Search conversations[\s\S]{0,900}aria-label="New chat"/.test(cc))
+// ── 3. Chat-history sidebar: header stripped (v5.30.35) ─────────────
+console.log('── chat-history sidebar: header stripped ──')
+ok('chat sidebar: logo mark removed', !cc.includes('aria-label="Kivora home"') && !cc.includes('bg-[#dc2626] rounded-lg'))
+ok('chat sidebar: X (close) removed', !cc.includes('Close conversations'))
+ok('chat sidebar: + beside search removed', !cc.includes('aria-label="New chat"'))
+ok('chat sidebar: search input intact', cc.includes("placeholder={t('chat.search_conversations') || 'Search conversations'}"))
+ok('chat sidebar: search input layout simplified (no flex sibling row)', !cc.includes('flex-1 min-w-0">\n              <IconSearch size={13}'))
+ok('mobile close path survives (overlay tap)', /bg-black\/50 backdrop-blur-sm z-40 lg:hidden" onClick=\{\(\) => setHistoryOpen\(false\)\}/.test(cc))
+ok('new chat still in main top bar (t(\'chat.new\'))', cc.includes("aria-label={t('chat.new')}"))
 
-// ── 4. Chat page stays logo-free ────────────────────────────────────
-console.log('── chat page stays logo-free ──')
+// ── 4. Chat page stays brand-free ───────────────────────────────────
+console.log('── chat page stays brand-free ──')
 ok('no wordmark anywhere in ChatClient', !cc.includes('Ki<span className="text-red-500">vora</span>'))
+ok('no K mark shape anywhere in ChatClient', !cc.includes(`d="${K_PATH}"`))
 ok('conversation title still centered in top bar', cc.includes('data-chat-title="true"'))
 ok('chat excluded from shared sidebar (NO_SIDEBAR)', nb.includes("'/auth', '/', '/onboarding', '/chat'"))
 
 // ── 5. Brand consistency ────────────────────────────────────────────
 console.log('── brand consistency across surfaces ──')
-ok('same red (#dc2626) on both sidebar marks', /bg-\[#dc2626\] rounded-lg/.test(cc) && /bg-\[#dc2626\] rounded-lg/.test(nb))
-ok('same K shape on every mark', cc.includes(`d="${K_PATH}"`) && nb.includes(`d="${K_PATH}"`))
-ok('aria-label on every icon-only mark (1 each)', (cc.match(/aria-label="Kivora home"/g) || []).length === 1 && (nb.match(/aria-label="Kivora home"/g) || []).length === 1)
+ok('drawer mark keeps the red (#dc2626)', /bg-\[#dc2626\] rounded-lg/.test(nb) && !/bg-\[#dc2626\] rounded-lg/.test(cc))
+ok('drawer mark keeps the K shape', nb.includes(`d="${K_PATH}"`) && !cc.includes(`d="${K_PATH}"`))
+ok('drawer mark is the only icon-only mark (aria-label ×1)', (nb.match(/aria-label="Kivora home"/g) || []).length === 1 && !cc.includes('aria-label="Kivora home"'))
 
 console.log(`\nRESULT: ${pass} passed, ${fail} failed`)
 process.exit(fail > 0 ? 1 : 0)

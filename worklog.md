@@ -2071,3 +2071,27 @@ Deploy note: v5.30.32 (51abf45) and v5.30.33 (3d8896f) still not on
 production (kivora.pages.dev serves pre-v5.30.32; both builds verify
 clean locally through CF's own pipeline) — CF-side stall escalated
 to the user at end of v5.30.33.
+
+## v5.30.35 — chat sidebar stripped bare (no mark, no close, no +)
+
+User follow-up on v5.30.34: remove ALL remaining header furniture from
+the chat-history sidebar.
+
+1. LOGO MARK removed — the 32px red K (aria-label="Kivora home") is
+   gone from the sidebar; the whole header block (mark + close row)
+   came out, so the sidebar now opens directly with the Explore link.
+2. X (CLOSE) removed per explicit request — mobile still closes the
+   sidebar via the overlay tap or by picking a conversation (same
+   rationale as the nav drawer's v5.30.21 close-button removal).
+3. SEARCH-SIDE + removed — the small New-chat button (v5.30.33) came
+   out; the search row simplified to the bare input (relative wrapper,
+   no flex sibling). New chat remains in the main top bar's +
+   (aria-label={t('chat.new')}).
+
+Tests: test_v53034_responsive_branding.mjs rewritten to the amended
+spec (24/24 — header-stripped assertions + close-path survival +
+brand-free chat page); test_v53033_usage.mjs branding remnants flipped
+to absence assertions (40 passing). Grid 27/34 — failure set
+byte-identical to the stash-verified baseline, zero regressions.
+next build exit 0; @cloudflare/next-on-pages 8.7s; K-mark path
+verified absent from chat chunks, present in the layout chunk (drawer).
