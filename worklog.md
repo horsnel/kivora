@@ -1928,3 +1928,50 @@ Google stays broken until the IP-level 429 has a different rendering
 path (kitesurf via Browser Run once credentials land; even then not
 guaranteed). X/YouTube shells now get the actionable error + Reader
 path; DDG SERPs (static HTML) pass through as before.
+
+---
+Task ID: v5.30.32
+Agent: Main
+Task: UI review fixes — logo decluttering, clipped action icons, per-turn
+quota card, widen-editor button (chat + research)
+
+From the user's screenshot review, three work items:
+
+1. LOGO DECLUTTERING. The red K mark + wordmark sat in three places.
+   Explore header: unchanged (correct place). Nav drawer (Navbar.jsx):
+   replaced with a compact monochrome text-only wordmark (14px, Ki in
+   near-white / vora in grey — no red square, no accent) so it stops
+   fighting the nav content. Chat-history sidebar (ChatClient): the logo
+   block (which oddly linked to /research) is REPLACED by a "New chat"
+   button (calls clearChat + closes the drawer) and a mobile-only Close
+   (X) — the conversation list is the content; branding lives on Explore.
+
+2. CLIPPED ACTION ICONS + QUOTA CARD. The v5.30.16 message action bar
+   rode the container edge; added pb-1 + overflow-visible to the row so
+   the bottom few px of copy/bookmark/thumbs icons can't be shaved. New:
+   a per-turn quota button (IconDatabase) in the bar → portal-rendered
+   hush-pop card (same interaction language as bubbleAction) with
+   estimated prompt/reply tokens and a context-usage bar against the
+   model's real context window (ctx: 131072 added to all four models —
+   actual specs, and Vision's tag already said 131K). The provider
+   streams do NOT return usage objects, so token counts are labeled
+   estimates (~4 chars/token) and NO USD cost is shown — inventing
+   pricing would be worse than none.
+
+3. WIDEN-EDITOR BUTTON (the actual root cause found: the widen control
+   NEVER EXISTED — the send button was the only tall target in the
+   collapsed pill, so users tapped "widen" and sent; the empty-send
+   state even showed an ambiguous 4-bar icon). Both composers now have:
+   a widen button in the collapsed pill (expands the bar, never sends),
+   a widen/shrink toggle in the expanded toolbar (textarea grows to
+   ~55% of the viewport via autoResize's new max param), and the
+   empty-send icon replaced with a clearly-disabled grey paper plane.
+   Applied to ChatClient AND ResearchClient identically.
+
+Tests: esbuild clean on all three files; suite 25/31 — same 7
+stash-verified pre-existing failures, zero regressions. (node_modules
+degraded mid-run producing esbuild-ENOENT/module-not-found noise in 3
+suites; npm install cleared it — environment, not code.)
+
+Sandbox recycle #3 hit at turn start (HEAD rolled to 4c85b9a again);
+recovered via fetch + reset --hard origin/main before any edits.

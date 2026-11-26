@@ -232,6 +232,10 @@ export default function ResearchClient() {
 
   // ── Expandable text bar states ──
   const [barExpanded, setBarExpanded] = useState(false)
+  // v5.30.32 — tall editor for the widen toggle (~55% viewport). The bar
+  // previously had no widen control at all; the send button was the only
+  // tall target, which is why "widen" sent the query.
+  const [tallEditor, setTallEditor] = useState(false)
   const [attachedFile, setAttachedFile] = useState(null) // { name, type, size, content }
   const [fileError, setFileError] = useState('')
   const fileInputRef = useRef(null)
@@ -677,10 +681,13 @@ export default function ResearchClient() {
   }
 
   // ── Auto-resize textarea ──
-  function autoResize(el) {
+  function autoResize(el, max = 240) {
     el.style.height = 'auto'
-    el.style.height = Math.min(el.scrollHeight, 240) + 'px'
+    el.style.height = Math.min(el.scrollHeight, max) + 'px'
   }
+
+  // v5.30.32 — textarea ceiling follows the tall-editor toggle
+  const editorMax = () => (tallEditor ? Math.max(320, Math.round(window.innerHeight * 0.55)) : 240)
 
   // ── Add Folder ──
   function addFolder() {
@@ -1448,6 +1455,19 @@ export default function ResearchClient() {
                   </svg>
                 </button>
 
+                {/* v5.30.32 — Widen button: expands the pill into the full
+                    editor. Previously the send button was the only tall
+                    target, so "widen" sent the query. */}
+                <button
+                  type="button"
+                  className="research-collapsed-btn-circle"
+                  onClick={() => setBarExpanded(true)}
+                  aria-label="Widen editor"
+                  title="Widen editor"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M9 21H3v-15" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" /></svg>
+                </button>
+
                 {/* Send button */}
                 <button
                   onClick={handleSubmit}
@@ -1457,10 +1477,10 @@ export default function ResearchClient() {
                 >
                   {isResearching ? (
                     <div className="w-4 h-4 border-2 border-[#525252] border-t-red-400 rounded-full animate-spin" />
-                  ) : hasInput ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                   ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="8" y="5" width="2" height="14" rx="1" fill="currentColor"/><rect x="12" y="9" width="2" height="6" rx="1" fill="currentColor"/><rect x="16" y="6" width="2" height="12" rx="1" fill="currentColor"/><rect x="20" y="10" width="2" height="4" rx="1" fill="currentColor"/></svg>
+                    /* v5.30.32 — grey plane when empty (the 4-bar icon read
+                        as "expand" and was the other half of the mis-send) */
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={hasInput && !isResearching ? '' : 'opacity-40'}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                   )}
                 </button>
               </div>
@@ -1482,7 +1502,7 @@ export default function ResearchClient() {
                 className="research-textarea-expanded scrollbar-none"
                 placeholder={attachedFile ? `Ask about ${attachedFile.name}...` : 'Research anything...'}
                 value={input}
-                onChange={e => { setInput(e.target.value); autoResize(e.target) }}
+                onChange={e => { setInput(e.target.value); autoResize(e.target, editorMax()) }}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
                 autoFocus
                 disabled={isResearching}
@@ -1571,6 +1591,26 @@ export default function ResearchClient() {
 
                 {/* Right actions */}
                 <div className="research-toolbar-right">
+                  {/* v5.30.32 — widen/shrink toggle: textarea grows to ~55%
+                      of the viewport for long briefs. Never submits. */}
+                  <button
+                    type="button"
+                    className={`research-toolbar-btn ${tallEditor ? 'research-toolbar-btn-active' : ''}`}
+                    onClick={() => {
+                      const next = !tallEditor
+                      setTallEditor(next)
+                      setTimeout(() => { if (textareaRef.current) autoResize(textareaRef.current, next ? Math.max(320, Math.round(window.innerHeight * 0.55)) : 240) }, 0)
+                    }}
+                    aria-label={tallEditor ? 'Shrink editor' : 'Widen editor'}
+                    title={tallEditor ? 'Shrink editor' : 'Widen editor'}
+                  >
+                    {tallEditor ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14h6v6" /><path d="M20 10h-6V4" /><path d="M14 10l7-7" /><path d="M3 21l7-7" /></svg>
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M9 21H3v-15" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" /></svg>
+                    )}
+                  </button>
+
                   {/* Submit button */}
                   <button
                     onClick={handleSubmit}

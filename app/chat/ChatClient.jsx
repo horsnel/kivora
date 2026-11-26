@@ -39,16 +39,19 @@ const TerminalWorkspace = dynamic(() => import('@/components/chat/TerminalWorksp
 
 
 
+// v5.30.32 — ctx: model context window in tokens (real specs: all four run
+// 131,072 on Groq; the Vision tag already said 131K) — powers the quota
+// card's context-usage bar.
 const MODELS = [
-  { id: 'openai/gpt-oss-120b', name: 'Nova 3', tag: 'Premium · Detailed', short: 'Nova 3', pro: false, Icon: IconStack, tint: '#10a37f' },
-  { id: 'openai/gpt-oss-20b', name: 'Nova 1.9', tag: 'Free · Fast', short: 'Nova 1.9', pro: false, Icon: IconLightning, tint: '#38bdf8' },
-  { id: 'qwen/qwen3.8-27b', name: 'Nova Vision', tag: 'Multimodal · 131K', short: 'Vision', pro: false, Icon: IconCube, tint: '#615CED' },
+  { id: 'openai/gpt-oss-120b', name: 'Nova 3', tag: 'Premium · Detailed', short: 'Nova 3', pro: false, Icon: IconStack, tint: '#10a37f', ctx: 131072 },
+  { id: 'openai/gpt-oss-20b', name: 'Nova 1.9', tag: 'Free · Fast', short: 'Nova 1.9', pro: false, Icon: IconLightning, tint: '#38bdf8', ctx: 131072 },
+  { id: 'qwen/qwen3.8-27b', name: 'Nova Vision', tag: 'Multimodal · 131K', short: 'Vision', pro: false, Icon: IconCube, tint: '#615CED', ctx: 131072 },
 ]
 
 // Reasoning / specialty models — shown in the selectors with a Pro badge;
 // the API rejects them for non-Pro plans (server-side gate).
 const EXTRA_MODELS = [
-  { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1', tag: 'Reasoning · Pro', short: 'R1', pro: true, Icon: IconRobot, tint: '#4D6BFE' },
+  { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1', tag: 'Reasoning · Pro', short: 'R1', pro: true, Icon: IconRobot, tint: '#4D6BFE', ctx: 131072 },
 ]
 
 const ALL_MODELS = [...MODELS, ...EXTRA_MODELS]
@@ -493,6 +496,13 @@ export default function ChatClient() {
 
   // Expandable chat bar states
   const [barExpanded, setBarExpanded] = useState(false)
+  // v5.30.32 — tall editor: the widen toggle in the toolbar grows the
+  // textarea to ~55% of the viewport so long drafts are actually writable.
+  // The old bar had NO widen control — the only tall target was the send
+  // button, which is why "widen" sent the message.
+  const [tallEditor, setTallEditor] = useState(false)
+  // v5.30.32 — per-turn quota card (portal-rendered, hush-pop pattern)
+  const [quotaCard, setQuotaCard] = useState(null)
   const [focusMode, setFocusMode] = useState('All')
   const [focusDropdownOpen, setFocusDropdownOpen] = useState(false)
   const [proMode, setProMode] = useState(false)
@@ -894,10 +904,13 @@ export default function ChatClient() {
     }
   }, [barExpanded, input])
 
-  function autoResize(el) {
+  function autoResize(el, max = 180) {
     el.style.height = 'auto'
-    el.style.height = Math.min(el.scrollHeight, 180) + 'px'
+    el.style.height = Math.min(el.scrollHeight, max) + 'px'
   }
+
+  // v5.30.32 — textarea ceiling follows the tall-editor toggle
+  const editorMax = () => (tallEditor ? Math.max(320, Math.round(window.innerHeight * 0.55)) : 180)
 
   function clearChat() {
     if (studySessionRef.current) {
@@ -1068,6 +1081,37 @@ export default function ChatClient() {
   }, [])
 
   const closeBubbleAction = useCallback(() => setBubbleAction(null), [])
+
+  // ── v5.30.32 — per-turn quota card (portal hush-pop, same interaction
+  // language as bubbleAction). Token counts are ESTIMATES from text
+  // length (~4 chars/token) — the streaming providers don't return usage
+  // objects, and inventing a USD figure would be worse than none, so the
+  // card shows tokens + a context-usage bar and says so honestly. ──
+  const estTokens = (s) => Math.max(1, Math.round(String(s || '').length / 4))
+  function openQuotaCard(e, msg, i) {
+    const el = e.currentTarget
+    const rect = el?.getBoundingClientRect()
+    if (!rect) return
+    const CARD_W = 250
+    const estH = 250
+    const left = Math.max(8, Math.min(rect.left - CARD_W / 2, window.innerWidth - CARD_W - 8))
+    const below = rect.bottom + 8
+    const top = below + estH > window.innerHeight ? Math.max(8, rect.top - estH - 8) : below
+    // context as of this turn: every message up to and including this one
+    const ctxChars = messages.slice(0, i + 1).reduce((n, m) => n + String(m.content || '').length, 0)
+    const m = ALL_MODELS.find(x => x.id === (msg.model || model)) || ALL_MODELS[0]
+    const ctxMax = m.ctx || 131072
+    setQuotaCard({
+      index: i,
+      top,
+      left,
+      model: m.short || m.name,
+      ctxMax,
+      ctxPct: Math.min(100, (estTokens(ctxChars) / ctxMax) * 100),
+      promptTokens: estTokens(ctxChars),
+      completionTokens: estTokens(msg.content),
+    })
+  }
 
   function bubbleCopy() {
     if (!bubbleAction) return
@@ -2468,21 +2512,29 @@ export default function ChatClient() {
           historyOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        {/* ── Logo + close ── */}
+        {/* ── v5.30.32 New chat + close — branding lives on Explore and the
+            nav drawer, not here: the conversation list IS the content of
+            this sidebar, and the big red mark wasted vertical space ── */}
         <div className="px-3 pt-3 pb-2 shrink-0">
-          <div className="flex items-center justify-between mb-3">
-            <Link href="/research" className="flex items-center gap-2.5" onClick={() => setHistoryOpen(false)}>
-              <div className="w-7 h-7 bg-[#dc2626] rounded-lg flex items-center justify-center">
-                <svg width="14" height="14" viewBox="0 0 32 32" fill="none">
-                  <path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95" />
-                  <path d="M16 4L26 24L16 18Z" fill="white" opacity="0.55" />
-                  <rect x="6" y="26" width="20" height="3" rx="1.5" fill="white" opacity="0.3" />
-                </svg>
-              </div>
-              <span className="font-bold text-[15px] tracking-tight">
-                Ki<span className="text-red-500">vora</span>
-              </span>
-            </Link>
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => { setHistoryOpen(false); clearChat() }}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#1a1a1a] border border-[#262626] text-[13px] font-medium text-[#e2e2e2] hover:bg-[#222222] hover:border-[#333333] transition-colors"
+              title="Start a new chat"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+              {t('chat.new_chat') || 'New chat'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(false)}
+              className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg text-[#737373] hover:text-white hover:bg-white/[0.06] transition-colors shrink-0"
+              aria-label="Close conversations"
+              title="Close"
+            >
+              <IconClose size={16} />
+            </button>
           </div>
         </div>
 
@@ -3381,7 +3433,10 @@ export default function ChatClient() {
                         // bubble into the bubble's own click surfaces.
                         onPointerDown={(e) => e.stopPropagation()}
                         onClick={(e) => e.stopPropagation()}
-                        className={`mt-2 flex items-center gap-3 transition-opacity duration-200 ${i === messages.length - 1 ? '' : 'opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100'}`}
+                        // v5.30.32 — pb-1 + overflow-visible: the bar rode the
+                        // container edge and the bottom few px of the icons
+                        // got shaved on tight scroll containers
+                        className={`mt-2 pb-1 flex items-center gap-3 overflow-visible transition-opacity duration-200 ${i === messages.length - 1 ? '' : 'opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100'}`}
                       >
                         <div className="flex items-center gap-0.5">
                           <button
@@ -3444,6 +3499,17 @@ export default function ChatClient() {
                             className={AB_BTN}
                           >
                             <IconRefresh size={14} />
+                          </button>
+                          {/* v5.30.32 — per-turn quota: tokens (estimated from
+                              text length) + context-usage bar, portal card */}
+                          <button
+                            data-ab="quota"
+                            onClick={(e) => openQuotaCard(e, msg, i)}
+                            title="Quota used this turn"
+                            aria-label="Quota used this turn"
+                            className={AB_BTN}
+                          >
+                            <IconDatabase size={14} />
                           </button>
                         </div>
                       </div>
@@ -3630,6 +3696,20 @@ export default function ChatClient() {
                   />
                 </div>
 
+                {/* v5.30.32 — Widen button: expands the bar into the full
+                    editor. This control did not exist before — the only tall
+                    target in the pill was Send, so users who tapped "widen"
+                    sent the message instead. */}
+                <button
+                  type="button"
+                  className="chat-collapsed-btn-circle"
+                  onClick={() => setBarExpanded(true)}
+                  aria-label="Widen editor"
+                  title="Widen editor"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M9 21H3v-15" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" /></svg>
+                </button>
+
                 {/* Send / Stop button */}
                 {loading ? (
                   <button
@@ -3647,11 +3727,10 @@ export default function ChatClient() {
                     className={`chat-collapsed-send ${hasInput ? 'chat-collapsed-send-active' : ''}`}
                     aria-label="Send message"
                   >
-                    {hasInput ? (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                    ) : (
-                      <svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="8" y="5" width="2" height="14" rx="1" fill="currentColor"/><rect x="12" y="9" width="2" height="6" rx="1" fill="currentColor"/><rect x="16" y="6" width="2" height="12" rx="1" fill="currentColor"/><rect x="20" y="10" width="2" height="4" rx="1" fill="currentColor"/></svg>
-                    )}
+                    {/* v5.30.32 — empty state shows the paper plane (grey) now:
+                        the old 4-bar icon read as "expand/voice" and was the
+                        other half of the widen-sends confusion */}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={hasInput ? '' : 'opacity-40'}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                   </button>
                 )}
               </div>
@@ -3667,7 +3746,7 @@ export default function ChatClient() {
                   className="chat-textarea-expanded scrollbar-none"
                   placeholder={t('chat.placeholder')}
                   value={input}
-                  onChange={e => { setInput(e.target.value); autoResize(e.target) }}
+                  onChange={e => { setInput(e.target.value); autoResize(e.target, editorMax()) }}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
                   autoFocus
                 />
@@ -3735,6 +3814,26 @@ export default function ChatClient() {
 
                   {/* Right actions */}
                   <div className="chat-toolbar-right">
+
+                    {/* v5.30.32 — widen/shrink toggle: grows the textarea to
+                        ~55% of the viewport for long drafts. Never sends. */}
+                    <button
+                      type="button"
+                      className={`chat-toolbar-btn ${tallEditor ? 'chat-toolbar-btn-active' : ''}`}
+                      onClick={() => {
+                        const next = !tallEditor
+                        setTallEditor(next)
+                        setTimeout(() => { if (textareaRef.current) autoResize(textareaRef.current, next ? Math.max(320, Math.round(window.innerHeight * 0.55)) : 180) }, 0)
+                      }}
+                      aria-label={tallEditor ? 'Shrink editor' : 'Widen editor'}
+                      title={tallEditor ? 'Shrink editor' : 'Widen editor'}
+                    >
+                      {tallEditor ? (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14h6v6" /><path d="M20 10h-6V4" /><path d="M14 10l7-7" /><path d="M3 21l7-7" /></svg>
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M9 21H3v-15" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" /></svg>
+                      )}
+                    </button>
 
                     {/* Pro toggle with dropup */}
                     <div className="relative" ref={proTypeDropdownRef}>
@@ -4947,6 +5046,47 @@ export default function ChatClient() {
           Same card design as the delete-confirmation card (same overlay,
           same shell, same icon circle, same button treatment): Pin /
           Rename / Share, then Delete in accent red. */}
+      {/* ── v5.30.32 — per-turn quota card (portal, hush-pop styling) ── */}
+      {quotaCard && createPortal(
+        <>
+          <div className="fixed inset-0 z-[998]" onClick={() => setQuotaCard(null)} />
+          <div
+            id="quota-card"
+            role="dialog"
+            aria-label="Quota used this turn"
+            className="hush-pop fixed z-[999] w-[250px] bg-[#141414] border border-[#2a2a2a] rounded-2xl shadow-2xl overflow-hidden"
+            style={{ top: quotaCard.top, left: quotaCard.left }}
+          >
+            <div className="px-4 pt-3 pb-1.5 flex items-center justify-between">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#525252]">Quota · this turn</span>
+              <span className="text-[10px] text-[#737373]">{quotaCard.model}</span>
+            </div>
+            <div className="px-4 pb-2.5 space-y-1.5 text-[12px]">
+              <div className="flex justify-between text-[#a3a3a3]">
+                <span>Prompt (est.)</span>
+                <span className="text-[#e2e2e2] tabular-nums">{quotaCard.promptTokens.toLocaleString()} tok</span>
+              </div>
+              <div className="flex justify-between text-[#a3a3a3]">
+                <span>Reply (est.)</span>
+                <span className="text-[#e2e2e2] tabular-nums">{quotaCard.completionTokens.toLocaleString()} tok</span>
+              </div>
+            </div>
+            <div className="px-4 pb-3.5">
+              <div className="flex justify-between text-[10px] text-[#525252] mb-1">
+                <span>Context usage (est.)</span>
+                <span className="tabular-nums">{Math.round(quotaCard.ctxPct)}%</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-white/[0.08] overflow-hidden">
+                <div className="h-full rounded-full bg-[#FF3366]" style={{ width: `${quotaCard.ctxPct}%` }} />
+              </div>
+              <p className="mt-2 text-[10px] leading-[1.5] text-[#525252]">
+                Estimated from text length (~4 chars/token) — the provider stream does not report usage, so no cost figure is shown.
+              </p>
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
       {sessionAction && createPortal(
         <div
           className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
