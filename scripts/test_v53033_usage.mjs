@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ════════════════════════════════════════════════════════════════════
-// test_v53033_usage.mjs — v5.30.33: Sidebar Branding / Page Minimalism,
-// composer padding fix, and the full quota card with REAL provider usage.
+// test_v53033_usage.mjs — v5.30.33: composer padding fix and the full
+// quota card with REAL provider usage.
 //
 // Covers:
 //   1. Functional: mistral stream captures the provider's usage object
@@ -9,8 +9,9 @@
 //   2. Route: usage threads through aiChatComplete + both done paths.
 //   3. Client: quota card spec (header/Free/off-peak/Input/Output grid/
 //      context usage), pricing constant, usage storage in applyChatMeta.
-//   4. Branding: full logo in both sidebars, hamburger-only mobile bar,
-//      small + beside search, no wordmark on main-page mobile bars.
+//   4. Branding remnants still true under v5.30.34 Responsive Branding
+//      (the v5.30.33 full-logo-in-sidebars spec was superseded; the live
+//      branding suite is test_v53034_responsive_branding.mjs).
 //   5. Composer: bottom padding on the gradient pill + widen button +
 //      honest send icon on the greeting pill.
 // ════════════════════════════════════════════════════════════════════
@@ -104,16 +105,12 @@ ok('(est.) marker only when no real usage', cc.includes('!quotaCard.realUsage &&
 ok('usage stored on message (applyChatMeta)', cc.includes('msg.usage = {\n        prompt_tokens'))
 ok('usage stored only for non-zero totals', cc.includes("data.usage && Number(data.usage.total_tokens) > 0"))
 
-// ── 4. Sidebar Branding, Page Minimalism ────────────────────────────
-console.log('── branding: sidebars carry the logo, pages are stripped ──')
-const nb = readFileSync('components/Navbar.jsx', 'utf8')
-ok('nav drawer: red K mark present', nb.includes('w-7 h-7 bg-[#dc2626] rounded-lg'))
-ok('nav drawer: wordmark beside the mark', /bg-\[#dc2626\] rounded-lg[\s\S]{0,600}Ki<span className="text-red-500">vora<\/span>/.test(nb))
-ok('nav drawer: logo links home', nb.includes('<Link href="/" className="flex items-center gap-2.5" onClick={onClose} title="Kivora">'))
-ok('mobile bar: no wordmark (hamburger only)', !/aria-label="Open sidebar"[\s\S]{0,220}Ki<span/.test(nb))
-ok('minimal pages keep their fixed-bar logo', nb.includes('Ki<span className="text-red-500">vora</span>\n            </span>\n          </Link>') || (nb.match(/Ki<span className="text-red-500">vora<\/span>/g) || []).length >= 2)
-ok('chat sidebar: logo left + close right', cc.includes('aria-label="Close conversations"') && /v5\.30\.33 — full logo anchors this sidebar/.test(cc))
-ok('chat sidebar: logo block present', /aria-label="Close conversations"[\s\S]{0,220}<IconClose size=\{16\} \/>/.test(cc))
+// ── 4. Branding remnants (v5.30.34 Responsive Branding supersedes the
+//    v5.30.33 sidebar-logo spec; full branding suite lives in
+//    test_v53034_responsive_branding.mjs) ─────────────────────────────
+console.log('── branding remnants still true under Responsive Branding ──')
+ok('chat sidebar: icon-only mark + close right', cc.includes('aria-label="Kivora home"') && cc.includes('aria-label="Close conversations"') && /v5\.30\.34 — Responsive Branding \(text on pages/.test(cc))
+ok('chat sidebar: close button block intact', /aria-label="Close conversations"[\s\S]{0,220}<IconClose size=\{16\} \/>/.test(cc))
 ok('small + beside search bar', /Search conversations[\s\S]{0,900}aria-label="New chat"/.test(cc))
 ok('chat main top bar unchanged (title center, no logo)', cc.includes('data-chat-title="true"'))
 

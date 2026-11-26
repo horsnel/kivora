@@ -2034,3 +2034,40 @@ compiled chunks.
 
 Sandbox recycle #4 at turn start (HEAD rolled to 4c85b9a); recovered
 via fetch + reset --hard origin/main (51abf45) before any edits.
+
+## v5.30.34 — Responsive Branding (text on pages, icon-only in sidebars)
+
+User approved the Responsive Branding pattern, inverting the sidebar
+half of v5.30.33 while keeping its page-level work:
+
+1. NAV DRAWER (Navbar.jsx): wordmark removed — the drawer header now
+   carries the red K mark ALONE, sized up 28px → 32px (w-8 h-8, inner
+   svg 14 → 16px) per the "instantly recognizable" guidance, linking
+   home with aria-label="Kivora home" (icon-only link needs a name).
+2. CHAT-HISTORY SIDEBAR (ChatClient.jsx): same treatment — red K mark
+   only (32px) on the left, X (Close) on the right; dropping the
+   wordmark also gives the logo/X row more breathing room. The small
+   + beside Search-conversations stays (v5.30.33 work untouched).
+3. MAIN-PAGE MOBILE BAR (Navbar.jsx): the v5.30.33 hamburger-only bar
+   gains the red "Kivora" wordmark (house style Ki + red vora, same
+   15px bold treatment as the app's other wordmarks) — "text on
+   pages". Bar still hides while the drawer is open so the wordmark
+   and the icon-only mark never stack. Chat page stays logo-free (it
+   sits in NO_SIDEBAR and keeps its own title-centered top bar — the
+   user preferred leaving chat clean).
+
+Tests: scripts/test_v53034_responsive_branding.mjs — 22 assertions
+(drawer/chat-sidebar icon-only spec, 32px sizing, a11y labels,
+wordmark inventory, mobile-bar wordmark + drawer-open hiding, chat
+page logo-free, brand consistency #dc2626 + K shape). v5.30.33
+suite's branding section rewritten to the remnants still true under
+the new strategy (superseded full-logo assertions removed). Grid
+27/34 — same 7 stash-verified pre-existing failures (identical list
+on the stashed baseline), zero regressions. next build exit 0;
+@cloudflare/next-on-pages 8.6s; "Kivora home" + "Open sidebar"
+markers present in compiled chunks.
+
+Deploy note: v5.30.32 (51abf45) and v5.30.33 (3d8896f) still not on
+production (kivora.pages.dev serves pre-v5.30.32; both builds verify
+clean locally through CF's own pipeline) — CF-side stall escalated
+to the user at end of v5.30.33.

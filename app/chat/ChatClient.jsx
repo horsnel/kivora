@@ -2537,27 +2537,26 @@ export default function ChatClient() {
           historyOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        {/* ── v5.30.33 — full logo anchors this sidebar (Sidebar Branding,
-            Page Minimalism): red K mark + wordmark left, close right. The
-            old big New-chat button moved to a small + beside the search
-            bar below. ── */}
+        {/* ── v5.30.34 — Responsive Branding (text on pages, icon-only in
+            sidebars): this header carries the red K mark alone, sized 32px
+            so it stays instantly recognizable next to the close button. The
+            wordmark lives on the page top bars; the new-chat affordance
+            stays beside the search bar below. ── */}
         <div className="px-3 pt-3 pb-2 shrink-0">
           <div className="flex items-center justify-between gap-2">
             <Link
               href="/"
-              className="flex items-center gap-2 min-w-0"
+              className="flex items-center min-w-0"
               onClick={() => setHistoryOpen(false)}
               title="Kivora"
+              aria-label="Kivora home"
             >
-              <span className="w-7 h-7 bg-[#dc2626] rounded-lg flex items-center justify-center shrink-0">
-                <svg width="14" height="14" viewBox="0 0 32 32" fill="none">
+              <span className="w-8 h-8 bg-[#dc2626] rounded-lg flex items-center justify-center shrink-0">
+                <svg width="16" height="16" viewBox="0 0 32 32" fill="none">
                   <path d="M16 4L6 24L16 18Z" fill="white" opacity="0.95" />
                   <path d="M16 4L26 24L16 18Z" fill="white" opacity="0.55" />
                   <rect x="6" y="26" width="20" height="3" rx="1.5" fill="white" opacity="0.3" />
                 </svg>
-              </span>
-              <span className="font-bold text-[15px] tracking-tight text-white">
-                Ki<span className="text-red-500">vora</span>
               </span>
             </Link>
             <button
