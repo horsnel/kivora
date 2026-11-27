@@ -2175,3 +2175,47 @@ v53033 search-surface assertion amended to the hub (40/40). Grid 29/36
 — same 7 baseline failures, zero regressions. Builds pass; hub + Starred
 + K-header markers compile into shared chunk 6686; layout chunk has NO
 hub markers (drawer clean).
+
+## v5.30.39 — functional hub pills + platform-matched styling
+
+User: (1) "I want them to do that" — make the pills actually filter
+conversations; (2) pills (and search bar) looked off-palette — floating
+black bubbles with a harsh grey outline. The quoted restyle spec:
+bg-[#161616] (no outline), rounded-xl (distinct from the strict pill
+input), active = bg-red-500/10 + red text (no border), hover brightens
+grey (hover:bg-[#222]).
+
+1. RESTYLE (SidebarSearchHub v3): pills drop the border entirely,
+   rounded-xl, active red tint, hover:bg-[#222]; input untouched
+   (bg-[#161616] border-gray-700 + red focus ring). Flex-1 thirds kept
+   (no overflow).
+2. FUNCTIONAL FILTERS (ChatClient): hubFilter state lifted to the chat
+   client; pills drive filteredHistory AFTER convSearch applies:
+   - Recent = last 7 days by updated_at (same date source as the
+     Today/This Week grouping);
+   - Starred = sessionMeta flag — persisted via persistSessionMeta
+     (localStorage mirror always; chat_sessions column once the
+     migration adds it — exactly the pattern pinned used). New
+     Star/Unstar action in the long-press sheet (sessionAction carries
+     starred); starred rows wear a small yellow star (#facc15) so the
+     filter result is traceable;
+   - Coding = honest title-keyword heuristic (sessions carry no topic
+     field): code/coding/bug/debug/error/python/javascript/typescript/
+     react/next.js/node/api/css/html/sql/script/function/component/
+     regex/git/github/docker.
+   Second tap on an active pill clears the filter. Filter-aware empty
+   states ("No starred conversations yet — long-press one to star it",
+   etc.).
+
+Session note: recycle #2 mid-turn — repo rolled back to v5.30.25 AND
+node_modules wiped again; recovered via git reset --hard origin/main
+(a866482 intact) + npm install; the earlier partial edit batch was
+re-applied on the restored v5.30.38 base.
+
+Tests: v53038 suite rewritten for the v5.30.39 spec — 28/28 (restyle
+classes, functional API, starred plumbing, heuristics, drawer clean);
+v53034 25/25 and v53033 40/40 (hub-line assertion updated to the
+functional props). Grid 29/36 — same 7 baseline failures, zero
+regressions. Builds pass (CF 8.9s); compiled markers: bg-red-500/10,
+starred property, Unstar, yellow row star, coding regex, filter empty
+states all present in chunks.

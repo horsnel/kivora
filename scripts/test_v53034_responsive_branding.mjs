@@ -66,7 +66,7 @@ console.log('── chat-history sidebar: K header + Search Hub ──')
 ok('chat sidebar: real K mark restored (v5.30.38 user request)', cc.includes('bg-[#dc2626] rounded-lg'))
 ok('chat sidebar: X (close) still removed', !cc.includes('Close conversations'))
 ok('chat sidebar: + beside search still removed', !cc.includes('aria-label="New chat"'))
-ok('chat sidebar: old search box replaced by the hub (controlled)', !cc.includes("t('chat.search_conversations')") && cc.includes('<SidebarSearchHub value={convSearch} onChange={setConvSearch} />'))
+ok('chat sidebar: old search box replaced by the hub (controlled)', !cc.includes("t('chat.search_conversations')") && cc.includes('<SidebarSearchHub value={convSearch} onChange={setConvSearch} activeFilter={hubFilter} onFilterChange={setHubFilter} />'))
 ok('chat sidebar: real 64px K header replaces the invisible spacer', /v5\.30\.38 — real K-icon header[\s\S]{0,700}<div className="px-3 pt-3 pb-2 shrink-0">\n          <span className="w-8 h-8 mb-3 bg-\[#dc2626\] rounded-lg/.test(cc) && !cc.includes('aria-hidden="true">\n          <div className="h-8 mb-3" />'))
 ok('chat sidebar: hub sits between Explore and the history list',
   cc.indexOf('{/* ── Explore link ── */}') < cc.indexOf('<SidebarSearchHub value={convSearch}') &&

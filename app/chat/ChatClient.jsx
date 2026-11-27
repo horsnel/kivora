@@ -1173,6 +1173,7 @@ export default function ChatClient() {
         sid: session.id,
         title: meta.title || session.title || chatTitle(session),
         pinned: !!(meta.pinned ?? session.pinned),
+        starred: !!(meta.starred ?? session.starred),
       })
       setSessionRenameMode(false)
       setSessionRenameValue(meta.title || '')
@@ -1249,6 +1250,14 @@ export default function ChatClient() {
     const next = !sessionAction.pinned
     persistSessionMeta(sessionAction.sid, { pinned: next })
     setSessionAction(a => a ? { ...a, pinned: next } : a)
+  }
+
+  // v5.30.39 — Star toggle (the Search Hub's Starred pill filters on this)
+  function toggleSessionStar() {
+    if (!sessionAction) return
+    const next = !sessionAction.starred
+    persistSessionMeta(sessionAction.sid, { starred: next })
+    setSessionAction(a => a ? { ...a, starred: next } : a)
   }
 
   // Share = hand the full transcript to the OS share sheet (mobile-first),
@@ -2160,6 +2169,25 @@ export default function ChatClient() {
   // groups under their own "Pinned" label.
   const isSessionPinned = useCallback(s => !!(sessionMeta[s.id]?.pinned ?? s.pinned), [sessionMeta])
 
+  // ── v5.30.39 — functional Search Hub pills ──
+  // Starred: sessionMeta flag (localStorage mirror always; a chat_sessions
+  // column once the migration adds it — the exact pattern pinned used).
+  // Toggled from the long-press action sheet; starred rows wear a small
+  // yellow star so the Starred pill's filter result is traceable.
+  const isSessionStarred = useCallback(s => !!(sessionMeta[s.id]?.starred ?? s.starred), [sessionMeta])
+  // Coding: honest title heuristic — sessions carry no topic field, so a
+  // conversation counts as coding when its title mentions dev keywords.
+  const CODING_TITLE_RE = /\b(code|coding|bug|debug|error|python|javascript|typescript|react|next\.?js|node|api|css|html|sql|script|function|component|regex|git|github|docker)\b/
+  const isCodingSession = s => CODING_TITLE_RE.test(chatTitle(s).toLowerCase())
+  // Recent: last 7 days by updated_at — the same date source groupByDate
+  // uses for its Today/This Week labels.
+  const isRecentSession = s => {
+    const ts = Date.parse(s.updated_at || s.created_at || '')
+    return !!ts && (Date.now() - ts) < 7 * 86400000
+  }
+  // Which hub pill is active: null = show everything; pills toggle off.
+  const [hubFilter, setHubFilter] = useState(null)
+
   function chatTitle(session) {
     // renamed title wins → future DB column → derived from first user msg
     const metaTitle = sessionMeta[session?.id]?.title
@@ -2186,9 +2214,14 @@ export default function ChatClient() {
 
   const filteredHistory = useMemo(() => {
     const q = convSearch.trim().toLowerCase()
-    const base = q
+    let base = q
       ? chatHistory.filter(s => chatTitle(s).toLowerCase().includes(q))
       : chatHistory
+    // v5.30.39 — the hub pills narrow the list after search applies:
+    // Recent (last 7 days), Starred, Coding (title heuristic).
+    if (hubFilter === 'recent') base = base.filter(isRecentSession)
+    else if (hubFilter === 'starred') base = base.filter(isSessionStarred)
+    else if (hubFilter === 'coding') base = base.filter(isCodingSession)
     const pinned = base.filter(isSessionPinned)
     const rest = base.filter(s => !isSessionPinned(s))
     const groups = []
@@ -2196,7 +2229,19 @@ export default function ChatClient() {
     groups.push(...groupByDate(rest))
     return groups
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatHistory, convSearch, sessionMeta, isSessionPinned])
+  }, [chatHistory, convSearch, sessionMeta, isSessionPinned, hubFilter])
+
+  // v5.30.39 — filter-aware empty state: each pill can legitimately
+  // produce an empty list, so say which one and how to fill it.
+  const historyEmptyLabel = convSearch.trim()
+    ? (t('chat.no_results') || 'No conversations found')
+    : hubFilter === 'starred'
+      ? 'No starred conversations yet — long-press one to star it'
+      : hubFilter === 'coding'
+        ? 'No coding conversations yet'
+        : hubFilter === 'recent'
+          ? 'Nothing in the last 7 days'
+          : (t('chat.history.empty') || 'No conversations yet')
 
   // ── v5.30.16 — dynamic conversation title for the top bar ──
   // Same resolution the history drawer uses (chatTitle): renamed title →
@@ -2571,12 +2616,11 @@ export default function ChatClient() {
           </Link>
         </div>
 
-        {/* ── v5.30.38 — Search Hub (user spec, chat history sidebar ONLY):
-            pill input + side-by-side filter pills. The input is wired to
-            convSearch so typing filters the history exactly like the old
-            search-conversations box it replaces. ── */}
+        {/* ── v5.30.38/39 — Search Hub (chat history sidebar ONLY): pill
+            input wired to convSearch, functional pills driving hubFilter
+            (Recent / Starred / Coding; second tap clears) ── */}
         <div className="px-4 pt-2.5 pb-1 shrink-0">
-          <SidebarSearchHub value={convSearch} onChange={setConvSearch} />
+          <SidebarSearchHub value={convSearch} onChange={setConvSearch} activeFilter={hubFilter} onFilterChange={setHubFilter} />
         </div>
 
         {/* ── Conversation list ── */}
@@ -2616,6 +2660,11 @@ export default function ChatClient() {
                               <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1Z" />
                             </svg>
                           ) : null}
+                          {isSessionStarred(s) ? (
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="inline-block mr-1 -mt-0.5 text-[#facc15] shrink-0" aria-hidden="true">
+                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                            </svg>
+                          ) : null}
                           {chatTitle(s)}
                         </button>
                         {/* v5.23 — row-inline delete icon removed: on touch devices the
@@ -2629,9 +2678,9 @@ export default function ChatClient() {
               ))}
             </div>
           ) : user ? (
-            <p className="text-caption text-[#2e2e2e] px-1 pt-2">{convSearch.trim() ? (t('chat.no_results') || 'No conversations found') : (t('chat.history.empty') || 'No conversations yet')}</p>
+            <p className="text-caption text-[#2e2e2e] px-1 pt-2">{historyEmptyLabel}</p>
           ) : (
-            <p className="text-caption text-[#2e2e2e] px-1 pt-2">{convSearch.trim() ? (t('chat.no_results') || 'No conversations found') : (t('chat.history.empty') || 'No conversations yet')}</p>
+            <p className="text-caption text-[#2e2e2e] px-1 pt-2">{historyEmptyLabel}</p>
           )}
         </div>
 
@@ -5187,6 +5236,15 @@ export default function ChatClient() {
                       <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1Z" />
                     </svg>
                     {sessionAction.pinned ? (t('chat.session.unpin') || 'Unpin') : (t('chat.session.pin') || 'Pin')}
+                  </button>
+                  <button
+                    onClick={toggleSessionStar}
+                    className="w-full h-10 rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] text-caption text-white font-medium hover:border-[#404040] transition-colors flex items-center gap-2.5 px-3 text-left"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#737373] shrink-0" aria-hidden="true">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                    </svg>
+                    {sessionAction.starred ? (t('chat.session.unstar') || 'Unstar') : (t('chat.session.star') || 'Star')}
                   </button>
                   <button
                     onClick={() => setSessionRenameMode(true)}

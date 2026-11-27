@@ -110,7 +110,7 @@ ok('usage stored only for non-zero totals', cc.includes("data.usage && Number(da
 //    test_v53034_responsive_branding.mjs) ─────────────────────────────
 console.log('── branding remnants still true under Responsive Branding ──')
 ok('chat sidebar: header stripped (v5.30.35 — no mark/close/+)', !cc.includes('aria-label="Kivora home"') && !cc.includes('aria-label="Close conversations"') && !cc.includes('aria-label="New chat"'))
-ok('chat sidebar: search surface = Search Hub (v5.30.38, wired to convSearch)', !cc.includes("t('chat.search_conversations')") && cc.includes('<SidebarSearchHub value={convSearch} onChange={setConvSearch} />'))
+ok('chat sidebar: search surface = Search Hub (functional, v5.30.39)', !cc.includes("t('chat.search_conversations')") && cc.includes('<SidebarSearchHub value={convSearch} onChange={setConvSearch} activeFilter={hubFilter} onFilterChange={setHubFilter} />'))
 ok('chat main top bar unchanged (title center, no logo)', cc.includes('data-chat-title="true"'))
 
 // ── 5. Composer padding + widen button ──────────────────────────────

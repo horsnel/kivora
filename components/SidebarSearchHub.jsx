@@ -1,24 +1,22 @@
 'use client'
 
-import { useState } from 'react'
-
-// ── v5.30.38 — Sidebar Search Hub (user spec, chat history sidebar) ──
-// Pill search input + side-by-side filter pills. LIVES ONLY in the chat
-// history sidebar — the nav drawer stays untouched (v5.30.37 put it in
-// the drawer by mistake and was reverted). Controlled input: the chat
-// client passes its conversation-search state so typing filters the
-// history live, exactly like the old search box did. Pills are equal
-// flex-1 thirds on one line — they can never overflow the sidebar width
-// (the v5.30.37 nowrap+scroll variant let "Coding" clip off the edge).
+// ── v5.30.39 — Sidebar Search Hub (chat history sidebar, functional) ──
+// Pill search input + filter pills that DRIVE the conversation list.
+// Restyled per user feedback: pills drop the grey outline (bg-[#161616]
+// reads as part of the platform instead of a floating bubble), rounded-xl
+// so they sit visually distinct from the strict pill input above, active
+// state is a subtle red tint (bg-red-500/10) with red text — no border —
+// and hover brightens the dark grey (hover:bg-[#222]). ChatClient passes
+// activeFilter/onFilterChange: Recent (last 7 days), Starred (flag from
+// the long-press action sheet), Coding (title heuristic). Equal flex-1
+// thirds so they can never overflow the sidebar width.
 const FILTERS = [
   { id: 'recent', label: 'Recent' },
   { id: 'starred', label: 'Starred' },
   { id: 'coding', label: 'Coding' },
 ]
 
-export default function SidebarSearchHub({ value, onChange }) {
-  const [activeFilter, setActiveFilter] = useState(null)
-
+export default function SidebarSearchHub({ value, onChange, activeFilter, onFilterChange }) {
   return (
     <div>
       {/* Search input — large pill, red border + subtle ring on focus */}
@@ -42,21 +40,19 @@ export default function SidebarSearchHub({ value, onChange }) {
         />
       </div>
 
-      {/* Filter pills — equal flex-1 thirds on one line: they always fit
-          the sidebar width (no wrap, no horizontal scroll, no clipping).
-          lg:w-72 = 288px − 2×px-4 − 2×gap-2 = 240px → 80px per pill;
-          the widest label ("Starred" + star) needs ~73px, so it fits. */}
+      {/* Filter pills — equal flex-1 thirds on one line (no overflow), no
+          outline, rounded-xl, red-tinted when active. Second tap clears. */}
       <div className="flex flex-nowrap gap-2 w-full mt-2.5">
         {FILTERS.map(f => (
           <button
             key={f.id}
             type="button"
-            onClick={() => setActiveFilter(f.id)}
+            onClick={() => onFilterChange?.(activeFilter === f.id ? null : f.id)}
             aria-pressed={activeFilter === f.id}
-            className={`flex-1 min-w-0 flex items-center justify-center gap-1 whitespace-nowrap rounded-full border px-2 py-1.5 text-[11px] leading-4 font-medium transition-colors ${
+            className={`flex-1 min-w-0 flex items-center justify-center gap-1 whitespace-nowrap rounded-xl px-2 py-1.5 text-[11px] leading-4 font-medium transition-colors ${
               activeFilter === f.id
-                ? 'bg-[rgba(220,38,38,0.12)] border-red-500/40 text-red-400'
-                : 'bg-[#161616] border-gray-700 text-gray-300 hover:bg-[#1f1f1f] hover:text-white'
+                ? 'bg-red-500/10 text-red-400'
+                : 'bg-[#161616] text-gray-300 hover:bg-[#222]'
             }`}
           >
             {f.id === 'starred' && (
